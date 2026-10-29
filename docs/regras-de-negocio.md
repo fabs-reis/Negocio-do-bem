@@ -610,6 +610,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
   - cada palavra digitada precisa aparecer, e só valem as 6 primeiras palavras e os 100 primeiros caracteres.
 - **"Onde?":**
   - sugere os estados e as cidades que já têm negócios, com quantos há em cada um. Sem texto, mostra "Todo o Brasil" e as cidades com mais negócios;
+  - junta a mesma cidade escrita de jeitos diferentes no banco ("Florianopolis" e "Florianópolis"), sem diferenciar acentos, maiúsculas e espaços. Ela aparece uma vez só, com o nome oficial do IBGE e o total de todas as grafias, e o filtro acha os negócios de todas elas. Fora da lista do IBGE, vale a grafia mais usada;
   - aceita um estado ("PE", "Pernambuco" ou "Pernambuco (estado)"), "Cidade, UF" ou só o nome da cidade, sem diferenciar acentos e maiúsculas;
   - um nome que é de estado e de cidade (São Paulo) sem a UF vale como estado, que inclui a cidade;
   - um nome de cidade que existe em vários estados, sem a UF, vale para todos eles;
@@ -677,6 +678,7 @@ A cidade vem da lista de municípios do IBGE, gravada no projeto em `src/lib/mun
 - **O formulário envia "Cidade, UF".** O servidor também aceita "Cidade/UF", "Cidade - UF" e só o nome, quando ele não se repete em outro estado. Assim o formulário funciona antes do JavaScript carregar.
 - **Recusas:** cidade em branco ("Em que cidade fica?"), nome que existe em mais de um estado sem a UF ("Existe mais de uma cidade chamada…") e nome fora da lista ("Escolha a cidade na lista. Se ela não aparecer, confira a grafia.").
 - **Grava o nome oficial:** quem digita "niteroi" e sai do campo fica com "Niterói, RJ".
+- **Cadastros de antes da lista** podem ter a cidade escrita de outro jeito ("Sao Paulo"). O `npm run cidades:corrigir` (`scripts/corrigir-cidades.ts`) mostra essas cidades e, com `--aplicar`, grava o nome oficial. Ele não muda a data de atualização do negócio, que ordena o diretório. As cidades que não estão na lista aparecem para a moderação corrigir pelo painel.
 - **A lista é atualizada à mão,** com `npm run municipios:atualizar`, quando o IBGE criar ou renomear um município.
 
 ---

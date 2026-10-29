@@ -14,6 +14,16 @@ const MUNICIPIOS = Object.entries(dados as Record<string, string[]>).flatMap(([u
   nomes.map((nome) => ({ nome, uf, busca: normalizarTexto(nome) })),
 );
 
+const NOME_OFICIAL = new Map(MUNICIPIOS.map((m) => [`${m.busca}|${m.uf}`, m.nome]));
+
+/**
+ * O nome oficial de uma cidade gravada com outra grafia ("Florianopolis", "SC" → "Florianópolis"),
+ * sem diferenciar acentos, maiúsculas e espaços. Null quando ela não está na lista.
+ */
+export function nomeOficial(cidade: string, uf: string): string | null {
+  return NOME_OFICIAL.get(`${normalizarTexto(cidade)}|${uf}`) ?? null;
+}
+
 /**
  * Separa nome e UF de "Recife, PE", "Recife/PE", "Recife - PE" ou "Recife PE".
  * Só aceita a UF quando existe uma cidade com aquele nome nela: assim "Sento Sé"

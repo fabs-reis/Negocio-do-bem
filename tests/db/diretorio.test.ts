@@ -97,6 +97,30 @@ describe("buscarDiretorio", () => {
     expect(semNinguem.local).toEqual({ cidade: "Olinda", uf: "PE", rotulo: "Olinda, PE" });
   });
 
+  it("junta a mesma cidade escrita de jeitos diferentes, na lista e no filtro", async () => {
+    // Cadastros de antes da lista do IBGE gravaram a cidade como foi digitada.
+    await criarEmpresa("brecho.sp", { nome: "Brechó Sem Acento", categoria: "Moda e acessórios", cidade: "Sao Paulo", uf: "SP" });
+    await criarEmpresa("pet.sp", { nome: "Pet Maiúsculo", categoria: "Pet", cidade: "SÃO PAULO ", uf: "SP" });
+    await criarEmpresa("bistro.floripa", { nome: "Bistrô Floripa", categoria: "Restaurante e bar", cidade: "Florianopolis", uf: "SC" });
+
+    const r = await buscarDiretorio(filtros({ onde: "São Paulo, SP" }));
+    expect(r.cidades).toEqual([
+      { cidade: "Florianópolis", uf: "SC", total: 1 },
+      { cidade: "Recife", uf: "PE", total: 2 },
+      { cidade: "São Paulo", uf: "SP", total: 3 },
+    ]);
+    expect(r.local).toEqual({ cidade: "São Paulo", uf: "SP", rotulo: "São Paulo, SP" });
+    expect(r.total).toBe(3);
+    expect(r.porCategoria).toEqual({ "Café e padaria": 1, "Moda e acessórios": 1, Pet: 1 });
+    expect((await buscarDiretorio(filtros({ onde: "sao paulo sp" }))).total).toBe(3);
+
+    // Só com a grafia sem acento no banco: a lista mostra o nome oficial e o filtro acha.
+    const floripa = await buscarDiretorio(filtros({ onde: "Florianópolis, SC" }));
+    expect(floripa.itens.map((e) => e.instagramUsername)).toEqual(["bistro.floripa"]);
+    expect((await buscarDiretorio(filtros({ onde: "florianopolis" }))).total).toBe(1);
+    expect((await resumoDoDiretorio()).cidades).toBe(3);
+  });
+
   it("combina causas (todas precisam valer), verificados e texto", async () => {
     expect((await buscarDiretorio(filtros({ causas: ["sustentavel", "liderado-por-mulheres"] }))).total).toBe(1);
     const verificados = await buscarDiretorio(filtros({ verificados: true, tipos: ["Café e padaria"] }));

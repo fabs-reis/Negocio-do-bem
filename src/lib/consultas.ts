@@ -3,6 +3,7 @@ import { cache } from "react";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
 import { db, type Prisma } from "@/lib/db";
 import { interpretarLocal, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
+import { nomeOficial } from "@/lib/municipios";
 import { normalizarTexto } from "@/lib/texto";
 
 export const POR_PAGINA = 18;
@@ -17,13 +18,43 @@ const ORDENACAO: Record<Ordem, Prisma.EmpresaOrderByWithRelationInput[]> = {
   az: [{ nome: "asc" }],
 };
 
-/** Cidades com negócios no diretório, com quantos há em cada uma. Lida uma vez por requisição. */
-export const listarCidades = cache(async (): Promise<CidadeComNegocios[]> => {
+/**
+ * Quantos negócios do diretório há em cada cidade, do jeito que ela está escrita no banco.
+ * Cadastros de antes da lista do IBGE podem ter a mesma cidade com outra grafia
+ * ("Florianopolis" e "Florianópolis"). Lida uma vez por requisição.
+ */
+const contarPorGrafia = cache(async (): Promise<CidadeComNegocios[]> => {
   const grupos = await db.empresa.groupBy({ by: ["cidade", "uf"], where: NO_DIRETORIO, _count: { _all: true } });
-  return grupos
-    .map((g) => ({ cidade: g.cidade, uf: g.uf, total: g._count._all }))
-    .sort((a, b) => a.cidade.localeCompare(b.cidade, "pt-BR") || a.uf.localeCompare(b.uf));
+  return grupos.map((g) => ({ cidade: g.cidade, uf: g.uf, total: g._count._all }));
 });
+
+/**
+ * Cidades com negócios no diretório, com quantos há em cada uma. As grafias da mesma
+ * cidade, sem diferenciar acentos e maiúsculas, contam juntas com o nome oficial do IBGE.
+ */
+export const listarCidades = cache(async (): Promise<CidadeComNegocios[]> => {
+  const cidades = new Map<string, CidadeComNegocios>();
+  // A grafia mais usada vem primeiro: ela dá o nome quando a cidade não está na lista do IBGE.
+  const grafias = [...(await contarPorGrafia())].sort((a, b) => b.total - a.total || a.cidade.localeCompare(b.cidade, "pt-BR"));
+  for (const g of grafias) {
+    const chave = `${normalizarTexto(g.cidade)}|${g.uf}`;
+    const cidade = cidades.get(chave);
+    if (cidade) cidade.total += g.total;
+    else cidades.set(chave, { cidade: nomeOficial(g.cidade, g.uf) ?? g.cidade, uf: g.uf, total: g.total });
+  }
+  return [...cidades.values()].sort((a, b) => a.cidade.localeCompare(b.cidade, "pt-BR") || a.uf.localeCompare(b.uf));
+});
+
+/** Condição do banco para o lugar do "Onde?". A cidade vale em todas as grafias com que está no banco. */
+async function condicaoDoLocal(local: Local | null): Promise<Prisma.EmpresaWhereInput> {
+  const uf = local?.uf ? { uf: local.uf } : {};
+  if (!local?.cidade) return uf;
+  const nome = normalizarTexto(local.cidade);
+  const grafias = (await contarPorGrafia())
+    .filter((g) => normalizarTexto(g.cidade) === nome && (!local.uf || g.uf === local.uf))
+    .map((g) => g.cidade);
+  return { ...uf, cidade: { in: grafias } };
+}
 
 /** Os números da página inicial: total, cidades, estados, verificados e quantos há em cada categoria. */
 export const resumoDoDiretorio = cache(async () => {
@@ -46,12 +77,11 @@ export const resumoDoDiretorio = cache(async () => {
  * Condição do banco para os filtros. `ignorar` tira um grupo de filtros, para
  * contar quantos negócios cada opção daquele grupo mostraria.
  */
-function condicao(filtros: FiltrosDiretorio, local: Local | null, ignorar?: "tipos" | "verificados") {
+function condicao(filtros: FiltrosDiretorio, lugar: Prisma.EmpresaWhereInput, ignorar?: "tipos" | "verificados") {
   const termos = normalizarTexto(filtros.q).split(" ").filter(Boolean).slice(0, 6);
   return {
     ...NO_DIRETORIO,
-    ...(local?.uf ? { uf: local.uf } : {}),
-    ...(local?.cidade ? { cidade: local.cidade } : {}),
+    ...lugar,
     ...(ignorar !== "tipos" && filtros.tipos.length > 0 ? { categoria: { in: filtros.tipos } } : {}),
     ...(ignorar !== "verificados" && filtros.verificados ? { status: "verificada" } : {}),
     AND: [
@@ -65,7 +95,8 @@ function condicao(filtros: FiltrosDiretorio, local: Local | null, ignorar?: "tip
 export async function buscarDiretorio(filtros: FiltrosDiretorio) {
   const cidades = await listarCidades();
   const local = interpretarLocal(filtros.onde, cidades);
-  const onde = condicao(filtros, local);
+  const lugar = await condicaoDoLocal(local);
+  const onde = condicao(filtros, lugar);
 
   const [total, itens, categorias, causas, verificados] = await Promise.all([
     db.empresa.count({ where: onde }),
@@ -79,10 +110,10 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
         _count: { select: { depoimentos: { where: { status: "publicado" } } } },
       },
     }),
-    db.empresa.groupBy({ by: ["categoria"], where: condicao(filtros, local, "tipos"), _count: { _all: true } }),
+    db.empresa.groupBy({ by: ["categoria"], where: condicao(filtros, lugar, "tipos"), _count: { _all: true } }),
     // Entre os resultados, quantos têm cada causa: é o que sobra ao marcar mais uma.
     db.empresaCausa.groupBy({ by: ["causa"], where: { empresa: onde }, _count: { _all: true } }),
-    db.empresa.count({ where: { ...condicao(filtros, local, "verificados"), status: "verificada" } }),
+    db.empresa.count({ where: { ...condicao(filtros, lugar, "verificados"), status: "verificada" } }),
   ]);
 
   return {

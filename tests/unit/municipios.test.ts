@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { campoMunicipio } from "@/lib/formulario";
-import { conferirMunicipio, interpretarMunicipio, sugerirMunicipios } from "@/lib/municipios";
+import { conferirMunicipio, interpretarMunicipio, nomeOficial, sugerirMunicipios } from "@/lib/municipios";
 
 describe("interpretarMunicipio", () => {
   it("acha a cidade sem diferenciar acentos e maiúsculas", () => {
@@ -78,5 +78,18 @@ describe("conferirMunicipio e campoMunicipio", () => {
     });
     expect(conferirMunicipio("Sao Paolo")).toEqual({ erro: "Escolha a cidade na lista. Se ela não aparecer, confira a grafia." });
     expect(campoMunicipio.safeParse("Sao Paolo").success).toBe(false);
+  });
+});
+
+describe("nomeOficial", () => {
+  it("devolve o nome da lista para uma cidade gravada com outra grafia", () => {
+    expect(nomeOficial("Florianopolis", "SC")).toBe("Florianópolis");
+    expect(nomeOficial(" SAO  PAULO ", "SP")).toBe("São Paulo");
+    expect(nomeOficial("Recife", "PE")).toBe("Recife");
+  });
+
+  it("é null fora da lista ou na UF errada", () => {
+    expect(nomeOficial("Sampa", "SP")).toBeNull();
+    expect(nomeOficial("Recife", "SP")).toBeNull();
   });
 });
