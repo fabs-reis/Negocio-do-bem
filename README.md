@@ -1,6 +1,6 @@
 # Negócio do Bem
 
-Um diretório de negócios com consciência social e conexão com a comunidade. As pessoas encontram negócios que compartilham dos seus valores, indicam quem admiram e deixam depoimentos. Os donos assumem o perfil pelo @ do Instagram e contam a própria história.
+Um diretório de negócios com consciência social e conexão com a comunidade. As pessoas encontram negócios que compartilham dos seus valores, indicam quem admiram e deixam depoimentos. Os donos assumem o perfil do negócio, a moderação confere os dados e eles contam a própria história.
 
 - **Diretório** com busca (sem diferenciar acentos) e filtros por causa e estado.
 - **Perfis** com a história do negócio no estilo Substack (Markdown, tipografia serifada), badges de causas e depoimentos.
@@ -151,3 +151,11 @@ tests/               testes (unit/ sem banco, db/ com banco)
 - Avisar o dono por e-mail quando a reivindicação for decidida ou quando chegar um depoimento.
 - Upload de fotos do negócio.
 - Renovação automática do token do Instagram usado pelo webhook.
+
+## Como contribuir
+
+Contribuições são bem-vindas. O [CONTRIBUTING.md](CONTRIBUTING.md) explica como rodar o projeto, as regras do código e como abrir um pull request. Achou uma falha de segurança? Avise em particular, como explica o [SECURITY.md](SECURITY.md).
+
+## Licença
+
+[MIT](LICENSE): você pode usar, copiar e modificar o código, inclusive em outros projetos, desde que mantenha o aviso de licença.
