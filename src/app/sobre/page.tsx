@@ -48,7 +48,7 @@ export default function Sobre() {
         </h2>
         <p>
           Procure seu negócio no{" "}
-          <Link href="/#diretorio">diretório</Link> e clique em <strong>&ldquo;Sou o dono&rdquo;</strong>. Se ele ainda não
+          <Link href="/explorar">diretório</Link> e clique em <strong>&ldquo;Sou o dono&rdquo;</strong>. Se ele ainda não
           estiver lá, <Link href="/indicar">cadastre</Link> marcando &ldquo;Este negócio é meu&rdquo;.
         </p>
         <p>

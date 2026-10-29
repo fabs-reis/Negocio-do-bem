@@ -39,7 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Logo />
             </Link>
             <nav className="flex items-center gap-1 text-sm font-medium sm:gap-2">
-              <Link href="/#diretorio" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
+              <Link href="/explorar" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
                 Explorar
               </Link>
               <Link href="/sobre" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
@@ -72,7 +72,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Comunidade</p>
-              <Link href="/#diretorio" className="block hover:text-tinta">Explorar negócios</Link>
+              <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
               <Link href="/indicar" className="block hover:text-tinta">Indicar um negócio</Link>
             </div>
             <div className="space-y-2">

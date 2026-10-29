@@ -68,7 +68,7 @@ async function Conteudo() {
               Cadastrar meu negócio
             </Link>{" "}
             ou procure por ele no{" "}
-            <Link href="/#diretorio" className="link">
+            <Link href="/explorar" className="link">
               diretório
             </Link>{" "}
             e clique em &ldquo;Sou o dono&rdquo;.

@@ -1,55 +1,100 @@
 import "server-only";
+import { cache } from "react";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
-import { filtrarCausas } from "@/lib/causas";
 import { db, type Prisma } from "@/lib/db";
-import { UFS } from "@/lib/dominio";
+import { interpretarLocal, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
 import { normalizarTexto } from "@/lib/texto";
 
 export const POR_PAGINA = 18;
 
-export type FiltrosDiretorio = { q: string; causas: string[]; uf: string | null; pagina: number };
+/** Só aparecem no diretório os negócios publicados que o dono não escondeu. */
+const NO_DIRETORIO = { moderacao: "aprovada", oculta: false } satisfies Prisma.EmpresaWhereInput;
 
-function lista(valor: string | string[] | undefined): string[] {
-  if (valor === undefined) return [];
-  return Array.isArray(valor) ? valor : [valor];
-}
+const ORDENACAO: Record<Ordem, Prisma.EmpresaOrderByWithRelationInput[]> = {
+  // Verificados primeiro, depois os atualizados mais recentemente.
+  verificados: [{ status: "desc" }, { atualizadoEm: "desc" }],
+  recentes: [{ criadoEm: "desc" }],
+  az: [{ nome: "asc" }],
+};
 
-/** Lê e limpa os filtros da URL do diretório. */
-export function lerFiltros(params: Record<string, string | string[] | undefined>): FiltrosDiretorio {
-  const q = lista(params.q)[0]?.slice(0, 100) ?? "";
-  const uf = lista(params.uf)[0]?.toUpperCase() ?? "";
-  const pagina = Number.parseInt(lista(params.pagina)[0] ?? "1", 10);
+/** Cidades com negócios no diretório, com quantos há em cada uma. Lida uma vez por requisição. */
+export const listarCidades = cache(async (): Promise<CidadeComNegocios[]> => {
+  const grupos = await db.empresa.groupBy({ by: ["cidade", "uf"], where: NO_DIRETORIO, _count: { _all: true } });
+  return grupos
+    .map((g) => ({ cidade: g.cidade, uf: g.uf, total: g._count._all }))
+    .sort((a, b) => a.cidade.localeCompare(b.cidade, "pt-BR") || a.uf.localeCompare(b.uf));
+});
+
+/** Os números da página inicial: total, cidades, estados, verificados e quantos há em cada categoria. */
+export const resumoDoDiretorio = cache(async () => {
+  const [total, verificados, cidades, categorias] = await Promise.all([
+    db.empresa.count({ where: NO_DIRETORIO }),
+    db.empresa.count({ where: { ...NO_DIRETORIO, status: "verificada" } }),
+    listarCidades(),
+    db.empresa.groupBy({ by: ["categoria"], where: NO_DIRETORIO, _count: { _all: true } }),
+  ]);
   return {
-    q,
-    causas: filtrarCausas(lista(params.causa)),
-    uf: (UFS as readonly string[]).includes(uf) ? uf : null,
-    pagina: Number.isFinite(pagina) && pagina > 0 ? Math.min(pagina, 500) : 1,
+    total,
+    verificados,
+    cidades: cidades.length,
+    estados: new Set(cidades.map((c) => c.uf)).size,
+    porCategoria: Object.fromEntries(categorias.map((c) => [c.categoria, c._count._all])) as Record<string, number>,
   };
-}
+});
 
-export async function listarEmpresas(filtros: FiltrosDiretorio) {
+/**
+ * Condição do banco para os filtros. `ignorar` tira um grupo de filtros, para
+ * contar quantos negócios cada opção daquele grupo mostraria.
+ */
+function condicao(filtros: FiltrosDiretorio, local: Local | null, ignorar?: "tipos" | "verificados") {
   const termos = normalizarTexto(filtros.q).split(" ").filter(Boolean).slice(0, 6);
-  const where: Prisma.EmpresaWhereInput = {
-    moderacao: "aprovada",
-    oculta: false,
-    ...(filtros.uf ? { uf: filtros.uf } : {}),
+  return {
+    ...NO_DIRETORIO,
+    ...(local?.uf ? { uf: local.uf } : {}),
+    ...(local?.cidade ? { cidade: local.cidade } : {}),
+    ...(ignorar !== "tipos" && filtros.tipos.length > 0 ? { categoria: { in: filtros.tipos } } : {}),
+    ...(ignorar !== "verificados" && filtros.verificados ? { status: "verificada" } : {}),
     AND: [
       ...termos.map((termo) => ({ busca: { contains: termo } })),
       ...filtros.causas.map((causa) => ({ causas: { some: { causa } } })),
     ],
+  } satisfies Prisma.EmpresaWhereInput;
+}
+
+/** Uma página do diretório, com as contagens que aparecem ao lado de cada filtro. */
+export async function buscarDiretorio(filtros: FiltrosDiretorio) {
+  const cidades = await listarCidades();
+  const local = interpretarLocal(filtros.onde, cidades);
+  const onde = condicao(filtros, local);
+
+  const [total, itens, categorias, causas, verificados] = await Promise.all([
+    db.empresa.count({ where: onde }),
+    db.empresa.findMany({
+      where: onde,
+      orderBy: ORDENACAO[filtros.ordem],
+      skip: (filtros.pagina - 1) * POR_PAGINA,
+      take: POR_PAGINA,
+      include: {
+        causas: { select: { causa: true } },
+        _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+      },
+    }),
+    db.empresa.groupBy({ by: ["categoria"], where: condicao(filtros, local, "tipos"), _count: { _all: true } }),
+    // Entre os resultados, quantos têm cada causa: é o que sobra ao marcar mais uma.
+    db.empresaCausa.groupBy({ by: ["causa"], where: { empresa: onde }, _count: { _all: true } }),
+    db.empresa.count({ where: { ...condicao(filtros, local, "verificados"), status: "verificada" } }),
+  ]);
+
+  return {
+    cidades,
+    local,
+    total,
+    itens,
+    paginas: Math.max(1, Math.ceil(total / POR_PAGINA)),
+    porCategoria: Object.fromEntries(categorias.map((c) => [c.categoria, c._count._all])) as Record<string, number>,
+    porCausa: Object.fromEntries(causas.map((c) => [c.causa, c._count._all])) as Record<string, number>,
+    verificados,
   };
-  const itens = await db.empresa.findMany({
-    where,
-    // Verificados primeiro, depois os atualizados mais recentemente.
-    orderBy: [{ status: "desc" }, { atualizadoEm: "desc" }],
-    skip: (filtros.pagina - 1) * POR_PAGINA,
-    take: POR_PAGINA + 1,
-    include: {
-      causas: { select: { causa: true } },
-      _count: { select: { depoimentos: { where: { status: "publicado" } } } },
-    },
-  });
-  return { itens: itens.slice(0, POR_PAGINA), temMais: itens.length > POR_PAGINA };
 }
 
 export async function buscarPerfil(username: string) {

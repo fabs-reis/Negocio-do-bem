@@ -1,48 +1,74 @@
-import Form from "next/form";
 import Link from "next/link";
 import { Suspense } from "react";
-import { CausaBadge } from "@/components/CausaBadge";
-import { EmpresaCard } from "@/components/EmpresaCard";
-import { CAUSAS } from "@/lib/causas";
-import { lerFiltros, listarEmpresas, type FiltrosDiretorio } from "@/lib/consultas";
-import { UFS } from "@/lib/dominio";
+import { BuscaDiretorio } from "@/components/BuscaDiretorio";
+import { Contador } from "@/components/Contador";
+import { IconeCategoria } from "@/components/IconeCategoria";
+import { listarCidades, resumoDoDiretorio } from "@/lib/consultas";
+import { hrefDiretorio } from "@/lib/diretorio";
+import { CATEGORIAS } from "@/lib/dominio";
 
-export default function Inicio(props: PageProps<"/">) {
+// Atalhos de "Experimente:": levam direto para o diretório já filtrado.
+const ATALHOS = [
+  { rotulo: "Café e padaria", href: hrefDiretorio({ tipos: ["Café e padaria"] }) },
+  { rotulo: "Liderado por mulheres", href: hrefDiretorio({ causas: ["liderado-por-mulheres"] }) },
+  { rotulo: "Opções veganas", href: hrefDiretorio({ causas: ["opcoes-veganas"] }) },
+  { rotulo: "Afroempreendedor", href: hrefDiretorio({ causas: ["afroempreendedor"] }) },
+  { rotulo: "Pet friendly", href: hrefDiretorio({ causas: ["pet-friendly"] }) },
+];
+
+export default function Inicio() {
   return (
     <>
-      <section className="relative overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[60rem] -translate-x-1/2 rounded-full bg-gradient-to-br from-coral-100/70 via-amber-50/60 to-emerald-50/50 blur-3xl"
-        />
-        <div className="relative mx-auto max-w-4xl px-4 pt-16 pb-14 text-center sm:px-6 sm:pt-24">
-          <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-coral/20 bg-superficie/70 px-4 py-1.5 text-sm font-medium text-coral-700">
-            <span aria-hidden="true">🌱</span>
-            <span>
-              Um movimento do bem<span className="hidden sm:inline">, feito pela comunidade</span>
-            </span>
-          </p>
-          <h1 className="font-serif text-5xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-7xl">
-            Compre de quem <span className="italic text-coral">faz o bem.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-suave text-balance sm:text-xl">
-            Encontre negócios com consciência social e raízes na comunidade. Indique quem você admira, conte sua
-            experiência e fortaleça quem compartilha dos seus valores.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link href="#diretorio" className="botao-coral px-6 py-3 text-base">
-              Explorar negócios
-            </Link>
-            <Link href="/indicar" className="botao-claro px-6 py-3 text-base">
-              Indicar um negócio
-            </Link>
+      <section className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 sm:pt-16">
+        <div className="flex flex-wrap items-stretch gap-7">
+          <div className="flex min-w-0 flex-[999_1_32rem] flex-col justify-center">
+            <p className="inline-flex items-center gap-2 self-start rounded-full border border-coral/20 bg-superficie/70 px-4 py-1.5 text-sm font-medium text-coral-700">
+              <span aria-hidden="true">🌱</span>
+              <span>
+                Um movimento do bem<span className="hidden sm:inline">, feito pela comunidade</span>
+              </span>
+            </p>
+            <h1 className="mt-5 font-serif text-5xl leading-[1.02] font-semibold tracking-tight text-balance sm:text-7xl">
+              Compre de quem <span className="text-coral italic">faz o bem.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-suave text-balance sm:text-xl">
+              Negócios com consciência social e raízes na comunidade. Busque pelo que você precisa e pela sua cidade,
+              ou comece por um tipo de negócio.
+            </p>
           </div>
+          <Suspense fallback={<NumerosCarregando />}>
+            <Numeros />
+          </Suspense>
+        </div>
+
+        <div className="mt-8">
+          <Suspense fallback={<BuscaDiretorio cidades={[]} />}>
+            <BuscaComCidades />
+          </Suspense>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-sm text-suave">Experimente:</span>
+          {ATALHOS.map((atalho) => (
+            <Link
+              key={atalho.rotulo}
+              href={atalho.href}
+              className="rounded-full border border-linha bg-superficie px-3.5 py-1.5 text-sm font-medium transition hover:border-tinta/40"
+            >
+              {atalho.rotulo}
+            </Link>
+          ))}
         </div>
       </section>
 
-      <section id="diretorio" className="mx-auto max-w-6xl scroll-mt-20 px-4 sm:px-6">
-        <Suspense fallback={<DiretorioCarregando />}>
-          <Diretorio searchParams={props.searchParams} />
+      <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Explore por tipo de negócio</h2>
+          <Link href="/explorar" className="inline-flex items-center gap-1.5 font-semibold text-coral-700 hover:underline">
+            Ver todos os negócios <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+        <Suspense fallback={<TiposCarregando />}>
+          <TiposDeNegocio />
         </Suspense>
       </section>
 
@@ -51,145 +77,79 @@ export default function Inicio(props: PageProps<"/">) {
   );
 }
 
-async function Diretorio({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
-  const filtros = lerFiltros(await searchParams);
-  const { itens, temMais } = await listarEmpresas(filtros);
-  const filtrando = filtros.q || filtros.uf || filtros.causas.length > 0;
-
+async function Numeros() {
+  const resumo = await resumoDoDiretorio();
   return (
-    <div className="space-y-6">
-      <Form action="/" scroll={false} className="cartao flex flex-col gap-2 p-2 shadow-sm shadow-tinta/5 sm:flex-row">
-        {filtros.causas.map((causa) => (
-          <input key={causa} type="hidden" name="causa" value={causa} />
-        ))}
-        <label className="sr-only" htmlFor="busca">
-          Buscar
-        </label>
-        <input
-          id="busca"
-          name="q"
-          defaultValue={filtros.q}
-          placeholder="Busque por nome, cidade ou o que você procura…"
-          className="campo flex-1 border-transparent"
-        />
-        <label className="sr-only" htmlFor="uf">
-          Estado
-        </label>
-        <select id="uf" name="uf" defaultValue={filtros.uf ?? ""} className="campo border-transparent sm:w-44">
-          <option value="">Todo o Brasil</option>
-          {UFS.map((uf) => (
-            <option key={uf} value={uf}>
-              {uf}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="botao-coral">
-          Buscar
-        </button>
-      </Form>
-
+    <div className="flex flex-[1_1_20rem] flex-col justify-between gap-7 rounded-[2rem] bg-tinta p-8 text-papel escuro:bg-superficie escuro:text-tinta escuro:ring-1 escuro:ring-linha">
       <div>
-        <p className="mb-3 text-sm font-medium text-suave">Filtre pelas causas que importam para você</p>
-        <div className="flex flex-wrap gap-2">
-          {CAUSAS.map((causa) => {
-            const ativa = filtros.causas.includes(causa.slug);
-            return (
-              <Link
-                key={causa.slug}
-                href={hrefComCausa(filtros, causa.slug)}
-                scroll={false}
-                aria-pressed={ativa}
-                className={`rounded-full transition ${ativa ? "ring-2 ring-coral ring-offset-2 ring-offset-papel" : "opacity-80 hover:opacity-100"}`}
-              >
-                <CausaBadge slug={causa.slug} />
-              </Link>
-            );
-          })}
-        </div>
+        <p className="text-xs font-semibold tracking-[0.08em] text-papel/70 uppercase escuro:text-suave">Já no diretório</p>
+        <p className="mt-2.5 font-serif text-8xl leading-[0.92] font-semibold tracking-tight text-coral escuro:text-coral-700">
+          <Contador valor={resumo.total} />
+        </p>
+        <p className="mt-2.5 text-xl font-medium">
+          {resumo.total === 1 ? "negócio do bem cadastrado" : "negócios do bem cadastrados"}
+        </p>
       </div>
-
-      {filtrando && (
-        <div className="flex items-center justify-between text-sm text-suave">
-          <span>{itens.length === 0 ? "Nenhum resultado" : "Resultados da sua busca"}</span>
-          <Link href="/#diretorio" scroll={false} className="link">
-            Limpar filtros
-          </Link>
-        </div>
-      )}
-
-      {itens.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {itens.map((empresa) => (
-            <EmpresaCard key={empresa.instagramUsername} empresa={empresa} />
-          ))}
-        </div>
-      ) : (
-        <div className="cartao px-6 py-16 text-center">
-          <p className="font-serif text-2xl">
-            {filtrando ? "Ainda não encontramos ninguém com esses filtros." : "O diretório está começando agora."}
-          </p>
-          <p className="mx-auto mt-2 max-w-md text-suave">
-            Conhece um negócio que faz o bem? Indique e ajude a comunidade a encontrá-lo.
-          </p>
-          <Link href="/indicar" className="botao-coral mt-6">
-            Indicar um negócio
-          </Link>
-        </div>
-      )}
-
-      {(filtros.pagina > 1 || temMais) && (
-        <nav className="flex items-center justify-center gap-3 pt-2" aria-label="Paginação">
-          {filtros.pagina > 1 && (
-            <Link href={hrefPagina(filtros, filtros.pagina - 1)} className="botao-claro">
-              ← Anteriores
-            </Link>
-          )}
-          {temMais && (
-            <Link href={hrefPagina(filtros, filtros.pagina + 1)} className="botao-claro">
-              Mais negócios →
-            </Link>
-          )}
-        </nav>
-      )}
+      <dl className="grid grid-cols-3 gap-3 border-t border-papel/15 pt-4 escuro:border-linha">
+        <Numero valor={resumo.cidades} rotulo={resumo.cidades === 1 ? "cidade" : "cidades"} />
+        <Numero valor={resumo.estados} rotulo={resumo.estados === 1 ? "estado" : "estados"} />
+        <Numero valor={resumo.verificados} rotulo="verificados pelo dono" />
+      </dl>
     </div>
   );
 }
 
-function parametros(filtros: FiltrosDiretorio, causas = filtros.causas, pagina = 1): string {
-  const params = new URLSearchParams();
-  if (filtros.q) params.set("q", filtros.q);
-  if (filtros.uf) params.set("uf", filtros.uf);
-  for (const causa of causas) params.append("causa", causa);
-  if (pagina > 1) params.set("pagina", String(pagina));
-  const texto = params.toString();
-  return texto ? `/?${texto}#diretorio` : "/#diretorio";
-}
-
-function hrefComCausa(filtros: FiltrosDiretorio, causa: string): string {
-  const causas = filtros.causas.includes(causa)
-    ? filtros.causas.filter((c) => c !== causa)
-    : [...filtros.causas, causa];
-  return parametros(filtros, causas);
-}
-
-function hrefPagina(filtros: FiltrosDiretorio, pagina: number): string {
-  return parametros(filtros, filtros.causas, pagina);
-}
-
-function DiretorioCarregando() {
+function Numero({ valor, rotulo }: { valor: number; rotulo: string }) {
   return (
-    <div className="space-y-6" aria-busy="true">
-      <div className="h-16 animate-pulse rounded-3xl bg-superficie" />
-      <div className="flex flex-wrap gap-2">
-        {Array.from({ length: 10 }, (_, i) => (
-          <div key={i} className="h-7 w-28 animate-pulse rounded-full bg-superficie" />
-        ))}
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="h-60 animate-pulse rounded-3xl bg-superficie" />
-        ))}
-      </div>
+    <div className="flex flex-col-reverse">
+      <dt className="mt-0.5 text-sm text-papel/70 escuro:text-suave">{rotulo}</dt>
+      <dd className="text-2xl font-semibold tabular-nums">{valor.toLocaleString("pt-BR")}</dd>
+    </div>
+  );
+}
+
+function NumerosCarregando() {
+  return <div className="min-h-72 flex-[1_1_20rem] animate-pulse rounded-[2rem] bg-superficie" aria-busy="true" />;
+}
+
+async function BuscaComCidades() {
+  return <BuscaDiretorio cidades={await listarCidades()} />;
+}
+
+async function TiposDeNegocio() {
+  const { porCategoria } = await resumoDoDiretorio();
+  return (
+    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {CATEGORIAS.map((categoria) => {
+        const total = porCategoria[categoria] ?? 0;
+        return (
+          <Link
+            key={categoria}
+            href={hrefDiretorio({ tipos: [categoria] })}
+            className={`group cartao flex min-h-32 flex-col items-start gap-4 p-4 transition hover:-translate-y-0.5 hover:border-coral sm:p-5 ${total === 0 ? "opacity-60" : ""}`}
+          >
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-coral-50 text-coral-700">
+              <IconeCategoria categoria={categoria} className="h-[22px] w-[22px]" />
+            </span>
+            <span>
+              <span className="block leading-tight font-semibold group-hover:text-coral-700">{categoria}</span>
+              <span className="mt-0.5 block text-sm text-suave">
+                {total === 0 ? "nenhum ainda" : `${total} ${total === 1 ? "negócio" : "negócios"}`}
+              </span>
+            </span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function TiposCarregando() {
+  return (
+    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-busy="true">
+      {CATEGORIAS.map((categoria) => (
+        <div key={categoria} className="h-32 animate-pulse rounded-3xl bg-superficie" />
+      ))}
     </div>
   );
 }
@@ -214,8 +174,8 @@ function ComoFunciona() {
   ];
   return (
     <section className="mx-auto mt-24 max-w-6xl px-4 sm:px-6">
-      <h2 className="text-center font-serif text-4xl font-semibold tracking-tight">Como funciona</h2>
-      <div className="mt-10 grid gap-4 sm:grid-cols-3">
+      <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Como funciona</h2>
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {passos.map((passo, i) => (
           <div key={passo.titulo} className="cartao p-7">
             <span className="text-3xl" aria-hidden="true">

@@ -581,12 +581,25 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 
 ## 11. Diretório e busca
 
-Código: `lerFiltros` e `listarEmpresas` em `src/lib/consultas.ts`, página `src/app/page.tsx`.
+Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/consultas.ts` (`resumoDoDiretorio`, `listarCidades`, `buscarDiretorio`), páginas `src/app/page.tsx` e `src/app/explorar/page.tsx`.
 
-- **Quem aparece:** só negócios com `moderacao = "aprovada"` e `oculta = false`.
+- **Quem aparece:** só negócios com `moderacao = "aprovada"` e `oculta = false`. Os números da página inicial contam os mesmos negócios.
+
+### Página inicial
+
+- **O número de negócios cadastrados** aparece em destaque, subindo de zero até o total ao abrir a página (direto no total para quem pede menos movimento no sistema). Embaixo, quantas cidades, quantos estados e quantos negócios verificados pelo dono.
+- **A busca** tem dois campos, "O que você procura?" e "Onde?", e leva ao diretório.
+- **"Experimente:"** tem atalhos fixos para um tipo de negócio e algumas causas.
+- **Os 16 tipos de negócio** aparecem com quantos negócios cada um tem. Clicar num tipo abre o diretório com ele marcado. Tipos sem negócios ficam apagados, mas continuam clicáveis.
+- A página inicial não lista negócios nem filtros de causa: isso fica no diretório.
+
+### Diretório (`/explorar`)
+
+- **Abre** pela busca da página inicial, pelos tipos de negócio, pelos atalhos e pelo "Explorar" do menu.
 - **Ordem:**
-  - primeiro os **verificados pelo dono**;
-  - depois, dentro de cada grupo, os atualizados mais recentemente.
+  - **Verificados primeiro** (padrão): os verificados pelo dono e, dentro de cada grupo, os atualizados mais recentemente;
+  - **Mais recentes:** pela data de entrada no diretório;
+  - **Nome (A–Z)**.
   - Não existe ranking por nota nem anúncio pago.
 - **Busca por texto:**
   - procura no nome, no resumo, na categoria, na cidade, na UF e no @;
@@ -594,12 +607,21 @@ Código: `lerFiltros` e `listarEmpresas` em `src/lib/consultas.ts`, página `src
   - é feita sobre o campo `busca`, que guarda esses textos em minúsculas e sem acento e é atualizado a cada indicação e edição;
   - por isso, "sao paulo" encontra "São Paulo";
   - cada palavra digitada precisa aparecer, e só valem as 6 primeiras palavras e os 100 primeiros caracteres.
-- **Filtro por estado:** uma UF, ou "Todo o Brasil".
-- **Filtro por causas:**
-  - quem clica em várias causas vê os negócios que têm **todas** elas;
-  - a causa ativa fica destacada, e clicar de novo tira o filtro.
-- **Paginação:** 18 negócios por página, até a página 500. Os botões são "← Anteriores" e "Mais negócios →".
-- **Os filtros ficam na URL** (`?q=…&uf=…&causa=…&pagina=…`), então dá para compartilhar uma busca.
+- **"Onde?":**
+  - sugere os estados e as cidades que já têm negócios, com quantos há em cada um. Sem texto, mostra "Todo o Brasil" e as cidades com mais negócios;
+  - aceita um estado ("PE", "Pernambuco" ou "Pernambuco (estado)"), "Cidade, UF" ou só o nome da cidade, sem diferenciar acentos e maiúsculas;
+  - um nome que é de estado e de cidade (São Paulo) sem a UF vale como estado, que inclui a cidade;
+  - um nome de cidade que existe em vários estados, sem a UF, vale para todos eles;
+  - um lugar sem negócios mostra "Ainda não há negócios do bem em … no diretório".
+- **Filtros ao lado** (no celular, recolhidos em "Filtros"):
+  - **tipo de negócio:** vários de uma vez, mostrando negócios de **qualquer** um deles. Os 8 com mais negócios aparecem direto, e o resto fica em "Ver todos os 16 tipos";
+  - **causas,** separadas pelos três grupos: quem marca várias vê os negócios que têm **todas** elas;
+  - **só verificados pelo dono.**
+  - Cada opção mostra quantos negócios aparecem se ela for marcada. Nos tipos, a conta ignora os tipos já marcados. Opções com zero ficam apagadas.
+- **Filtros em uso** aparecem acima dos resultados, cada um com um "✕" para tirar.
+- **Grade ou lista:** a lista mostra um negócio por linha, com resumo, categoria e cidade.
+- **Paginação:** 18 negócios por página, até a página 500, com os números das páginas. Com mais de 7 páginas, aparecem a primeira, a última e as vizinhas da atual.
+- **Os filtros ficam na URL** (`/explorar?q=…&onde=…&tipo=…&causa=…&verificados=sim&ordem=…&vista=lista&pagina=…`), então dá para compartilhar uma busca. O tipo vai como slug (`cafe-e-padaria`). Links antigos com `?uf=PE` viram "Pernambuco (estado)".
 
 ---
 
@@ -748,6 +770,8 @@ Para uma ação nova de moderação, registre sempre na auditoria.
 | Foto vinda do Instagram | 600×600, WebP | `scripts/fotos-instagram.ts` |
 | Negócios por rodada da rotina de fotos | 100, com 1,5 s entre consultas à Meta | `scripts/fotos-instagram.ts` |
 | Negócios por página no diretório | 18 | `src/lib/consultas.ts` |
+| Tipos de negócio visíveis nos filtros | 8 (o resto em "Ver todos") | `src/app/explorar/page.tsx` |
+| Sugestões do "Onde?" | até 8 | `src/lib/diretorio.ts` |
 | Itens por fila da moderação | 50 | `src/app/moderacao/page.tsx` |
 | Registros na aba de auditoria | 100 | `src/app/moderacao/page.tsx` |
 | Leitura da história | 200 palavras por minuto | `src/lib/texto.ts` |
