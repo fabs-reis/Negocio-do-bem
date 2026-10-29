@@ -4,8 +4,8 @@ Que bom que você quer ajudar o Negócio do Bem! Correção de bug, melhoria de 
 
 ## Antes de começar
 
-- Para mudanças grandes, abra uma issue antes contando o que você quer fazer. Assim a gente combina o caminho antes de você investir tempo.
-- Bugs e ajustes pequenos podem ir direto para um pull request.
+- Toda mudança começa por uma issue, com o label `bug` (algo não funciona), `enhancement` (melhoria no que já existe) ou `feature` (funcionalidade nova). Se ela ainda não existe, abra.
+- Para mudanças grandes, conte na issue o que você quer fazer e espere um retorno. Assim a gente combina o caminho antes de você investir tempo.
 - Falhas de segurança não vão em issue pública. Veja o [SECURITY.md](SECURITY.md).
 - Sem ideia por onde começar? Os [próximos passos do README](README.md#próximos-passos-sugeridos) são um bom lugar.
 
@@ -26,9 +26,12 @@ Siga o passo a passo de [Rodando localmente](README.md#rodando-localmente) no RE
 
 ## Abrindo o pull request
 
-1. Rode `npm run lint`, `npm run typecheck` e `npm test` (precisa do Postgres). O GitHub roda as mesmas verificações em todo PR.
-2. Explique o que muda e por quê. Se mexeu na interface, coloque um print.
-3. Prefira PRs pequenos, com um assunto só.
+1. Trabalhe numa branch `tipo/numero-da-issue-descricao-curta`, em que o tipo é o label da issue. Exemplo: `bug/12-erro-no-login`.
+2. Rode `npm run lint`, `npm run typecheck` e `npm test` (precisa do Postgres). O GitHub roda as mesmas verificações em todo PR.
+3. Explique o que muda e por quê, e ligue o PR à issue: `Closes #12` se ele resolve, `Refs #12` se só se relaciona. Se mexeu na interface, coloque um print.
+4. Prefira PRs pequenos, com um assunto só.
+
+A `main` é protegida: todo PR precisa de uma aprovação antes do merge. O deploy em produção acontece sozinho depois do merge, e cada PR ganha um preview no Vercel para testar antes.
 
 ## Convivência
 
