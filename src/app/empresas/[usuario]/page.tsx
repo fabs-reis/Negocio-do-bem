@@ -6,8 +6,7 @@ import { denunciarDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { CausaBadge } from "@/components/CausaBadge";
 import { Historia } from "@/components/Historia";
-import { FormFoto } from "@/components/FormFoto";
-import { FotoEmpresa, fotoDe } from "@/components/FotoEmpresa";
+import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { filtrarCausas } from "@/lib/causas";
@@ -92,23 +91,16 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
             </div>
           )}
 
-          {dono && (
+          {dono ? (
             <Link href={`/painel/${empresa.instagramUsername}`} className="botao mt-8">
               Editar meu perfil
             </Link>
-          )}
-
-          {usuario?.moderador && !dono && (empresa.membros.length === 0 || empresa.fotoUrl) && (
-            <details className="mt-8 rounded-2xl border border-dashed border-linha bg-white/60 p-5">
-              <summary className="cursor-pointer text-sm font-medium text-suave">Moderação: foto do perfil</summary>
-              <div className="mt-4">
-                <FormFoto
-                  empresa={fotoDe(empresa)}
-                  voltar={`/empresas/${empresa.instagramUsername}`}
-                  podeTrocar={empresa.membros.length === 0}
-                />
-              </div>
-            </details>
+          ) : (
+            usuario?.moderador && (
+              <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao mt-8">
+                Editar perfil (moderação)
+              </Link>
+            )
           )}
         </div>
       </header>

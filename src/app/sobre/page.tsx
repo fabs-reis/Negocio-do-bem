@@ -36,7 +36,7 @@ export default function Sobre() {
           </li>
           <li>
             <strong>O dono assume o perfil</strong> enviando os dados do negócio, que a moderação confere. A partir daí,
-            só ele edita as informações.
+            ele cuida das informações. A moderação também pode corrigir qualquer perfil, e cada mudança fica registrada.
           </li>
           <li>
             <strong>A comunidade fortalece</strong> deixando depoimentos e buscando pelas causas que importam.

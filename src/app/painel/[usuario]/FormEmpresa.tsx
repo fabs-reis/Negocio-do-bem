@@ -25,7 +25,8 @@ type DadosEmpresa = {
   causas: string[];
 };
 
-export function FormEmpresa({ empresa }: { empresa: DadosEmpresa }) {
+/** `voltar` é a página que abre depois de salvar: o painel do dono ou a edição na moderação. */
+export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar: string }) {
   const [estado, acao, pendente] = useActionState(salvarEmpresa, undefined);
   const erros = estado?.erros ?? {};
   const valores = estado?.valores;
@@ -77,6 +78,7 @@ export function FormEmpresa({ empresa }: { empresa: DadosEmpresa }) {
   return (
     <form action={acao} onSubmit={enviarSemLimpar(acao)} className="space-y-8">
       <input type="hidden" name="empresaId" value={empresa.id} />
+      <input type="hidden" name="voltar" value={voltar} />
 
       <section className="cartao space-y-5 p-6 sm:p-8">
         <h2 className="font-serif text-2xl font-semibold">Informações</h2>

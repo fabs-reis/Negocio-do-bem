@@ -126,8 +126,37 @@ async function exigirDono(empresaId: string, voltarPara: string) {
   return { usuario, empresa: membro.empresa };
 }
 
+/** O dono do perfil ou a moderação, que pode editar qualquer negócio. */
+async function exigirEditor(empresaId: string, voltarPara: string) {
+  const usuario = await exigirUsuario(voltarPara);
+  const empresa = await db.empresa.findUnique({
+    where: { id: empresaId },
+    include: { membros: { select: { usuarioId: true } } },
+  });
+  if (!empresa) redirect("/");
+  const dono = empresa.membros.some((m) => m.usuarioId === usuario.id);
+  if (!dono && !usuario.moderador) redirect("/painel");
+  return { usuario, empresa, pelaModeracao: !dono };
+}
+
+/** Edições feitas pela moderação ficam marcadas na auditoria. */
+function auditarEdicao(usuarioId: string, empresa: { id: string; instagramUsername: string }, acao: string, pelaModeracao: boolean) {
+  return registrarAuditoria(db, {
+    usuarioId,
+    acao: pelaModeracao ? `${acao}_pela_moderacao` : acao,
+    alvoTipo: "empresa",
+    alvoId: empresa.id,
+    detalhes: `@${empresa.instagramUsername}`,
+  });
+}
+
+/** Página para onde o formulário volta: o painel do dono ou a edição na moderação. */
+function voltarDe(dados: FormData, empresa: { instagramUsername: string }): string {
+  return caminhoSeguro(texto(dados, "voltar"), `/painel/${empresa.instagramUsername}`);
+}
+
 export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
-  const { usuario, empresa } = await exigirDono(texto(dados, "empresaId"), "/painel");
+  const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
   const valores = valoresDoFormulario(dados, ["causas"]);
 
   const resultado = esquemaEdicao.safeParse({
@@ -151,9 +180,9 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
     db.empresaCausa.deleteMany({ where: { empresaId: empresa.id } }),
     db.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) }),
   ]);
-  await registrarAuditoria(db, { usuarioId: usuario.id, acao: "empresa.editada", alvoTipo: "empresa", alvoId: empresa.id });
+  await auditarEdicao(usuario.id, empresa, "empresa.editada", pelaModeracao);
 
-  redirect(`/painel/${empresa.instagramUsername}?aviso=salvo`);
+  redirect(`${voltarDe(dados, empresa)}?aviso=salvo`);
 }
 
 export async function alternarVisibilidade(dados: FormData): Promise<void> {
@@ -169,24 +198,9 @@ export async function alternarVisibilidade(dados: FormData): Promise<void> {
   redirect(`/painel/${empresa.instagramUsername}?aviso=${oculta ? "oculta" : "visivel"}`);
 }
 
-async function buscarParaFoto(dados: FormData) {
-  const voltar = caminhoSeguro(texto(dados, "voltar"), "/painel");
-  const usuario = await exigirUsuario(voltar);
-  const empresa = await db.empresa.findUnique({
-    where: { id: texto(dados, "empresaId") },
-    include: { membros: { select: { usuarioId: true } } },
-  });
-  if (!empresa) redirect("/");
-  const dono = empresa.membros.some((m) => m.usuarioId === usuario.id);
-  return { usuario, empresa, dono, voltar };
-}
-
-/** Troca a foto do perfil: o dono, ou a moderação enquanto o negócio não tem dono. */
+/** Troca a foto do perfil: o dono ou a moderação. */
 export async function trocarFoto(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
-  const { usuario, empresa, dono, voltar } = await buscarParaFoto(dados);
-  if (!dono && !(usuario.moderador && empresa.membros.length === 0)) {
-    return { erro: "Só o dono pode trocar a foto deste perfil." };
-  }
+  const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
   const foto = await conferirFoto(dados.get("foto"));
   if ("erro" in foto) return { erro: foto.erro };
 
@@ -199,23 +213,22 @@ export async function trocarFoto(_estado: EstadoFormulario, dados: FormData): Pr
   }
   await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl } });
   await apagarFoto(empresa.fotoUrl);
-  await registrarAuditoria(db, { usuarioId: usuario.id, acao: "empresa.foto_trocada", alvoTipo: "empresa", alvoId: empresa.id });
-  redirect(`${voltar}?aviso=foto_salva`);
+  await auditarEdicao(usuario.id, empresa, "empresa.foto_trocada", pelaModeracao);
+  redirect(`${voltarDe(dados, empresa)}?aviso=foto_salva`);
 }
 
-/** Tira a foto do perfil: o dono, ou a moderação em qualquer negócio. */
+/** Tira a foto do perfil: o dono ou a moderação. */
 export async function removerFoto(dados: FormData): Promise<void> {
-  const { usuario, empresa, dono, voltar } = await buscarParaFoto(dados);
-  if (!dono && !usuario.moderador) redirect(voltar);
+  const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
   await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl: null } });
   await apagarFoto(empresa.fotoUrl);
-  await registrarAuditoria(db, { usuarioId: usuario.id, acao: "empresa.foto_removida", alvoTipo: "empresa", alvoId: empresa.id });
-  redirect(`${voltar}?aviso=foto_removida`);
+  await auditarEdicao(usuario.id, empresa, "empresa.foto_removida", pelaModeracao);
+  redirect(`${voltarDe(dados, empresa)}?aviso=foto_removida`);
 }
 
 /** Guarda uma foto para a história e devolve o endereço, que o editor coloca no texto. */
 export async function enviarFotoDaHistoria(dados: FormData): Promise<{ url?: string; erro?: string }> {
-  const { empresa } = await exigirDono(texto(dados, "empresaId"), "/painel");
+  const { empresa } = await exigirEditor(texto(dados, "empresaId"), "/painel");
   const foto = await conferirFoto(dados.get("foto"));
   if ("erro" in foto) return { erro: foto.erro };
   try {

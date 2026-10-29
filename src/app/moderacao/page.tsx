@@ -6,19 +6,21 @@ import { aprovarReivindicacao, decidirDenuncia, moderarEmpresa, recusarReivindic
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CausaBadge } from "@/components/CausaBadge";
+import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { consultarCnpj, formatarCnpj } from "@/lib/cnpj";
 import { extrairCodigo } from "@/lib/codigo";
 import { db } from "@/lib/db";
-import { METODOS_REIVINDICACAO } from "@/lib/dominio";
+import { METODOS_REIVINDICACAO, MODERACAO_EMPRESA } from "@/lib/dominio";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
-import { formatarDataHora, formatarWhatsapp } from "@/lib/texto";
+import { formatarDataHora, formatarWhatsapp, normalizarTexto } from "@/lib/texto";
 
 export const metadata: Metadata = { title: "Moderação", robots: { index: false } };
 
 const ABAS = {
   reivindicacoes: "Reivindicações",
   indicacoes: "Indicações",
+  negocios: "Negócios",
   denuncias: "Denúncias",
   auditoria: "Auditoria",
 } as const;
@@ -74,6 +76,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
 
       {aba === "reivindicacoes" && <Reivindicacoes codigo={codigo} />}
       {aba === "indicacoes" && <Indicacoes />}
+      {aba === "negocios" && <Negocios busca={typeof params.q === "string" ? params.q : ""} />}
       {aba === "denuncias" && <Denuncias />}
       {aba === "auditoria" && <Auditoria />}
     </div>
@@ -249,6 +252,63 @@ async function DadosCnpj({ cnpj }: { cnpj: string }) {
   );
 }
 
+/** Todos os negócios, para a moderação achar e editar qualquer perfil. */
+async function Negocios({ busca }: { busca: string }) {
+  const termos = normalizarTexto(busca.slice(0, 100)).split(" ").filter(Boolean).slice(0, 6);
+  const empresas = await db.empresa.findMany({
+    where: { AND: termos.map((termo) => ({ busca: { contains: termo } })) },
+    orderBy: { atualizadoEm: "desc" },
+    take: 50,
+    include: { _count: { select: { membros: true } } },
+  });
+
+  return (
+    <div className="space-y-4">
+      <Form action="/moderacao" className="cartao flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
+        <input type="hidden" name="aba" value="negocios" />
+        <input
+          name="q"
+          defaultValue={busca}
+          placeholder="Buscar por nome, @, cidade…"
+          aria-label="Buscar negócios"
+          className="campo flex-1"
+        />
+        <button type="submit" className="botao">
+          Buscar
+        </button>
+      </Form>
+
+      {empresas.length === 0 ? (
+        <p className="cartao p-8 text-center text-suave">Nenhum negócio encontrado.</p>
+      ) : (
+        <ul className="cartao divide-y divide-linha">
+          {empresas.map((e) => (
+            <li key={e.id} className="flex flex-wrap items-center gap-4 p-4">
+              <FotoEmpresa empresa={e} />
+              <div className="min-w-0 flex-1">
+                <Link href={`/empresas/${e.instagramUsername}`} className="font-serif text-xl font-semibold hover:text-coral-700">
+                  {e.nome}
+                </Link>
+                <p className="text-sm text-suave">
+                  @{e.instagramUsername} · {e.cidade}/{e.uf} · {MODERACAO_EMPRESA[e.moderacao]} ·{" "}
+                  {e._count.membros > 0 ? "tem dono" : "sem dono"}
+                  {e.oculta && " · oculto"}
+                </p>
+              </div>
+              <Link href={`/moderacao/negocios/${e.instagramUsername}`} className="botao-claro botao-pequeno">
+                Editar perfil
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {empresas.length === 50 && (
+        <p className="text-center text-sm text-suave">Mostrando os 50 atualizados mais recentemente. Use a busca para achar outros.</p>
+      )}
+    </div>
+  );
+}
+
 async function Indicacoes() {
   const pendentes = await db.empresa.findMany({
     where: { moderacao: "pendente" },
@@ -315,6 +375,9 @@ async function Indicacoes() {
                 Não publicar
               </BotaoEnviar>
             </form>
+            <Link href={`/moderacao/negocios/${e.instagramUsername}`} className="botao-claro botao-pequeno ml-auto">
+              Editar perfil
+            </Link>
           </div>
         </article>
       ))}

@@ -7,7 +7,7 @@ import { FotoEmpresa, type EmpresaDaFoto } from "@/components/FotoEmpresa";
 import { reduzirFoto } from "@/components/reduzirFoto";
 
 /** Escolher, trocar ou remover a foto do perfil. `voltar` é a página que recarrega depois. */
-export function FormFoto({ empresa, voltar, podeTrocar = true }: { empresa: EmpresaDaFoto; voltar: string; podeTrocar?: boolean }) {
+export function FormFoto({ empresa, voltar }: { empresa: EmpresaDaFoto; voltar: string }) {
   const [estado, acao, pendente] = useActionState(trocarFoto, undefined);
   const [preparando, setPreparando] = useState(false);
   const [erroLocal, setErroLocal] = useState<string | null>(null);
@@ -40,14 +40,10 @@ export function FormFoto({ empresa, voltar, podeTrocar = true }: { empresa: Empr
       <FotoEmpresa empresa={empresa} tamanho="lg" />
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2">
-          {podeTrocar && (
-            <>
-              <input ref={entrada} type="file" accept="image/*" className="hidden" onChange={escolher} />
-              <button type="button" className="botao-claro botao-pequeno" disabled={ocupado} onClick={() => entrada.current?.click()}>
-                {ocupado ? "Enviando…" : empresa.fotoUrl ? "Trocar foto" : "Escolher foto"}
-              </button>
-            </>
-          )}
+          <input ref={entrada} type="file" accept="image/*" className="hidden" onChange={escolher} />
+          <button type="button" className="botao-claro botao-pequeno" disabled={ocupado} onClick={() => entrada.current?.click()}>
+            {ocupado ? "Enviando…" : empresa.fotoUrl ? "Trocar foto" : "Escolher foto"}
+          </button>
           {empresa.fotoUrl && (
             <form action={removerFoto}>
               <input type="hidden" name="empresaId" value={empresa.id} />
@@ -58,7 +54,7 @@ export function FormFoto({ empresa, voltar, podeTrocar = true }: { empresa: Empr
             </form>
           )}
         </div>
-        {podeTrocar && <p className="ajuda">O centro da foto aparece num círculo, no perfil e nos cards do diretório.</p>}
+        <p className="ajuda">O centro da foto aparece num círculo, no perfil e nos cards do diretório.</p>
         {erro && <p className="erro-campo">{erro}</p>}
       </div>
     </div>

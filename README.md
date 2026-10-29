@@ -8,7 +8,7 @@ Um diretório de negócios com consciência social e conexão com a comunidade. 
 - **Indicação** pela comunidade, com moderação antes de publicar.
 - **Reivindicação de propriedade** pelo dono, explicada abaixo.
 - **Painel do dono** para editar o perfil, responder depoimentos e ocultar o negócio.
-- **Moderação** com filas de reivindicações, indicações e denúncias, e registro de auditoria.
+- **Moderação** com filas de reivindicações, indicações e denúncias, edição de qualquer perfil (foto, contatos, textos e causas) e registro de auditoria.
 
 ## Telas
 
