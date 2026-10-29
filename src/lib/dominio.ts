@@ -43,3 +43,6 @@ export const MODERACAO_EMPRESA: Record<string, string> = {
   aprovada: "Publicada",
   rejeitada: "Não publicada",
 };
+
+/** Onde fica o código aberto do projeto. */
+export const REPOSITORIO = "https://github.com/fabsreis/Negocio-do-bem";

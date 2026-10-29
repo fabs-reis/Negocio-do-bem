@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CausaBadge } from "@/components/CausaBadge";
 import { CAUSAS, GRUPOS, type GrupoCausa } from "@/lib/causas";
+import { REPOSITORIO } from "@/lib/dominio";
 
 export const metadata: Metadata = {
   title: "Como funciona",
@@ -73,6 +74,18 @@ export default function Sobre() {
         <p>
           <strong>E os depoimentos?</strong> Ficam no ar com o nome de quem escreveu. Donos podem responder, mas não
           apagar. Conteúdo ofensivo pode ser denunciado e é avaliado pela moderação.
+        </p>
+
+        <h2 id="codigo-aberto" className="scroll-mt-24">
+          Código aberto
+        </h2>
+        <p>
+          O Negócio do Bem é um projeto de código aberto, com licença MIT. Todo o código está no{" "}
+          <a href={REPOSITORIO} target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+          : qualquer pessoa pode conferir como o site funciona e como os dados são tratados, sugerir melhorias ou
+          contribuir.
         </p>
 
         <h2>As causas</h2>

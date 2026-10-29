@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Logo } from "@/components/Logo";
 import { MenuUsuario } from "@/components/MenuUsuario";
+import { REPOSITORIO } from "@/lib/dominio";
 
 export const metadata: Metadata = {
   title: {
@@ -52,6 +53,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 Um movimento independente para fortalecer negócios que cuidam das pessoas, da comunidade e do planeta.
                 Feito pela comunidade, para a comunidade.
               </p>
+              <a href={REPOSITORIO} target="_blank" rel="noopener noreferrer" className="link inline-block">
+                Código aberto no GitHub ↗
+              </a>
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Comunidade</p>
