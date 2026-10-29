@@ -12,7 +12,7 @@ import { extrairCodigo } from "@/lib/codigo";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
-import { formatarDataHora } from "@/lib/texto";
+import { formatarDataHora, formatarWhatsapp } from "@/lib/texto";
 
 export const metadata: Metadata = { title: "Moderação", robots: { index: false } };
 
@@ -282,6 +282,17 @@ async function Indicacoes() {
           </div>
           <p>{e.resumo}</p>
           {e.motivoIndicacao && <p className="text-sm text-suave italic">“{e.motivoIndicacao}”</p>}
+          {(e.site || e.whatsapp || e.emailContato) && (
+            <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-suave">
+              {e.site && (
+                <a href={e.site} target="_blank" rel="noopener noreferrer nofollow" className="link break-all">
+                  {e.site}
+                </a>
+              )}
+              {e.whatsapp && <span>WhatsApp {formatarWhatsapp(e.whatsapp)}</span>}
+              {e.emailContato && <span>{e.emailContato}</span>}
+            </p>
+          )}
           {e.causas.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {e.causas.map((c) => (

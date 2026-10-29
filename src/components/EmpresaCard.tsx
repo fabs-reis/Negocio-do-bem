@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CausaBadge } from "@/components/CausaBadge";
-import { Monograma } from "@/components/Monograma";
+import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { SeloStatus } from "@/components/SeloStatus";
 import { filtrarCausas } from "@/lib/causas";
 
 export type EmpresaResumo = {
   instagramUsername: string;
   nome: string;
+  fotoUrl: string | null;
   resumo: string;
   categoria: string;
   cidade: string;
@@ -27,7 +28,7 @@ export function EmpresaCard({ empresa }: { empresa: EmpresaResumo }) {
       className="group cartao flex flex-col p-5 transition duration-200 hover:-translate-y-0.5 hover:border-coral/30 hover:shadow-xl hover:shadow-coral/5"
     >
       <div className="flex items-start gap-3">
-        <Monograma nome={empresa.nome} chave={empresa.instagramUsername} />
+        <FotoEmpresa empresa={empresa} />
         <div className="min-w-0">
           <h3 className="truncate font-serif text-xl font-semibold leading-tight group-hover:text-coral-700">
             {empresa.nome}

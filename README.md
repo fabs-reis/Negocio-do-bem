@@ -3,7 +3,7 @@
 Um diretório de negócios com consciência social e conexão com a comunidade. As pessoas encontram negócios que compartilham dos seus valores, indicam quem admiram e deixam depoimentos. Os donos assumem o perfil do negócio, a moderação confere os dados e eles contam a própria história.
 
 - **Diretório** com busca (sem diferenciar acentos) e filtros por causa e estado.
-- **Perfis** com a história do negócio no estilo Substack (Markdown, tipografia serifada), badges de causas e depoimentos.
+- **Perfis** com foto, botões de contato (WhatsApp, site e e-mail), a história do negócio no estilo Substack (Markdown, tipografia serifada, fotos com legenda), badges de causas e depoimentos.
 - **Causas** como Pet friendly, Antirracista, Escala 5x2, Escala 4x3 e outras (lista em `src/lib/causas.ts`).
 - **Indicação** pela comunidade, com moderação antes de publicar.
 - **Reivindicação de propriedade** pelo dono, explicada abaixo.
@@ -53,6 +53,8 @@ O seed cria negócios fictícios e estas contas, todas com a senha `senha-demo-1
 | `carla@exemplo.com` | enviou os dados do Café Arco-Íris e espera a moderação |
 
 Quem estiver em `ADMIN_EMAILS` vira moderador ao entrar.
+
+As fotos enviadas no seu computador ficam em `public/enviados/` (fora do Git). Em produção elas vão para o Vercel Blob.
 
 ### Problemas comuns
 
@@ -130,7 +132,8 @@ Funciona em qualquer hospedagem de Next.js com um PostgreSQL gerenciado.
 
 1. Em **Storage**, crie um banco **Neon** e conecte ao projeto sem prefixo, para as variáveis se chamarem `DATABASE_URL` e `DATABASE_URL_UNPOOLED`.
 2. Em **Environment Variables**, configure `ADMIN_EMAILS` e `APP_URL` (o domínio público, como `https://seu-projeto.vercel.app`). As do Instagram são opcionais.
-3. Pronto. A cada deploy de produção, o `scripts/vercel-build.sh` aplica as migrações pendentes antes do build.
+3. Em **Storage**, crie um **Blob** com acesso público e conecte ao projeto. Ele cria a `BLOB_READ_WRITE_TOKEN`, e é onde ficam as fotos dos perfis e das histórias.
+4. Pronto. A cada deploy de produção, o `scripts/vercel-build.sh` aplica as migrações pendentes antes do build.
 
 **Em outra hospedagem**
 
@@ -157,7 +160,7 @@ tests/               testes (unit/ sem banco, db/ com banco)
 - Recuperação de senha e confirmação de e-mail (precisa de um serviço de envio de e-mail).
 - Limite de tentativas de login por IP.
 - Avisar o dono por e-mail quando a reivindicação for decidida ou quando chegar um depoimento.
-- Upload de fotos do negócio.
+- Puxar a foto do perfil direto do Instagram, pela API oficial da Meta (só funciona com contas comerciais ou de criador).
 - Renovação automática do token do Instagram usado pelo webhook.
 
 ## Como contribuir

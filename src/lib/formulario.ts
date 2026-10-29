@@ -18,6 +18,32 @@ export const campoSite = z
     }
   });
 
+/** WhatsApp opcional: aceita "(11) 99148-8052" ou "+55 11 99148-8052" e guarda só os dígitos, com o 55. */
+export const campoWhatsapp = z
+  .string()
+  .trim()
+  .max(30)
+  .transform((valor, ctx) => {
+    if (!valor) return null;
+    let digitos = valor.replace(/\D/g, "").replace(/^0+/, "");
+    if (digitos.length === 10 || digitos.length === 11) digitos = `55${digitos}`;
+    // DDD sem zero, depois celular (9 + 8 dígitos) ou fixo (começa com 2 a 5).
+    if (!/^55[1-9]{2}(9\d{8}|[2-5]\d{7})$/.test(digitos)) {
+      ctx.addIssue({ code: "custom", message: "Digite o número com DDD (ex.: 11 99148-8052)." });
+      return z.NEVER;
+    }
+    return digitos;
+  });
+
+/** E-mail de contato opcional, em minúsculas, ou null se vazio. */
+export const campoEmail = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(200, "E-mail muito longo.")
+  .refine((valor) => !valor || z.email().safeParse(valor).success, "Digite um e-mail válido.")
+  .transform((valor) => valor || null);
+
 /** Estado devolvido pelas Server Actions para os formulários (useActionState). */
 export type EstadoFormulario =
   | {

@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma client gerado (npm install roda prisma generate)
 /src/generated/
+
+# fotos enviadas em desenvolvimento (em produção vão para o Vercel Blob)
+/public/enviados/

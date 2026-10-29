@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { salvarEmpresa } from "@/acoes/empresas";
+import { useActionState, useRef, useState } from "react";
+import { enviarFotoDaHistoria, salvarEmpresa } from "@/acoes/empresas";
 import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { enviarSemLimpar } from "@/components/envio";
 import { Campo } from "@/components/Campo";
 import { Historia } from "@/components/Historia";
+import { reduzirFoto } from "@/components/reduzirFoto";
 import { SeletorCausas } from "@/components/SeletorCausas";
 import { CATEGORIAS, UFS } from "@/lib/dominio";
 
@@ -18,6 +19,8 @@ type DadosEmpresa = {
   cidade: string;
   uf: string;
   site: string;
+  whatsapp: string;
+  emailContato: string;
   historia: string;
   causas: string[];
 };
@@ -33,6 +36,43 @@ export function FormEmpresa({ empresa }: { empresa: DadosEmpresa }) {
   const causas = Array.isArray(valores?.causas) ? valores.causas : empresa.causas;
   const [historia, setHistoria] = useState(empresa.historia);
   const [aba, setAba] = useState<"escrever" | "ver">("escrever");
+  const campoHistoria = useRef<HTMLTextAreaElement>(null);
+  const entradaFoto = useRef<HTMLInputElement>(null);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [erroFoto, setErroFoto] = useState<string | null>(null);
+
+  // Envia a foto e coloca ![](endereço) onde está o cursor da história.
+  async function inserirFoto(evento: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = "";
+    if (!arquivo) return;
+    setErroFoto(null);
+    setEnviandoFoto(true);
+    try {
+      let foto: File;
+      try {
+        foto = await reduzirFoto(arquivo, { lado: 1600 });
+      } catch {
+        setErroFoto("Não conseguimos abrir essa imagem. Use uma foto JPG, PNG ou WebP.");
+        return;
+      }
+      const dados = new FormData();
+      dados.set("empresaId", empresa.id);
+      dados.set("foto", foto);
+      const resposta = await enviarFotoDaHistoria(dados);
+      if (!resposta.url) {
+        setErroFoto(resposta.erro ?? "Não conseguimos enviar a foto.");
+        return;
+      }
+      const posicao = campoHistoria.current?.selectionStart ?? historia.length;
+      const trecho = `\n\n![](${resposta.url})\n\n`;
+      setHistoria((atual) => (atual.slice(0, posicao) + trecho + atual.slice(posicao)).replace(/^\n+/, ""));
+    } catch {
+      setErroFoto("Não conseguimos enviar a foto. Confira a conexão e tente de novo.");
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
 
   return (
     <form action={acao} onSubmit={enviarSemLimpar(acao)} className="space-y-8">
@@ -65,9 +105,24 @@ export function FormEmpresa({ empresa }: { empresa: DadosEmpresa }) {
             </select>
           </Campo>
         </div>
-        <Campo id="site" rotulo="Site (opcional)" erro={erros.site}>
+      </section>
+
+      <section className="cartao space-y-5 p-6 sm:p-8">
+        <div>
+          <h2 className="font-serif text-2xl font-semibold">Contato</h2>
+          <p className="mt-1 text-sm text-suave">Tudo opcional. O que você preencher vira botão no perfil.</p>
+        </div>
+        <Campo id="site" rotulo="Site" erro={erros.site}>
           <input id="site" name="site" maxLength={200} placeholder="www.meunegocio.com.br" defaultValue={valor("site")} className="campo" />
         </Campo>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo id="whatsapp" rotulo="WhatsApp" erro={erros.whatsapp}>
+            <input id="whatsapp" name="whatsapp" type="tel" maxLength={30} placeholder="(11) 99999-9999" defaultValue={valor("whatsapp")} className="campo" />
+          </Campo>
+          <Campo id="emailContato" rotulo="E-mail de contato" erro={erros.emailContato}>
+            <input id="emailContato" name="emailContato" type="email" maxLength={200} placeholder="contato@meunegocio.com.br" defaultValue={valor("emailContato")} className="campo" />
+          </Campo>
+        </div>
       </section>
 
       <section className="cartao space-y-4 p-6 sm:p-8">
@@ -100,7 +155,17 @@ export function FormEmpresa({ empresa }: { empresa: DadosEmpresa }) {
           </div>
         </div>
 
+        <div className={`mt-5 flex flex-wrap items-center gap-3 ${aba === "escrever" ? "" : "hidden"}`}>
+          <input ref={entradaFoto} type="file" accept="image/*" className="hidden" onChange={inserirFoto} />
+          <button type="button" className="botao-claro botao-pequeno" disabled={enviandoFoto} onClick={() => entradaFoto.current?.click()}>
+            {enviandoFoto ? "Enviando foto…" : "Inserir foto"}
+          </button>
+          <span className="text-sm text-suave">A foto entra onde está o cursor.</span>
+          {erroFoto && <p className="erro-campo w-full">{erroFoto}</p>}
+        </div>
+
         <textarea
+          ref={campoHistoria}
           name="historia"
           value={historia}
           onChange={(e) => setHistoria(e.target.value)}
@@ -108,7 +173,7 @@ export function FormEmpresa({ empresa }: { empresa: DadosEmpresa }) {
           maxLength={20000}
           aria-label="Nossa história"
           placeholder={"Tudo começou na cozinha da minha avó…\n\n## O que nos move\n\nAcreditamos que…"}
-          className={`campo mt-5 resize-y font-serif text-lg leading-relaxed ${aba === "escrever" ? "" : "hidden"}`}
+          className={`campo mt-3 resize-y font-serif text-lg leading-relaxed ${aba === "escrever" ? "" : "hidden"}`}
         />
         {aba === "ver" && (
           <div className="mt-5 min-h-48 rounded-2xl border border-linha p-6">
@@ -118,7 +183,8 @@ export function FormEmpresa({ empresa }: { empresa: DadosEmpresa }) {
         {erros.historia && <p className="erro-campo">{erros.historia}</p>}
         <p className="ajuda">
           Dicas: <code>## Título</code> cria um intertítulo, <code>**texto**</code> deixa em negrito, <code>&gt; frase</code> vira
-          citação e uma linha com <code>---</code> separa capítulos.
+          citação e uma linha com <code>---</code> separa capítulos. Para pôr legenda numa foto, escreva entre os colchetes:{" "}
+          <code>![Nossa primeira fornada](…)</code>.
         </p>
       </section>
 

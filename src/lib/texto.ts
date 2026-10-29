@@ -37,6 +37,15 @@ export function iniciais(nome: string): string {
   return letras.map((p) => p[0]!.toUpperCase()).join("").slice(0, 2) || "?";
 }
 
+/** "5511991488052" → "(11) 99148-8052". */
+export function formatarWhatsapp(digitos: string): string {
+  const local = digitos.replace(/^55/, "");
+  const ddd = local.slice(0, 2);
+  const numero = local.slice(2);
+  const corte = numero.length - 4;
+  return `(${ddd}) ${numero.slice(0, corte)}-${numero.slice(corte)}`;
+}
+
 export function formatarData(data: Date): string {
   return new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", year: "numeric" }).format(data);
 }

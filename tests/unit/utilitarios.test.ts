@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
-import { campoSite } from "@/lib/formulario";
-import { iniciais, normalizarTexto } from "@/lib/texto";
+import { campoEmail, campoSite, campoWhatsapp } from "@/lib/formulario";
+import { formatarWhatsapp, iniciais, normalizarTexto } from "@/lib/texto";
 
 describe("cnpjValido", () => {
   it("aceita CNPJ numérico válido, com ou sem pontuação", () => {
@@ -74,5 +74,36 @@ describe("campoSite", () => {
   it("recusa o que não parece endereço", () => {
     expect(campoSite.safeParse("minha loja").success).toBe(false);
     expect(campoSite.safeParse("localhost").success).toBe(false);
+  });
+});
+
+describe("campoWhatsapp", () => {
+  it("guarda só os dígitos, com o 55 do Brasil", () => {
+    expect(campoWhatsapp.parse("(11) 99148-8052")).toBe("5511991488052");
+    expect(campoWhatsapp.parse("+55 11 99148-8052")).toBe("5511991488052");
+    expect(campoWhatsapp.parse("011 99148 8052")).toBe("5511991488052");
+    expect(campoWhatsapp.parse("(21) 3456-7890")).toBe("552134567890");
+    expect(campoWhatsapp.parse("")).toBeNull();
+  });
+
+  it("recusa número sem DDD ou estrangeiro", () => {
+    expect(campoWhatsapp.safeParse("99148-8052").success).toBe(false);
+    expect(campoWhatsapp.safeParse("+1 415 555 0100").success).toBe(false);
+  });
+
+  it("formata para exibir", () => {
+    expect(formatarWhatsapp("5511991488052")).toBe("(11) 99148-8052");
+    expect(formatarWhatsapp("552134567890")).toBe("(21) 3456-7890");
+  });
+});
+
+describe("campoEmail", () => {
+  it("aceita vazio ou um e-mail válido, em minúsculas", () => {
+    expect(campoEmail.parse("")).toBeNull();
+    expect(campoEmail.parse(" Contato@Negocio.com.BR ")).toBe("contato@negocio.com.br");
+  });
+
+  it("recusa o que não é e-mail", () => {
+    expect(campoEmail.safeParse("contato@").success).toBe(false);
   });
 });

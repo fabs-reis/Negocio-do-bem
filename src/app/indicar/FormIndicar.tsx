@@ -85,6 +85,24 @@ export function FormIndicar() {
         <input id="resumo" name="resumo" required maxLength={160} placeholder="Padaria artesanal que contrata gente do próprio bairro" defaultValue={valor("resumo")} className="campo" />
       </Campo>
 
+      <div className="space-y-4">
+        <div>
+          <p className="rotulo">Contato (opcional)</p>
+          <p className="ajuda mt-0">Os canais públicos do negócio, como aparecem no site ou no Instagram. Viram botões no perfil.</p>
+        </div>
+        <Campo rotulo="Site" erro={erros.site} id="site">
+          <input id="site" name="site" maxLength={200} placeholder="www.negocio.com.br" defaultValue={valor("site")} className="campo" />
+        </Campo>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Campo rotulo="WhatsApp" erro={erros.whatsapp} id="whatsapp">
+            <input id="whatsapp" name="whatsapp" type="tel" maxLength={30} placeholder="(11) 99999-9999" defaultValue={valor("whatsapp")} className="campo" />
+          </Campo>
+          <Campo rotulo="E-mail" erro={erros.emailContato} id="emailContato">
+            <input id="emailContato" name="emailContato" type="email" maxLength={200} placeholder="contato@negocio.com.br" defaultValue={valor("emailContato")} className="campo" />
+          </Campo>
+        </div>
+      </div>
+
       {!souDono && (
         <Campo rotulo="Por que você indica? (opcional)" erro={erros.motivo} id="motivo" ajuda="Aparece no perfil até o dono contar a própria história.">
           <textarea id="motivo" name="motivo" rows={3} maxLength={600} defaultValue={valor("motivo")} className="campo" />

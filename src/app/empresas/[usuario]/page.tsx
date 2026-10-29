@@ -6,14 +6,15 @@ import { denunciarDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { CausaBadge } from "@/components/CausaBadge";
 import { Historia } from "@/components/Historia";
-import { Monograma } from "@/components/Monograma";
+import { FormFoto } from "@/components/FormFoto";
+import { FotoEmpresa, fotoDe } from "@/components/FotoEmpresa";
 import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { filtrarCausas } from "@/lib/causas";
 import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { linkPerfil, normalizarUsername } from "@/lib/instagram";
-import { formatarData } from "@/lib/texto";
+import { formatarData, formatarWhatsapp } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
@@ -59,7 +60,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
           </div>
 
           <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-            <Monograma nome={empresa.nome} chave={empresa.instagramUsername} tamanho="lg" />
+            <FotoEmpresa empresa={empresa} tamanho="lg" />
             <div className="min-w-0 space-y-2">
               <SeloStatus status={empresa.status} />
               <h1 className="font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">
@@ -75,17 +76,11 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
                 <span>
                   {empresa.cidade}, {empresa.uf}
                 </span>
-                {empresa.site && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <a href={empresa.site} target="_blank" rel="noopener noreferrer nofollow" className="link">
-                      {new URL(empresa.site).hostname.replace(/^www\./, "")}
-                    </a>
-                  </>
-                )}
               </p>
             </div>
           </div>
+
+          <Contatos empresa={empresa} />
 
           <p className="mt-8 font-serif text-2xl leading-snug text-tinta/80 italic text-pretty">{empresa.resumo}</p>
 
@@ -101,6 +96,19 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
             <Link href={`/painel/${empresa.instagramUsername}`} className="botao mt-8">
               Editar meu perfil
             </Link>
+          )}
+
+          {usuario?.moderador && !dono && (empresa.membros.length === 0 || empresa.fotoUrl) && (
+            <details className="mt-8 rounded-2xl border border-dashed border-linha bg-white/60 p-5">
+              <summary className="cursor-pointer text-sm font-medium text-suave">Moderação: foto do perfil</summary>
+              <div className="mt-4">
+                <FormFoto
+                  empresa={fotoDe(empresa)}
+                  voltar={`/empresas/${empresa.instagramUsername}`}
+                  podeTrocar={empresa.membros.length === 0}
+                />
+              </div>
+            </details>
           )}
         </div>
       </header>
@@ -131,6 +139,29 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
         )}
       </div>
     </article>
+  );
+}
+
+function Contatos({ empresa }: { empresa: Perfil }) {
+  if (!empresa.whatsapp && !empresa.site && !empresa.emailContato) return null;
+  return (
+    <div className="mt-6 flex flex-wrap gap-2">
+      {empresa.whatsapp && (
+        <a href={`https://wa.me/${empresa.whatsapp}`} target="_blank" rel="noopener noreferrer" className="botao botao-pequeno">
+          WhatsApp {formatarWhatsapp(empresa.whatsapp)}
+        </a>
+      )}
+      {empresa.site && (
+        <a href={empresa.site} target="_blank" rel="noopener noreferrer nofollow" className="botao-claro botao-pequeno">
+          {new URL(empresa.site).hostname.replace(/^www\./, "")} ↗
+        </a>
+      )}
+      {empresa.emailContato && (
+        <a href={`mailto:${empresa.emailContato}`} className="botao-claro botao-pequeno">
+          {empresa.emailContato}
+        </a>
+      )}
+    </div>
   );
 }
 

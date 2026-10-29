@@ -6,11 +6,13 @@ import { alternarVisibilidade } from "@/acoes/empresas";
 import { responderDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { FormFoto } from "@/components/FormFoto";
+import { fotoDe } from "@/components/FotoEmpresa";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { normalizarUsername } from "@/lib/instagram";
-import { formatarData } from "@/lib/texto";
+import { formatarData, formatarWhatsapp } from "@/lib/texto";
 import { FormEmpresa } from "./FormEmpresa";
 
 export const metadata: Metadata = { title: "Editar perfil" };
@@ -64,6 +66,11 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         <AvisoDaUrl codigo={aviso} />
       </div>
 
+      <section className="cartao space-y-4 p-6 sm:p-8">
+        <h2 className="font-serif text-2xl font-semibold">Foto do perfil</h2>
+        <FormFoto empresa={fotoDe(empresa)} voltar={`/painel/${empresa.instagramUsername}`} />
+      </section>
+
       <FormEmpresa
         empresa={{
           id: empresa.id,
@@ -73,6 +80,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
           cidade: empresa.cidade,
           uf: empresa.uf,
           site: empresa.site ?? "",
+          whatsapp: empresa.whatsapp ? formatarWhatsapp(empresa.whatsapp) : "",
+          emailContato: empresa.emailContato ?? "",
           historia: empresa.historia,
           causas: empresa.causas.map((c) => c.causa),
         }}
