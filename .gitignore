@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+!.env.fotos.example
+
+# fotos escolhidas à mão para a rotina de fotos (npm run fotos:instagram)
+/fotos-manuais/
 
 # vercel
 .vercel

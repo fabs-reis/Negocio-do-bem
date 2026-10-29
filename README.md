@@ -119,6 +119,27 @@ O site pede só `instagram_business_basic`, lê apenas o `user_id` e o `username
 
 O webhook confere a assinatura `X-Hub-Signature-256` de cada chamada, descobre o @ de quem mandou a DM e só aprova sozinho quando o @ bate e não há conflito.
 
+## Ativando a rotina de fotos do Instagram (opcional)
+
+Um script no seu computador preenche, todo dia, a foto de perfil dos negócios que ainda não têm foto. Ele busca a foto pela API oficial da Meta (Business Discovery), recorta em 600×600 e envia pronta para o site, que só grava se o negócio continuar sem foto. As regras estão na [seção 9 das regras de negócio](docs/regras-de-negocio.md#rotina-de-fotos-do-instagram).
+
+**Na Meta (uma vez):**
+
+1. Tenha uma conta profissional do Instagram (comercial ou de criador) **ligada a uma Página do Facebook**. Ela só serve para fazer as consultas e não aparece no site.
+2. Crie um app em developers.facebook.com com o caso de uso "Gerenciar mensagens e conteúdo no Instagram". Na configuração da API **com login do Facebook**, adicione as permissões `instagram_basic`, `instagram_manage_insights`, `pages_read_engagement` e `pages_show_list`.
+3. No portfólio empresarial que tem a Página e o Instagram, conecte o app (Configurações → Contas → Apps) e crie um **usuário do sistema** (Usuários → Usuários do sistema).
+4. Atribua ao usuário do sistema o app, a Página e a conta do Instagram. Gere um token para ele com as quatro permissões e validade **Nunca**.
+
+**No Vercel:** configure `FOTOS_TOKEN` em Production com um valor de pelo menos 32 caracteres (`openssl rand -hex 32`). Sem ela, a rota `/api/fotos-instagram` responde 404.
+
+**No seu computador:**
+
+1. Copie `.env.fotos.example` para `.env.fotos` e preencha: o endereço do site, o mesmo `FOTOS_TOKEN`, o token do usuário do sistema e o ID da conta do Instagram que faz as consultas.
+2. Rode uma vez para conferir: `npm run fotos:instagram`.
+3. Agende para todo dia às 7h: `npm run fotos:agendar`. O registro fica em `~/Library/Logs/negocio-do-bem-fotos.log`. Para tirar o agendamento: `npm run fotos:agendar -- --remover`.
+
+Contas pessoais ou privadas não aparecem na API. Para esses negócios, salve a foto em `fotos-manuais/<@>.jpg` (ou `.png`, `.webp`): ela tem prioridade sobre a da API.
+
 ## Testes e verificações
 
 ```bash
@@ -155,7 +176,8 @@ Nunca rode o seed em produção: ele cria contas com senha conhecida e se recusa
 docs/                regras de negócio, como o projeto foi feito e prints
 prisma/              esquema, migrações e dados de exemplo
 src/acoes/           Server Actions (formulários), sempre conferindo permissão no servidor
-src/app/             páginas e rotas (api/instagram e api/webhooks/instagram)
+scripts/             build do Vercel e a rotina de fotos do Instagram (roda no seu computador)
+src/app/             páginas e rotas (api/instagram, api/webhooks/instagram e api/fotos-instagram)
 src/components/      componentes de interface
 src/lib/             regras de negócio: reivindicacao.ts, instagram.ts, auth/, causas.ts, cnpj.ts…
 tests/               testes (unit/ sem banco, db/ com banco)
@@ -167,7 +189,6 @@ tests/               testes (unit/ sem banco, db/ com banco)
 - Recuperação de senha e confirmação de e-mail (precisa de um serviço de envio de e-mail).
 - Limite de tentativas de login por IP.
 - Avisar o dono por e-mail quando a reivindicação for decidida ou quando chegar um depoimento.
-- Puxar a foto do perfil direto do Instagram, pela API oficial da Meta (só funciona com contas comerciais ou de criador).
 - Renovação automática do token do Instagram usado pelo webhook.
 
 ## Como contribuir

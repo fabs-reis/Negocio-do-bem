@@ -503,7 +503,23 @@ Código: `src/lib/fotos.ts`, `src/lib/armazenamento.ts`, `src/components/reduzir
 **Quem envia:**
 
 - **Foto do perfil:** o dono ou a moderação. Trocar ou remover apaga a foto antiga do armazenamento.
+- **Foto do perfil vinda do Instagram:** a rotina de fotos, para negócios que ainda não têm foto (veja abaixo).
 - **Foto da história:** o dono ou a moderação, pelo botão "Foto" do editor. Ela é guardada na hora e entra no texto onde está o cursor.
+
+### Rotina de fotos do Instagram
+
+Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do projeto), `src/app/api/fotos-instagram/route.ts` e `src/lib/fotos-instagram.ts`, com testes em `tests/db/fotos-instagram.test.ts`. Decidida na [issue #31](https://github.com/fabsreis/Negocio-do-bem/issues/31).
+
+- **Quais negócios:** os que estão **sem foto** e **não foram tirados do ar**, inclusive os pendentes. Os mais antigos primeiro, até 100 por rodada.
+- **De onde vem a foto:**
+  1. de um arquivo na pasta local `fotos-manuais/`, com o @ no nome (`<@>.jpg`, `.png` ou `.webp`), se existir;
+  2. senão, da **API oficial da Meta** (Business Discovery), que devolve a foto de perfil de contas **comerciais ou de criador** em 1080×1080. Contas pessoais, privadas ou inexistentes não aparecem e o negócio continua sem foto.
+- **Preparo, no computador:** a foto é recortada no centro, em quadrado de 600×600, e convertida para WebP. O Vercel só recebe o arquivo pronto.
+- **Gravação, no site:** a rota `/api/fotos-instagram` exige o token `FOTOS_TOKEN` e confere a foto como qualquer outra. Ela **só grava se o negócio continuar sem foto**: a foto enviada pelo dono ou pela moderação nunca é trocada, nem se chegar no meio do envio.
+- **Sem `FOTOS_TOKEN` configurado,** a rota responde 404.
+- **Auditoria:** cada foto gravada registra `empresa.foto_do_instagram`, como "sistema".
+- **Quando roda:** todo dia às 7h, pelo agendador do macOS (`npm run fotos:agendar`). Se o Mac estiver desligado, roda quando ele ligar.
+- **Quando para:** a rodada inteira para se o token da Meta vencer, perder permissão ou bater no limite de consultas. Os negócios que faltaram ficam para o dia seguinte.
 
 **No navegador, antes de enviar:**
 
@@ -643,6 +659,7 @@ Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quand
 | `empresa.aprovada` / `empresa.rejeitada` | A moderação publicou (ou publicou de novo) ou tirou do ar um negócio. Os detalhes trazem o @. |
 | `empresa.editada` | O dono salvou o perfil. |
 | `empresa.foto_trocada` / `empresa.foto_removida` | O dono trocou ou removeu a foto do perfil. |
+| `empresa.foto_do_instagram` | A rotina de fotos colocou a foto do Instagram num negócio sem foto. Os detalhes trazem o @. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
@@ -728,6 +745,8 @@ Para uma ação nova de moderação, registre sempre na auditoria.
 | Foto | até 3 MB, JPEG, PNG ou WebP | `src/lib/fotos.ts` |
 | Foto do perfil | 600×600, quadrada | `src/components/FormFoto.tsx` |
 | Foto da história | até 1.600 px no lado maior | `src/components/EditorHistoria.tsx` |
+| Foto vinda do Instagram | 600×600, WebP | `scripts/fotos-instagram.ts` |
+| Negócios por rodada da rotina de fotos | 100, com 1,5 s entre consultas à Meta | `scripts/fotos-instagram.ts` |
 | Negócios por página no diretório | 18 | `src/lib/consultas.ts` |
 | Itens por fila da moderação | 50 | `src/app/moderacao/page.tsx` |
 | Registros na aba de auditoria | 100 | `src/app/moderacao/page.tsx` |
