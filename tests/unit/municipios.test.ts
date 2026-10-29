@@ -88,6 +88,15 @@ describe("nomeOficial", () => {
     expect(nomeOficial("Recife", "PE")).toBe("Recife");
   });
 
+  it("não diferencia hífen e apóstrofo, e aceita a UF da cidade no fim", () => {
+    expect(nomeOficial("São João del-Rei", "MG")).toBe("São João del Rei");
+    expect(nomeOficial("Santa Bárbara d’Oeste", "SP")).toBe("Santa Bárbara d'Oeste");
+    expect(nomeOficial("Tubarão-SC", "SC")).toBe("Tubarão");
+    expect(nomeOficial("Salto/SP", "SP")).toBe("Salto");
+    // A UF no fim só sai quando é a da própria cidade.
+    expect(nomeOficial("Salto-RJ", "SP")).toBeNull();
+  });
+
   it("é null fora da lista ou na UF errada", () => {
     expect(nomeOficial("Sampa", "SP")).toBeNull();
     expect(nomeOficial("Recife", "SP")).toBeNull();

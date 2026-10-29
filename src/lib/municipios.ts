@@ -14,14 +14,21 @@ const MUNICIPIOS = Object.entries(dados as Record<string, string[]>).flatMap(([u
   nomes.map((nome) => ({ nome, uf, busca: normalizarTexto(nome) })),
 );
 
-const NOME_OFICIAL = new Map(MUNICIPIOS.map((m) => [`${m.busca}|${m.uf}`, m.nome]));
+/** Hífen e apóstrofo (de qualquer tipo) valem espaço: "São João del-Rei" bate com "São João del Rei". */
+const chaveDeCidade = (nome: string) => normalizarTexto(nome.replace(/[-'’‘`´]/g, " "));
+
+const NOME_OFICIAL = new Map(MUNICIPIOS.map((m) => [`${chaveDeCidade(m.nome)}|${m.uf}`, m.nome]));
 
 /**
  * O nome oficial de uma cidade gravada com outra grafia ("Florianopolis", "SC" → "Florianópolis"),
- * sem diferenciar acentos, maiúsculas e espaços. Null quando ela não está na lista.
+ * sem diferenciar acentos, maiúsculas, espaços, hífen e apóstrofo. Aceita a UF da própria
+ * cidade grudada no fim ("Tubarão-SC"). Null quando ela não está na lista.
  */
 export function nomeOficial(cidade: string, uf: string): string | null {
-  return NOME_OFICIAL.get(`${normalizarTexto(cidade)}|${uf}`) ?? null;
+  const chave = chaveDeCidade(cidade);
+  const comUf = /^(.+?)[\s,/]+([a-z]{2})$/.exec(chave);
+  const semUf = comUf && comUf[2] === uf.toLowerCase() ? comUf[1] : null;
+  return NOME_OFICIAL.get(`${chave}|${uf}`) ?? (semUf ? NOME_OFICIAL.get(`${semUf}|${uf}`) : undefined) ?? null;
 }
 
 /**

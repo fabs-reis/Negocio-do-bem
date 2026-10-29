@@ -1,5 +1,5 @@
 // Grava o nome oficial do IBGE nas cidades escritas de outro jeito ("Sao Paulo",
-// "FLORIANOPOLIS"), que vêm de cadastros de antes do campo de cidade com a lista.
+// "FLORIANOPOLIS", "Tubarão-SC"), que vêm de cadastros de antes do campo de cidade com a lista.
 // O diretório já junta essas grafias; o script arruma o nome que aparece no perfil
 // e nos cartões. Sem --aplicar, só mostra o que mudaria.
 //
@@ -14,6 +14,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { nomeOficial } from "../src/lib/municipios";
+import { textoDeBusca } from "../src/lib/texto";
 
 const urlDoBanco = process.env.DATABASE_URL;
 if (!urlDoBanco) {
@@ -53,12 +54,19 @@ async function main() {
     console.log("\nNada foi gravado. Para corrigir, rode de novo com --aplicar.");
     return;
   }
-  // Direto no SQL para não mudar o atualizadoEm, que ordena o diretório. O campo busca
-  // não muda: ele já guarda a cidade em minúsculas e sem acento.
+  const empresas = await db.empresa.findMany({
+    where: { OR: trocas.map((t) => ({ cidade: t.cidade, uf: t.uf })) },
+    select: { id: true, nome: true, resumo: true, categoria: true, cidade: true, uf: true, instagramUsername: true },
+  });
+  // Direto no SQL para não mudar o atualizadoEm, que ordena o diretório. O campo busca é
+  // refeito, porque um hífen ou a UF no fim da cidade ("Tubarão-SC") mudam o texto dele.
   await db.$transaction(
-    trocas.map((t) => db.$executeRaw`UPDATE "Empresa" SET "cidade" = ${t.nome} WHERE "cidade" = ${t.cidade} AND "uf" = ${t.uf}`),
+    empresas.map((e) => {
+      const cidade = nomeOficial(e.cidade, e.uf)!;
+      return db.$executeRaw`UPDATE "Empresa" SET "cidade" = ${cidade}, "busca" = ${textoDeBusca({ ...e, cidade })} WHERE "id" = ${e.id}`;
+    }),
   );
-  console.log(`\nCorrigido: ${negocios(trocas.reduce((soma, t) => soma + t.total, 0))}.`);
+  console.log(`\nCorrigido: ${negocios(empresas.length)}.`);
 }
 
 main()

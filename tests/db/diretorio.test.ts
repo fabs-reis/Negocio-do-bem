@@ -121,6 +121,20 @@ describe("buscarDiretorio", () => {
     expect((await resumoDoDiretorio()).cidades).toBe(3);
   });
 
+  it("junta também a cidade com hífen ou com a UF grudada no nome", async () => {
+    await criarEmpresa("loja.tubarao", { nome: "Loja Tubarão", categoria: "Pet", cidade: "Tubarão", uf: "SC" });
+    await criarEmpresa("bar.tubarao", { nome: "Bar Tubarão", categoria: "Restaurante e bar", cidade: "Tubarão-SC", uf: "SC" });
+    await criarEmpresa("cafe.sjdr", { nome: "Café do Rei", categoria: "Café e padaria", cidade: "São João del-Rei", uf: "MG" });
+
+    const r = await buscarDiretorio(filtros({ onde: "Tubarão, SC" }));
+    expect(r.cidades.filter((c) => c.uf !== "PE" && c.uf !== "SP")).toEqual([
+      { cidade: "São João del Rei", uf: "MG", total: 1 },
+      { cidade: "Tubarão", uf: "SC", total: 2 },
+    ]);
+    expect(r.total).toBe(2);
+    expect((await buscarDiretorio(filtros({ onde: "sao joao del rei, mg" }))).total).toBe(1);
+  });
+
   it("combina causas (todas precisam valer), verificados e texto", async () => {
     expect((await buscarDiretorio(filtros({ causas: ["sustentavel", "liderado-por-mulheres"] }))).total).toBe(1);
     const verificados = await buscarDiretorio(filtros({ verificados: true, tipos: ["Café e padaria"] }));
