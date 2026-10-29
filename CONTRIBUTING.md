@@ -4,6 +4,7 @@ Que bom que você quer ajudar o Negócio do Bem! Correção de bug, melhoria de 
 
 ## Antes de começar
 
+- Leia as [regras de negócio](docs/regras-de-negocio.md) e [como o projeto foi feito](docs/como-foi-feito.md). Eles explicam o que o sistema faz, por que faz e onde cada regra está no código.
 - Toda mudança começa por uma issue, com o label `bug` (algo não funciona), `enhancement` (melhoria no que já existe) ou `feature` (funcionalidade nova). Se ela ainda não existe, abra.
 - Para mudanças grandes, conte na issue o que você quer fazer e espere um retorno. Assim a gente combina o caminho antes de você investir tempo.
 - Falhas de segurança não vão em issue pública. Veja o [SECURITY.md](SECURITY.md).
@@ -21,6 +22,7 @@ Siga o passo a passo de [Rodando localmente](README.md#rodando-localmente) no RE
 - Toda Server Action (`src/acoes/`) confere a permissão no servidor, nunca só na interface.
 - Formulários com `useActionState` usam `enviarSemLimpar` (`src/components/envio.ts`) para os campos não sumirem quando há erro.
 - Mudou uma regra da reivindicação (`src/lib/reivindicacao.ts`)? Atualize ou crie o teste em `tests/db/`.
+- Mudou uma regra de negócio (quem pode fazer o quê, limites, estados, o que aparece para quem)? Atualize o [docs/regras-de-negocio.md](docs/regras-de-negocio.md) no mesmo PR.
 - Mudou o `prisma/schema.prisma`? Crie a migração com `npm run db:migrate -- --name descricao-curta` e inclua no PR.
 - Nunca faça commit do `.env` nem de dados reais de pessoas ou negócios. Use dados fictícios, como os do seed.
 

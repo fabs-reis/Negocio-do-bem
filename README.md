@@ -10,6 +10,11 @@ Um diretório de negócios com consciência social e conexão com a comunidade. 
 - **Painel do dono** para editar o perfil, responder depoimentos e ocultar o negócio.
 - **Moderação** com filas de reivindicações, indicações e denúncias, edição de qualquer perfil (foto, contatos, textos e causas) e registro de auditoria.
 
+Vai colaborar? Comece por estes dois guias:
+
+- [Regras de negócio](docs/regras-de-negocio.md): como o sistema funciona, regra por regra, com os limites e onde cada regra está no código.
+- [Como o projeto foi feito](docs/como-foi-feito.md): o propósito, as decisões e o porquê delas, a arquitetura e receitas para as mudanças mais comuns.
+
 ## Telas
 
 As imagens usam os dados de exemplo do seed.
@@ -147,6 +152,7 @@ Nunca rode o seed em produção: ele cria contas com senha conhecida e se recusa
 ## Estrutura
 
 ```
+docs/                regras de negócio, como o projeto foi feito e prints
 prisma/              esquema, migrações e dados de exemplo
 src/acoes/           Server Actions (formulários), sempre conferindo permissão no servidor
 src/app/             páginas e rotas (api/instagram e api/webhooks/instagram)
@@ -166,7 +172,7 @@ tests/               testes (unit/ sem banco, db/ com banco)
 
 ## Como contribuir
 
-Contribuições são bem-vindas. O [CONTRIBUTING.md](CONTRIBUTING.md) explica como rodar o projeto, as regras do código e como abrir um pull request. Achou uma falha de segurança? Avise em particular, como explica o [SECURITY.md](SECURITY.md).
+Contribuições são bem-vindas. O [CONTRIBUTING.md](CONTRIBUTING.md) explica como rodar o projeto, as regras do código e como abrir um pull request. As [regras de negócio](docs/regras-de-negocio.md) e [como o projeto foi feito](docs/como-foi-feito.md) explicam o que o sistema faz e por quê. Achou uma falha de segurança? Avise em particular, como explica o [SECURITY.md](SECURITY.md).
 
 ## Licença
 
