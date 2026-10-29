@@ -38,6 +38,11 @@ export function interpretarMunicipio(texto: string): Municipio[] {
   return MUNICIPIOS.filter((m) => m.busca === busca && (!uf || m.uf === uf)).map((m) => ({ nome: m.nome, uf: m.uf }));
 }
 
+/** Se a cidade está gravada com o nome oficial do IBGE, com os acentos, naquela UF. */
+export function ehNomeOficial(cidade: string, uf: string): boolean {
+  return MUNICIPIOS.some((m) => m.uf === uf && m.nome === cidade);
+}
+
 /** O município do campo de cidade, ou o erro que o formulário mostra. Vale no navegador e no servidor. */
 export function conferirMunicipio(texto: string): { municipio: Municipio } | { erro: string } {
   if (!texto.trim()) return { erro: "Em que cidade fica? Digite e escolha na lista." };
