@@ -116,8 +116,7 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 | --- | --- | --- |
 | Nome | Sim | 2 a 80 caracteres. |
 | Categoria | Sim | Uma da lista fixa (ver [seção 12](#categorias)). |
-| Cidade | Sim | 2 a 60 caracteres. Texto livre. |
-| Estado (UF) | Sim | Uma das 27 siglas. |
+| Cidade e estado (UF) | Sim | Um município da lista do IBGE, escolhido no campo de cidade, que sugere cidades enquanto a pessoa digita. O estado vem junto com a cidade. O servidor confere na mesma lista e grava o nome oficial, com acentos (ver [seção 12](#municípios)). |
 | Resumo ("em uma frase") | Sim | 10 a 160 caracteres. Aparece nos cards do diretório. |
 | Site | Não | Até 200 caracteres. Sem `http`, ganha `https://`. Precisa ter um ponto no domínio. |
 | WhatsApp | Não | Número brasileiro com DDD (ver abaixo). |
@@ -176,7 +175,7 @@ Repare: aprovar uma reivindicação **também publica** o negócio. Por isso a a
 Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`.
 
 - **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta.
-- **Dados pedidos:** @ do Instagram, nome, categoria, cidade, UF e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
+- **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil.
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
@@ -645,6 +644,17 @@ A categoria é guardada como texto. Renomear uma categoria exige atualizar os ne
 
 As 27 UFs do Brasil. Só negócios brasileiros por enquanto: a UF é obrigatória e o WhatsApp só aceita números do Brasil.
 
+### Municípios
+
+A cidade vem da lista de municípios do IBGE, gravada no projeto em `src/lib/municipios.json` (5.571 municípios). Código: `src/lib/municipios.ts`, o campo em `src/components/CampoMunicipio.tsx` e a validação em `campoMunicipio`, em `src/lib/formulario.ts`.
+
+- **O campo sugere até 8 cidades a partir de 2 letras:** primeiro as que começam com o texto, depois as que têm uma palavra começando com ele, depois o resto, em ordem alfabética. Acentos e maiúsculas não importam ("sao joao del rei" acha São João del Rei).
+- **Cidades com o mesmo nome** aparecem com a UF ao lado (Bom Jesus existe em cinco estados).
+- **O formulário envia "Cidade, UF".** O servidor também aceita "Cidade/UF", "Cidade - UF" e só o nome, quando ele não se repete em outro estado. Assim o formulário funciona antes do JavaScript carregar.
+- **Recusas:** cidade em branco ("Em que cidade fica?"), nome que existe em mais de um estado sem a UF ("Existe mais de uma cidade chamada…") e nome fora da lista ("Escolha a cidade na lista. Se ela não aparecer, confira a grafia.").
+- **Grava o nome oficial:** quem digita "niteroi" e sai do campo fica com "Niterói, RJ".
+- **A lista é atualizada à mão,** com `npm run municipios:atualizar`, quando o IBGE criar ou renomear um município.
+
 ---
 
 ## 13. Auditoria
@@ -735,6 +745,7 @@ Para uma ação nova de moderação, registre sempre na auditoria.
 | Validade dos outros pedidos | 30 dias (informativa) | `src/lib/reivindicacao.ts` |
 | Nome do negócio | 2 a 80 caracteres | `src/acoes/empresas.ts` |
 | Resumo | 10 a 160 caracteres | `src/acoes/empresas.ts` |
+| Sugestões do campo de cidade | até 8, a partir de 2 letras | `src/lib/municipios.ts` |
 | Motivo da indicação | até 600 caracteres | `src/acoes/empresas.ts` |
 | História | até 20 mil caracteres | `src/acoes/empresas.ts` |
 | Depoimento | 20 a 1.500 caracteres | `src/acoes/depoimentos.ts` |
@@ -763,6 +774,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 - **Tudo entra no ar sem conferência:** indicações são publicadas na hora, e quem pede um negócio sem dono vira dono na hora. A moderação só age depois, e ninguém da moderação é avisado quando chega algo novo.
 - **Um @ tirado do ar fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404 até a moderação publicar de novo.
 - **O @ de um negócio não muda.** Se o negócio trocar de @ no Instagram, hoje só dá para ajustar direto no banco.
+- **Cidades cadastradas antes da lista do IBGE** continuam como foram digitadas até o negócio ser editado. Se a grafia não bate com a lista, a edição pede para escolher a cidade de novo.
 - **Não dá para tirar um dono** sem transferir o perfil para outra pessoa. O selo "Verificado pelo dono" não volta atrás.
 - "Atualizada em", ao lado da história, usa a data da última mudança em **qualquer** dado do negócio (inclusive foto e visibilidade), não só no texto.
 

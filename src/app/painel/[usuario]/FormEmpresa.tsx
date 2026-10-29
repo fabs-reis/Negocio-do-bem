@@ -6,10 +6,12 @@ import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { enviarSemLimpar } from "@/components/envio";
 import { Campo } from "@/components/Campo";
+import { CampoMunicipio } from "@/components/CampoMunicipio";
 import { EditorHistoria } from "@/components/EditorHistoria";
 import { Historia } from "@/components/Historia";
 import { SeletorCausas } from "@/components/SeletorCausas";
-import { CATEGORIAS, UFS } from "@/lib/dominio";
+import { CATEGORIAS } from "@/lib/dominio";
+import { formatarMunicipio } from "@/lib/texto";
 
 type DadosEmpresa = {
   id: string;
@@ -51,7 +53,7 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         <Campo id="resumo" rotulo="Em uma frase" erro={erros.resumo} ajuda="Aparece nos cards do diretório. Até 160 caracteres.">
           <input id="resumo" name="resumo" required maxLength={160} defaultValue={valor("resumo")} className="campo" />
         </Campo>
-        <div className="grid gap-4 sm:grid-cols-[1fr_1fr_7rem]">
+        <div className="grid items-start gap-4 sm:grid-cols-2">
           <Campo id="categoria" rotulo="Categoria" erro={erros.categoria}>
             <select id="categoria" name="categoria" defaultValue={valor("categoria")} className="campo">
               {CATEGORIAS.map((c) => (
@@ -59,16 +61,10 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
               ))}
             </select>
           </Campo>
-          <Campo id="cidade" rotulo="Cidade" erro={erros.cidade}>
-            <input id="cidade" name="cidade" required maxLength={60} defaultValue={valor("cidade")} className="campo" />
-          </Campo>
-          <Campo id="uf" rotulo="Estado" erro={erros.uf}>
-            <select id="uf" name="uf" defaultValue={valor("uf")} className="campo">
-              {UFS.map((uf) => (
-                <option key={uf}>{uf}</option>
-              ))}
-            </select>
-          </Campo>
+          <CampoMunicipio
+            valorInicial={typeof valores?.municipio === "string" ? valores.municipio : formatarMunicipio(empresa.cidade, empresa.uf)}
+            erro={erros.municipio}
+          />
         </div>
       </section>
 

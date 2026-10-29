@@ -1,4 +1,18 @@
 import { z, type ZodError } from "zod";
+import { conferirMunicipio } from "@/lib/municipios";
+
+/** Cidade do campo de cidade ("Recife, PE"), conferida na lista do IBGE. Devolve o nome oficial e a UF. */
+export const campoMunicipio = z
+  .string()
+  .max(120, "Nome de cidade muito longo.")
+  .transform((valor, ctx) => {
+    const resultado = conferirMunicipio(valor);
+    if ("erro" in resultado) {
+      ctx.addIssue({ code: "custom", message: resultado.erro });
+      return z.NEVER;
+    }
+    return resultado.municipio;
+  });
 
 /** Site opcional: aceita "meunegocio.com.br" e devolve a URL completa, ou null se vazio. */
 export const campoSite = z

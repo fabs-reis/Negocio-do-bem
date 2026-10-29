@@ -7,8 +7,9 @@ import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { enviarSemLimpar } from "@/components/envio";
 import { Campo } from "@/components/Campo";
+import { CampoMunicipio } from "@/components/CampoMunicipio";
 import { SeletorCausas } from "@/components/SeletorCausas";
-import { CATEGORIAS, UFS } from "@/lib/dominio";
+import { CATEGORIAS } from "@/lib/dominio";
 
 export function FormIndicar() {
   const [estado, acao, pendente] = useActionState(indicarEmpresa, undefined);
@@ -55,7 +56,7 @@ export function FormIndicar() {
         <input id="nome" name="nome" required maxLength={80} defaultValue={valor("nome")} className="campo" />
       </Campo>
 
-      <div className="grid gap-4 sm:grid-cols-[1fr_1fr_7rem]">
+      <div className="grid items-start gap-4 sm:grid-cols-2">
         <Campo rotulo="Categoria" erro={erros.categoria} id="categoria">
           <select id="categoria" name="categoria" required defaultValue={valor("categoria")} className="campo">
             <option value="" disabled>
@@ -66,19 +67,7 @@ export function FormIndicar() {
             ))}
           </select>
         </Campo>
-        <Campo rotulo="Cidade" erro={erros.cidade} id="cidade">
-          <input id="cidade" name="cidade" required maxLength={60} defaultValue={valor("cidade")} className="campo" />
-        </Campo>
-        <Campo rotulo="Estado" erro={erros.uf} id="uf">
-          <select id="uf" name="uf" required defaultValue={valor("uf")} className="campo">
-            <option value="" disabled>
-              UF
-            </option>
-            {UFS.map((uf) => (
-              <option key={uf}>{uf}</option>
-            ))}
-          </select>
-        </Campo>
+        <CampoMunicipio valorInicial={valor("municipio")} erro={erros.municipio} />
       </div>
 
       <Campo rotulo="Em uma frase, o que este negócio faz?" erro={erros.resumo} id="resumo" ajuda="Até 160 caracteres.">
