@@ -124,7 +124,15 @@ Os testes usam um banco separado (`negocio_do_bem_teste`, ou o de `TEST_DATABASE
 
 ## Publicando
 
-Funciona em qualquer hospedagem de Next.js com um PostgreSQL gerenciado, por exemplo Vercel com Neon ou Supabase.
+Funciona em qualquer hospedagem de Next.js com um PostgreSQL gerenciado.
+
+**No Vercel**
+
+1. Em **Storage**, crie um banco **Neon** e conecte ao projeto sem prefixo, para as variáveis se chamarem `DATABASE_URL` e `DATABASE_URL_UNPOOLED`.
+2. Em **Environment Variables**, configure `ADMIN_EMAILS` e `APP_URL` (o domínio público, como `https://seu-projeto.vercel.app`). As do Instagram são opcionais.
+3. Pronto. A cada deploy de produção, o `scripts/vercel-build.sh` aplica as migrações pendentes antes do build.
+
+**Em outra hospedagem**
 
 1. Configure as variáveis de `.env.example` no painel da hospedagem. `APP_URL` precisa ser o domínio público.
 2. Aplique as migrações no banco de produção com `npm run db:deploy`. Faça isso a cada mudança no `prisma/schema.prisma`.
