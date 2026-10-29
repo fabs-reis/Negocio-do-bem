@@ -7,9 +7,10 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { caminhoSeguro, exigirUsuario } from "@/lib/auth/sessao";
 import { filtrarCausas } from "@/lib/causas";
 import { db } from "@/lib/db";
-import { CATEGORIAS, UFS } from "@/lib/dominio";
+import { CATEGORIAS } from "@/lib/dominio";
 import {
   campoEmail,
+  campoMunicipio,
   campoSite,
   campoWhatsapp,
   errosPorCampo,
@@ -25,8 +26,7 @@ const LIMITE_INDICACOES_POR_DIA = 10;
 const camposComuns = {
   nome: z.string().trim().min(2, "Qual é o nome do negócio?").max(80, "Nome muito longo."),
   categoria: z.enum(CATEGORIAS, { error: "Escolha uma categoria." }),
-  cidade: z.string().trim().min(2, "Em que cidade fica?").max(60, "Nome de cidade muito longo."),
-  uf: z.enum(UFS, { error: "Escolha o estado." }),
+  municipio: campoMunicipio,
   resumo: z.string().trim().min(10, "Escreva uma frase sobre o negócio.").max(160, "Use até 160 caracteres."),
 };
 
@@ -38,6 +38,11 @@ const camposContato = {
 
 function lerContato(dados: FormData) {
   return { site: texto(dados, "site"), whatsapp: texto(dados, "whatsapp"), emailContato: texto(dados, "emailContato") };
+}
+
+/** O banco guarda cidade e UF em colunas separadas; o formulário manda os dois juntos. */
+function comCidade<T extends { municipio: { nome: string; uf: string } }>({ municipio, ...campos }: T) {
+  return { ...campos, cidade: municipio.nome, uf: municipio.uf };
 }
 
 const esquemaIndicacao = z.object({
@@ -62,14 +67,13 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
     instagram: texto(dados, "instagram"),
     nome: texto(dados, "nome"),
     categoria: texto(dados, "categoria"),
-    cidade: texto(dados, "cidade"),
-    uf: texto(dados, "uf"),
+    municipio: texto(dados, "municipio"),
     resumo: texto(dados, "resumo"),
     motivo: texto(dados, "motivo") || undefined,
     ...lerContato(dados),
   });
   if (!resultado.success) return { erros: errosPorCampo(resultado.error), valores };
-  const { instagram, motivo, ...campos } = resultado.data;
+  const { instagram, motivo, ...campos } = comCidade(resultado.data);
   const souDono = dados.get("souDono") === "sim";
 
   const existente = await db.empresa.findUnique({ where: { instagramUsername: instagram } });
@@ -162,14 +166,13 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
   const resultado = esquemaEdicao.safeParse({
     nome: texto(dados, "nome"),
     categoria: texto(dados, "categoria"),
-    cidade: texto(dados, "cidade"),
-    uf: texto(dados, "uf"),
+    municipio: texto(dados, "municipio"),
     resumo: texto(dados, "resumo"),
     historia: texto(dados, "historia").replace(/\r\n/g, "\n"),
     ...lerContato(dados),
   });
   if (!resultado.success) return { erros: errosPorCampo(resultado.error), valores };
-  const campos = resultado.data;
+  const campos = comCidade(resultado.data);
   const causas = filtrarCausas(dados.getAll("causas").map(String));
 
   await db.$transaction([

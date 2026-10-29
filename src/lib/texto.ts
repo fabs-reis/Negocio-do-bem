@@ -48,6 +48,11 @@ export function tempoDeLeitura(markdown: string): number {
   return Math.max(1, Math.round(palavras / 200));
 }
 
+/** "Recife, PE": como o campo de cidade mostra a cidade escolhida. */
+export function formatarMunicipio(cidade: string, uf: string): string {
+  return `${cidade}, ${uf}`;
+}
+
 /** "5511991488052" → "(11) 99148-8052". */
 export function formatarWhatsapp(digitos: string): string {
   const local = digitos.replace(/^55/, "");
