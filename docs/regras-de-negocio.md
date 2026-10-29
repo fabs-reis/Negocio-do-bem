@@ -70,7 +70,10 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - "Sair" apaga a sessão do banco e o cookie.
 - **Volta para onde a pessoa estava:**
   - páginas que exigem login mandam para `/entrar?voltar=<caminho>`;
-  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site.
+  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site;
+  - `caminhoSeguro` recusa o valor com caractere de controle (de U+0000 a U+001F e U+007F, como TAB, LF e CR), com `//` no começo ou com barra invertida;
+  - depois ele interpreta o valor como URL (padrão WHATWG) e só aceita se a origem continuar a do site, porque o TAB, o LF e o CR somem na interpretação e `/<TAB>/host` viraria `//host`;
+  - o que ele recusa cai no destino padrão, e o caminho interno válido (com consulta e âncora) passa sem mudar.
 
 ### Papéis
 
