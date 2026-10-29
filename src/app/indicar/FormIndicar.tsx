@@ -32,7 +32,7 @@ export function FormIndicar() {
         <span>
           <span className="block font-medium">Este negócio é meu</span>
           <span className="block text-sm text-suave">
-            Depois de cadastrar, você envia os dados do negócio e a moderação libera a edição do perfil.
+            Depois de cadastrar, você envia os dados do negócio e já pode editar o perfil.
           </span>
         </span>
       </label>

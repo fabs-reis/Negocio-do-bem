@@ -2,7 +2,8 @@
 //
 // Há três caminhos (ver README):
 //   - "documento": o caminho principal. A pessoa envia os dados do negócio (CNPJ,
-//     site, contato) e a moderação confere com o @ do Instagram antes de aprovar.
+//     site, contato). Se o negócio ainda não tem dono, ela vira dona na hora; se já
+//     tem (disputa) ou foi tirado do ar, a moderação decide.
 //   - "instagram_login": login na conta profissional; aprovação instantânea.
 //     Desligado enquanto as variáveis do app da Meta estiverem vazias.
 //   - "codigo_dm": o dono manda um código por DM, a partir do @ do negócio, para o
@@ -200,6 +201,15 @@ export async function processarLoginInstagram(params: {
 // Caminho 3: documento
 // ---------------------------------------------------------------------------
 
+/** Negócio sem dono e no ar: a reivindicação pelos dados do negócio é aprovada sozinha. */
+function aprovaSozinhoPorDocumento(empresa: { moderacao: string; membros: unknown[] }): boolean {
+  return empresa.moderacao !== "rejeitada" && empresa.membros.length === 0;
+}
+
+/**
+ * Recebe os dados do negócio. Devolve a solicitação já aprovada quando o negócio
+ * não tem dono, ou pendente para a moderação decidir.
+ */
 export async function solicitarPorDocumento(params: {
   empresaId: string;
   usuarioId: string;
@@ -216,7 +226,7 @@ export async function solicitarPorDocumento(params: {
   if (emAnalise) throw new ErroReivindicacao("Você já enviou os dados deste negócio e eles estão em análise.");
   await exigirLimiteDiario(params.usuarioId);
 
-  return db.reivindicacao.create({
+  const reivindicacao = await db.reivindicacao.create({
     data: {
       empresaId: params.empresaId,
       usuarioId: params.usuarioId,
@@ -229,6 +239,38 @@ export async function solicitarPorDocumento(params: {
       expiraEm: daquiA(VALIDADE_ANALISE_DIAS * DIA),
     },
   });
+
+  const empresa = await db.empresa.findUniqueOrThrow({ where: { id: params.empresaId }, include: { membros: true } });
+  if (!aprovaSozinhoPorDocumento(empresa)) return reivindicacao;
+  await aprovar({ reivindicacaoId: reivindicacao.id, revisorId: null });
+  return db.reivindicacao.findUniqueOrThrow({ where: { id: reivindicacao.id } });
+}
+
+/**
+ * Aplica a regra acima às solicitações pelos dados do negócio que ficaram na fila.
+ * Vale a ordem de chegada: se duas pessoas pediram o mesmo negócio, a primeira vira
+ * dona e a segunda continua com a moderação. Devolve quantas foram aprovadas.
+ */
+export async function aprovarPendentesSemDono(revisorId: string): Promise<number> {
+  const pendentes = await db.reivindicacao.findMany({
+    where: { status: "pendente", metodo: "documento" },
+    orderBy: { criadoEm: "asc" },
+    select: { id: true, empresaId: true },
+  });
+
+  let aprovadas = 0;
+  for (const { id, empresaId } of pendentes) {
+    const empresa = await db.empresa.findUniqueOrThrow({ where: { id: empresaId }, include: { membros: true } });
+    if (!aprovaSozinhoPorDocumento(empresa)) continue;
+    try {
+      await aprovar({ reivindicacaoId: id, revisorId });
+      aprovadas++;
+    } catch (erro) {
+      // Outra pessoa da moderação decidiu esta solicitação no meio do caminho.
+      if (!(erro instanceof ErroReivindicacao)) throw erro;
+    }
+  }
+  return aprovadas;
 }
 
 // ---------------------------------------------------------------------------

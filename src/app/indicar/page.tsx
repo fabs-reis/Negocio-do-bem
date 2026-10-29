@@ -14,8 +14,8 @@ export default function Indicar() {
         Conhece um negócio que faz o bem?
       </h1>
       <p className="mt-4 text-lg leading-relaxed text-suave">
-        Conte pra comunidade. A indicação passa por uma moderação rápida e, depois, o dono pode assumir o perfil e contar
-        a própria história.
+        Conte pra comunidade. A indicação entra no ar na hora e, depois, o dono pode assumir o perfil e contar a própria
+        história.
       </p>
       <div className="mt-10">
         <Suspense fallback={<div className="h-[40rem] animate-pulse rounded-3xl bg-superficie" />}>

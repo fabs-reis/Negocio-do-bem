@@ -94,8 +94,8 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
       instagramUsername: instagram,
       motivoIndicacao: souDono ? null : motivo || null,
       indicadaPorId: usuario.id,
-      // Indicações de moderadores já entram publicadas.
-      moderacao: usuario.moderador ? "aprovada" : "pendente",
+      // Toda indicação entra publicada. A moderação tira do ar o que for impróprio.
+      moderacao: "aprovada",
       busca: textoDeBusca({ ...campos, instagramUsername: instagram }),
       causas: { create: filtrarCausas(dados.getAll("causas").map(String)).map((causa) => ({ causa })) },
     },

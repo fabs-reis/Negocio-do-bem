@@ -31,12 +31,12 @@ export default function Sobre() {
         <h2>Como funciona</h2>
         <ol>
           <li>
-            <strong>Alguém indica</strong> um negócio pelo @ do Instagram e conta por que ele faz o bem. Uma moderação
-            rápida evita spam e perfis falsos.
+            <strong>Alguém indica</strong> um negócio pelo @ do Instagram e conta por que ele faz o bem. O perfil entra no
+            ar na hora, e a moderação tira do ar o que for spam ou perfil falso.
           </li>
           <li>
-            <strong>O dono assume o perfil</strong> enviando os dados do negócio, que a moderação confere. A partir daí,
-            ele cuida das informações. A moderação também pode corrigir qualquer perfil, e cada mudança fica registrada.
+            <strong>O dono assume o perfil</strong> enviando os dados do negócio. A partir daí, ele cuida das
+            informações. A moderação também pode corrigir qualquer perfil, e cada mudança fica registrada.
           </li>
           <li>
             <strong>A comunidade fortalece</strong> deixando depoimentos e buscando pelas causas que importam.
@@ -52,8 +52,8 @@ export default function Sobre() {
           estiver lá, <Link href="/indicar">cadastre</Link> marcando &ldquo;Este negócio é meu&rdquo;.
         </p>
         <p>
-          Depois, envie os dados do negócio: CNPJ ou MEI (se tiver), site e um contato. A moderação confere esses dados
-          com o @ do Instagram e aprova, normalmente em até um dia útil. O resultado aparece no seu painel.
+          Depois, envie os dados do negócio: CNPJ ou MEI (se tiver), site e um contato. Se ninguém assumiu o perfil
+          ainda, ele passa a ser seu na hora, e você já pode editá-lo no painel.
         </p>
         <p>
           Se outra pessoa já assumiu o seu perfil, use a mesma página para pedir a revisão. Qualquer disputa vai para a

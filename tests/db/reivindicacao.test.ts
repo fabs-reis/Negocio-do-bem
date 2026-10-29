@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import {
   aprovar,
+  aprovarPendentesSemDono,
   ErroReivindicacao,
   iniciarPorCodigoDm,
   processarDm,
@@ -228,9 +229,78 @@ describe("Entrar com Instagram", () => {
 });
 
 describe("documento e moderação", () => {
-  it("cria a solicitação com CNPJ e site e não deixa duplicar enquanto está em análise", async () => {
+  const dadosDoNegocio = { cnpj: null, site: null, relacao: "Dona", contato: "(81) 99999-0000", mensagem: null };
+
+  it("aprova na hora quando o negócio ainda não tem dono", async () => {
     const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("sem.dono");
+
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
+
+    expect(pedido.status).toBe("aprovada");
+    expect(pedido.revisadoPorId).toBeNull();
+    expect(await donos(empresa.id)).toEqual([pessoa.id]);
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ status: "verificada", moderacao: "aprovada" });
+    expect(await db.registroAuditoria.findFirst({ where: { acao: "reivindicacao.aprovada" } })).toMatchObject({ usuarioId: null });
+  });
+
+  it("deixa para a moderação quando o negócio foi tirado do ar", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("fora.do.ar");
+    await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });
+
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
+
+    expect(pedido.status).toBe("pendente");
+    expect(await donos(empresa.id)).toEqual([]);
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).moderacao).toBe("rejeitada");
+  });
+
+  it("aprova a fila antiga por ordem de chegada, só nos negócios sem dono e no ar", async () => {
+    const [primeira, segunda, terceira, quarta, dono, moderador] = await Promise.all(
+      ["Primeira", "Segunda", "Terceira", "Quarta", "Dono", "Moderação"].map((nome) => criarUsuario(nome)),
+    );
+    const semDono = await criarEmpresa("fila.sem.dono");
+    const comDono = await criarEmpresa("fila.com.dono");
+    const foraDoAr = await criarEmpresa("fila.fora.do.ar");
+    await db.empresaMembro.create({ data: { empresaId: comDono.id, usuarioId: dono.id } });
+    await db.empresa.update({ where: { id: foraDoAr.id }, data: { moderacao: "rejeitada" } });
+
+    // Pedidos feitos antes da aprovação automática, que ficaram pendentes.
+    const naFila = (empresaId: string, usuarioId: string, minutosAtras: number) =>
+      db.reivindicacao.create({
+        data: {
+          empresaId,
+          usuarioId,
+          metodo: "documento",
+          relacao: "Dona",
+          contato: "x",
+          criadoEm: new Date(Date.now() - minutosAtras * 60_000),
+          expiraEm: new Date(Date.now() + 86_400_000),
+        },
+      });
+    const pedidoDaSegunda = await naFila(semDono.id, segunda.id, 5);
+    const pedidoDaPrimeira = await naFila(semDono.id, primeira.id, 10);
+    const pedidoDaTerceira = await naFila(comDono.id, terceira.id, 10);
+    const pedidoDaQuarta = await naFila(foraDoAr.id, quarta.id, 10);
+
+    expect(await aprovarPendentesSemDono(moderador.id)).toBe(1);
+
+    const status = async (id: string) => (await db.reivindicacao.findUniqueOrThrow({ where: { id } })).status;
+    expect(await status(pedidoDaPrimeira.id)).toBe("aprovada");
+    expect(await status(pedidoDaSegunda.id)).toBe("pendente");
+    expect(await status(pedidoDaTerceira.id)).toBe("pendente");
+    expect(await status(pedidoDaQuarta.id)).toBe("pendente");
+    expect(await donos(semDono.id)).toEqual([primeira.id]);
+    expect(await donos(comDono.id)).toEqual([dono.id]);
+    expect(await db.registroAuditoria.findFirst({ where: { acao: "reivindicacao.aprovada" } })).toMatchObject({ usuarioId: moderador.id });
+  });
+
+  it("guarda CNPJ e site e não deixa duplicar enquanto está em análise", async () => {
+    const pessoa = await criarUsuario();
+    const dono = await criarUsuario();
     const empresa = await criarEmpresa("ateliê".normalize("NFD").replace(/[̀-ͯ]/g, ""));
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
     const dados = {
       empresaId: empresa.id,
       usuarioId: pessoa.id,
@@ -244,13 +314,16 @@ describe("documento e moderação", () => {
     const pedido = await solicitarPorDocumento(dados);
 
     expect(pedido).toMatchObject({ metodo: "documento", status: "pendente", cnpj: "11222333000181", site: "https://atelie.example.com/" });
+    expect(await donos(empresa.id)).toEqual([dono.id]);
     await expect(solicitarPorDocumento(dados)).rejects.toBeInstanceOf(ErroReivindicacao);
   });
 
   it("recusa com motivo e registra na auditoria", async () => {
     const pessoa = await criarUsuario();
     const moderador = await criarUsuario();
+    const dono = await criarUsuario();
     const empresa = await criarEmpresa("loja.x");
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
     const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, cnpj: null, site: null, relacao: "Dono", contato: "x", mensagem: null });
 
     await recusar({ reivindicacaoId: pedido.id, revisorId: moderador.id, motivo: "Não conseguimos confirmar." });

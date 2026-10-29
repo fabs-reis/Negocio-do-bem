@@ -37,9 +37,9 @@ Quase toda regra do sistema sai de um destes princípios. Diante de uma decisão
 
 O diretório cresce sem precisar que os donos se cadastrem primeiro: qualquer pessoa indica. Isso traz um risco, que é alguém se passar pelo dono ou cadastrar um perfil falso. A resposta tem três partes:
 
-- **Antes de publicar, a moderação revisa cada indicação.**
+- **A moderação corrige depois.** Indicações entram no ar na hora, e a moderação tira do ar o que for spam ou perfil falso. Até a [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), cada indicação esperava a revisão, mas a fila cresceu mais rápido do que dava para revisar.
 - **O selo diz quem falou.** "Indicado pela comunidade" e "Verificado pelo dono" são selos diferentes, então quem visita sabe se o perfil foi confirmado.
-- **Ninguém vira dono sem prova.** A moderação confere CNPJ, site e contato com o @ do Instagram antes de aprovar.
+- **Quem chega primeiro num negócio sem dono vira dono.** O pedido pelos dados do negócio é aprovado na hora quando ninguém assumiu o perfil. Disputas, quando o negócio já tem dono, continuam com a moderação.
 
 ### O @ do Instagram é a identidade do negócio
 
@@ -50,8 +50,10 @@ Cada negócio é o seu @: ele é único, é o endereço da página (`/empresas/<
 
 ### Na dúvida, uma pessoa decide
 
-- **Quando a máquina aprova sozinha:** só nos caminhos pelo Instagram, e só quando não há nenhum conflito.
-- **Quando uma pessoa decide:** em qualquer situação estranha. O negócio já tem dono, o @ trocou de conta, ou a conta está ligada a outro perfil.
+- **Quando a máquina aprova sozinha:**
+  - no pedido pelos dados do negócio, quando o negócio não tem dono e está no ar;
+  - nos caminhos pelo Instagram, quando não há nenhum conflito.
+- **Quando uma pessoa decide:** em qualquer situação estranha. O negócio já tem dono, foi tirado do ar, o @ trocou de conta, ou a conta está ligada a outro perfil.
 - **O que a pessoa da moderação recebe:** uma anotação explicando o que aconteceu, e a escolha entre adicionar como co-dono ou transferir.
 - **O que fica registrado:** toda decisão vai para a auditoria.
 
@@ -193,6 +195,16 @@ O objetivo era medir o tráfego do site.
 
 - **Só em produção:** o Analytics carrega apenas quando `NEXT_PUBLIC_GA_ID` existe, e ela só está configurada em Production. Cópias do projeto e previews não mandam dados.
 - **Sem aviso de cookies:** foi uma decisão do projeto. A seção de privacidade de "Como funciona" explica a medição.
+
+### 29 de outubro: aprovação automática ([#20](https://github.com/fabsreis/Negocio-do-bem/issues/20))
+
+No primeiro dia no ar, a fila da moderação chegou a 16 reivindicações e 20 indicações, e aprovar uma por uma virou gargalo. A decisão foi trocar "aprovar antes" por "corrigir depois":
+
+- **Indicações** entram no ar na hora. A aba Negócios da moderação ganhou "Tirar do ar" e "Publicar de novo", que não existiam.
+- **Reivindicações pelos dados do negócio** são aprovadas na hora quando o negócio não tem dono e está no ar. Disputas continuam com a moderação.
+- **A fila antiga** se esvazia com dois botões: "Publicar todas" e "Aprovar os N pedidos sem dono".
+- **A consulta à Receita** voltou a funcionar ([#21](https://github.com/fabsreis/Negocio-do-bem/issues/21)). A BrasilAPI recusava o User-Agent padrão do `fetch` do Node e respondia 403.
+- **O risco aceito:** qualquer conta assume um perfil que ainda não tem dono. Uma verificação de verdade fica como próximo passo. Por exemplo, comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
 
 ---
 

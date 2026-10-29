@@ -5,10 +5,37 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
-import { aprovar, ErroReivindicacao, recusar, type ModoAprovacao } from "@/lib/reivindicacao";
+import { aprovar, aprovarPendentesSemDono, ErroReivindicacao, recusar, type ModoAprovacao } from "@/lib/reivindicacao";
 
 function voltar(aba: string, aviso: string): never {
   redirect(`/moderacao?aba=${aba}&aviso=${aviso}`);
+}
+
+/** Esvazia a fila antiga: aprova as reivindicações de negócios que ainda não têm dono. */
+export async function aprovarReivindicacoesSemDono(): Promise<void> {
+  const moderador = await exigirModerador();
+  await aprovarPendentesSemDono(moderador.id);
+  voltar("reivindicacoes", "feito");
+}
+
+/** Esvazia a fila antiga: publica todas as indicações que esperavam a moderação. */
+export async function publicarIndicacoesPendentes(): Promise<void> {
+  const moderador = await exigirModerador();
+  const pendentes = await db.empresa.findMany({ where: { moderacao: "pendente" }, select: { id: true, instagramUsername: true } });
+  for (const { id, instagramUsername } of pendentes) {
+    await db.$transaction(async (tx) => {
+      const { count } = await tx.empresa.updateMany({ where: { id, moderacao: "pendente" }, data: { moderacao: "aprovada" } });
+      if (count === 0) return;
+      await registrarAuditoria(tx, {
+        usuarioId: moderador.id,
+        acao: "empresa.aprovada",
+        alvoTipo: "empresa",
+        alvoId: id,
+        detalhes: `@${instagramUsername}`,
+      });
+    });
+  }
+  voltar("indicacoes", "feito");
 }
 
 export async function aprovarReivindicacao(dados: FormData): Promise<void> {
@@ -35,9 +62,11 @@ export async function recusarReivindicacao(dados: FormData): Promise<void> {
   voltar("reivindicacoes", "feito");
 }
 
+/** Publica ou tira do ar um negócio. Serve para a fila de indicações e para a aba Negócios. */
 export async function moderarEmpresa(dados: FormData): Promise<void> {
   const moderador = await exigirModerador();
   const decisao = dados.get("decisao") === "aprovar" ? "aprovada" : "rejeitada";
+  const aba = dados.get("aba") === "negocios" ? "negocios" : "indicacoes";
   const empresa = await db.empresa.update({
     where: { id: texto(dados, "empresaId") },
     data: { moderacao: decisao },
@@ -47,8 +76,9 @@ export async function moderarEmpresa(dados: FormData): Promise<void> {
     acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",
     alvoTipo: "empresa",
     alvoId: empresa.id,
+    detalhes: `@${empresa.instagramUsername}`,
   });
-  voltar("indicacoes", "feito");
+  voltar(aba, "feito");
 }
 
 export async function decidirDenuncia(dados: FormData): Promise<void> {

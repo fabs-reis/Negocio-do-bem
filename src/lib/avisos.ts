@@ -5,7 +5,7 @@ import type { TipoAviso } from "@/components/Aviso";
 export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   indicada: {
     tipo: "sucesso",
-    texto: "Obrigado por indicar! O perfil entra no diretório assim que a moderação aprovar.",
+    texto: "Obrigado por indicar! O perfil já está no diretório.",
   },
   verificada: {
     tipo: "sucesso",
@@ -21,7 +21,7 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   },
   documento_enviado: {
     tipo: "info",
-    texto: "Recebemos seus dados. A moderação vai entrar em contato pelo meio que você informou.",
+    texto: "Recebemos seus dados. Como este perfil já tem dono, a moderação decide e pode falar com você pelo contato informado.",
   },
   ig_conta_diferente: {
     tipo: "erro",

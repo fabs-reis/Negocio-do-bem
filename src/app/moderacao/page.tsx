@@ -2,7 +2,14 @@ import type { Metadata } from "next";
 import Form from "next/form";
 import Link from "next/link";
 import { Suspense } from "react";
-import { aprovarReivindicacao, decidirDenuncia, moderarEmpresa, recusarReivindicacao } from "@/acoes/moderacao";
+import {
+  aprovarReivindicacao,
+  aprovarReivindicacoesSemDono,
+  decidirDenuncia,
+  moderarEmpresa,
+  publicarIndicacoesPendentes,
+  recusarReivindicacao,
+} from "@/acoes/moderacao";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CausaBadge } from "@/components/CausaBadge";
@@ -84,20 +91,43 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
 }
 
 async function Reivindicacoes({ codigo }: { codigo: string | null }) {
-  const pendentes = await db.reivindicacao.findMany({
-    where: { status: "pendente", ...(codigo ? { codigo } : {}) },
-    orderBy: { criadoEm: "asc" },
-    take: 50,
-    include: {
-      usuario: { select: { nome: true, email: true } },
-      empresa: { include: { membros: { include: { usuario: { select: { nome: true, email: true } } } } } },
-    },
-  });
+  const [pendentes, semDono] = await Promise.all([
+    db.reivindicacao.findMany({
+      where: { status: "pendente", ...(codigo ? { codigo } : {}) },
+      orderBy: { criadoEm: "asc" },
+      take: 50,
+      include: {
+        usuario: { select: { nome: true, email: true } },
+        empresa: { include: { membros: { include: { usuario: { select: { nome: true, email: true } } } } } },
+      },
+    }),
+    // Um negócio por vez: se duas pessoas pediram o mesmo, só a primeira é aprovada.
+    db.reivindicacao.findMany({
+      where: {
+        status: "pendente",
+        metodo: "documento",
+        empresa: { moderacao: { not: "rejeitada" }, membros: { none: {} } },
+      },
+      distinct: ["empresaId"],
+      select: { id: true },
+    }),
+  ]);
   const oficial = perfilOficial();
   const agora = new Date();
 
   return (
     <div className="space-y-4">
+      {semDono.length > 0 && (
+        <form action={aprovarReivindicacoesSemDono} className="cartao flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-suave">
+            Pedidos novos de negócios sem dono já são aprovados na hora. Estes chegaram antes dessa regra.
+          </p>
+          <BotaoEnviar className="botao botao-pequeno whitespace-nowrap" enviando="Aprovando…">
+            Aprovar {semDono.length === 1 ? "o pedido" : `os ${semDono.length} pedidos`} sem dono
+          </BotaoEnviar>
+        </form>
+      )}
+
       {oficial && (
         <Form action="/moderacao" className="cartao flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
           <input type="hidden" name="aba" value="reivindicacoes" />
@@ -295,9 +325,19 @@ async function Negocios({ busca }: { busca: string }) {
                   {e.oculta && " · oculto"}
                 </p>
               </div>
-              <Link href={`/moderacao/negocios/${e.instagramUsername}`} className="botao-claro botao-pequeno">
-                Editar perfil
-              </Link>
+              <div className="flex gap-2">
+                <Link href={`/moderacao/negocios/${e.instagramUsername}`} className="botao-claro botao-pequeno">
+                  Editar perfil
+                </Link>
+                <form action={moderarEmpresa}>
+                  <input type="hidden" name="empresaId" value={e.id} />
+                  <input type="hidden" name="aba" value="negocios" />
+                  <input type="hidden" name="decisao" value={e.moderacao === "aprovada" ? "rejeitar" : "aprovar"} />
+                  <BotaoEnviar className={`${e.moderacao === "aprovada" ? "botao-claro" : "botao"} botao-pequeno`} enviando="…">
+                    {e.moderacao === "aprovada" ? "Tirar do ar" : e.moderacao === "rejeitada" ? "Publicar de novo" : "Publicar"}
+                  </BotaoEnviar>
+                </form>
+              </div>
             </li>
           ))}
         </ul>
@@ -320,6 +360,16 @@ async function Indicacoes() {
 
   return (
     <div className="space-y-4">
+      <form action={publicarIndicacoesPendentes} className="cartao flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-suave">
+          Indicações novas já entram publicadas. Estas chegaram antes dessa regra. Para tirar um negócio do ar depois, use
+          a aba Negócios.
+        </p>
+        <BotaoEnviar className="botao botao-pequeno whitespace-nowrap" enviando="Publicando…">
+          Publicar todas
+        </BotaoEnviar>
+      </form>
+
       {pendentes.map((e) => (
         <article key={e.id} className="cartao space-y-3 p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">

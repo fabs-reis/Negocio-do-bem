@@ -33,8 +33,8 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | --- | --- | --- |
 | Negócio | `Empresa` | Um negócio do diretório. Cada um é identificado pelo @ do Instagram. |
 | Conta | `Usuario` | Quem se cadastrou com e-mail e senha. |
-| Dono | `EmpresaMembro` com `papel = "dono"` | Uma conta que a moderação aprovou como responsável por um negócio. Um negócio pode ter mais de um dono (co-donos). |
-| Moderação | `Usuario.papel = "moderador"` ou e-mail em `ADMIN_EMAILS` | Quem aprova indicações e reivindicações, decide denúncias e pode editar qualquer perfil. |
+| Dono | `EmpresaMembro` com `papel = "dono"` | Uma conta responsável por um negócio: aprovada na hora, quando o negócio ainda não tinha dono, ou pela moderação. Um negócio pode ter mais de um dono (co-donos). |
+| Moderação | `Usuario.papel = "moderador"` ou e-mail em `ADMIN_EMAILS` | Quem tira do ar o que for impróprio, decide disputas de reivindicação e denúncias, e pode editar qualquer perfil. |
 | Indicação | criação de uma `Empresa` | Alguém da comunidade (ou o próprio dono) cadastra um negócio. |
 | Reivindicação | `Reivindicacao` | O pedido de uma pessoa para virar dona de um negócio. |
 | Depoimento | `Depoimento` | O relato de alguém da comunidade sobre um negócio. |
@@ -81,7 +81,7 @@ Um papel não exclui o outro: uma pessoa da moderação também pode ser dona de
 | **Visitante** | Sem login | Ver o diretório, os perfis publicados e os depoimentos. Não indica, não escreve depoimento, não reivindica. |
 | **Membro** | Qualquer conta | Indicar negócios, escrever depoimentos, denunciar depoimentos, reivindicar um negócio, ver as próprias indicações e solicitações em `/painel`. |
 | **Dono** | Conta aprovada como dona de um negócio | Tudo do membro, mais: editar o perfil do próprio negócio, trocar a foto, responder depoimentos e ocultar ou mostrar o negócio no diretório. Não pode escrever depoimento no próprio negócio. |
-| **Moderação** | `papel = "moderador"` no banco **ou** e-mail em `ADMIN_EMAILS` | Tudo do membro, mais: as filas de `/moderacao`, editar qualquer perfil, ver a auditoria. Indicações feitas pela moderação já entram publicadas. |
+| **Moderação** | `papel = "moderador"` no banco **ou** e-mail em `ADMIN_EMAILS` | Tudo do membro, mais: as filas de `/moderacao`, tirar do ar e publicar de novo qualquer negócio, editar qualquer perfil, ver a auditoria. |
 
 Detalhes da moderação:
 
@@ -141,7 +141,7 @@ O negócio tem três informações de estado que andam separadas:
 
 | Campo | Valores | O que significa |
 | --- | --- | --- |
-| `moderacao` | `pendente` · `aprovada` · `rejeitada` | Se a moderação já liberou o negócio. Só `aprovada` pode aparecer no diretório. |
+| `moderacao` | `pendente` · `aprovada` · `rejeitada` | Se o negócio está no ar. Toda indicação entra `aprovada`, e a moderação pode tirar do ar (`rejeitada`) e publicar de novo. `pendente` só existe em negócios indicados antes da publicação automática. Só `aprovada` pode aparecer no diretório. |
 | `status` | `indicada` · `verificada` | Se tem dono aprovado. Vira `verificada` quando a primeira reivindicação é aprovada e não volta mais. |
 | `oculta` | `false` · `true` | Se o dono tirou o negócio do diretório. |
 
@@ -149,24 +149,25 @@ O negócio tem três informações de estado que andam separadas:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Pendente: membro indica
-    [*] --> Publicado: moderação indica
-    Pendente --> Publicado: moderação publica
-    Pendente --> Publicado: reivindicação aprovada
-    Pendente --> Rejeitado: moderação não publica
+    state "Fora do ar" as ForaDoAr
+    [*] --> Publicado: alguém indica
+    Pendente --> Publicado: moderação publica (fila antiga)
+    Pendente --> ForaDoAr: moderação não publica (fila antiga)
+    Publicado --> ForaDoAr: moderação tira do ar
+    ForaDoAr --> Publicado: moderação publica de novo
     Publicado --> Oculto: dono oculta
     Oculto --> Publicado: dono mostra de novo
 ```
 
 | Transição | Quem faz | Onde |
 | --- | --- | --- |
-| Indicação de um membro → `pendente` | Qualquer conta | `indicarEmpresa` |
-| Indicação da moderação → `aprovada` | Moderação | `indicarEmpresa` |
-| `pendente` → `aprovada` ou `rejeitada` | Moderação, na fila de indicações | `moderarEmpresa` |
+| Indicação → `aprovada` | Qualquer conta | `indicarEmpresa` |
+| `aprovada` → `rejeitada` ("Tirar do ar") e `rejeitada` → `aprovada` ("Publicar de novo") | Moderação, na aba Negócios | `moderarEmpresa` |
+| `pendente` → `aprovada` ou `rejeitada` | Moderação, na fila de indicações antigas | `moderarEmpresa` e `publicarIndicacoesPendentes` |
 | Qualquer → `aprovada` e `verificada` | Aprovação de uma reivindicação | `aprovar` em `src/lib/reivindicacao.ts` |
 | `oculta` liga e desliga | Só o dono | `alternarVisibilidade` |
 
-Repare: aprovar uma reivindicação **também publica** o negócio. É assim que o dono que cadastra o próprio negócio entra no diretório: a moderação aprova o pedido dele e, junto, o perfil.
+Repare: aprovar uma reivindicação **também publica** o negócio. Por isso a aprovação na hora não vale para negócio tirado do ar: esse pedido vai para a moderação, que decide se publica de novo.
 
 ---
 
@@ -180,9 +181,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
 - **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período.
-- **Resultado:**
-  - indicação de um membro: o negócio entra como `pendente` e `indicada`, e a pessoa volta para o perfil com o aviso "O perfil entra no diretório assim que a moderação aprovar";
-  - indicação da moderação: o negócio já entra `aprovada`.
+- **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
 - **Auditoria:** registra `empresa.indicada`.
 
 ### "Este negócio é meu"
@@ -190,37 +189,41 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`
 Quando a pessoa marca **"Este negócio é meu"** no formulário de indicação:
 
 - o campo "Por que você indica?" some e o motivo não é guardado;
-- o negócio é criado do mesmo jeito, `pendente`, com a pessoa como quem indicou;
+- o negócio é criado do mesmo jeito, já publicado, com a pessoa como quem indicou;
 - a pessoa vai direto para a página de reivindicação (`/empresas/<@>/reivindicar`) para enviar os dados do negócio.
 
-Marcar a opção não faz ninguém virar dono. A pessoa só vira dona quando a moderação aprovar a reivindicação.
+Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando envia os dados do negócio. Como o negócio acabou de ser criado e não tem dono, isso acontece na hora ([seção 6](#aprovação-na-hora)).
 
 ---
 
 ## 5. Moderação das indicações
 
-Código: `moderarEmpresa` em `src/acoes/moderacao.ts`, aba "Indicações" em `src/app/moderacao/page.tsx`.
+Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderacao.ts`, abas "Indicações" e "Negócios" em `src/app/moderacao/page.tsx`.
 
-- **A fila "Indicações"** mostra os negócios com `moderacao = "pendente"`, dos mais antigos para os mais novos, até 50 por vez.
-- **Cada item mostra:**
+**Toda indicação entra publicada.** A moderação não aprova antes: ela age depois, tirando do ar o que for spam, perfil falso ou impróprio. A decisão foi tomada na [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), quando a fila ficou grande demais para aprovar à mão.
+
+- **Tirar do ar:** na aba "Negócios", todo negócio publicado tem o botão **"Tirar do ar"** → `moderacao = "rejeitada"`, e o negócio some para o público.
+- **Publicar de novo:** o negócio tirado do ar ganha o botão **"Publicar de novo"** → `moderacao = "aprovada"`.
+- **A fila "Indicações"** só tem os negócios com `moderacao = "pendente"`, que foram indicados antes da publicação automática. Ela mostra os mais antigos primeiro, até 50 por vez, cada um com:
   - nome, @ (com link para o Instagram), categoria, cidade e UF, resumo;
   - motivo da indicação;
   - contatos sugeridos e causas;
   - quem indicou (nome) e quando.
-- **Decisões:**
+- **Decisões na fila:**
+  - **Publicar todas** → publica de uma vez todas as indicações pendentes;
   - **Publicar** → `moderacao = "aprovada"`, e o negócio entra no diretório;
-  - **Não publicar** → `moderacao = "rejeitada"`, e o negócio some para o público.
+  - **Não publicar** → `moderacao = "rejeitada"`, e o negócio some para o público;
   - **Editar perfil** → abre a edição pela moderação antes de decidir, por exemplo para corrigir um nome ou tirar uma causa duvidosa.
-- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`.
-- **O que muda num negócio rejeitado:**
+- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes.
+- **O que muda num negócio tirado do ar:**
   - o @ continua ocupado, então ninguém consegue indicar de novo;
-  - a página de reivindicação responde 404.
+  - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação.
 
 ### Editar qualquer perfil
 
 Código: aba "Negócios" e `src/app/moderacao/negocios/[usuario]/page.tsx`.
 
-- **A aba "Negócios"** lista todos os negócios, publicados, pendentes, rejeitados e ocultos, com foto, cidade, situação na moderação e se tem dono.
+- **A aba "Negócios"** lista todos os negócios, publicados, pendentes, fora do ar e ocultos, com foto, cidade, situação na moderação, se tem dono e os botões "Editar perfil" e "Tirar do ar" (ou "Publicar de novo").
   - A busca usa os mesmos campos da busca do diretório.
   - Sem busca, a lista mostra os 50 atualizados mais recentemente.
 - **Edição:** `/moderacao/negocios/<@>` usa o **mesmo formulário do painel do dono**: foto, informações, contatos, causas e história.
@@ -239,8 +242,21 @@ Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindic
 
 - **Qualquer conta logada** que ainda não seja dona daquele negócio. Quem já é dono vê "Você já é dono deste perfil" e o link para o painel.
 - A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"Sou o dono"** do perfil, pelo "Este negócio é meu" da indicação ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis verificados.
-- **Negócio rejeitado:** a página responde 404.
+- **Negócio tirado do ar:** a página responde 404.
 - **Negócio que já tem dono:** o pedido é aceito, com um aviso de que vai para a moderação. Serve para co-donos e para troca de responsáveis.
+
+### Aprovação na hora
+
+Desde a [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), **o pedido pelos dados do negócio é aprovado assim que é enviado** quando:
+
+- o negócio **não tem dono**; e
+- o negócio **não foi tirado do ar**.
+
+Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Pronto! Você agora é dono deste perfil…".
+
+Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono) ou um negócio que a moderação tirou do ar.
+
+**Risco aceito:** não há conferência do CNPJ, do site nem do contato antes de aprovar. Qualquer conta consegue assumir um perfil que ainda não tem dono. Os dados enviados ficam guardados e aparecem para a moderação se houver disputa. A regra está em `solicitarPorDocumento` (`src/lib/reivindicacao.ts`).
 
 ### O caminho ativo: dados do negócio (`documento`)
 
@@ -271,7 +287,11 @@ O @ do Instagram não é pedido: é o do próprio perfil.
 
 ### A decisão da moderação
 
-Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`), todos os pedidos pendentes aparecem dos mais antigos para os mais novos, até 50 por vez. Cada um mostra:
+Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
+
+**Fila antiga:** quando há pedidos pendentes de negócios sem dono e no ar, o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
+
+Cada pedido mostra:
 
 - o negócio, o @ (com link para o Instagram) e se já é verificado ou está sem dono;
 - o caminho usado, a data do pedido e, se for o caso, a data em que expirou;
@@ -279,7 +299,7 @@ Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`), todos os pedidos pe
 - no pedido por dados do negócio:
   - relação, contato, CNPJ formatado e site;
   - a mensagem;
-  - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI na hora. A consulta é só um apoio: se falhar, aparece "Não foi possível consultar a Receita agora" e a análise segue;
+  - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI na hora. A consulta manda um User-Agent próprio, porque sem ele a BrasilAPI responde 403. Ela é só um apoio: se falhar, aparece "Não foi possível consultar a Receita agora" e a análise segue;
 - as anotações automáticas do sistema, quando houver;
 - os donos atuais (nome e e-mail), quando houver.
 
@@ -323,7 +343,7 @@ stateDiagram-v2
 | Status | Rótulo na tela | Quando |
 | --- | --- | --- |
 | `pendente` | Em análise | Pedido criado e ainda não decidido. |
-| `aprovada` | Aprovada | Pela moderação, ou sozinho nos caminhos pelo Instagram, quando não há conflito. |
+| `aprovada` | Aprovada | Pela moderação. Ou sozinho: no pedido por dados do negócio, quando o negócio não tem dono e está no ar; nos caminhos pelo Instagram, quando não há conflito. |
 | `recusada` | Recusada | Pela moderação, com motivo. |
 | `cancelada` | Cancelada | A pessoa cancelou, outro pedido dela para o mesmo negócio foi aprovado, ou ela refez o "Entrar com Instagram". |
 | `expirada` | Expirada | Só no código por DM: quando a pessoa gera um código novo depois que o anterior venceu. |
@@ -620,7 +640,7 @@ Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quand
 | Ação registrada | Quando |
 | --- | --- |
 | `empresa.indicada` | Alguém indicou um negócio. |
-| `empresa.aprovada` / `empresa.rejeitada` | A moderação publicou ou não publicou uma indicação. |
+| `empresa.aprovada` / `empresa.rejeitada` | A moderação publicou (ou publicou de novo) ou tirou do ar um negócio. Os detalhes trazem o @. |
 | `empresa.editada` | O dono salvou o perfil. |
 | `empresa.foto_trocada` / `empresa.foto_removida` | O dono trocou ou removeu a foto do perfil. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
@@ -721,8 +741,8 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 **Negócios e moderação**
 
-- A moderação não tem botão para **tirar do ar um negócio já publicado** nem para **rever uma indicação rejeitada**. Só o dono oculta.
-- **Um @ rejeitado fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404.
+- **Tudo entra no ar sem conferência:** indicações são publicadas na hora, e quem pede um negócio sem dono vira dono na hora. A moderação só age depois, e ninguém da moderação é avisado quando chega algo novo.
+- **Um @ tirado do ar fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404 até a moderação publicar de novo.
 - **O @ de um negócio não muda.** Se o negócio trocar de @ no Instagram, hoje só dá para ajustar direto no banco.
 - **Não dá para tirar um dono** sem transferir o perfil para outra pessoa. O selo "Verificado pelo dono" não volta atrás.
 - "Atualizada em", ao lado da história, usa a data da última mudança em **qualquer** dado do negócio (inclusive foto e visibilidade), não só no texto.
@@ -731,6 +751,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 - A validade de 30 dias dos pedidos por dados do negócio é só informativa.
 - Quando um pedido é aprovado, os pedidos pendentes de outras pessoas para o mesmo negócio continuam na fila.
+- **Duas pessoas pedindo o mesmo negócio sem dono ao mesmo tempo** podem virar donas juntas: a aprovação na hora não trava o negócio entre a conferência e a aprovação.
 
 **Depoimentos**
 

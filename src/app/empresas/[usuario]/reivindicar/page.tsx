@@ -51,7 +51,7 @@ async function Reivindicar({
         Este negócio é seu?
       </h1>
       <p className="text-lg leading-relaxed text-suave">
-        Para proteger cada negócio, a moderação confere quem assume o perfil de{" "}
+        Envie os dados do negócio para assumir o perfil de{" "}
         <strong className="font-semibold text-tinta">@{username}</strong>. Depois disso, você conta a sua história,
         escolhe as causas e responde à comunidade.
       </p>
@@ -231,7 +231,7 @@ async function Reivindicar({
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
               <span>
                 <span className="block font-serif text-2xl font-semibold">Não tenho acesso ao Instagram do negócio</span>
-                <span className="mt-1 block text-suave">Envie os dados do negócio para a moderação analisar.</span>
+                <span className="mt-1 block text-suave">Envie os dados do negócio para assumir o perfil.</span>
               </span>
               <span aria-hidden="true" className="text-2xl text-suave transition group-open:rotate-45">
                 +
@@ -243,8 +243,9 @@ async function Reivindicar({
           <section className="cartao p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-semibold">Envie os dados do negócio</h2>
             <p className="mt-2 leading-relaxed text-suave">
-              A moderação confere o CNPJ e o site com o Instagram <strong>@{username}</strong> e aprova, normalmente em
-              até um dia útil. O resultado aparece no seu painel.
+              {empresa.membros.length > 0
+                ? "A moderação analisa o pedido e decide. O resultado aparece no seu painel."
+                : "Como ninguém assumiu este perfil ainda, ele passa a ser seu assim que você enviar."}
             </p>
             <FormDocumento empresaId={empresa.id} />
           </section>
@@ -252,7 +253,7 @@ async function Reivindicar({
       </div>
 
       <p className="mt-10 text-center text-sm leading-relaxed text-suave">
-        Conferimos esses dados para que ninguém consiga se passar pelo seu negócio. Dúvidas?{" "}
+        Os dados ficam registrados e ajudam a moderação se houver disputa pelo perfil. Dúvidas?{" "}
         <Link href="/sobre#dono" className="link">
           Veja como funciona
         </Link>

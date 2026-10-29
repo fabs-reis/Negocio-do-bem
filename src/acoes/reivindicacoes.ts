@@ -58,18 +58,20 @@ export async function enviarDocumento(_estado: EstadoFormulario, dados: FormData
   });
   if (!resultado.success) return { erros: errosPorCampo(resultado.error), valores: valoresDoFormulario(dados) };
 
+  let aprovada: boolean;
   try {
-    await solicitarPorDocumento({
+    const pedido = await solicitarPorDocumento({
       empresaId: empresa.id,
       usuarioId: usuario.id,
       ...resultado.data,
       mensagem: resultado.data.mensagem || null,
     });
+    aprovada = pedido.status === "aprovada";
   } catch (erro) {
     if (erro instanceof ErroReivindicacao) return { erro: erro.message, valores: valoresDoFormulario(dados) };
     throw erro;
   }
-  redirect(`${caminho}?aviso=documento_enviado`);
+  redirect(aprovada ? `/painel/${empresa.instagramUsername}?aviso=verificada` : `${caminho}?aviso=documento_enviado`);
 }
 
 export async function cancelarReivindicacao(dados: FormData): Promise<void> {

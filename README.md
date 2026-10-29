@@ -1,14 +1,14 @@
 # Negócio do Bem
 
-Um diretório de negócios com consciência social e conexão com a comunidade. As pessoas encontram negócios que compartilham dos seus valores, indicam quem admiram e deixam depoimentos. Os donos assumem o perfil do negócio, a moderação confere os dados e eles contam a própria história.
+Um diretório de negócios com consciência social e conexão com a comunidade. As pessoas encontram negócios que compartilham dos seus valores, indicam quem admiram e deixam depoimentos. Os donos assumem o perfil do negócio e contam a própria história.
 
 - **Diretório** com busca (sem diferenciar acentos) e filtros por causa e estado.
 - **Perfis** com foto, botões de contato (WhatsApp, site e e-mail), a história do negócio no estilo Substack (Markdown, tipografia serifada, fotos com legenda), badges de causas e depoimentos.
 - **Causas** como Pet friendly, Antirracista, Escala 5x2, Escala 4x3 e outras (lista em `src/lib/causas.ts`).
-- **Indicação** pela comunidade, com moderação antes de publicar.
+- **Indicação** pela comunidade, publicada na hora. A moderação tira do ar o que for impróprio.
 - **Reivindicação de propriedade** pelo dono, explicada abaixo.
 - **Painel do dono** para editar o perfil, responder depoimentos e ocultar o negócio.
-- **Moderação** com filas de reivindicações, indicações e denúncias, edição de qualquer perfil (foto, contatos, textos e causas) e registro de auditoria.
+- **Moderação** com fila de disputas de reivindicação e de denúncias, botão para tirar um negócio do ar, edição de qualquer perfil (foto, contatos, textos e causas) e registro de auditoria.
 
 Vai colaborar? Comece por estes dois guias:
 
@@ -70,7 +70,7 @@ As fotos enviadas no seu computador ficam em `public/enviados/` (fora do Git). E
 
 ## Como o dono reivindica o negócio
 
-Tudo começa no botão "Sou o dono" do perfil (`/empresas/<@>/reivindicar`). Por enquanto, o caminho é um só: a pessoa envia os **dados do negócio** e a moderação confere antes de aprovar.
+Tudo começa no botão "Sou o dono" do perfil (`/empresas/<@>/reivindicar`). Por enquanto, o caminho é um só: a pessoa envia os **dados do negócio**. Se o negócio ainda não tem dono, ela vira dona na hora. Se já tem, o pedido vira uma disputa, e a moderação decide com estes dados:
 
 - **CNPJ ou MEI** (opcional): a moderação vê o CNPJ formatado e os dados da Receita ao lado.
 - **Site** (opcional): aparece como link na ficha da moderação.
@@ -163,7 +163,7 @@ tests/               testes (unit/ sem banco, db/ com banco)
 
 ## Próximos passos sugeridos
 
-- Uma verificação mais automática para o dono: hoje a moderação confere CNPJ, site e Instagram à mão.
+- Uma verificação de verdade para o dono: hoje quem pede um negócio sem dono vira dono na hora, sem conferência. Um caminho é comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
 - Recuperação de senha e confirmação de e-mail (precisa de um serviço de envio de e-mail).
 - Limite de tentativas de login por IP.
 - Avisar o dono por e-mail quando a reivindicação for decidida ou quando chegar um depoimento.

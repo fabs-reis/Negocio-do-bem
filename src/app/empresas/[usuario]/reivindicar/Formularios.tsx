@@ -45,7 +45,7 @@ export function FormDocumento({ empresaId }: { empresaId: string }) {
         <textarea id="mensagem" name="mensagem" rows={3} maxLength={1000} defaultValue={valor("mensagem")} className="campo" />
       </Campo>
       {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
-      <BotaoEnviar pendente={pendente} enviando="Enviando…">Enviar para análise</BotaoEnviar>
+      <BotaoEnviar pendente={pendente} enviando="Enviando…">Enviar dados</BotaoEnviar>
     </form>
   );
 }
