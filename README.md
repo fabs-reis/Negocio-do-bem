@@ -133,7 +133,8 @@ Funciona em qualquer hospedagem de Next.js com um PostgreSQL gerenciado.
 1. Em **Storage**, crie um banco **Neon** e conecte ao projeto sem prefixo, para as variáveis se chamarem `DATABASE_URL` e `DATABASE_URL_UNPOOLED`.
 2. Em **Environment Variables**, configure `ADMIN_EMAILS` e `APP_URL` (o domínio público, como `https://seu-projeto.vercel.app`). As do Instagram são opcionais.
 3. Em **Storage**, crie um **Blob** com acesso público e conecte ao projeto. Ele cria a `BLOB_READ_WRITE_TOKEN`, e é onde ficam as fotos dos perfis e das histórias.
-4. Pronto. A cada deploy de produção, o `scripts/vercel-build.sh` aplica as migrações pendentes antes do build.
+4. Opcional: em **Environment Variables**, só para **Production**, configure `NEXT_PUBLIC_GA_ID` com o ID de medição do Google Analytics (`G-…`). Sem ela, o Analytics não carrega.
+5. Pronto. A cada deploy de produção, o `scripts/vercel-build.sh` aplica as migrações pendentes antes do build.
 
 **Em outra hospedagem**
 
