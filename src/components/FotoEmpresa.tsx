@@ -18,6 +18,6 @@ export function FotoEmpresa({ empresa, tamanho = "md" }: { empresa: EmpresaComFo
   return (
     // As fotos já chegam reduzidas e quadradas (ver reduzirFoto.ts).
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={empresa.fotoUrl} alt="" className={`shrink-0 rounded-full bg-white object-cover ring-white ${dimensoes}`} />
+    <img src={empresa.fotoUrl} alt="" className={`shrink-0 rounded-full bg-superficie object-cover ring-superficie ${dimensoes}`} />
   );
 }

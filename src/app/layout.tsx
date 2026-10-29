@@ -4,9 +4,11 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AlternarTema } from "@/components/AlternarTema";
 import { Logo } from "@/components/Logo";
 import { MenuUsuario } from "@/components/MenuUsuario";
 import { REPOSITORIO } from "@/lib/dominio";
+import { SCRIPT_TEMA } from "@/lib/tema";
 
 export const metadata: Metadata = {
   title: {
@@ -19,10 +21,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className="h-full">
+    // O script do <head> troca o data-tema antes da primeira pintura; o
+    // suppressHydrationWarning deixa o React aceitar essa diferença.
+    <html lang="pt-BR" className="h-full" data-tema="claro" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <header className="sticky top-0 z-30 border-b border-linha/70 bg-papel/85 backdrop-blur-md">
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
             <Link href="/" className="shrink-0" aria-label="Negócio do Bem — início">
               <Logo />
             </Link>
@@ -33,9 +40,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/sobre" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
                 Como funciona
               </Link>
-              <Link href="/indicar" className="rounded-full px-3 py-2 text-suave transition hover:text-tinta">
+              <Link href="/indicar" className="rounded-full px-2 py-2 text-suave transition hover:text-tinta sm:px-3">
                 Indicar
               </Link>
+              <AlternarTema />
               <Suspense fallback={<div className="h-9 w-20 rounded-full bg-linha/60" />}>
                 <MenuUsuario />
               </Suspense>

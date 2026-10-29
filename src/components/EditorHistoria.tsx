@@ -84,7 +84,7 @@ export function EditorHistoria({
   });
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-linha bg-white">
+    <div className="overflow-hidden rounded-2xl border border-linha bg-superficie">
       {editor && <BarraDeFerramentas editor={editor} empresaId={empresaId} />}
       <EditorContent editor={editor} className="px-5 py-6 sm:px-8" />
     </div>
@@ -164,13 +164,13 @@ function BarraDeFerramentas({ editor, empresaId }: { editor: Editor; empresaId: 
   }
 
   return (
-    <div className="sticky top-16 z-10 border-b border-linha bg-white/95 backdrop-blur">
+    <div className="sticky top-16 z-10 border-b border-linha bg-superficie/95 backdrop-blur">
       <div className="flex flex-wrap items-center gap-1 px-3 py-2" role="toolbar" aria-label="Formatação da história">
         <select
           value={estado.estilo}
           onChange={(evento) => mudarEstilo(evento.target.value)}
           aria-label="Estilo do texto"
-          className="mr-1 rounded-lg border border-linha bg-white px-2 py-1.5 text-sm"
+          className="mr-1 rounded-lg border border-linha bg-superficie px-2 py-1.5 text-sm"
         >
           <option value="paragrafo">Parágrafo</option>
           <option value="titulo">Título</option>
@@ -261,7 +261,7 @@ function Botao({
       // Sem roubar o foco do editor, para a formatação valer no trecho selecionado.
       onMouseDown={(evento) => evento.preventDefault()}
       className={`min-w-9 rounded-lg px-2.5 py-1.5 text-sm transition disabled:opacity-40 ${
-        ativo ? "bg-tinta text-white" : "text-tinta hover:bg-papel"
+        ativo ? "bg-tinta text-papel" : "text-tinta hover:bg-papel"
       }`}
       {...props}
     >

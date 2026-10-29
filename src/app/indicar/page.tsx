@@ -18,7 +18,7 @@ export default function Indicar() {
         a própria história.
       </p>
       <div className="mt-10">
-        <Suspense fallback={<div className="h-[40rem] animate-pulse rounded-3xl bg-white" />}>
+        <Suspense fallback={<div className="h-[40rem] animate-pulse rounded-3xl bg-superficie" />}>
           <Conteudo />
         </Suspense>
       </div>

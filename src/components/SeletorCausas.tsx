@@ -13,7 +13,7 @@ export function SeletorCausas({ selecionadas = [] }: { selecionadas?: string[] }
               <label
                 key={causa.slug}
                 title={causa.descricao}
-                className="flex cursor-pointer items-center gap-1.5 rounded-full border border-linha bg-white px-3 py-1.5 text-sm transition select-none hover:border-tinta/25 has-checked:border-coral has-checked:bg-coral-50 has-checked:text-coral-700 has-focus-visible:ring-4 has-focus-visible:ring-coral-100"
+                className="flex cursor-pointer items-center gap-1.5 rounded-full border border-linha bg-superficie px-3 py-1.5 text-sm transition select-none hover:border-tinta/25 has-checked:border-coral has-checked:bg-coral-50 has-checked:text-coral-700 has-focus-visible:ring-4 has-focus-visible:ring-coral-100"
               >
                 <input
                   type="checkbox"

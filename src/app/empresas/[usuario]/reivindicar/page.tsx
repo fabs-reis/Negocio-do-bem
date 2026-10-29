@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Reivindicar perfil" };
 export default function PaginaReivindicar(props: PageProps<"/empresas/[usuario]/reivindicar">) {
   return (
     <div className="mx-auto max-w-2xl px-4 pt-12 sm:px-6">
-      <Suspense fallback={<div className="h-96 animate-pulse rounded-3xl bg-white" />}>
+      <Suspense fallback={<div className="h-96 animate-pulse rounded-3xl bg-superficie" />}>
         <Reivindicar params={props.params} searchParams={props.searchParams} />
       </Suspense>
     </div>
@@ -130,7 +130,7 @@ async function Reivindicar({
       {outrasPendentes.length > 0 && (
         <div className="mb-6 space-y-2">
           {outrasPendentes.map((r) => (
-            <div key={r.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linha bg-white px-4 py-3 text-sm">
+            <div key={r.id} className="flex items-center justify-between gap-3 rounded-2xl border border-linha bg-superficie px-4 py-3 text-sm">
               <span>
                 <strong>{METODOS_REIVINDICACAO[r.metodo]}</strong> · {STATUS_REIVINDICACAO[r.status]} desde{" "}
                 {formatarDataHora(r.criadoEm)}

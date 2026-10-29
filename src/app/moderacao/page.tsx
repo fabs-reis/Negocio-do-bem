@@ -30,7 +30,7 @@ export default function Moderacao(props: PageProps<"/moderacao">) {
   return (
     <div className="mx-auto max-w-5xl px-4 pt-12 sm:px-6">
       <h1 className="font-serif text-4xl font-semibold tracking-tight">Moderação</h1>
-      <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-3xl bg-white" />}>
+      <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-3xl bg-superficie" />}>
         <Conteudo searchParams={props.searchParams} />
       </Suspense>
     </div>
@@ -59,12 +59,12 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
             href={`/moderacao?aba=${chave}`}
             aria-current={aba === chave ? "page" : undefined}
             className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-              aba === chave ? "bg-tinta text-white" : "bg-white text-suave hover:text-tinta"
+              aba === chave ? "bg-tinta text-papel" : "bg-superficie text-suave hover:text-tinta"
             }`}
           >
             {ABAS[chave]}
             {!!contagens[chave] && (
-              <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${aba === chave ? "bg-white/20" : "bg-coral-50 text-coral-700"}`}>
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${aba === chave ? "bg-superficie/20" : "bg-coral-50 text-coral-700"}`}>
                 {contagens[chave]}
               </span>
             )}
@@ -153,7 +153,7 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
             {r.metodo === "codigo_dm" && r.codigo && (
               <div className="rounded-2xl bg-papel p-4 text-sm leading-relaxed">
                 Confira se <strong>{oficial ? `@${oficial}` : "o perfil oficial"}</strong> recebeu uma DM <strong>de @{r.empresa.instagramUsername}</strong> com o
-                código <code className="rounded bg-white px-2 py-0.5 font-mono text-base font-bold text-coral-700">{r.codigo}</code>.
+                código <code className="rounded bg-superficie px-2 py-0.5 font-mono text-base font-bold text-coral-700">{r.codigo}</code>.
                 Se a DM veio de outra conta, recuse.
               </div>
             )}

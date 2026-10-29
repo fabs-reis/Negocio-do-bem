@@ -112,7 +112,7 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
                 role="tab"
                 aria-selected={aba === opcao}
                 onClick={() => setAba(opcao)}
-                className={`rounded-full px-4 py-1.5 font-medium transition ${aba === opcao ? "bg-white shadow-sm" : "text-suave"}`}
+                className={`rounded-full px-4 py-1.5 font-medium transition ${aba === opcao ? "bg-superficie shadow-sm" : "text-suave"}`}
               >
                 {opcao === "escrever" ? "Escrever" : "Pré-visualizar"}
               </button>

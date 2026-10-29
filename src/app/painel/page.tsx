@@ -14,7 +14,7 @@ export default function Painel() {
   return (
     <div className="mx-auto max-w-4xl px-4 pt-12 sm:px-6">
       <h1 className="font-serif text-4xl font-semibold tracking-tight">Meu painel</h1>
-      <Suspense fallback={<div className="mt-8 h-80 animate-pulse rounded-3xl bg-white" />}>
+      <Suspense fallback={<div className="mt-8 h-80 animate-pulse rounded-3xl bg-superficie" />}>
         <Conteudo />
       </Suspense>
     </div>

@@ -45,12 +45,12 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
 
   return (
     <article>
-      <header className="border-b border-linha bg-gradient-to-b from-white to-papel">
+      <header className="border-b border-linha bg-gradient-to-b from-superficie to-papel">
         <div className="mx-auto max-w-3xl px-4 pt-12 pb-10 sm:px-6">
           <div className="mb-6 space-y-3">
             <AvisoDaUrl codigo={aviso} />
             {!publico && (
-              <p className="rounded-2xl border border-linha bg-white px-4 py-3 text-sm text-suave">
+              <p className="rounded-2xl border border-linha bg-superficie px-4 py-3 text-sm text-suave">
                 {empresa.oculta
                   ? "Este perfil está oculto pelo dono e não aparece no diretório."
                   : `${MODERACAO_EMPRESA[empresa.moderacao]}: só você e a moderação veem este perfil por enquanto.`}
@@ -283,16 +283,16 @@ function PerfilCarregando() {
   return (
     <div className="mx-auto max-w-3xl animate-pulse px-4 pt-12 sm:px-6" aria-busy="true">
       <div className="flex items-center gap-6">
-        <div className="h-24 w-24 rounded-full bg-white" />
+        <div className="h-24 w-24 rounded-full bg-superficie" />
         <div className="flex-1 space-y-3">
-          <div className="h-5 w-40 rounded-full bg-white" />
-          <div className="h-10 w-3/4 rounded-full bg-white" />
+          <div className="h-5 w-40 rounded-full bg-superficie" />
+          <div className="h-10 w-3/4 rounded-full bg-superficie" />
         </div>
       </div>
       <div className="mt-10 space-y-3">
-        <div className="h-4 rounded-full bg-white" />
-        <div className="h-4 w-5/6 rounded-full bg-white" />
-        <div className="h-4 w-2/3 rounded-full bg-white" />
+        <div className="h-4 rounded-full bg-superficie" />
+        <div className="h-4 w-5/6 rounded-full bg-superficie" />
+        <div className="h-4 w-2/3 rounded-full bg-superficie" />
       </div>
     </div>
   );

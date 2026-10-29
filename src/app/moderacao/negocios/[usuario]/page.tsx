@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Editar perfil · Moderação", robot
 export default function EditarPelaModeracao(props: PageProps<"/moderacao/negocios/[usuario]">) {
   return (
     <div className="mx-auto max-w-3xl px-4 pt-12 sm:px-6">
-      <Suspense fallback={<div className="h-[40rem] animate-pulse rounded-3xl bg-white" />}>
+      <Suspense fallback={<div className="h-[40rem] animate-pulse rounded-3xl bg-superficie" />}>
         <Conteudo params={props.params} searchParams={props.searchParams} />
       </Suspense>
     </div>

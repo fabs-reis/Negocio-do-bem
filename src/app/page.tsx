@@ -16,7 +16,7 @@ export default function Inicio(props: PageProps<"/">) {
           className="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[60rem] -translate-x-1/2 rounded-full bg-gradient-to-br from-coral-100/70 via-amber-50/60 to-emerald-50/50 blur-3xl"
         />
         <div className="relative mx-auto max-w-4xl px-4 pt-16 pb-14 text-center sm:px-6 sm:pt-24">
-          <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-coral/20 bg-white/70 px-4 py-1.5 text-sm font-medium text-coral-700">
+          <p className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-coral/20 bg-superficie/70 px-4 py-1.5 text-sm font-medium text-coral-700">
             <span aria-hidden="true">🌱</span>
             <span>
               Um movimento do bem<span className="hidden sm:inline">, feito pela comunidade</span>
@@ -179,15 +179,15 @@ function hrefPagina(filtros: FiltrosDiretorio, pagina: number): string {
 function DiretorioCarregando() {
   return (
     <div className="space-y-6" aria-busy="true">
-      <div className="h-16 animate-pulse rounded-3xl bg-white" />
+      <div className="h-16 animate-pulse rounded-3xl bg-superficie" />
       <div className="flex flex-wrap gap-2">
         {Array.from({ length: 10 }, (_, i) => (
-          <div key={i} className="h-7 w-28 animate-pulse rounded-full bg-white" />
+          <div key={i} className="h-7 w-28 animate-pulse rounded-full bg-superficie" />
         ))}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="h-60 animate-pulse rounded-3xl bg-white" />
+          <div key={i} className="h-60 animate-pulse rounded-3xl bg-superficie" />
         ))}
       </div>
     </div>
@@ -227,10 +227,10 @@ function ComoFunciona() {
           </div>
         ))}
       </div>
-      <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-3xl bg-tinta px-8 py-10 text-white sm:flex-row">
+      <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-3xl bg-tinta px-8 py-10 text-papel sm:flex-row">
         <div>
           <p className="font-serif text-3xl font-semibold">Tem um negócio do bem?</p>
-          <p className="mt-1 text-white/70">Cadastre, mostre as causas que você abraça e conte a sua história.</p>
+          <p className="mt-1 text-papel/70">Cadastre, mostre as causas que você abraça e conte a sua história.</p>
         </div>
         <Link href="/sobre#dono" className="botao-coral shrink-0 px-6 py-3 text-base">
           Sou dono de um negócio
