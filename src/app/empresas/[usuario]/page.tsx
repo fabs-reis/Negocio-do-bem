@@ -13,7 +13,7 @@ import { filtrarCausas } from "@/lib/causas";
 import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { linkPerfil, normalizarUsername } from "@/lib/instagram";
-import { formatarData, formatarWhatsapp } from "@/lib/texto";
+import { formatarData, formatarWhatsapp, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
@@ -109,7 +109,12 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
         <section className="py-12">
           {empresa.historia.trim() ? (
             <>
-              <p className="mb-6 text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Nossa história</p>
+              <p className="mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Nossa história</span>
+                <span className="text-sm text-suave">
+                  {tempoDeLeitura(empresa.historia)} min de leitura · atualizada em {formatarData(empresa.atualizadoEm)}
+                </span>
+              </p>
               <Historia markdown={empresa.historia} />
             </>
           ) : (

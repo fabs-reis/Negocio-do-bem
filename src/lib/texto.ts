@@ -37,6 +37,17 @@ export function iniciais(nome: string): string {
   return letras.map((p) => p[0]!.toUpperCase()).join("").slice(0, 2) || "?";
 }
 
+/** Minutos de leitura de um texto em Markdown, a 200 palavras por minuto (no mínimo 1). */
+export function tempoDeLeitura(markdown: string): number {
+  const palavras = markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\]\([^)]*\)/g, " ")
+    .replace(/[#>*_~`[\]-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+  return Math.max(1, Math.round(palavras / 200));
+}
+
 /** "5511991488052" → "(11) 99148-8052". */
 export function formatarWhatsapp(digitos: string): string {
   const local = digitos.replace(/^55/, "");

@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
-import { enviarFotoDaHistoria, salvarEmpresa } from "@/acoes/empresas";
+import { useActionState, useState } from "react";
+import { salvarEmpresa } from "@/acoes/empresas";
 import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { enviarSemLimpar } from "@/components/envio";
 import { Campo } from "@/components/Campo";
+import { EditorHistoria } from "@/components/EditorHistoria";
 import { Historia } from "@/components/Historia";
-import { reduzirFoto } from "@/components/reduzirFoto";
 import { SeletorCausas } from "@/components/SeletorCausas";
 import { CATEGORIAS, UFS } from "@/lib/dominio";
 
@@ -37,43 +37,6 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
   const causas = Array.isArray(valores?.causas) ? valores.causas : empresa.causas;
   const [historia, setHistoria] = useState(empresa.historia);
   const [aba, setAba] = useState<"escrever" | "ver">("escrever");
-  const campoHistoria = useRef<HTMLTextAreaElement>(null);
-  const entradaFoto = useRef<HTMLInputElement>(null);
-  const [enviandoFoto, setEnviandoFoto] = useState(false);
-  const [erroFoto, setErroFoto] = useState<string | null>(null);
-
-  // Envia a foto e coloca ![](endereço) onde está o cursor da história.
-  async function inserirFoto(evento: React.ChangeEvent<HTMLInputElement>) {
-    const arquivo = evento.target.files?.[0];
-    evento.target.value = "";
-    if (!arquivo) return;
-    setErroFoto(null);
-    setEnviandoFoto(true);
-    try {
-      let foto: File;
-      try {
-        foto = await reduzirFoto(arquivo, { lado: 1600 });
-      } catch {
-        setErroFoto("Não conseguimos abrir essa imagem. Use uma foto JPG, PNG ou WebP.");
-        return;
-      }
-      const dados = new FormData();
-      dados.set("empresaId", empresa.id);
-      dados.set("foto", foto);
-      const resposta = await enviarFotoDaHistoria(dados);
-      if (!resposta.url) {
-        setErroFoto(resposta.erro ?? "Não conseguimos enviar a foto.");
-        return;
-      }
-      const posicao = campoHistoria.current?.selectionStart ?? historia.length;
-      const trecho = `\n\n![](${resposta.url})\n\n`;
-      setHistoria((atual) => (atual.slice(0, posicao) + trecho + atual.slice(posicao)).replace(/^\n+/, ""));
-    } catch {
-      setErroFoto("Não conseguimos enviar a foto. Confira a conexão e tente de novo.");
-    } finally {
-      setEnviandoFoto(false);
-    }
-  }
 
   return (
     <form action={acao} onSubmit={enviarSemLimpar(acao)} className="space-y-8">
@@ -157,26 +120,11 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
           </div>
         </div>
 
-        <div className={`mt-5 flex flex-wrap items-center gap-3 ${aba === "escrever" ? "" : "hidden"}`}>
-          <input ref={entradaFoto} type="file" accept="image/*" className="hidden" onChange={inserirFoto} />
-          <button type="button" className="botao-claro botao-pequeno" disabled={enviandoFoto} onClick={() => entradaFoto.current?.click()}>
-            {enviandoFoto ? "Enviando foto…" : "Inserir foto"}
-          </button>
-          <span className="text-sm text-suave">A foto entra onde está o cursor.</span>
-          {erroFoto && <p className="erro-campo w-full">{erroFoto}</p>}
+        <input type="hidden" name="historia" value={historia} />
+        {/* Escondido, e não desmontado, para não perder o desfazer ao ir e voltar da pré-visualização. */}
+        <div className={`mt-5 ${aba === "escrever" ? "" : "hidden"}`}>
+          <EditorHistoria empresaId={empresa.id} valorInicial={empresa.historia} aoMudar={setHistoria} />
         </div>
-
-        <textarea
-          ref={campoHistoria}
-          name="historia"
-          value={historia}
-          onChange={(e) => setHistoria(e.target.value)}
-          rows={18}
-          maxLength={20000}
-          aria-label="Nossa história"
-          placeholder={"Tudo começou na cozinha da minha avó…\n\n## O que nos move\n\nAcreditamos que…"}
-          className={`campo mt-3 resize-y font-serif text-lg leading-relaxed ${aba === "escrever" ? "" : "hidden"}`}
-        />
         {aba === "ver" && (
           <div className="mt-5 min-h-48 rounded-2xl border border-linha p-6">
             {historia.trim() ? <Historia markdown={historia} /> : <p className="text-suave italic">Nada escrito ainda.</p>}
@@ -184,9 +132,8 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         )}
         {erros.historia && <p className="erro-campo">{erros.historia}</p>}
         <p className="ajuda">
-          Dicas: <code>## Título</code> cria um intertítulo, <code>**texto**</code> deixa em negrito, <code>&gt; frase</code> vira
-          citação e uma linha com <code>---</code> separa capítulos. Para pôr legenda numa foto, escreva entre os colchetes:{" "}
-          <code>![Nossa primeira fornada](…)</code>.
+          Selecione um trecho e use a barra para títulos, negrito, links e citações. As fotos entram onde está o cursor,
+          e a legenda vai logo embaixo delas. O ✦ separa capítulos.
         </p>
       </section>
 

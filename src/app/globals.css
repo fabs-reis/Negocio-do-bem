@@ -150,6 +150,51 @@ body {
   line-height: 1.5;
   color: var(--color-suave);
 }
+
+/* Editor da história (EditorHistoria.tsx): o texto já aparece como no perfil. */
+.editor-historia {
+  min-height: 22rem;
+  outline: none;
+}
+.editor-historia p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--color-suave);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.editor-historia .foto-editor {
+  margin: 1.6em 0;
+}
+.editor-historia .foto-editor img {
+  width: 100%;
+  border-radius: 1rem;
+}
+.editor-historia .foto-editor.selecionada img {
+  outline: 3px solid var(--color-coral);
+  outline-offset: 3px;
+}
+.editor-historia .legenda-editor {
+  display: block;
+  width: 100%;
+  margin-top: 0.6em;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-suave);
+  outline: none;
+}
+.editor-historia .foto-de-fora {
+  border: 1px dashed var(--color-coral);
+  border-radius: 1rem;
+  padding: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-coral-700);
+}
 .historia code {
   font-size: 0.85em;
   background: var(--color-papel);

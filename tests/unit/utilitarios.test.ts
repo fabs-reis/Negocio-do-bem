@@ -3,7 +3,7 @@ import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { campoEmail, campoSite, campoWhatsapp } from "@/lib/formulario";
-import { formatarWhatsapp, iniciais, normalizarTexto } from "@/lib/texto";
+import { formatarWhatsapp, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
 
 describe("cnpjValido", () => {
   it("aceita CNPJ numérico válido, com ou sem pontuação", () => {
@@ -105,5 +105,22 @@ describe("campoEmail", () => {
 
   it("recusa o que não é e-mail", () => {
     expect(campoEmail.safeParse("contato@").success).toBe(false);
+  });
+});
+
+describe("tempoDeLeitura", () => {
+  it("conta as palavras a 200 por minuto, sem a marcação do Markdown", () => {
+    const paragrafo = "palavra ".repeat(100);
+    expect(tempoDeLeitura(`## Título\n\n${paragrafo}\n\n**${paragrafo}**`)).toBe(1);
+    expect(tempoDeLeitura(paragrafo.repeat(7))).toBe(4);
+  });
+
+  it("não conta o endereço das fotos e dos links", () => {
+    const foto = "![legenda](https://abc.public.blob.vercel-storage.com/historias/x.jpg)";
+    expect(tempoDeLeitura(`${foto}\n\n[site](https://exemplo.com)`)).toBe(1);
+  });
+
+  it("nunca dá zero", () => {
+    expect(tempoDeLeitura("")).toBe(1);
   });
 });
