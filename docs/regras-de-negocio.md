@@ -343,7 +343,8 @@ O @ do Instagram não é pedido: é o do próprio perfil.
   - enquanto ele está em análise, o formulário dá lugar ao aviso "Seus dados estão com a moderação".
 - **Limite:**
   - no máximo **10 pedidos de reivindicação em 24 horas** por conta, somando todos os caminhos e todos os negócios;
-  - pedidos cancelados também contam.
+  - pedidos cancelados também contam;
+  - o limite vale mesmo com pedidos simultâneos: cada caminho trava a linha da conta, confere a cota e cria o pedido na mesma transação, então os pedidos da mesma conta entram um de cada vez.
 - **Cancelar:** a pessoa pode cancelar o próprio pedido pendente na página de reivindicação.
 - **Validade:**
   - o pedido guarda uma data de validade de 30 dias, que a moderação vê como "expirado em";

@@ -345,6 +345,167 @@ describe("documento e moderação", () => {
     await expect(iniciarPorCodigoDm(mais.id, pessoa.id)).rejects.toThrow(/muitas solicitações/);
   });
 
+  describe("limite diário com pedidos simultâneos", () => {
+    const DADOS = { cnpj: null, site: null, relacao: "Funcionario", contato: "contato@exemplo.com", mensagem: null };
+
+    /** Negócios com dono: o pedido por documento não é aprovado sozinho e fica pendente. */
+    async function criarEmpresasComDono(quantidade: number, prefixo: string) {
+      const dono = await criarUsuario("Dono");
+      const empresas = [];
+      for (let i = 0; i < quantidade; i++) {
+        const empresa = await criarEmpresa(`${prefixo}${i}`);
+        await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+        empresas.push(empresa);
+      }
+      return empresas;
+    }
+
+    async function criarPedidosRecentes(usuarioId: string, quantidade: number, prefixo: string) {
+      for (let i = 0; i < quantidade; i++) {
+        const empresa = await criarEmpresa(`${prefixo}${i}`);
+        await db.reivindicacao.create({
+          data: {
+            empresaId: empresa.id,
+            usuarioId,
+            metodo: "documento",
+            status: "cancelada",
+            expiraEm: new Date(Date.now() + 60_000),
+          },
+        });
+      }
+    }
+
+    function conferir(resultados: PromiseSettledResult<unknown>[], aceitos: number) {
+      expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(aceitos);
+      for (const r of resultados) {
+        if (r.status === "rejected") {
+          expect(r.reason).toBeInstanceOf(ErroReivindicacao);
+          expect((r.reason as Error).message).toMatch(/muitas solicitações/);
+        }
+      }
+    }
+
+    it("por documento: 25 pedidos ao mesmo tempo criam só 10", async () => {
+      const pessoa = await criarUsuario();
+      const empresas = await criarEmpresasComDono(25, "doc");
+
+      const resultados = await Promise.allSettled(
+        empresas.map((e) => solicitarPorDocumento({ empresaId: e.id, usuarioId: pessoa.id, ...DADOS })),
+      );
+
+      conferir(resultados, 10);
+      expect(await db.reivindicacao.count({ where: { usuarioId: pessoa.id } })).toBe(10);
+    });
+
+    it("por documento: com nove pedidos recentes, quatro ao mesmo tempo criam só mais um", async () => {
+      const pessoa = await criarUsuario();
+      await criarPedidosRecentes(pessoa.id, 9, "antigo");
+      const empresas = await criarEmpresasComDono(4, "par");
+
+      const resultados = await Promise.allSettled(
+        empresas.map((e) => solicitarPorDocumento({ empresaId: e.id, usuarioId: pessoa.id, ...DADOS })),
+      );
+
+      conferir(resultados, 1);
+      expect(await db.reivindicacao.count({ where: { usuarioId: pessoa.id } })).toBe(10);
+    });
+
+    it("por código de DM: 25 pedidos ao mesmo tempo criam só 10", async () => {
+      const pessoa = await criarUsuario();
+      const empresas = [];
+      for (let i = 0; i < 25; i++) empresas.push(await criarEmpresa(`dm${i}`));
+
+      const resultados = await Promise.allSettled(empresas.map((e) => iniciarPorCodigoDm(e.id, pessoa.id)));
+
+      conferir(resultados, 10);
+      expect(await db.reivindicacao.count({ where: { usuarioId: pessoa.id } })).toBe(10);
+    });
+
+    it("por login do Instagram: 25 pedidos ao mesmo tempo criam só 10", async () => {
+      const pessoa = await criarUsuario();
+      const empresas = [];
+      for (let i = 0; i < 25; i++) empresas.push(await criarEmpresa(`ig${i}`));
+
+      const resultados = await Promise.allSettled(
+        empresas.map((e, i) =>
+          processarLoginInstagram({
+            empresaId: e.id,
+            usuarioId: pessoa.id,
+            conta: { userId: `ig-conta-${i}`, username: e.instagramUsername },
+          }),
+        ),
+      );
+
+      conferir(resultados, 10);
+      expect(await db.reivindicacao.count({ where: { usuarioId: pessoa.id } })).toBe(10);
+    });
+
+    it("os três caminhos juntos dividem a mesma cota", async () => {
+      const pessoa = await criarUsuario();
+      await criarPedidosRecentes(pessoa.id, 7, "antigo");
+      const comDono = await criarEmpresasComDono(3, "doc");
+      const paraDm = [];
+      const paraLogin = [];
+      for (let i = 0; i < 3; i++) {
+        paraDm.push(await criarEmpresa(`dm${i}`));
+        paraLogin.push(await criarEmpresa(`ig${i}`));
+      }
+
+      const resultados = await Promise.allSettled([
+        ...comDono.map((e) => solicitarPorDocumento({ empresaId: e.id, usuarioId: pessoa.id, ...DADOS })),
+        ...paraDm.map((e) => iniciarPorCodigoDm(e.id, pessoa.id)),
+        ...paraLogin.map((e, i) =>
+          processarLoginInstagram({
+            empresaId: e.id,
+            usuarioId: pessoa.id,
+            conta: { userId: `ig-conta-${i}`, username: e.instagramUsername },
+          }),
+        ),
+      ]);
+
+      conferir(resultados, 3);
+      expect(await db.reivindicacao.count({ where: { usuarioId: pessoa.id } })).toBe(10);
+    });
+
+    it("aprovar enquanto a mesma conta faz novos pedidos não dá deadlock", async () => {
+      const moderador = await criarUsuario("Moderador");
+      const pessoa = await criarUsuario();
+      const livres = [];
+      for (let i = 0; i < 6; i++) livres.push(await criarEmpresa(`livre${i}`));
+      const pendentes = [];
+      for (let i = 0; i < 4; i++) {
+        const empresa = await criarEmpresa(`pendente${i}`);
+        const pedido = await db.reivindicacao.create({
+          data: { empresaId: empresa.id, usuarioId: pessoa.id, metodo: "documento", expiraEm: new Date(Date.now() + 60_000) },
+        });
+        pendentes.push(pedido);
+      }
+
+      const resultados = await Promise.allSettled([
+        ...pendentes.map((p) => aprovar({ reivindicacaoId: p.id, revisorId: moderador.id })),
+        ...livres.map((e) => solicitarPorDocumento({ empresaId: e.id, usuarioId: pessoa.id, ...DADOS })),
+      ]);
+
+      for (const r of resultados) {
+        if (r.status === "rejected") expect(r.reason).toBeInstanceOf(ErroReivindicacao);
+      }
+      expect(await db.reivindicacao.count({ where: { usuarioId: pessoa.id } })).toBe(10);
+    });
+
+    it("a cota de uma conta não trava os pedidos de outra", async () => {
+      const [a, b] = [await criarUsuario(), await criarUsuario()];
+      const empresas = await criarEmpresasComDono(12, "doc");
+
+      const resultados = await Promise.allSettled(
+        empresas.map((e, i) => solicitarPorDocumento({ empresaId: e.id, usuarioId: i % 2 ? a.id : b.id, ...DADOS })),
+      );
+
+      conferir(resultados, 12);
+      expect(await db.reivindicacao.count({ where: { usuarioId: a.id } })).toBe(6);
+      expect(await db.reivindicacao.count({ where: { usuarioId: b.id } })).toBe(6);
+    });
+  });
+
   it("não deixa quem já é dono pedir de novo", async () => {
     const dono = await criarUsuario();
     const empresa = await criarEmpresa("loja.y");
