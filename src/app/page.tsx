@@ -215,7 +215,7 @@ function ComoFunciona() {
   return (
     <section className="mx-auto mt-24 max-w-6xl px-4 sm:px-6">
       <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Como funciona</h2>
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {passos.map((passo, i) => (
           <div key={passo.titulo} className="cartao p-7">
             <span className="text-3xl" aria-hidden="true">

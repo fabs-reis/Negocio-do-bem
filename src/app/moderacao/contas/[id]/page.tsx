@@ -55,7 +55,7 @@ async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "p
           </h1>
           <p className="mt-1 break-all text-suave">{conta.email}</p>
         </div>
-        <dl className="cartao grid gap-x-6 gap-y-2 p-5 text-sm sm:grid-cols-[11rem_1fr]">
+        <dl className="cartao grid grid-cols-1 gap-x-6 gap-y-2 p-5 text-sm sm:grid-cols-[11rem_1fr]">
           <dt className="text-suave">Conta criada em</dt>
           <dd>{formatarDataHora(conta.criadoEm)}</dd>
           <dt className="text-suave">Sessões abertas</dt>

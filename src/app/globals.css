@@ -106,8 +106,9 @@ body {
   .ajuda {
     @apply mt-1.5 text-xs text-suave;
   }
+  /* 16px no celular: com letra menor, o Safari do iPhone dá zoom ao tocar no campo. */
   .campo {
-    @apply block w-full rounded-2xl border border-linha bg-superficie px-4 py-2.5 text-[15px] text-tinta placeholder:text-suave/70 transition focus:border-coral focus:ring-4 focus:ring-coral-100 focus:outline-none;
+    @apply block w-full rounded-2xl border border-linha bg-superficie px-4 py-2.5 text-base sm:text-[15px] text-tinta placeholder:text-suave/70 transition focus:border-coral focus:ring-4 focus:ring-coral-100 focus:outline-none;
   }
   .erro-campo {
     @apply mt-1.5 text-xs font-medium text-coral-700;
@@ -123,6 +124,8 @@ body {
   font-size: 1.25rem;
   line-height: 1.75;
   color: color-mix(in srgb, var(--color-tinta) 92%, var(--color-papel));
+  /* Um link colado inteiro no texto quebra em vez de passar da largura do celular. */
+  overflow-wrap: break-word;
 }
 .historia > * + * {
   margin-top: 1.15em;
@@ -242,6 +245,12 @@ body {
   font-size: 0.875rem;
   color: var(--color-suave);
   outline: none;
+}
+/* No celular, 16px: com letra menor, o Safari do iPhone dá zoom ao tocar na legenda. */
+@media (width < 40rem) {
+  .editor-historia .legenda-editor {
+    font-size: 1rem;
+  }
 }
 .editor-historia .foto-de-fora {
   border: 1px dashed var(--color-coral);

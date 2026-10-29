@@ -53,7 +53,7 @@ async function PorEstado() {
     );
   }
   return (
-    <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {estados.map((uf) => (
         <section key={uf} className="cartao p-5">
           <h2 className="font-serif text-xl font-semibold">{NOMES_UF[uf as Uf]}</h2>

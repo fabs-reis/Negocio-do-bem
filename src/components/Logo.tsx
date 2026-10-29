@@ -10,8 +10,11 @@ const COR = {
 
 const PESSOAS = ["laranja", "terceira", "verde"] as const;
 
-/** Logo horizontal: o ícone e "Negócio do Bem". A altura vem do className; a largura acompanha. */
-export function Logo({ className = "h-9 sm:h-11" }: { className?: string }) {
+/**
+ * Logo horizontal: o ícone e "Negócio do Bem". A altura vem do className; a largura acompanha.
+ * Menor abaixo de 360px, para caber no cabeçalho ao lado de "Indicar", do tema e de "Entrar".
+ */
+export function Logo({ className = "h-7 min-[360px]:h-9 sm:h-11" }: { className?: string }) {
   return (
     <svg
       viewBox={`0 0 ${LOGO.largura} ${LOGO.altura}`}

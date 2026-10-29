@@ -75,7 +75,7 @@ async function Conteudo() {
             e clique em &ldquo;Sou o dono&rdquo;.
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {empresas.map(({ empresa }) => (
               <div key={empresa.id} className="cartao flex flex-col p-5">
                 <div className="flex items-center gap-3">

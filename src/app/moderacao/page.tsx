@@ -181,7 +181,7 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
             )}
 
             {r.metodo === "documento" && (
-              <dl className="grid gap-x-6 gap-y-2 rounded-2xl bg-papel p-4 text-sm sm:grid-cols-[10rem_1fr]">
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-2xl bg-papel p-4 text-sm sm:grid-cols-[10rem_1fr]">
                 <dt className="text-suave">Relação</dt>
                 <dd>{r.relacao}</dd>
                 <dt className="text-suave">Contato</dt>
@@ -258,7 +258,7 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
               </div>
               <form action={recusarReivindicacao} className="flex flex-1 gap-2 sm:max-w-md">
                 <input type="hidden" name="reivindicacaoId" value={r.id} />
-                <input name="motivo" maxLength={500} placeholder="Motivo da recusa (a pessoa vê)" className="campo py-1.5 text-sm" />
+                <input name="motivo" maxLength={500} placeholder="Motivo da recusa (a pessoa vê)" className="campo py-1.5 sm:text-sm" />
                 <BotaoEnviar className="botao-claro botao-pequeno" enviando="…">
                   Recusar
                 </BotaoEnviar>

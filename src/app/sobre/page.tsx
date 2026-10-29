@@ -108,7 +108,7 @@ export default function Sobre() {
         {(Object.keys(GRUPOS) as GrupoCausa[]).map((grupo) => (
           <section key={grupo}>
             <h3 className="font-serif text-xl font-semibold">{GRUPOS[grupo]}</h3>
-            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {CAUSAS.filter((c) => c.grupo === grupo).map((causa) => (
                 <li key={causa.slug} className="cartao p-4">
                   <Link href={hrefCausa(causa.slug)} className="transition hover:opacity-80">
