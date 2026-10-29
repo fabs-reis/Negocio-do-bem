@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { buscarDiretorio, resumoDoDiretorio } from "@/lib/consultas";
+import { buscarDiretorio, listarParaSitemap, resumoDoDiretorio } from "@/lib/consultas";
 import { db } from "@/lib/db";
 import { SEM_FILTROS, type FiltrosDiretorio } from "@/lib/diretorio";
 import { textoDeBusca } from "@/lib/texto";
@@ -109,5 +109,13 @@ describe("buscarDiretorio", () => {
   it("ordena por nome", async () => {
     const r = await buscarDiretorio(filtros({ ordem: "az" }));
     expect(r.itens.map((e) => e.nome)).toEqual(["Ateliê Raiz Preta", "Café Arco-Íris", "Padaria Florescer"]);
+  });
+});
+
+describe("listarParaSitemap", () => {
+  it("lista só os negócios do diretório, do atualizado mais recentemente ao mais antigo", async () => {
+    await db.empresa.update({ where: { instagramUsername: "cafe.arcoiris" }, data: { resumo: "Atualizado agora" } });
+    const negocios = await listarParaSitemap();
+    expect(negocios.map((n) => n.instagramUsername)).toEqual(["cafe.arcoiris", "atelie.raiz", "padaria.florescer"]);
   });
 });

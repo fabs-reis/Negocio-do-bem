@@ -1,11 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BuscaDiretorio } from "@/components/BuscaDiretorio";
 import { Contador } from "@/components/Contador";
 import { IconeCategoria } from "@/components/IconeCategoria";
+import { JsonLd } from "@/components/JsonLd";
 import { listarCidades, resumoDoDiretorio } from "@/lib/consultas";
 import { hrefDiretorio } from "@/lib/diretorio";
 import { CATEGORIAS } from "@/lib/dominio";
+import { DESCRICAO_DO_SITE, jsonLdDoSite, metadadosDaPagina } from "@/lib/seo";
+
+export const metadata: Metadata = metadadosDaPagina({ descricao: DESCRICAO_DO_SITE, caminho: "/" });
 
 // Atalhos de "Experimente:": levam direto para o diretório já filtrado.
 const ATALHOS = [
@@ -19,6 +24,7 @@ const ATALHOS = [
 export default function Inicio() {
   return (
     <>
+      <JsonLd dados={jsonLdDoSite()} />
       <section className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 sm:pt-16">
         <div className="flex flex-wrap items-stretch gap-7">
           <div className="flex min-w-0 flex-[999_1_32rem] flex-col justify-center">

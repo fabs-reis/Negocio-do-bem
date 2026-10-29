@@ -1,0 +1,88 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { jsonLdDoNegocio, metadadosDaPagina } from "@/lib/seo";
+import { CORES_DA_MARCA, svgDoLogo } from "@/lib/marca";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
+async function seoCom(variaveis: Record<string, string>) {
+  for (const [nome, valor] of Object.entries(variaveis)) vi.stubEnv(nome, valor);
+  vi.resetModules();
+  return import("@/lib/seo");
+}
+
+const NEGOCIO = {
+  instagramUsername: "padaria.florescer",
+  nome: "Padaria Florescer",
+  resumo: "Pão de fermentação natural.",
+  categoria: "Café e padaria",
+  cidade: "Recife",
+  uf: "PE",
+  fotoUrl: null,
+  site: null,
+  whatsapp: null,
+  emailContato: null,
+};
+
+describe("endereço do site", () => {
+  it("no Vercel usa o domínio de produção, até nos previews", async () => {
+    const seo = await seoCom({ VERCEL_PROJECT_PRODUCTION_URL: "negociodobem.com.br", VERCEL_ENV: "preview", APP_URL: "https://outro.exemplo" });
+    expect(seo.ENDERECO_DO_SITE).toBe("https://negociodobem.com.br");
+    expect(seo.urlAbsoluta("/empresas/x")).toBe("https://negociodobem.com.br/empresas/x");
+    // Preview não entra nos buscadores.
+    expect(seo.INDEXAVEL).toBe(false);
+  });
+
+  it("fora do Vercel usa o APP_URL, sem a barra do final", async () => {
+    const seo = await seoCom({ VERCEL_PROJECT_PRODUCTION_URL: "", VERCEL_ENV: "", APP_URL: "https://meusite.exemplo/" });
+    expect(seo.ENDERECO_DO_SITE).toBe("https://meusite.exemplo");
+  });
+});
+
+describe("metadadosDaPagina", () => {
+  it("repete o nome do site e o idioma no openGraph, que substitui o do layout", () => {
+    const m = metadadosDaPagina({ titulo: "Explorar negócios", descricao: "Busque.", caminho: "/explorar" });
+    expect(m.alternates).toEqual({ canonical: "/explorar" });
+    expect(m.openGraph).toMatchObject({ siteName: "Negócio do Bem", locale: "pt_BR", title: "Explorar negócios", url: "/explorar" });
+  });
+});
+
+describe("jsonLdDoNegocio", () => {
+  const ficha = (dados: object) => jsonLdDoNegocio({ ...NEGOCIO, ...dados }, ["Liderado por mulheres"])["@graph"][0] as Record<string, unknown>;
+
+  it("leva só os contatos preenchidos", () => {
+    const vazia = ficha({});
+    expect(vazia).not.toHaveProperty("telephone");
+    expect(vazia).not.toHaveProperty("email");
+    expect(vazia).not.toHaveProperty("image");
+    expect(vazia.sameAs).toEqual(["https://www.instagram.com/padaria.florescer/"]);
+    expect(vazia.keywords).toBe("Café e padaria, Liderado por mulheres");
+
+    const completa = ficha({ whatsapp: "5581999990000", emailContato: "oi@padaria.exemplo", site: "https://padaria.exemplo" });
+    expect(completa).toMatchObject({ telephone: "+5581999990000", email: "oi@padaria.exemplo" });
+    expect(completa.sameAs).toContain("https://padaria.exemplo");
+  });
+
+  it("só usa fotos guardadas pelo site", () => {
+    expect(ficha({ fotoUrl: "https://abc.public.blob.vercel-storage.com/perfis/x.jpg" }).image).toBe(
+      "https://abc.public.blob.vercel-storage.com/perfis/x.jpg",
+    );
+    expect(ficha({ fotoUrl: "https://outro-site.exemplo/foto.jpg" })).not.toHaveProperty("image");
+  });
+
+  it("não deixa o texto do negócio fechar a tag do script", async () => {
+    const { JsonLd } = await import("@/components/JsonLd");
+    const html = JsonLd({ dados: ficha({ resumo: "</script><script>alert(1)</script>" }) }).props.dangerouslySetInnerHTML.__html;
+    expect(html).not.toContain("</script>");
+  });
+});
+
+describe("svgDoLogo", () => {
+  it("no fundo escuro troca o marrom pelo creme", () => {
+    expect(svgDoLogo("claro")).toContain(CORES_DA_MARCA.marrom);
+    expect(svgDoLogo("escuro")).not.toContain(CORES_DA_MARCA.marrom);
+    expect(svgDoLogo("escuro")).toContain(CORES_DA_MARCA.creme);
+  });
+});

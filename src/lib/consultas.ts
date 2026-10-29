@@ -97,6 +97,15 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
   };
 }
 
+/** Negócios do diretório para o sitemap, do atualizado mais recentemente ao mais antigo. */
+export async function listarParaSitemap() {
+  return db.empresa.findMany({
+    where: NO_DIRETORIO,
+    select: { instagramUsername: true, fotoUrl: true, atualizadoEm: true },
+    orderBy: { atualizadoEm: "desc" },
+  });
+}
+
 export async function buscarPerfil(username: string) {
   return db.empresa.findUnique({
     where: { instagramUsername: username },

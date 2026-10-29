@@ -3,11 +3,13 @@ import Link from "next/link";
 import { CausaBadge } from "@/components/CausaBadge";
 import { CAUSAS, GRUPOS, type GrupoCausa } from "@/lib/causas";
 import { REPOSITORIO } from "@/lib/dominio";
+import { metadadosDaPagina } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Como funciona",
-  description: "O que é o Negócio do Bem, como os donos assumem seus perfis e como cuidamos da privacidade.",
-};
+export const metadata: Metadata = metadadosDaPagina({
+  titulo: "Como funciona",
+  descricao: "O que é o Negócio do Bem, como os donos assumem seus perfis e como cuidamos da privacidade.",
+  caminho: "/sobre",
+});
 
 export default function Sobre() {
   return (
