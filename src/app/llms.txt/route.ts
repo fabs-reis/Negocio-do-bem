@@ -1,5 +1,5 @@
 import { CAUSAS } from "@/lib/causas";
-import { hrefDiretorio } from "@/lib/diretorio";
+import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { CATEGORIAS } from "@/lib/dominio";
 import { DESCRICAO_DO_SITE, NOME_DO_SITE, urlAbsoluta } from "@/lib/seo";
 
@@ -15,6 +15,7 @@ O ${NOME_DO_SITE} é um diretório gratuito e colaborativo de negócios brasilei
 ## Páginas principais
 
 - [Explorar negócios](${urlAbsoluta("/explorar")}): busca por cidade, tipo de negócio e causa.
+- [Negócios por cidade](${urlAbsoluta("/cidades")}): todas as cidades com negócios no diretório, cada uma com a sua página.
 - [Como funciona](${urlAbsoluta("/sobre")}): manifesto, moderação, como o dono assume o perfil e privacidade.
 - [Indicar um negócio](${urlAbsoluta("/indicar")}): formulário para sugerir um negócio do bem.
 
@@ -24,11 +25,11 @@ Cada negócio tem uma página em ${urlAbsoluta("/empresas/")} seguido do @ do In
 
 ## Causas
 
-${CAUSAS.map((causa) => `- [${causa.nome}](${urlAbsoluta(hrefDiretorio({ causas: [causa.slug] }))}): ${causa.descricao}`).join("\n")}
+${CAUSAS.map((causa) => `- [${causa.titulo}](${urlAbsoluta(hrefCausa(causa.slug))}): ${causa.descricao}`).join("\n")}
 
 ## Tipos de negócio
 
-${CATEGORIAS.map((tipo) => `- [${tipo}](${urlAbsoluta(hrefDiretorio({ tipos: [tipo] }))})`).join("\n")}
+${CATEGORIAS.filter(temPaginaDeTipo).map((tipo) => `- [${tipo}](${urlAbsoluta(hrefTipo(tipo))})`).join("\n")}
 `;
   return new Response(texto, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }

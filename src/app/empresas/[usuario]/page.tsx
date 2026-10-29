@@ -12,6 +12,7 @@ import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { buscarCausa, filtrarCausas } from "@/lib/causas";
 import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
+import { hrefCausa, hrefCidade, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { linkPerfil, normalizarUsername } from "@/lib/instagram";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina } from "@/lib/seo";
@@ -79,11 +80,23 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
                   @{empresa.instagramUsername}
                 </a>
                 <span aria-hidden="true">·</span>
-                <span>{empresa.categoria}</span>
+                {publico && temPaginaDeTipo(empresa.categoria) ? (
+                  <Link href={hrefTipo(empresa.categoria)} className="hover:text-tinta hover:underline">
+                    {empresa.categoria}
+                  </Link>
+                ) : (
+                  <span>{empresa.categoria}</span>
+                )}
                 <span aria-hidden="true">·</span>
-                <span>
-                  {empresa.cidade}, {empresa.uf}
-                </span>
+                {publico ? (
+                  <Link href={hrefCidade(empresa.cidade, empresa.uf)} className="hover:text-tinta hover:underline">
+                    {empresa.cidade}, {empresa.uf}
+                  </Link>
+                ) : (
+                  <span>
+                    {empresa.cidade}, {empresa.uf}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -94,9 +107,15 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
 
           {causas.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-2">
-              {causas.map((slug) => (
-                <CausaBadge key={slug} slug={slug} grande />
-              ))}
+              {causas.map((slug) =>
+                publico ? (
+                  <Link key={slug} href={hrefCausa(slug)} className="transition hover:opacity-80">
+                    <CausaBadge slug={slug} grande />
+                  </Link>
+                ) : (
+                  <CausaBadge key={slug} slug={slug} grande />
+                ),
+              )}
             </div>
           )}
 

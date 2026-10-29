@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
 import { db, type Prisma } from "@/lib/db";
-import { interpretarLocal, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
+import { interpretarLocal, slugCidade, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
 import { normalizarTexto } from "@/lib/texto";
 
 export const POR_PAGINA = 18;
@@ -23,6 +23,32 @@ export const listarCidades = cache(async (): Promise<CidadeComNegocios[]> => {
   return grupos
     .map((g) => ({ cidade: g.cidade, uf: g.uf, total: g._count._all }))
     .sort((a, b) => a.cidade.localeCompare(b.cidade, "pt-BR") || a.uf.localeCompare(b.uf));
+});
+
+/** A cidade de um endereço de /cidades, se ela tem negócios no diretório. */
+export async function cidadeDoSlug(slug: string): Promise<CidadeComNegocios | undefined> {
+  return (await listarCidades()).find((c) => slugCidade(c.cidade, c.uf) === slug);
+}
+
+/**
+ * Cidades com negócios do diretório de um tipo ou de uma causa, das que têm mais
+ * para as que têm menos. Grafias da mesma cidade ("Sao Paulo" e "São Paulo")
+ * contam juntas, com o nome da mais usada. Lida uma vez por requisição: a página
+ * e os metadados usam a mesma lista.
+ */
+export const cidadesCom = cache(async (campo: "categoria" | "causa", valor: string): Promise<CidadeComNegocios[]> => {
+  const grupos = await db.empresa.groupBy({
+    by: ["cidade", "uf"],
+    where: { ...NO_DIRETORIO, ...(campo === "categoria" ? { categoria: valor } : { causas: { some: { causa: valor } } }) },
+    _count: { _all: true },
+  });
+  const cidades = new Map<string, CidadeComNegocios>();
+  for (const g of grupos.sort((a, b) => b._count._all - a._count._all)) {
+    const cidade = cidades.get(slugCidade(g.cidade, g.uf));
+    if (cidade) cidade.total += g._count._all;
+    else cidades.set(slugCidade(g.cidade, g.uf), { cidade: g.cidade, uf: g.uf, total: g._count._all });
+  }
+  return [...cidades.values()].sort((a, b) => b.total - a.total || a.cidade.localeCompare(b.cidade, "pt-BR"));
 });
 
 /** Os números da página inicial: total, cidades, estados, verificados e quantos há em cada categoria. */
@@ -101,7 +127,15 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
 export async function listarParaSitemap() {
   return db.empresa.findMany({
     where: NO_DIRETORIO,
-    select: { instagramUsername: true, fotoUrl: true, atualizadoEm: true },
+    select: {
+      instagramUsername: true,
+      fotoUrl: true,
+      atualizadoEm: true,
+      cidade: true,
+      uf: true,
+      categoria: true,
+      causas: { select: { causa: true } },
+    },
     orderBy: { atualizadoEm: "desc" },
   });
 }

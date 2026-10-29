@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { jsonLdDoNegocio, metadadosDaPagina } from "@/lib/seo";
+import { jsonLdDaVitrine, jsonLdDoNegocio, metadadosDaPagina } from "@/lib/seo";
 import { CORES_DA_MARCA, svgDoLogo } from "@/lib/marca";
 
 afterEach(() => {
@@ -76,6 +76,42 @@ describe("jsonLdDoNegocio", () => {
     const { JsonLd } = await import("@/components/JsonLd");
     const html = JsonLd({ dados: ficha({ resumo: "</script><script>alert(1)</script>" }) }).props.dangerouslySetInnerHTML.__html;
     expect(html).not.toContain("</script>");
+  });
+});
+
+describe("caminho até as páginas", () => {
+  const nomes = (dados: { "@graph": object[] }) =>
+    (dados["@graph"][1] as { itemListElement: { name: string; item: string }[] }).itemListElement.map((i) => [i.name, new URL(i.item).pathname]);
+
+  it("o perfil passa pela página da cidade", () => {
+    expect(nomes(jsonLdDoNegocio(NEGOCIO, []))).toEqual([
+      ["Início", "/"],
+      ["Recife, PE", "/cidades/recife-pe"],
+      ["Padaria Florescer", "/empresas/padaria.florescer"],
+    ]);
+  });
+
+  it("a página da cidade lista os negócios em ordem, com o endereço de cada um", () => {
+    const dados = jsonLdDaVitrine({
+      titulo: "Negócios do bem em Recife, PE",
+      descricao: "Dois negócios.",
+      migalhas: [
+        { nome: "Início", caminho: "/" },
+        { nome: "Cidades", caminho: "/cidades" },
+        { nome: "Recife, PE", caminho: "/cidades/recife-pe" },
+      ],
+      negocios: [
+        { instagramUsername: "padaria.florescer", nome: "Padaria Florescer" },
+        { instagramUsername: "atelie.raiz", nome: "Ateliê Raiz Preta" },
+      ],
+    });
+    const colecao = dados["@graph"][0] as { url: string; mainEntity: { itemListElement: { position: number; url: string }[] } };
+    expect(new URL(colecao.url).pathname).toBe("/cidades/recife-pe");
+    expect(colecao.mainEntity.itemListElement.map((i) => [i.position, new URL(i.url).pathname])).toEqual([
+      [1, "/empresas/padaria.florescer"],
+      [2, "/empresas/atelie.raiz"],
+    ]);
+    expect(nomes(dados).map(([nome]) => nome)).toEqual(["Início", "Cidades", "Recife, PE"]);
   });
 });
 

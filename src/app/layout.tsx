@@ -98,6 +98,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Comunidade</p>
               <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
+              <Link href="/cidades" className="block hover:text-tinta">Negócios por cidade</Link>
               <Link href="/indicar" className="block hover:text-tinta">Indicar um negócio</Link>
             </div>
             <div className="space-y-2">

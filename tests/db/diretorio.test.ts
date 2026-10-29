@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { buscarDiretorio, listarParaSitemap, resumoDoDiretorio } from "@/lib/consultas";
+import { buscarDiretorio, cidadeDoSlug, cidadesCom, listarParaSitemap, resumoDoDiretorio } from "@/lib/consultas";
 import { db } from "@/lib/db";
 import { SEM_FILTROS, type FiltrosDiretorio } from "@/lib/diretorio";
 import { textoDeBusca } from "@/lib/texto";
@@ -117,5 +117,34 @@ describe("listarParaSitemap", () => {
     await db.empresa.update({ where: { instagramUsername: "cafe.arcoiris" }, data: { resumo: "Atualizado agora" } });
     const negocios = await listarParaSitemap();
     expect(negocios.map((n) => n.instagramUsername)).toEqual(["cafe.arcoiris", "atelie.raiz", "padaria.florescer"]);
+  });
+});
+
+describe("páginas de cidade, causa e tipo", () => {
+  it("acha a cidade pelo endereço só se ela tem negócios no diretório", async () => {
+    expect(await cidadeDoSlug("recife-pe")).toMatchObject({ cidade: "Recife", uf: "PE", total: 2 });
+    // Olinda só tem um negócio tirado do ar.
+    expect(await cidadeDoSlug("olinda-pe")).toBeUndefined();
+    expect(await cidadeDoSlug("recife-sp")).toBeUndefined();
+  });
+
+  it("lista as cidades de uma causa e de um tipo, das que têm mais negócios para as que têm menos", async () => {
+    expect(await cidadesCom("causa", "sustentavel")).toEqual([
+      { cidade: "Recife", uf: "PE", total: 1 },
+      { cidade: "São Paulo", uf: "SP", total: 1 },
+    ]);
+    expect(await cidadesCom("categoria", "Moda e acessórios")).toEqual([{ cidade: "Recife", uf: "PE", total: 1 }]);
+    // Os negócios fora do diretório não contam.
+    expect(await cidadesCom("categoria", "Pet")).toEqual([]);
+  });
+
+  it("junta as grafias da mesma cidade, com o nome da mais usada", async () => {
+    await criarEmpresa("brecho.vila", { nome: "Brechó da Vila", categoria: "Moda e acessórios", cidade: "Sao Paulo", uf: "SP" });
+    await criarEmpresa("loja.centro", { nome: "Loja do Centro", categoria: "Moda e acessórios", cidade: "Sao Paulo", uf: "SP" });
+    await criarEmpresa("atelie.sul", { nome: "Ateliê Sul", categoria: "Moda e acessórios", cidade: "São Paulo", uf: "SP" });
+    expect(await cidadesCom("categoria", "Moda e acessórios")).toEqual([
+      { cidade: "Sao Paulo", uf: "SP", total: 3 },
+      { cidade: "Recife", uf: "PE", total: 1 },
+    ]);
   });
 });

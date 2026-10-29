@@ -2,6 +2,7 @@
 // como o Google e o Bing, e para assistentes que buscam na web (ChatGPT, Perplexity).
 
 import type { Metadata } from "next";
+import { hrefCidade } from "@/lib/diretorio";
 import { REPOSITORIO } from "@/lib/dominio";
 import { ehFotoDoSite } from "@/lib/fotos";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
@@ -56,6 +57,7 @@ export function metadadosDaPagina({ titulo, descricao, caminho }: { titulo?: str
 }
 
 const ID_ORGANIZACAO = `${ENDERECO_DO_SITE}/#organizacao`;
+const ID_SITE = `${ENDERECO_DO_SITE}/#site`;
 
 /** Quem é o site: o Google usa o nome e o logo nos resultados. Vai na página inicial. */
 export function jsonLdDoSite() {
@@ -74,7 +76,7 @@ export function jsonLdDoSite() {
       },
       {
         "@type": "WebSite",
-        "@id": `${ENDERECO_DO_SITE}/#site`,
+        "@id": ID_SITE,
         name: NOME_DO_SITE,
         alternateName: "Negocio do Bem",
         url: urlAbsoluta("/"),
@@ -99,7 +101,7 @@ type NegocioPublico = {
   emailContato: string | null;
 };
 
-/** Ficha do negócio (LocalBusiness) e o caminho até ele (BreadcrumbList). Só para perfis públicos. */
+/** Ficha do negócio (LocalBusiness) e o caminho até ele, pela cidade (BreadcrumbList). Só para perfis públicos. */
 export function jsonLdDoNegocio(empresa: NegocioPublico, causas: string[]) {
   const pagina = urlAbsoluta(`/empresas/${empresa.instagramUsername}`);
   return {
@@ -123,14 +125,68 @@ export function jsonLdDoNegocio(empresa: NegocioPublico, causas: string[]) {
         sameAs: [linkPerfil(empresa.instagramUsername), ...(empresa.site ? [empresa.site] : [])],
         keywords: [empresa.categoria, ...causas].join(", "),
       },
+      jsonLdDoCaminho([
+        { nome: "Início", caminho: "/" },
+        { nome: `${empresa.cidade}, ${empresa.uf}`, caminho: hrefCidade(empresa.cidade, empresa.uf) },
+        { nome: empresa.nome, caminho: `/empresas/${empresa.instagramUsername}` },
+      ]),
+    ],
+  };
+}
+
+/** Um passo do caminho até uma página ("Início › Cidades › Salvador, BA"). */
+export type Migalha = { nome: string; caminho: string };
+
+function jsonLdDoCaminho(migalhas: Migalha[]) {
+  return {
+    "@type": "BreadcrumbList",
+    itemListElement: migalhas.map((m, i) => ({ "@type": "ListItem", position: i + 1, name: m.nome, item: urlAbsoluta(m.caminho) })),
+  };
+}
+
+/**
+ * Página de cidade, causa ou tipo: a coleção (CollectionPage) com os negócios que
+ * ela mostra (ItemList) e o caminho até ela. `sobre` diz do que a página trata,
+ * como a cidade.
+ */
+export function jsonLdDaVitrine({
+  titulo,
+  descricao,
+  migalhas,
+  negocios,
+  sobre,
+}: {
+  titulo: string;
+  descricao: string;
+  migalhas: Migalha[];
+  negocios: { instagramUsername: string; nome: string }[];
+  sobre?: object;
+}) {
+  const pagina = urlAbsoluta(migalhas[migalhas.length - 1]!.caminho);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
       {
-        "@type": "BreadcrumbList",
-        itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Início", item: urlAbsoluta("/") },
-          { "@type": "ListItem", position: 2, name: "Explorar negócios", item: urlAbsoluta("/explorar") },
-          { "@type": "ListItem", position: 3, name: empresa.nome, item: pagina },
-        ],
+        "@type": "CollectionPage",
+        "@id": pagina,
+        url: pagina,
+        name: titulo,
+        description: descricao,
+        inLanguage: "pt-BR",
+        isPartOf: { "@id": ID_SITE },
+        ...(sobre ? { about: sobre } : {}),
+        mainEntity: {
+          "@type": "ItemList",
+          numberOfItems: negocios.length,
+          itemListElement: negocios.map((n, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: n.nome,
+            url: urlAbsoluta(`/empresas/${n.instagramUsername}`),
+          })),
+        },
       },
+      jsonLdDoCaminho(migalhas),
     ],
   };
 }
