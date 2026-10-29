@@ -517,9 +517,9 @@ Código: `src/lib/fotos.ts`, `src/lib/armazenamento.ts`, `src/components/reduzir
 - O tipo é conferido **pelos primeiros bytes do arquivo** (JPEG, PNG ou WebP), não pelo que o navegador diz.
 - O nome do arquivo é aleatório, nas pastas `perfis/` ou `historias/`.
 - Onde a foto fica:
-  - em produção, no **Vercel Blob**, com acesso público;
-  - no computador de quem desenvolve, sem `BLOB_READ_WRITE_TOKEN`, em `public/enviados/`, fora do Git;
-  - em produção sem o token, a pessoa vê uma mensagem de erro em vez de o site quebrar.
+  - em produção, no **Vercel Blob**, com acesso público. O site usa o Blob quando existe `BLOB_STORE_ID` (no Vercel, com o OIDC do deploy) ou `BLOB_READ_WRITE_TOKEN`;
+  - no computador de quem desenvolve, sem nenhuma das duas, em `public/enviados/`, fora do Git;
+  - em produção sem nenhuma das duas, a pessoa vê uma mensagem de erro em vez de o site quebrar.
 
 **O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do Vercel Blob ou da pasta `/enviados/`. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
 
