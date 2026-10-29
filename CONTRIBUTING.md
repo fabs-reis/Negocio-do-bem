@@ -28,12 +28,12 @@ Siga o passo a passo de [Rodando localmente](README.md#rodando-localmente) no RE
 
 ## Abrindo o pull request
 
-1. Trabalhe numa branch `tipo/numero-da-issue-descricao-curta`, em que o tipo é o label da issue. Exemplo: `bug/12-erro-no-login`.
+1. Trabalhe numa branch `tipo/numero-da-issue-descricao-curta`, criada a partir da `stage`, em que o tipo é o label da issue. Exemplo: `bug/12-erro-no-login`.
 2. Rode `npm run lint`, `npm run typecheck` e `npm test` (precisa do Postgres). O GitHub roda as mesmas verificações em todo PR.
 3. Explique o que muda e por quê, e ligue o PR à issue: `Closes #12` se ele resolve, `Refs #12` se só se relaciona. Se mexeu na interface, coloque um print.
 4. Prefira PRs pequenos, com um assunto só.
 
-A `main` é protegida: todo PR precisa de uma aprovação antes do merge. O deploy em produção acontece sozinho depois do merge, e cada PR ganha um preview no Vercel para testar antes.
+Abra o PR para a `stage`, a branch padrão. Ela é a homologação: cada PR ganha um preview no Vercel para testar antes, e a `stage` tem o seu. A produção é a `main`, que recebe PRs da `stage`, e o deploy acontece sozinho depois do merge. As duas são protegidas: todo PR precisa de uma aprovação e da checagem "Lint, tipos e testes", e o merge é sempre por squash.
 
 ## Convivência
 

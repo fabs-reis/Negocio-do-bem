@@ -18,10 +18,10 @@ Vale para qualquer pessoa ou agente de IA que trabalhar neste repositório.
    - `feature`: funcionalidade nova.
 
    Sem issue, crie uma (`gh issue create --label ...`) antes de mexer no código.
-2. **Branch dedicada, nunca direto na `main`**, no formato `tipo/numero-da-issue-descricao-curta`, em que o tipo é o label da issue. Exemplos: `bug/12-erro-no-login`, `feature/15-foto-do-negocio`.
-3. **Entrega por pull request para a `main`.** Na descrição, use `Closes #N` quando o PR resolve a issue, ou `Refs #N` quando só se relaciona a ela.
-4. **Deploy só pelo merge.** O merge na `main` publica em produção no Vercel. Cada PR ganha um preview do Vercel, que serve de homologação. Nada de deploy manual fora desse fluxo (`vercel deploy`, "Redeploy" no painel).
-5. **A `main` é protegida:** exige PR e 1 aprovação. A checagem "Lint, tipos e testes" roda em todo PR.
+2. **Branch dedicada, criada a partir da `stage`, nunca direto na `stage` nem na `main`**, no formato `tipo/numero-da-issue-descricao-curta`, em que o tipo é o label da issue. Exemplos: `bug/12-erro-no-login`, `feature/15-foto-do-negocio`.
+3. **Entrega por pull request para a `stage`,** a branch padrão. Na descrição, use `Closes #N` quando o PR resolve a issue, ou `Refs #N` quando só se relaciona a ela.
+4. **Deploy só pelo merge.** A `stage` é a homologação: o merge nela atualiza o preview da `stage` no Vercel, e cada PR também ganha o seu preview. Para publicar em produção, abra um PR da `stage` para a `main`; o merge na `main` publica no Vercel. Nada de deploy manual fora desse fluxo (`vercel deploy`, "Redeploy" no painel).
+5. **`stage` e `main` são protegidas** por um ruleset: exigem PR, 1 aprovação e a checagem "Lint, tipos e testes", aceitam só squash (histórico linear) e bloqueiam force push e a exclusão da branch.
 
 ## Documentação do projeto
 

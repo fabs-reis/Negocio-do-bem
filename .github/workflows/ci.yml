@@ -1,10 +1,10 @@
-# Roda em todo pull request e a cada push na main.
+# Roda em todo pull request e a cada push na stage e na main.
 # Os testes usam um Postgres temporário que existe só durante a execução.
 name: Verificações
 
 on:
   push:
-    branches: [main]
+    branches: [stage, main]
   pull_request:
 
 permissions:

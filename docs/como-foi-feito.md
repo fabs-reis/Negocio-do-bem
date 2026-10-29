@@ -206,6 +206,14 @@ No primeiro dia no ar, a fila da moderação chegou a 16 reivindicações e 20 i
 - **A consulta à Receita** voltou a funcionar ([#21](https://github.com/fabsreis/Negocio-do-bem/issues/21)). A BrasilAPI recusava o User-Agent padrão do `fetch` do Node e respondia 403.
 - **O risco aceito:** qualquer conta assume um perfil que ainda não tem dono. Uma verificação de verdade fica como próximo passo. Por exemplo, comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
 
+### 29 de outubro: homologação na `stage` ([#23](https://github.com/fabsreis/Negocio-do-bem/issues/23))
+
+Até aqui, o merge de um PR já publicava em produção. Para ter uma etapa de homologação entre o código revisado e o site no ar:
+
+- **A `stage` virou a branch padrão.** Os PRs do dia a dia vão para ela, e o preview dela no Vercel mostra o que vai para produção.
+- **Publicar é um PR da `stage` para a `main`.**
+- **Um ruleset protege `main`, `stage` e `releases/**`:** PR com 1 aprovação, a checagem "Lint, tipos e testes", só squash e histórico linear, sem force push e sem apagar a branch. Quem administra o repositório pode fazer o merge do próprio PR sem esperar aprovação, mas não pode dar push direto.
+
 ---
 
 ## 4. Arquitetura
@@ -367,7 +375,7 @@ npm run typecheck
 - **O banco de teste é separado** (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`).
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
-- **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `main`.
+- **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
 
@@ -384,11 +392,12 @@ npm run typecheck
 
 **Como um deploy acontece:**
 
-1. O merge na `main` dispara o deploy de produção no Vercel.
-2. O `scripts/vercel-build.sh` aplica as migrações pendentes (`prisma migrate deploy`) usando a conexão direta do Neon. Depois, roda o build.
-3. Cada PR ganha um **preview** do Vercel, que serve de homologação.
-   - O build do preview não aplica migrações: só o de produção aplica.
-   - Num PR que muda o banco, as telas que dependem da mudança podem falhar no preview. Teste essas telas no seu computador.
+1. Cada PR para a `stage` ganha um **preview** do Vercel. O merge na `stage` atualiza o preview dela, que serve de homologação.
+2. Um PR da `stage` para a `main` leva o que foi homologado para produção. O merge na `main` dispara o deploy de produção no Vercel.
+   - Como só o squash é permitido, esse PR mostra também commits que já foram publicados. O merge leva para a `main` só o que ainda falta.
+3. O `scripts/vercel-build.sh` aplica as migrações pendentes (`prisma migrate deploy`) usando a conexão direta do Neon. Depois, roda o build.
+   - O build do preview, inclusive o da `stage`, não aplica migrações: só o de produção aplica.
+   - Num PR que muda o banco, as telas que dependem da mudança podem falhar no preview e na `stage` até a mudança chegar à `main`. Teste essas telas no seu computador.
 
 **Variáveis de ambiente:**
 
@@ -477,10 +486,10 @@ Siga as seções "Ativando…" do [README](../README.md#ativando-o-código-por-d
 O fluxo completo está no [CONTRIBUTING](../CONTRIBUTING.md). Em resumo:
 
 1. **Issue antes de codar,** com o label `bug`, `enhancement` ou `feature`.
-2. **Uma branch por issue,** no formato `tipo/numero-da-issue-descricao-curta`. Exemplo: `bug/12-erro-no-login`.
-3. **Pull request para a `main`,** com `Closes #N` ou `Refs #N`, explicando o que muda e por quê, com print se mexeu na interface.
-4. **A checagem "Lint, tipos e testes" e uma aprovação** antes do merge.
-5. **Deploy só pelo merge.** Nada de deploy manual.
+2. **Uma branch por issue,** criada a partir da `stage`, no formato `tipo/numero-da-issue-descricao-curta`. Exemplo: `bug/12-erro-no-login`.
+3. **Pull request para a `stage`,** com `Closes #N` ou `Refs #N`, explicando o que muda e por quê, com print se mexeu na interface.
+4. **A checagem "Lint, tipos e testes" e uma aprovação** antes do merge, sempre por squash.
+5. **Deploy só pelo merge.** A `stage` é a homologação, e um PR da `stage` para a `main` publica em produção. Nada de deploy manual.
 
 E dois combinados que mantêm esta documentação útil:
 
