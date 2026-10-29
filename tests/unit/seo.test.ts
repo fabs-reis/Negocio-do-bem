@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { jsonLdDaVitrine, jsonLdDoNegocio, metadadosDaPagina } from "@/lib/seo";
+import { jsonLdDaVitrine, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { CORES_DA_MARCA, svgDoLogo } from "@/lib/marca";
 
 afterEach(() => {
@@ -82,6 +82,13 @@ describe("jsonLdDoNegocio", () => {
 describe("caminho até as páginas", () => {
   const nomes = (dados: { "@graph": object[] }) =>
     (dados["@graph"][1] as { itemListElement: { name: string; item: string }[] }).itemListElement.map((i) => [i.name, new URL(i.item).pathname]);
+
+  it("a página da cidade de um negócio usa o nome oficial", () => {
+    expect(paginaDaCidade("Tubarao-SC", "SC")).toEqual({ nome: "Tubarão, SC", caminho: "/cidades/tubarao-sc" });
+    expect(paginaDaCidade("florianopolis", "SC")).toEqual({ nome: "Florianópolis, SC", caminho: "/cidades/florianopolis-sc" });
+    // Fora da lista do IBGE, fica a grafia gravada.
+    expect(paginaDaCidade("Vila Inventada", "BA")).toEqual({ nome: "Vila Inventada, BA", caminho: "/cidades/vila-inventada-ba" });
+  });
 
   it("o perfil passa pela página da cidade", () => {
     expect(nomes(jsonLdDoNegocio(NEGOCIO, []))).toEqual([

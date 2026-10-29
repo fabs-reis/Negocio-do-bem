@@ -91,7 +91,7 @@ beforeEach(async () => {
     causas: ["sustentavel"],
     criadoEm: atras(10),
   });
-  await criarEmpresa("escondido", { nome: "Escondido", oculta: true, criadoEm: atras(40) });
+  await criarEmpresa("escondido", { nome: "Escondido", cidade: "Cidade Inventada", oculta: true, criadoEm: atras(40) });
   await criarEmpresa("tirado", { nome: "Tirado do ar", moderacao: "rejeitada", criadoEm: atras(40) });
 
   await db.depoimento.create({ data: { empresaId: padaria.id, autorId: leitor.id, texto: "Pão quentinho e gente boa.", resposta: "Obrigada!" } });
@@ -184,7 +184,10 @@ describe("saudeDosDados", () => {
       semFoto: 1,
       semContato: 1,
       semHistoria: 1,
-      cidadesForaDaLista: [{ cidade: "Sao Paulo", uf: "SP", total: 1 }],
+      cidadesForaDaLista: [
+        { cidade: "Cidade Inventada", uf: "PE", total: 1, oficial: null },
+        { cidade: "Sao Paulo", uf: "SP", total: 1, oficial: "São Paulo" },
+      ],
       pedidosVencidos: 1,
       sessoesVencidas: 1,
     });

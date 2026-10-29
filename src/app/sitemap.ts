@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 import { connection } from "next/server";
 import { filtrarCausas } from "@/lib/causas";
 import { listarParaSitemap } from "@/lib/consultas";
-import { hrefCausa, hrefCidade, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
+import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { ehFotoDoSite } from "@/lib/fotos";
-import { urlAbsoluta } from "@/lib/seo";
+import { paginaDaCidade, urlAbsoluta } from "@/lib/seo";
 
 // Páginas públicas, as páginas de cidade, causa e tipo que têm negócios e todos
 // os negócios do diretório, para o Google e o Bing acharem cada um. O robots.txt
@@ -18,13 +18,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Cada página de cidade, causa e tipo muda quando muda o negócio dela atualizado
   // por último. A lista vem do mais recente para o mais antigo: vale o primeiro.
-  // O endereço da cidade já junta as grafias diferentes dela.
+  // A cidade vai pelo nome oficial, que junta as grafias diferentes dela.
   const mudancas = new Map<string, Date>();
   const marcar = (caminho: string, quando: Date) => {
     if (!mudancas.has(caminho)) mudancas.set(caminho, quando);
   };
   for (const negocio of negocios) {
-    marcar(hrefCidade(negocio.cidade, negocio.uf), negocio.atualizadoEm);
+    marcar(paginaDaCidade(negocio.cidade, negocio.uf).caminho, negocio.atualizadoEm);
     if (temPaginaDeTipo(negocio.categoria)) marcar(hrefTipo(negocio.categoria), negocio.atualizadoEm);
     for (const causa of filtrarCausas(negocio.causas.map((c) => c.causa))) marcar(hrefCausa(causa), negocio.atualizadoEm);
   }

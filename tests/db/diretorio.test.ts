@@ -97,6 +97,44 @@ describe("buscarDiretorio", () => {
     expect(semNinguem.local).toEqual({ cidade: "Olinda", uf: "PE", rotulo: "Olinda, PE" });
   });
 
+  it("junta a mesma cidade escrita de jeitos diferentes, na lista e no filtro", async () => {
+    // Cadastros de antes da lista do IBGE gravaram a cidade como foi digitada.
+    await criarEmpresa("brecho.sp", { nome: "Brechó Sem Acento", categoria: "Moda e acessórios", cidade: "Sao Paulo", uf: "SP" });
+    await criarEmpresa("pet.sp", { nome: "Pet Maiúsculo", categoria: "Pet", cidade: "SÃO PAULO ", uf: "SP" });
+    await criarEmpresa("bistro.floripa", { nome: "Bistrô Floripa", categoria: "Restaurante e bar", cidade: "Florianopolis", uf: "SC" });
+
+    const r = await buscarDiretorio(filtros({ onde: "São Paulo, SP" }));
+    expect(r.cidades).toEqual([
+      { cidade: "Florianópolis", uf: "SC", total: 1 },
+      { cidade: "Recife", uf: "PE", total: 2 },
+      { cidade: "São Paulo", uf: "SP", total: 3 },
+    ]);
+    expect(r.local).toEqual({ cidade: "São Paulo", uf: "SP", rotulo: "São Paulo, SP" });
+    expect(r.total).toBe(3);
+    expect(r.porCategoria).toEqual({ "Café e padaria": 1, "Moda e acessórios": 1, Pet: 1 });
+    expect((await buscarDiretorio(filtros({ onde: "sao paulo sp" }))).total).toBe(3);
+
+    // Só com a grafia sem acento no banco: a lista mostra o nome oficial e o filtro acha.
+    const floripa = await buscarDiretorio(filtros({ onde: "Florianópolis, SC" }));
+    expect(floripa.itens.map((e) => e.instagramUsername)).toEqual(["bistro.floripa"]);
+    expect((await buscarDiretorio(filtros({ onde: "florianopolis" }))).total).toBe(1);
+    expect((await resumoDoDiretorio()).cidades).toBe(3);
+  });
+
+  it("junta também a cidade com hífen ou com a UF grudada no nome", async () => {
+    await criarEmpresa("loja.tubarao", { nome: "Loja Tubarão", categoria: "Pet", cidade: "Tubarão", uf: "SC" });
+    await criarEmpresa("bar.tubarao", { nome: "Bar Tubarão", categoria: "Restaurante e bar", cidade: "Tubarão-SC", uf: "SC" });
+    await criarEmpresa("cafe.sjdr", { nome: "Café do Rei", categoria: "Café e padaria", cidade: "São João del-Rei", uf: "MG" });
+
+    const r = await buscarDiretorio(filtros({ onde: "Tubarão, SC" }));
+    expect(r.cidades.filter((c) => c.uf !== "PE" && c.uf !== "SP")).toEqual([
+      { cidade: "São João del Rei", uf: "MG", total: 1 },
+      { cidade: "Tubarão", uf: "SC", total: 2 },
+    ]);
+    expect(r.total).toBe(2);
+    expect((await buscarDiretorio(filtros({ onde: "sao joao del rei, mg" }))).total).toBe(1);
+  });
+
   it("combina causas (todas precisam valer), verificados e texto", async () => {
     expect((await buscarDiretorio(filtros({ causas: ["sustentavel", "liderado-por-mulheres"] }))).total).toBe(1);
     const verificados = await buscarDiretorio(filtros({ verificados: true, tipos: ["Café e padaria"] }));
@@ -138,13 +176,17 @@ describe("páginas de cidade, causa e tipo", () => {
     expect(await cidadesCom("categoria", "Pet")).toEqual([]);
   });
 
-  it("junta as grafias da mesma cidade, com o nome da mais usada", async () => {
+  it("junta as grafias da mesma cidade, com o nome oficial", async () => {
     await criarEmpresa("brecho.vila", { nome: "Brechó da Vila", categoria: "Moda e acessórios", cidade: "Sao Paulo", uf: "SP" });
     await criarEmpresa("loja.centro", { nome: "Loja do Centro", categoria: "Moda e acessórios", cidade: "Sao Paulo", uf: "SP" });
     await criarEmpresa("atelie.sul", { nome: "Ateliê Sul", categoria: "Moda e acessórios", cidade: "São Paulo", uf: "SP" });
+    // Cadastro antigo, com a UF grudada no nome.
+    await criarEmpresa("loja.tubarao", { nome: "Loja de Tubarão", categoria: "Moda e acessórios", cidade: "Tubarao-SC", uf: "SC" });
     expect(await cidadesCom("categoria", "Moda e acessórios")).toEqual([
-      { cidade: "Sao Paulo", uf: "SP", total: 3 },
+      { cidade: "São Paulo", uf: "SP", total: 3 },
       { cidade: "Recife", uf: "PE", total: 1 },
+      { cidade: "Tubarão", uf: "SC", total: 1 },
     ]);
+    expect(await cidadeDoSlug("tubarao-sc")).toMatchObject({ cidade: "Tubarão", total: 1 });
   });
 });

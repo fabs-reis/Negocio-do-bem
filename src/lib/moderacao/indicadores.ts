@@ -2,7 +2,7 @@ import "server-only";
 import { NO_DIRETORIO } from "@/lib/consultas";
 import { db, type Prisma } from "@/lib/db";
 import { agruparPorSemana, DIA } from "@/lib/moderacao/filtros";
-import { ehNomeOficial } from "@/lib/municipios";
+import { nomeOficial } from "@/lib/municipios";
 
 // Os números da visão geral do painel da moderação. Contam tudo o que está no
 // banco, inclusive o que não aparece para o público, salvo quando o nome diz
@@ -144,10 +144,11 @@ export async function saudeDosDados(agora = new Date()) {
     db.reivindicacao.count({ where: { status: "pendente", expiraEm: { lte: agora } } }),
     db.sessao.count({ where: { expiraEm: { lte: agora } } }),
   ]);
-  // Cidades gravadas antes da lista do IBGE, com outra grafia ("Sao Paulo").
+  // Cidades gravadas antes da lista do IBGE, com outra grafia ("Sao Paulo"). `oficial` é o nome
+  // que o `npm run cidades:corrigir` grava, ou null quando a cidade não está na lista.
   const cidadesForaDaLista = cidades
-    .filter((c) => !ehNomeOficial(c.cidade, c.uf))
-    .map((c) => ({ cidade: c.cidade, uf: c.uf, total: c._count._all }))
+    .map((c) => ({ cidade: c.cidade, uf: c.uf, total: c._count._all, oficial: nomeOficial(c.cidade, c.uf) }))
+    .filter((c) => c.oficial !== c.cidade)
     .sort((a, b) => b.total - a.total || a.cidade.localeCompare(b.cidade, "pt-BR"));
   return { semFoto, semContato, semHistoria, cidadesForaDaLista, pedidosVencidos, sessoesVencidas };
 }

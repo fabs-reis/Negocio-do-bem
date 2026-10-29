@@ -12,10 +12,10 @@ import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { buscarCausa, filtrarCausas } from "@/lib/causas";
 import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
-import { hrefCausa, hrefCidade, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
+import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { linkPerfil, normalizarUsername } from "@/lib/instagram";
-import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina } from "@/lib/seo";
+import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { formatarData, formatarWhatsapp, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 
@@ -89,7 +89,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
                 )}
                 <span aria-hidden="true">·</span>
                 {publico ? (
-                  <Link href={hrefCidade(empresa.cidade, empresa.uf)} className="hover:text-tinta hover:underline">
+                  <Link href={paginaDaCidade(empresa.cidade, empresa.uf).caminho} className="hover:text-tinta hover:underline">
                     {empresa.cidade}, {empresa.uf}
                   </Link>
                 ) : (

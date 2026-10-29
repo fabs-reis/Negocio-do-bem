@@ -6,6 +6,7 @@ import { hrefCidade } from "@/lib/diretorio";
 import { REPOSITORIO } from "@/lib/dominio";
 import { ehFotoDoSite } from "@/lib/fotos";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
+import { nomeOficial } from "@/lib/municipios";
 
 /**
  * Endereço público do site, sem barra no final, para os links absolutos (canônico,
@@ -127,7 +128,7 @@ export function jsonLdDoNegocio(empresa: NegocioPublico, causas: string[]) {
       },
       jsonLdDoCaminho([
         { nome: "Início", caminho: "/" },
-        { nome: `${empresa.cidade}, ${empresa.uf}`, caminho: hrefCidade(empresa.cidade, empresa.uf) },
+        paginaDaCidade(empresa.cidade, empresa.uf),
         { nome: empresa.nome, caminho: `/empresas/${empresa.instagramUsername}` },
       ]),
     ],
@@ -136,6 +137,15 @@ export function jsonLdDoNegocio(empresa: NegocioPublico, causas: string[]) {
 
 /** Um passo do caminho até uma página ("Início › Cidades › Salvador, BA"). */
 export type Migalha = { nome: string; caminho: string };
+
+/**
+ * A página da cidade de um negócio, com o nome oficial, como na lista de cidades
+ * do diretório: um cadastro antigo gravado como "Tubarão-SC" leva a Tubarão, SC.
+ */
+export function paginaDaCidade(cidade: string, uf: string): Migalha {
+  const nome = nomeOficial(cidade, uf) ?? cidade;
+  return { nome: `${nome}, ${uf}`, caminho: hrefCidade(nome, uf) };
+}
 
 function jsonLdDoCaminho(migalhas: Migalha[]) {
   return {

@@ -149,16 +149,23 @@ export async function VisaoGeral() {
             {contar(saude.semHistoria, "negócio do diretório", "negócios do diretório")} sem história
           </Saude>
           <Saude total={saude.cidadesForaDaLista.length}>
-            {contar(saude.cidadesForaDaLista.length, "cidade gravada", "cidades gravadas")} com um nome fora da lista do IBGE
+            {contar(saude.cidadesForaDaLista.length, "cidade gravada", "cidades gravadas")} com um nome diferente do oficial do IBGE
             {saude.cidadesForaDaLista.length > 0 && (
-              <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-suave">
-                {saude.cidadesForaDaLista.slice(0, 12).map((c) => (
-                  <Link key={`${c.cidade}/${c.uf}`} href={hrefModeracao("negocios", { q: c.cidade })} className="hover:text-tinta hover:underline">
-                    {c.cidade}/{c.uf} ({c.total})
-                  </Link>
-                ))}
-                {saude.cidadesForaDaLista.length > 12 && <span>e mais {saude.cidadesForaDaLista.length - 12}</span>}
-              </span>
+              <>
+                <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-suave">
+                  {saude.cidadesForaDaLista.slice(0, 12).map((c) => (
+                    <Link key={`${c.cidade}/${c.uf}`} href={hrefModeracao("negocios", { q: c.cidade })} className="hover:text-tinta hover:underline">
+                      {c.cidade}/{c.uf} {c.oficial ? `→ ${c.oficial}` : "(fora da lista)"} · {c.total}
+                    </Link>
+                  ))}
+                  {saude.cidadesForaDaLista.length > 12 && <span>e mais {saude.cidadesForaDaLista.length - 12}</span>}
+                </span>
+                {saude.cidadesForaDaLista.some((c) => c.oficial) && (
+                  <span className="mt-1 block text-xs text-suave">
+                    Quem cuida do projeto grava os nomes oficiais com <code className="font-mono">npm run cidades:corrigir</code>.
+                  </span>
+                )}
+              </>
             )}
           </Saude>
           <Saude total={saude.pedidosVencidos} href={hrefModeracao("reivindicacoes")}>

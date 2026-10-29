@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { ehModerador } from "@/lib/auth/sessao";
 import { agruparPorSemana, comAviso, DIA, destinoNaModeracao, hrefModeracao, lerFiltros } from "@/lib/moderacao/filtros";
-import { ehNomeOficial } from "@/lib/municipios";
 
 describe("ehModerador", () => {
   afterEach(() => {
@@ -110,14 +109,5 @@ describe("agruparPorSemana", () => {
   it("ignora o que é mais antigo que o período e põe datas no futuro na última semana", () => {
     const semanas = agruparPorSemana([atras(28), atras(100), new Date(agora.getTime() + DIA)], agora, 4);
     expect(semanas.map((s) => s.total)).toEqual([0, 0, 0, 1]);
-  });
-});
-
-describe("ehNomeOficial", () => {
-  it("só o nome do IBGE, com acentos e na UF certa", () => {
-    expect(ehNomeOficial("São Paulo", "SP")).toBe(true);
-    expect(ehNomeOficial("Sao Paulo", "SP")).toBe(false);
-    expect(ehNomeOficial("são paulo", "SP")).toBe(false);
-    expect(ehNomeOficial("Recife", "SP")).toBe(false);
   });
 });
