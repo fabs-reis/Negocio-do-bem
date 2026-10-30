@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
-import { COOKIE_LINK, criarLink, enviarLink, usarLink } from "@/lib/auth/links";
+import { CONFIRMACAO_DE_EMAIL_LIGADA, COOKIE_LINK, criarLink, enviarLink, usarLink } from "@/lib/auth/links";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { caminhoSeguro, criarSessao, encerrarSessao, exigirUsuario } from "@/lib/auth/sessao";
 import { ipDoCabecalho, reservarTentativaDoEmail, tentativaDoIpLiberada, zerarTentativasDoEmail } from "@/lib/auth/tentativas";
@@ -47,10 +47,12 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
   const usuario = await db.usuario.create({ data: { nome, email, senhaHash: await gerarHashSenha(senha) } });
   await criarSessao(usuario.id);
   const voltar = caminhoSeguro(texto(dados, "voltar"));
-  after(async () => {
-    const token = await criarLink(usuario, "confirmar", voltar);
-    if (token) await enviarLink(usuario, "confirmar", token);
-  });
+  if (CONFIRMACAO_DE_EMAIL_LIGADA) {
+    after(async () => {
+      const token = await criarLink(usuario, "confirmar", voltar);
+      if (token) await enviarLink(usuario, "confirmar", token);
+    });
+  }
   redirect(voltar);
 }
 
