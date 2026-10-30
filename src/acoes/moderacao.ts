@@ -80,16 +80,18 @@ export async function moderarEmpresa(dados: FormData): Promise<void> {
   const moderador = await exigirModerador();
   const decisao = dados.get("decisao") === "aprovar" ? "aprovada" : "rejeitada";
   const aba = dados.get("aba") === "negocios" ? "negocios" : "indicacoes";
-  const empresa = await db.empresa.update({
-    where: { id: texto(dados, "empresaId") },
-    data: { moderacao: decisao },
-  });
-  await registrarAuditoria(db, {
-    usuarioId: moderador.id,
-    acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",
-    alvoTipo: "empresa",
-    alvoId: empresa.id,
-    detalhes: `@${empresa.instagramUsername}`,
+  await db.$transaction(async (tx) => {
+    const empresa = await tx.empresa.update({
+      where: { id: texto(dados, "empresaId") },
+      data: { moderacao: decisao },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: moderador.id,
+      acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",
+      alvoTipo: "empresa",
+      alvoId: empresa.id,
+      detalhes: `@${empresa.instagramUsername}`,
+    });
   });
   const destino = destinoNaModeracao(dados.get("voltar"));
   if (destino) redirect(comAviso(destino, "feito"));
@@ -99,15 +101,17 @@ export async function moderarEmpresa(dados: FormData): Promise<void> {
 export async function decidirDenuncia(dados: FormData): Promise<void> {
   const moderador = await exigirModerador();
   const remover = dados.get("decisao") === "remover";
-  const depoimento = await db.depoimento.update({
-    where: { id: texto(dados, "depoimentoId") },
-    data: remover ? { status: "removido", denunciado: false } : { denunciado: false, motivoDenuncia: null, denunciadoPorId: null },
-  });
-  await registrarAuditoria(db, {
-    usuarioId: moderador.id,
-    acao: remover ? "depoimento.removido" : "depoimento.mantido",
-    alvoTipo: "depoimento",
-    alvoId: depoimento.id,
+  await db.$transaction(async (tx) => {
+    const depoimento = await tx.depoimento.update({
+      where: { id: texto(dados, "depoimentoId") },
+      data: remover ? { status: "removido", denunciado: false } : { denunciado: false, motivoDenuncia: null, denunciadoPorId: null },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: moderador.id,
+      acao: remover ? "depoimento.removido" : "depoimento.mantido",
+      alvoTipo: "depoimento",
+      alvoId: depoimento.id,
+    });
   });
   voltar("denuncias", "feito");
 }
