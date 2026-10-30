@@ -556,7 +556,10 @@ npm run typecheck
 - **O banco de teste é separado** (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`).
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
-- **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
+- **No GitHub,** o CI roda lint, tipos, testes, build de produção e integração num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
+- **`npm run test:integracao`:** depois de `npm run build`, inicia o Next real em uma porta local. Usa contas e sessões fictícias no banco de teste para verificar a proteção da fila e uma ação de moderação compilada. O servidor encerra ao terminar, e apenas os dados criados pela prova são removidos. Qualquer erro escrito pelo servidor faz a prova falhar, com o caminho do log completo.
+- A configuração comum descobre apenas `tests/unit/` e `tests/db/`. A integração tem configuração própria, não depende de variável de ativação e falha se não encontrar testes. Cópias guardadas em `.nott/` ficam fora da descoberta e da verificação de tipos. Ela não cria rota de teste no produto nem depende de um navegador ou de um serviço externo.
+- O setup retira os seletores de Blob herdados antes de cada arquivo de teste. Só os testes unitários com SDK substituído os ativam explicitamente. O CI usa o mesmo banco descartável migrado para os testes, o build e a integração.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
 

@@ -79,10 +79,14 @@ export async function exigirUsuario(voltarPara: string): Promise<UsuarioSessao> 
   return usuario;
 }
 
-/** Para quem não é moderador, a área de moderação simplesmente não existe. */
-export async function exigirModerador(): Promise<UsuarioSessao> {
+/** A página mantém o 404. A ação recusa antes de retomar o HTML privado. */
+export async function exigirModerador(contexto: "pagina" | "acao" = "pagina"): Promise<UsuarioSessao> {
   const usuario = await usuarioAtual();
-  if (!usuario?.moderador) notFound();
+  if (!usuario?.moderador) {
+    // O Next 16.4.3 tenta retomar o shell privado quando notFound() vem de um POST sem JavaScript.
+    if (contexto === "acao") redirect("/404");
+    notFound();
+  }
   return usuario;
 }
 

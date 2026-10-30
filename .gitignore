@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.nott/
 
 # next.js
 /.next/
