@@ -5,7 +5,7 @@ import { usuarioAtual } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 import { normalizarUsername } from "@/lib/instagram";
-import { decidirProcura } from "./procura";
+import { decidirProcura } from "@/lib/participacao";
 
 /** Recebe o @ da porta de /participar e leva ao próximo passo. Só lê o banco. */
 export async function procurarNegocio(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {

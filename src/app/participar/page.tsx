@@ -6,12 +6,12 @@ import { NO_DIRETORIO, resumoDoDiretorio } from "@/lib/consultas";
 import { db } from "@/lib/db";
 import { INSTAGRAM_DO_PROJETO, REPOSITORIO } from "@/lib/dominio";
 import { linkPerfil, normalizarUsername } from "@/lib/instagram";
+import { boaCompanhia, decidirProcura } from "@/lib/participacao";
 import { metadadosDaPagina } from "@/lib/seo";
 import { FormParticipar } from "./FormParticipar";
-import { boaCompanhia, decidirProcura } from "./procura";
 
 // A página do link da bio do Instagram, para quem tem um negócio. A porta pede só o @
-// e leva ao próximo passo (ver procura.ts). O resultado da procura volta para esta
+// e leva ao próximo passo (ver src/lib/participacao.ts). O resultado da procura volta para esta
 // mesma página, em /participar?instagram=<@>.
 
 export const metadata: Metadata = metadadosDaPagina({

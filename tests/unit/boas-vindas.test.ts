@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checklistDoPerfil } from "@/app/painel/[usuario]/boas-vindas";
+import { checklistDoPerfil } from "@/lib/boas-vindas";
 
 const RECEM_ASSUMIDO = { fotoUrl: null, historia: "", causas: [], oficial: false };
 const COMPLETO = {

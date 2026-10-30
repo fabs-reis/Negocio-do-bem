@@ -7,11 +7,11 @@ import { responderDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { exigirUsuario } from "@/lib/auth/sessao";
+import { checklistDoPerfil } from "@/lib/boas-vindas";
 import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { configLogin, normalizarUsername, perfilOficial } from "@/lib/instagram";
 import { formatarData } from "@/lib/texto";
-import { checklistDoPerfil } from "./boas-vindas";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 

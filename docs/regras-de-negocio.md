@@ -242,7 +242,7 @@ Repare: aprovar uma reivindicação **também publica** o negócio. Por isso a a
 Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`.
 
 - **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta, e volta para ela depois, com o que veio na URL.
-- **Valores iniciais pela URL:** `/indicar?instagram=<@>&dono=sim` abre o formulário com o @ preenchido e "Este negócio é meu" marcado. É o caminho da [`/participar`](#a-porta-para-quem-tem-um-negócio-participar) para um negócio que ainda não está aqui. Código: `lerPreenchimento` em `src/app/indicar/preenchimento.ts`.
+- **Valores iniciais pela URL:** `/indicar?instagram=<@>&dono=sim` abre o formulário com o @ preenchido e "Este negócio é meu" marcado. É o caminho da [`/participar`](#a-porta-para-quem-tem-um-negócio-participar) para um negócio que ainda não está aqui. Código: `lerPreenchimento` em `src/lib/indicacao.ts`, com testes em `tests/unit/indicacao.test.ts`.
   - O @ passa pela mesma normalização do resto do site. Um @ inválido deixa o campo vazio, e só `dono=sim` marca a opção.
   - São só valores iniciais: o envio valida tudo de novo, como sempre. Sem os parâmetros, o formulário abre vazio.
 - **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
@@ -312,7 +312,7 @@ Os textos que o dono lê não usam a palavra "reivindicar": a página se chama "
 
 ### A porta para quem tem um negócio (`/participar`)
 
-Código: `src/app/participar/`. A decisão fica em `decidirProcura` (`procura.ts`), com testes em `tests/unit/participar.test.ts`.
+Código: a página em `src/app/participar/`, a ação em `src/acoes/participacao.ts` e a decisão em `decidirProcura` (`src/lib/participacao.ts`), com testes em `tests/unit/participacao.test.ts`.
 
 `/participar` é o link da bio do Instagram do projeto. A página é pública e recebe quem tem um negócio com:
 
@@ -594,7 +594,7 @@ Código: `src/app/painel/`.
   - os pedidos para assumir um perfil;
   - as indicações dela, com a situação de cada uma na moderação.
 - **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404).
-- **Boas-vindas:** no topo do `/painel/<@>`, o bloco "Que bom ter você aqui, <primeiro nome>!" lista três coisas que deixam o perfil com a cara do negócio, cada uma com o link da sua seção do painel. Código: `checklistDoPerfil` em `src/app/painel/[usuario]/boas-vindas.ts`, com testes em `tests/unit/painel.test.ts`.
+- **Boas-vindas:** no topo do `/painel/<@>`, o bloco "Que bom ter você aqui, <primeiro nome>!" lista três coisas que deixam o perfil com a cara do negócio, cada uma com o link da sua seção do painel. Código: `checklistDoPerfil` em `src/lib/boas-vindas.ts`, com testes em `tests/unit/boas-vindas.test.ts`.
   - "Uma foto" fica feita quando o negócio tem foto, "As causas que vocês vivem" com pelo menos uma causa da lista, e "A história de vocês" com a história escrita.
   - Num perfil que não é oficial, com o código por DM ou o Entrar com Instagram ligado, o bloco também convida: "Quer o selo de perfil oficial? Confirme pelo Instagram do negócio.", com o link da página de reivindicação.
   - O bloco some quando as três coisas estão feitas e não há selo a pedir.

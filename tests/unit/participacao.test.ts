@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boaCompanhia, decidirProcura } from "@/app/participar/procura";
+import { boaCompanhia, decidirProcura } from "@/lib/participacao";
 import { caminhoSeguro } from "@/lib/auth/sessao";
 
 const NO_DIRETORIO = { moderacao: "aprovada", oculta: false, donos: 0 };

@@ -10,7 +10,7 @@ import { Campo } from "@/components/Campo";
 import { CampoMunicipio } from "@/components/CampoMunicipio";
 import { SeletorCausas } from "@/components/SeletorCausas";
 import { CATEGORIAS } from "@/lib/dominio";
-import type { Preenchimento } from "./preenchimento";
+import type { Preenchimento } from "@/lib/indicacao";
 
 /** `preenchimento` traz o @ e o "Este negócio é meu" da URL, só como valores iniciais. */
 export function FormIndicar({ preenchimento }: { preenchimento: Preenchimento }) {

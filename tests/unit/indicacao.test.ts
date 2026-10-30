@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lerPreenchimento } from "@/app/indicar/preenchimento";
+import { lerPreenchimento } from "@/lib/indicacao";
 
 describe("lerPreenchimento", () => {
   it("abre com o @ e com \"Este negócio é meu\" marcado", () => {

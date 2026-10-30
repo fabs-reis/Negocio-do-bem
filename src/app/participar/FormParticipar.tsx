@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
+import { procurarNegocio } from "@/acoes/participacao";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { Campo } from "@/components/Campo";
 import { enviarSemLimpar } from "@/components/envio";
-import { procurarNegocio } from "./acoes";
 
 /** A porta da página: um campo só, o @ do negócio. */
 export function FormParticipar() {
