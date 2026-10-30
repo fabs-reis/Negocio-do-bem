@@ -491,6 +491,8 @@ npm run typecheck
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
 - **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
+  - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
+  - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
 
