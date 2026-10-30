@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { cadastrar, entrar, pedirLinkDeAcesso } from "@/acoes/conta";
+import { cadastrar, entrar, pedirLinkDeAcesso, trocarSenha } from "@/acoes/conta";
 import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { enviarSemLimpar } from "@/components/envio";
@@ -71,6 +71,40 @@ export function FormPedirLink({ voltar }: { voltar: string }) {
           Entrar com senha
         </Link>
       </p>
+    </form>
+  );
+}
+
+export function FormTrocarSenha() {
+  const [estado, acao, pendente] = useActionState(trocarSenha, undefined);
+  const erros = estado?.erros ?? {};
+  return (
+    <form action={acao} onSubmit={enviarSemLimpar(acao)} className="space-y-4">
+      <div>
+        <label htmlFor="senhaAtual" className="rotulo">
+          Senha atual
+        </label>
+        <input id="senhaAtual" name="senhaAtual" type="password" autoComplete="current-password" required className="campo" aria-invalid={!!erros.senhaAtual} />
+        {erros.senhaAtual && <p className="erro-campo">{erros.senhaAtual}</p>}
+      </div>
+      <div>
+        <label htmlFor="novaSenha" className="rotulo">
+          Nova senha
+        </label>
+        <input id="novaSenha" name="novaSenha" type="password" autoComplete="new-password" required minLength={8} className="campo" aria-invalid={!!erros.novaSenha} />
+        {erros.novaSenha ? <p className="erro-campo">{erros.novaSenha}</p> : <p className="ajuda">Pelo menos 8 caracteres.</p>}
+      </div>
+      <div>
+        <label htmlFor="confirmarSenha" className="rotulo">
+          Confirmar nova senha
+        </label>
+        <input id="confirmarSenha" name="confirmarSenha" type="password" autoComplete="new-password" required className="campo" aria-invalid={!!erros.confirmarSenha} />
+        {erros.confirmarSenha && <p className="erro-campo">{erros.confirmarSenha}</p>}
+      </div>
+      {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
+      <BotaoEnviar pendente={pendente} className="botao" enviando="Salvando…">
+        Salvar nova senha
+      </BotaoEnviar>
     </form>
   );
 }

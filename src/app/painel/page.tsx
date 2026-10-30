@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
+import { AvisoDaUrl } from "@/components/Avisos";
+import { FormTrocarSenha } from "@/components/FormulariosConta";
 import { Monograma } from "@/components/Monograma";
 import { SeloStatus } from "@/components/SeloStatus";
 import { exigirUsuario } from "@/lib/auth/sessao";
@@ -12,13 +14,14 @@ import { FORA_DA_BUSCA } from "@/lib/seo";
 
 export const metadata: Metadata = { title: "Meu painel", robots: FORA_DA_BUSCA };
 
-export default function Painel() {
+export default function Painel(props: PageProps<"/painel">) {
   return (
     <div className="mx-auto max-w-4xl px-4 pt-12 sm:px-6">
       <h1 className="font-serif text-4xl font-semibold tracking-tight">Meu painel</h1>
       <Suspense fallback={<div className="mt-8 h-80 animate-pulse rounded-3xl bg-superficie" />}>
-        <Conteudo />
+        <Conteudo searchParams={props.searchParams} />
       </Suspense>
+
     </div>
   );
 }
@@ -36,7 +39,8 @@ function Etiqueta({ status, texto }: { status: string; texto: string }) {
   return <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${CORES_STATUS[status] ?? ""}`}>{texto}</span>;
 }
 
-async function Conteudo() {
+async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchParams">) {
+  const { aviso } = await searchParams;
   const usuario = await exigirUsuario("/painel");
   const [empresas, reivindicacoes, indicacoes] = await Promise.all([
     db.empresaMembro.findMany({
@@ -60,6 +64,8 @@ async function Conteudo() {
   return (
     <div className="mt-2 space-y-12">
       <p className="text-suave">Olá, {usuario.nome.split(" ")[0]}! Aqui você cuida dos seus negócios e acompanha suas indicações.</p>
+
+      <AvisoDaUrl codigo={aviso} />
 
       {!usuario.emailConfirmado && (
         <ConfirmarEmail email={usuario.email} para="indicar, deixar depoimentos e assumir negócios" voltar="/painel" />
@@ -154,6 +160,17 @@ async function Conteudo() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section>
+        <h2 className="font-serif text-2xl font-semibold">Minha conta</h2>
+        <div className="cartao mt-4 p-6">
+          <h3 className="font-medium">Trocar senha</h3>
+          <p className="mt-1 mb-4 text-sm text-suave">
+            Caso tenha entrado pelo link, você também pode criar uma senha agora.
+          </p>
+          <FormTrocarSenha />
+        </div>
       </section>
     </div>
   );

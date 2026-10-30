@@ -134,3 +134,35 @@ export async function sair(): Promise<void> {
   await encerrarSessao();
   redirect("/");
 }
+
+const esquemaTrocarSenha = z
+  .object({
+    senhaAtual: z.string().min(1, "Digite a senha atual."),
+    novaSenha: z.string().min(8, "Use pelo menos 8 caracteres.").max(200, "Senha muito longa."),
+    confirmarSenha: z.string(),
+  })
+  .refine((d) => d.novaSenha === d.confirmarSenha, {
+    message: "As senhas não conferem.",
+    path: ["confirmarSenha"],
+  });
+
+export async function trocarSenha(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+  const usuario = await exigirUsuario("/painel");
+  const resultado = esquemaTrocarSenha.safeParse({
+    senhaAtual: texto(dados, "senhaAtual"),
+    novaSenha: texto(dados, "novaSenha"),
+    confirmarSenha: texto(dados, "confirmarSenha"),
+  });
+  if (!resultado.success) {
+    return { erros: errosPorCampo(resultado.error) };
+  }
+  const { senhaAtual, novaSenha } = resultado.data;
+
+  const conta = await db.usuario.findUnique({ where: { id: usuario.id }, select: { senhaHash: true } });
+  if (!conta?.senhaHash || !(await verificarSenha(senhaAtual, conta.senhaHash))) {
+    return { erros: { senhaAtual: "Senha atual incorreta." } };
+  }
+
+  await db.usuario.update({ where: { id: usuario.id }, data: { senhaHash: await gerarHashSenha(novaSenha) } });
+  redirect("/painel?aviso=senha-alterada");
+}

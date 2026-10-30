@@ -53,6 +53,7 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     texto: "Antes, confirme o seu e-mail: abra o link que mandamos para você ou peça outro no seu painel.",
   },
   feito: { tipo: "sucesso", texto: "Feito." },
+  "senha-alterada": { tipo: "sucesso", texto: "Senha alterada com sucesso." },
   ja_processada: { tipo: "erro", texto: "Esta solicitação já tinha sido decidida por outra pessoa da moderação." },
   cancelada: { tipo: "info", texto: "Solicitação cancelada." },
 };
