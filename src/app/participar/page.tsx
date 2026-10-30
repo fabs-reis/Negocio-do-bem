@@ -27,7 +27,7 @@ const PROMESSAS: { titulo: string; texto: ReactNode }[] = [
   { titulo: "É de graça.", texto: "Não tem plano pago." },
   { titulo: "Ninguém compra destaque.", texto: "Não tem anúncio nem ranking." },
   { titulo: "O perfil é seu.", texto: "Você edita quando quiser e tira o negócio do diretório com um clique." },
-  { titulo: "Não pedimos a senha do seu Instagram.", texto: "Da sua conta, guardamos só o nome e o e-mail." },
+  { titulo: "Não pedimos a senha do seu Instagram.", texto: "Da sua conta, guardamos o nome, o e-mail e a senha protegida." },
   { titulo: "Tem gente cuidando.", texto: "A moderação tira perfil falso do ar, e as decisões ficam registradas." },
   {
     titulo: "O código é aberto.",

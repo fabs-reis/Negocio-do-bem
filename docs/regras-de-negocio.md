@@ -229,11 +229,12 @@ stateDiagram-v2
 | Indicação → `aprovada` | Qualquer conta | `indicarEmpresa` |
 | `aprovada` → `rejeitada` ("Tirar do ar") e `rejeitada` → `aprovada` ("Publicar de novo") | Moderação, na aba Negócios | `moderarEmpresa` |
 | `pendente` → `aprovada` ou `rejeitada` | Moderação, na fila de indicações antigas | `moderarEmpresa` e `publicarIndicacoesPendentes` |
-| Qualquer → `aprovada` e `verificada` | Aprovação de uma reivindicação | `aprovar` em `src/lib/reivindicacao.ts` |
+| Qualquer → `verificada` | Aprovação de uma reivindicação | `aprovar` em `src/lib/reivindicacao.ts` |
+| Qualquer → `aprovada` | Aprovação de uma reivindicação **pela moderação** | `aprovar` em `src/lib/reivindicacao.ts` |
 | `oculta` liga e desliga | Só o dono | `alternarVisibilidade` |
 | `oficial` liga e desliga | Aprovação de uma reivindicação | `aprovar` em `src/lib/reivindicacao.ts` |
 
-Repare: aprovar uma reivindicação **também publica** o negócio. Por isso a aprovação na hora não vale para negócio tirado do ar: esse pedido vai para a moderação, que decide se publica de novo.
+Repare: quando a moderação aprova uma reivindicação, ela **também publica** o negócio. Uma aprovação automática (na hora, pelo webhook da DM ou pelo login com o Instagram) não muda a moderação do negócio. E nenhuma aprovação automática vale para negócio tirado do ar: esse pedido vai para a moderação, que decide se publica de novo.
 
 ---
 
@@ -392,7 +393,7 @@ Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que
 
 Cada pedido mostra:
 
-- o negócio, o @ (com link para o Instagram) e se já é verificado ou está sem dono;
+- o negócio, o @ (com link para o Instagram), se já é verificado ou está sem dono e, em destaque, se está fora do ar;
 - o caminho usado, a data do pedido e, se for o caso, a data em que expirou;
 - quem pediu: nome e e-mail;
 - no pedido por dados do negócio:
@@ -417,7 +418,7 @@ O que a moderação confere: se o CNPJ, o site e o contato batem com o @ do Inst
 
 1. Cria o vínculo de dono (ou mantém, se já existia).
 2. No modo "transferir", remove todos os outros donos.
-3. Marca o negócio como `verificada` e `aprovada`, o que também o publica.
+3. Marca o negócio como `verificada`. Na aprovação pela moderação, também como `aprovada`, o que o publica.
 4. Liga ou desliga o selo de perfil oficial (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)).
 5. Liga os IDs do Instagram ao negócio, se o pedido trouxe algum. Se a mesma conta do Instagram estava ligada a outro perfil, a ligação sai de lá.
 6. Marca o pedido como `aprovada`, com quem aprovou e quando.
@@ -461,9 +462,10 @@ Os dois caminhos dão o selo de perfil oficial. Na página de reivindicação, a
 
 **A regra de ouro: não existe aprovação automática quando há conflito.** Em `conflitosDeVerificacao`, um conflito é qualquer uma destas situações:
 
-1. O negócio já tem outro dono.
-2. A conta do Instagram é diferente da registrada antes no negócio (o @ pode ter mudado de dono).
-3. A conta do Instagram já está ligada a **outro** perfil do diretório (talvez o negócio tenha trocado de @).
+1. O negócio foi tirado do ar pela moderação. Vale para quem já é dono e para quem não é: só a moderação publica de novo. A anotação diz que o negócio está fora do ar.
+2. O negócio já tem outro dono.
+3. A conta do Instagram é diferente da registrada antes no negócio (o @ pode ter mudado de dono).
+4. A conta do Instagram já está ligada a **outro** perfil do diretório (talvez o negócio tenha trocado de @).
 
 Com conflito, o pedido fica pendente com uma anotação explicando o que aconteceu, e a moderação decide.
 

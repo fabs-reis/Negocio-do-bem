@@ -11,9 +11,9 @@
 //     confere (ou o webhook confere sozinho).
 //
 // A aprovação automática só acontece quando não há nenhum conflito. Qualquer
-// situação estranha (negócio que já tem dono, @ que mudou de conta, mesma conta
-// ligada a outro perfil) vira uma solicitação pendente com anotações para a
-// moderação decidir.
+// situação estranha (negócio que já tem dono, negócio tirado do ar, @ que mudou de
+// conta, mesma conta ligada a outro perfil) vira uma solicitação pendente com
+// anotações para a moderação decidir.
 //
 // Os dois caminhos pelo Instagram dão o selo "Perfil oficial" (Empresa.oficial).
 // Quem assumiu pelos dados do negócio também pode usá-los depois, para ganhar o selo.
@@ -295,7 +295,13 @@ export async function aprovarPendentesSemDono(revisorId: string): Promise<number
  * "pode aprovar sozinho".
  */
 async function conflitosDeVerificacao(params: {
-  empresa: { id: string; instagramUserId: string | null; instagramIgsid: string | null; membros: { usuarioId: string }[] };
+  empresa: {
+    id: string;
+    moderacao: string;
+    instagramUserId: string | null;
+    instagramIgsid: string | null;
+    membros: { usuarioId: string }[];
+  };
   usuarioId: string;
   instagramUserId?: string;
   instagramIgsid?: string;
@@ -303,6 +309,10 @@ async function conflitosDeVerificacao(params: {
   const { empresa, usuarioId, instagramUserId, instagramIgsid } = params;
   const conflitos: string[] = [];
 
+  // Só a moderação publica de novo um negócio que ela tirou do ar.
+  if (empresa.moderacao === "rejeitada") {
+    conflitos.push("O negócio está fora do ar: a moderação tirou do ar e decide se publica de novo.");
+  }
   if (empresa.membros.some((m) => m.usuarioId !== usuarioId)) {
     conflitos.push("O negócio já tem dono verificado: decida entre adicionar como co-dono ou transferir.");
   }
@@ -332,7 +342,8 @@ export type ModoAprovacao = "adicionar" | "transferir";
 
 /**
  * Aprova a reivindicação: a pessoa vira dona e o negócio fica verificado.
- * `revisorId` null significa aprovação automática.
+ * `revisorId` null significa aprovação automática, que não muda a moderação do
+ * negócio: só a decisão de alguém da moderação publica o negócio.
  * `transferir` remove os donos anteriores (usado em disputas).
  *
  * O selo "Perfil oficial" vale enquanto um dono atual confirmou pelo Instagram:
@@ -387,7 +398,7 @@ export async function aprovar(params: {
       where: { id: empresaId },
       data: {
         status: "verificada",
-        moderacao: "aprovada",
+        ...(revisorId ? { moderacao: "aprovada" } : {}),
         ...(peloInstagram ? { oficial: true } : outrosDonos === 0 ? { oficial: false } : {}),
         ...(instagramUserId ? { instagramUserId } : {}),
         ...(instagramIgsid ? { instagramIgsid } : {}),
