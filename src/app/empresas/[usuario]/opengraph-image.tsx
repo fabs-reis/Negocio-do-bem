@@ -51,7 +51,7 @@ export default async function Imagem({ params }: { params: Promise<{ usuario: st
               </Etiqueta>
             ) : (
               <Etiqueta fundo="#fffdf9" cor={SUAVE}>
-                Assumido pelo dono
+                Perfil assumido
               </Etiqueta>
             ))}
         </div>

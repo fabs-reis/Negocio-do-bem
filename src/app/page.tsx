@@ -105,7 +105,7 @@ async function Numeros() {
       <dl className="grid grid-cols-3 gap-3 border-t border-papel/15 pt-4 escuro:border-linha">
         <Numero valor={resumo.cidades} rotulo={resumo.cidades === 1 ? "cidade" : "cidades"} />
         <Numero valor={resumo.estados} rotulo={resumo.estados === 1 ? "estado" : "estados"} />
-        <Numero valor={resumo.verificados} rotulo="com dono no perfil" />
+        <Numero valor={resumo.verificados} rotulo="perfis assumidos" />
       </dl>
     </div>
   );

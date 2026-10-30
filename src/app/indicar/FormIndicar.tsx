@@ -35,7 +35,7 @@ export function FormIndicar({ preenchimento }: { preenchimento: Preenchimento })
         <span>
           <span className="block font-medium">Este negócio é meu</span>
           <span className="block text-sm text-suave">
-            Depois de cadastrar, você confirma pelo Instagram ou envia os dados do negócio e já pode editar o perfil.
+            Depois de cadastrar, você confirma pelo Instagram ou envia os dados do negócio para assumir o perfil.
           </span>
         </span>
       </label>

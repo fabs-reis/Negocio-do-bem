@@ -37,6 +37,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | Moderação | `Usuario.papel = "moderador"` | Quem tira do ar o que for impróprio, decide disputas de reivindicação e denúncias, e pode editar qualquer perfil. |
 | Indicação | criação de uma `Empresa` | Alguém da comunidade (ou o próprio dono) cadastra um negócio. |
 | Reivindicação | `Reivindicacao` | O pedido de uma pessoa para virar dona de um negócio. |
+| Perfil oficial | `Empresa.oficial` | O selo do negócio em que um dono atual confirmou pelo Instagram (login ou código por DM). |
 | Depoimento | `Depoimento` | O relato de alguém da comunidade sobre um negócio. |
 | Denúncia | campos `denunciado`, `motivoDenuncia` e `denunciadoPorId` do `Depoimento` | O aviso de que um depoimento tem algo errado. |
 | Causa | `EmpresaCausa` + lista em `src/lib/causas.ts` | Um valor que o negócio pratica, como "Escala 5x2" ou "Antirracista". Vira selo no perfil e filtro na busca. |
@@ -70,7 +71,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - "Sair" apaga a sessão do banco e o cookie.
 - **Volta para onde a pessoa estava:**
   - páginas que exigem login mandam para `/entrar?voltar=<caminho>`;
-  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site.
+  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site. A busca do caminho vai junto: `/indicar?instagram=<@>&dono=sim` volta inteiro.
 
 ### Papéis
 
@@ -150,7 +151,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 **Sistema:**
 
 - **Ambiente:** o nome (`production`, `preview` ou `development`), o endereço público, se os buscadores podem indexar e, no Vercel, o branch, o commit e a região.
-- **Integrações:** só se cada uma está ligada (fotos no Vercel Blob, código por DM, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
+- **Integrações:** só se cada uma está ligada (fotos no Vercel Blob, código por DM, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem, com uma exceção: o @ que recebe o código por DM, que é público.
 - **Banco:** quantas linhas cada tabela tem e as migrações aplicadas, da mais nova para a mais antiga. Uma migração que começou e não terminou aparece em destaque, porque trava o próximo deploy.
 
 ---
@@ -170,7 +171,7 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
   - não pode começar nem terminar com `.`, nem ter `..`;
   - recusa caminhos do Instagram que não são perfis (`p`, `reel`, `reels`, `explore`, `stories`, `accounts`, `direct`, `tv`).
 - **Ninguém muda o @ depois** (nem o dono, nem a moderação). Não existe tela para isso.
-- Além do @, o negócio pode guardar dois IDs fixos do Instagram (`instagramUserId` e `instagramIgsid`). Eles só são preenchidos pelos caminhos de verificação pelo Instagram, hoje desligados (ver [seção 6](#caminhos-pelo-instagram-desligados-por-padrão)).
+- Além do @, o negócio pode guardar dois IDs fixos do Instagram (`instagramUserId` e `instagramIgsid`). Eles só são preenchidos pelos caminhos de verificação pelo Instagram (ver [seção 6](#caminhos-pelo-instagram)).
 
 ### Dados do negócio
 
@@ -198,15 +199,16 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 - Números estrangeiros são recusados.
 - No perfil, o número aparece formatado, e o botão abre `wa.me/<número>`.
 
-### Três estados independentes
+### Quatro estados independentes
 
-O negócio tem três informações de estado que andam separadas:
+O negócio tem quatro informações de estado que andam separadas:
 
 | Campo | Valores | O que significa |
 | --- | --- | --- |
 | `moderacao` | `pendente` · `aprovada` · `rejeitada` | Se o negócio está no ar. Toda indicação entra `aprovada`, e a moderação pode tirar do ar (`rejeitada`) e publicar de novo. `pendente` só existe em negócios indicados antes da publicação automática. Só `aprovada` pode aparecer no diretório. |
 | `status` | `indicada` · `verificada` | Se tem dono aprovado. Vira `verificada` quando a primeira reivindicação é aprovada e não volta mais. |
 | `oculta` | `false` · `true` | Se o dono tirou o negócio do diretório. |
+| `oficial` | `false` · `true` | Se um dono atual confirmou pelo Instagram: o selo "Perfil oficial" (ver [seção 6](#o-selo-de-perfil-oficial)). |
 
 **Um negócio aparece para o público quando `moderacao = "aprovada"` e `oculta = false`.** Fora disso, só o dono, a moderação e quem indicou veem o perfil (ver [seção 7](#quem-vê-um-perfil-que-não-está-no-diretório)).
 
@@ -229,6 +231,7 @@ stateDiagram-v2
 | `pendente` → `aprovada` ou `rejeitada` | Moderação, na fila de indicações antigas | `moderarEmpresa` e `publicarIndicacoesPendentes` |
 | Qualquer → `aprovada` e `verificada` | Aprovação de uma reivindicação | `aprovar` em `src/lib/reivindicacao.ts` |
 | `oculta` liga e desliga | Só o dono | `alternarVisibilidade` |
+| `oficial` liga e desliga | Aprovação de uma reivindicação | `aprovar` em `src/lib/reivindicacao.ts` |
 
 Repare: aprovar uma reivindicação **também publica** o negócio. Por isso a aprovação na hora não vale para negócio tirado do ar: esse pedido vai para a moderação, que decide se publica de novo.
 
@@ -238,7 +241,10 @@ Repare: aprovar uma reivindicação **também publica** o negócio. Por isso a a
 
 Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`.
 
-- **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta.
+- **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta, e volta para ela depois, com o que veio na URL.
+- **Valores iniciais pela URL:** `/indicar?instagram=<@>&dono=sim` abre o formulário com o @ preenchido e "Este negócio é meu" marcado. É o caminho da [`/participar`](#a-porta-para-quem-tem-um-negócio-participar) para um negócio que ainda não está aqui. Código: `lerPreenchimento` em `src/app/indicar/preenchimento.ts`.
+  - O @ passa pela mesma normalização do resto do site. Um @ inválido deixa o campo vazio, e só `dono=sim` marca a opção.
+  - São só valores iniciais: o envio valida tudo de novo, como sempre. Sem os parâmetros, o formulário abre vazio.
 - **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil.
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
@@ -253,9 +259,9 @@ Quando a pessoa marca **"Este negócio é meu"** no formulário de indicação:
 
 - o campo "Por que você indica?" some e o motivo não é guardado;
 - o negócio é criado do mesmo jeito, já publicado, com a pessoa como quem indicou;
-- a pessoa vai direto para a página de reivindicação (`/empresas/<@>/reivindicar`) para enviar os dados do negócio.
+- a pessoa vai direto para a página de reivindicação (`/empresas/<@>/reivindicar`) para confirmar pelo Instagram ou enviar os dados do negócio.
 
-Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando envia os dados do negócio. Como o negócio acabou de ser criado e não tem dono, isso acontece na hora ([seção 6](#aprovação-na-hora)).
+Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando a DM com o código é aprovada ou quando envia os dados do negócio. Pelos dados, como o negócio acabou de ser criado e não tem dono, isso acontece na hora ([seção 6](#aprovação-na-hora)).
 
 ---
 
@@ -302,10 +308,39 @@ Código: aba "Negócios" e `src/app/moderacao/negocios/[usuario]/page.tsx`.
 
 Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindicacao.test.ts`), ações em `src/acoes/reivindicacoes.ts` e `src/acoes/moderacao.ts`, tela em `src/app/empresas/[usuario]/reivindicar/page.tsx`.
 
+Os textos que o dono lê não usam a palavra "reivindicar": a página se chama "Assumir o perfil", e o botão do perfil é "É meu negócio". O endereço `/reivindicar`, os nomes no código e as telas da moderação continuam com a palavra.
+
+### A porta para quem tem um negócio (`/participar`)
+
+Código: `src/app/participar/`. A decisão fica em `decidirProcura` (`procura.ts`), com testes em `tests/unit/participar.test.ts`.
+
+`/participar` é o link da bio do Instagram do projeto. A página é pública e recebe quem tem um negócio com:
+
+- as boas-vindas e os números do diretório ("Você vai estar em boa companhia: N negócios em N cidades.", no singular quando é um só);
+- a porta, que pede só o @ do negócio no Instagram;
+- até 6 negócios do diretório com dono e foto, os mais recentes primeiro. Sem nenhum, a parte some;
+- as promessas do projeto, as dúvidas mais comuns e o contato do @ do projeto (`ofabsreis`).
+
+A porta passa o @ por `normalizarUsername`. Um @ inválido mostra "Esse @ não parece certo. Confira e tente de novo.", e o campo fica com o que a pessoa digitou. Com um @ válido, a procura só lê o banco e leva a pessoa ao próximo passo:
+
+| O negócio com esse @ | Para onde a pessoa vai |
+| --- | --- |
+| Não existe | `/indicar?instagram=<@>&dono=sim` ([seção 4](#4-indicação)). Sem login, passa antes por `/cadastrar`, que volta para esse endereço. |
+| No diretório e sem dono | `/participar?instagram=<@>`, com o cartão "Seu negócio já está aqui!", o motivo da indicação com o nome de quem indicou (o mesmo nome do perfil) e os botões "É meu negócio" e "Ver o perfil". |
+| No diretório e com dono | `/participar?instagram=<@>`, com o cartão "Esse negócio já tem alguém cuidando do perfil." e o botão "Pedir revisão", que leva à página de reivindicação. |
+| Fora do diretório: tirado do ar, esperando a moderação ou oculto pelo dono | `/participar?instagram=<@>`, com a mesma resposta para todos: "Não conseguimos seguir com esse @ por aqui. Fala com a gente no @ofabsreis que a gente resolve." O cartão não mostra o nome, a foto nem o motivo. |
+
 ### Quem pode pedir
 
-- **Qualquer conta logada** que ainda não seja dona daquele negócio. Quem já é dono vê "Você já é dono deste perfil" e o link para o painel.
-- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"Sou o dono"** do perfil, pelo "Este negócio é meu" da indicação ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis verificados.
+- **Qualquer conta logada** que ainda não seja dona daquele negócio.
+- **Quem já é dono:**
+  - de um perfil oficial, vê "Você já é dono deste perfil" e o link para o painel;
+  - de um perfil que não é oficial, vê só os caminhos pelo Instagram, para ganhar o selo (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)). Os dados do negócio não aparecem, porque o perfil já é dele.
+- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela:
+  - pelo botão **"É meu negócio"** do perfil e do cartão da `/participar`;
+  - pelo "Este negócio é meu" da indicação;
+  - pelo "Pedir revisão" da `/participar` e pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis com dono;
+  - pelo convite do selo no painel do dono.
 - **Negócio tirado do ar:** a página responde 404.
 - **Negócio que já tem dono:** o pedido é aceito, com um aviso de que vai para a moderação. Serve para co-donos e para troca de responsáveis.
 
@@ -316,15 +351,15 @@ Desde a [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), **o p
 - o negócio **não tem dono**; e
 - o negócio **não foi tirado do ar**.
 
-Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Pronto! Você agora é dono deste perfil…".
+Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Que bom ter você aqui! 💛 Seu perfil já é seu. Complete com a sua cara quando puder.".
 
 Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono) ou um negócio que a moderação tirou do ar.
 
 **Risco aceito:** não há conferência do CNPJ, do site nem do contato antes de aprovar. Qualquer conta consegue assumir um perfil que ainda não tem dono. Os dados enviados ficam guardados e aparecem para a moderação se houver disputa. A regra está em `solicitarPorDocumento` (`src/lib/reivindicacao.ts`).
 
-### O caminho ativo: dados do negócio (`documento`)
+### Dados do negócio (`documento`)
 
-Hoje é o único caminho ligado. A pessoa envia:
+É o caminho de quem não tem acesso ao Instagram do negócio, e não dá o selo de perfil oficial. A pessoa envia:
 
 | Campo | Obrigatório | Regra |
 | --- | --- | --- |
@@ -383,10 +418,11 @@ O que a moderação confere: se o CNPJ, o site e o contato batem com o @ do Inst
 1. Cria o vínculo de dono (ou mantém, se já existia).
 2. No modo "transferir", remove todos os outros donos.
 3. Marca o negócio como `verificada` e `aprovada`, o que também o publica.
-4. Liga os IDs do Instagram ao negócio, se o pedido trouxe algum. Se a mesma conta do Instagram estava ligada a outro perfil, a ligação sai de lá.
-5. Marca o pedido como `aprovada`, com quem aprovou e quando.
-6. Cancela os **outros pedidos pendentes da mesma pessoa** para o mesmo negócio. Pedidos de **outras pessoas** para o mesmo negócio continuam pendentes, e a moderação decide cada um.
-7. Registra na auditoria `reivindicacao.aprovada` ou `reivindicacao.aprovada_com_transferencia`.
+4. Liga ou desliga o selo de perfil oficial (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)).
+5. Liga os IDs do Instagram ao negócio, se o pedido trouxe algum. Se a mesma conta do Instagram estava ligada a outro perfil, a ligação sai de lá.
+6. Marca o pedido como `aprovada`, com quem aprovou e quando.
+7. Cancela os **outros pedidos pendentes da mesma pessoa** para o mesmo negócio. Pedidos de **outras pessoas** para o mesmo negócio continuam pendentes, e a moderação decide cada um.
+8. Registra na auditoria `reivindicacao.aprovada` ou `reivindicacao.aprovada_com_transferencia`.
 
 **Duas pessoas da moderação ao mesmo tempo:** se um pedido já foi decidido, a segunda decisão é recusada com o aviso "Esta solicitação já tinha sido decidida por outra pessoa da moderação".
 
@@ -412,14 +448,16 @@ stateDiagram-v2
 | `cancelada` | Cancelada | A pessoa cancelou, outro pedido dela para o mesmo negócio foi aprovado, ou ela refez o "Entrar com Instagram". |
 | `expirada` | Expirada | Só no código por DM: quando a pessoa gera um código novo depois que o anterior venceu. |
 
-### Caminhos pelo Instagram (desligados por padrão)
+### Caminhos pelo Instagram
 
-Os dois caminhos abaixo estão prontos no código e testados, mas ficam **desligados** enquanto as variáveis de ambiente estiverem vazias. Quando algum está ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Como ligar está no [README](../README.md#ativando-o-código-por-dm-opcional).
+O código por DM vem ligado, com o @ do projeto: `ofabsreis` (`INSTAGRAM_DO_PROJETO`, em `src/lib/dominio.ts`). O "Entrar com Instagram" fica desligado enquanto as variáveis do app da Meta estiverem vazias. Com algum dos dois ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Como configurar está no [README](../README.md#o-código-por-dm).
 
 | Caminho | Liga quando | Aprovação |
 | --- | --- | --- |
+| **Código por DM** (`codigo_dm`) | Sempre, com o @ do projeto. `INSTAGRAM_PERFIL_OFICIAL` troca o @. Ele só desliga se a variável não for um @ válido | Pela moderação, ou sozinho se o webhook estiver configurado e não houver conflito |
 | **Entrar com Instagram** (`instagram_login`) | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` preenchidos | Na hora, se a conta conectada é a do negócio e não há conflito |
-| **Código por DM** (`codigo_dm`) | `INSTAGRAM_PERFIL_OFICIAL` preenchido | Pela moderação, ou sozinho se o webhook estiver configurado e não houver conflito |
+
+Os dois caminhos dão o selo de perfil oficial. Na página de reivindicação, a opção do código diz isso: "Confirme pelo Instagram e ganhe o selo de perfil oficial." Quem já é dono de um perfil que não é oficial também pode usar os dois caminhos.
 
 **A regra de ouro: não existe aprovação automática quando há conflito.** Em `conflitosDeVerificacao`, um conflito é qualquer uma destas situações:
 
@@ -441,7 +479,7 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
 - **O token não é guardado.** Ele só serve para perguntar ao Instagram qual conta autorizou.
 - **Resultado:**
   - conta conectada diferente do @ do negócio: aviso de erro, e nada é criado;
-  - a pessoa já é dona: tudo certo;
+  - a pessoa já é dona de um perfil oficial: tudo certo;
   - caso contrário: aplica o limite diário, cancela tentativas anteriores pelo mesmo caminho, cria o pedido e aprova na hora se não houver conflito.
 
 **Código por DM:**
@@ -452,7 +490,7 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
   - enquanto vale, a mesma pessoa recebe o mesmo código para o mesmo negócio;
   - vencido, ele vira `expirada` e outro é gerado.
 - **Quem vira dono é quem gerou o código.** A tela avisa: "Nunca envie um código que outra pessoa te passou".
-- **A DM precisa vir do @ do negócio** e ir para o perfil oficial.
+- **A DM precisa vir do @ do negócio** e ir para o @ do projeto (ou o de `INSTAGRAM_PERFIL_OFICIAL`).
   - O sistema reconhece o código mesmo escrito como `bem 7k3f9q` ou `BEM7K3F9Q`.
 - **Sem webhook:** a moderação confere a DM. Na fila, há uma busca pelo código.
 - **Com webhook:**
@@ -461,6 +499,31 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
   - código vencido, @ diferente ou @ que não deu para descobrir viram anotações para a moderação;
   - se der erro, a rota responde 500 e a Meta tenta de novo;
   - aprovações automáticas aparecem na auditoria como "sistema".
+
+### O selo de perfil oficial
+
+Código: `aprovar` em `src/lib/reivindicacao.ts` e o selo em `src/components/SeloStatus.tsx`, com testes em `tests/db/reivindicacao.test.ts`.
+
+O selo do perfil diz como ele foi assumido:
+
+| Situação do negócio | Selo | Texto ao passar o mouse |
+| --- | --- | --- |
+| `status = "indicada"` | Indicado pela comunidade | "Indicado por alguém da comunidade. Quem cuida do negócio ainda não assumiu o perfil." |
+| `status = "verificada"` e `oficial = false` | Perfil assumido | "Uma conta assumiu este perfil. O selo não certifica a identidade nem as causas do negócio." |
+| `status = "verificada"` e `oficial = true` | Perfil oficial, em verde | "Quem cuida do negócio confirmou pelo Instagram que o perfil é seu." |
+
+**A regra:** o negócio é oficial enquanto um dono atual confirmou pelo Instagram. O campo `oficial` só muda na aprovação de uma reivindicação, na mesma transação:
+
+- aprovação pelo Instagram (`instagram_login` ou `codigo_dm`), como dono novo, co-dono ou com transferência: o negócio fica oficial;
+- aprovação pelos dados do negócio (`documento`) com transferência: o selo sai, porque os donos que confirmaram saem;
+- aprovação pelos dados do negócio como co-dono: o selo fica como estava;
+- aprovação pelos dados do negócio num negócio sem dono: o negócio não fica oficial, mesmo que o campo tenha ficado ligado.
+
+**Quem já é dono e não tem o selo** confirma pelo Instagram na página de reivindicação, e o painel do dono convida para isso. Os conflitos valem do mesmo jeito: com outro co-dono, por exemplo, o pedido vai para a moderação. Quem já é dono de um perfil oficial não gera outro código.
+
+**Os caminhos que tiram donos:** no site, só a transferência, que segue a regra acima. Apagar uma conta direto no banco leva junto o vínculo de dono dela, mas não muda o `oficial`. Quem apagar a última conta que confirmou pelo Instagram precisa desligar o `oficial` do negócio no mesmo passo. Se não desligar, a próxima aprovação pelos dados do negócio sem outro dono desliga.
+
+**Negócios de antes do selo:** a migração `20261030001146_perfil_oficial` ligou o selo nos negócios em que alguém com uma reivindicação aprovada pelo Instagram continua dono. Os outros começaram sem o selo.
 
 ---
 
@@ -471,8 +534,9 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
 Código: `src/app/empresas/[usuario]/page.tsx`.
 
 - **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @.
-- **Selo:**
-  - **"Verificado pelo dono"** quando `status = "verificada"`;
+- **Selo** (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)):
+  - **"Perfil oficial"**, em verde, quando um dono atual confirmou pelo Instagram;
+  - **"Perfil assumido"**, num tom neutro, quando tem dono que não confirmou pelo Instagram. O selo não certifica a identidade nem as causas do negócio;
   - **"Indicado pela comunidade"** quando ainda não tem dono.
 - **Nome, @** (com link para o Instagram), **categoria, cidade e UF.**
 - **Botões de contato** (só os preenchidos):
@@ -484,9 +548,9 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - para o dono, um convite para escrever;
   - para os outros, o motivo da indicação e o nome de quem indicou, se houver;
   - senão, "A história deste negócio ainda vai ser contada."
-- **"Este negócio é seu? Sou o dono",** se o negócio ainda não é verificado e quem vê não é dono.
+- **"Este negócio é seu?",** com o botão **"É meu negócio"**, se o negócio ainda não tem dono e quem vê não é dono.
 - **Depoimentos** (ver [seção 10](#10-depoimentos-e-denúncias)).
-- **"Este perfil é seu e outra pessoa assumiu? Fale com a moderação",** se o negócio é verificado e quem vê não é dono. O link leva à página de reivindicação.
+- **"Este perfil é seu e outra pessoa assumiu? Fale com a moderação",** se o negócio tem dono e quem vê não é dono. O link leva à página de reivindicação.
 
 **Botões de edição:**
 
@@ -516,7 +580,7 @@ Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts` e `src/app/
 - **Só perfis do diretório vão para os buscadores.** O sitemap lista os negócios aprovados e não ocultos, lido do banco a cada pedido: um negócio aprovado entra na hora, e um oculto sai na hora. Ele também lista as páginas de cidade, causa e tipo que têm negócios (ver [seção 11](#páginas-de-cidade-causa-e-tipo)).
 - **Título do perfil na busca:** "Nome — Categoria em Cidade, UF". Na categoria "Outros", só "Nome em Cidade, UF". A descrição é o resumo.
 - **Dados estruturados:** o perfil público leva a ficha do negócio (`LocalBusiness`) com nome, resumo, foto, cidade, UF, WhatsApp, e-mail, Instagram, site, categoria e causas. São os mesmos dados que a página já mostra. O caminho até o perfil passa pela página da cidade: "Início › Recife, PE › Padaria Florescer".
-- **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Verificado pelo dono". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
+- **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Perfil oficial" ou "Perfil assumido", quando o negócio tem dono. Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
 - **Fora da busca:** login, cadastro, painel, reivindicação e moderação levam `noindex`. `/painel`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
 - **Previews do Vercel** bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
@@ -526,10 +590,15 @@ Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts` e `src/app/
 Código: `src/app/painel/`.
 
 - **`/painel`** mostra:
-  - os negócios de que a pessoa é dona, com avisos de "Oculto do diretório" e "Falta contar a história";
-  - as solicitações de reivindicação;
+  - os negócios de que a pessoa é dona, com o selo de cada um e avisos de "Oculto do diretório" e "Falta contar a história";
+  - os pedidos para assumir um perfil;
   - as indicações dela, com a situação de cada uma na moderação.
-- **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). Nele, o dono:
+- **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404).
+- **Boas-vindas:** no topo do `/painel/<@>`, o bloco "Que bom ter você aqui, <primeiro nome>!" lista três coisas que deixam o perfil com a cara do negócio, cada uma com o link da sua seção do painel. Código: `checklistDoPerfil` em `src/app/painel/[usuario]/boas-vindas.ts`, com testes em `tests/unit/painel.test.ts`.
+  - "Uma foto" fica feita quando o negócio tem foto, "As causas que vocês vivem" com pelo menos uma causa da lista, e "A história de vocês" com a história escrita.
+  - Num perfil que não é oficial, com o código por DM ou o Entrar com Instagram ligado, o bloco também convida: "Quer o selo de perfil oficial? Confirme pelo Instagram do negócio.", com o link da página de reivindicação.
+  - O bloco some quando as três coisas estão feitas e não há selo a pedir.
+- No `/painel/<@>`, o dono:
   - **edita o perfil:** foto, informações, contatos, causas e história. O @ não muda;
   - **responde depoimentos:** até 1.000 caracteres. A resposta pode ser trocada a qualquer momento, e apagar o texto tira a resposta;
   - **oculta ou mostra o negócio no diretório.**
@@ -664,7 +733,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 ### Página inicial
 
-- **O número de negócios cadastrados** aparece em destaque, subindo de zero até o total ao abrir a página (direto no total para quem pede menos movimento no sistema). Embaixo, quantas cidades, quantos estados e quantos negócios verificados pelo dono.
+- **O número de negócios cadastrados** aparece em destaque, subindo de zero até o total ao abrir a página (direto no total para quem pede menos movimento no sistema). Embaixo, quantas cidades, quantos estados e quantos perfis assumidos (negócios com dono).
 - **A busca** tem dois campos, "O que você procura?" e "Onde?", e leva ao diretório.
 - **"Experimente:"** tem atalhos fixos para um tipo de negócio e algumas causas.
 - **Os 16 tipos de negócio** aparecem com quantos negócios cada um tem. Clicar num tipo abre o diretório com ele marcado. Tipos sem negócios ficam apagados, mas continuam clicáveis.
@@ -674,7 +743,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 - **Abre** pela busca da página inicial, pelos tipos de negócio, pelos atalhos e pelo "Explorar" do menu.
 - **Ordem:**
-  - **Verificados primeiro** (padrão): os verificados pelo dono e, dentro de cada grupo, os atualizados mais recentemente;
+  - **Perfis assumidos primeiro** (padrão): os que têm dono (`status = "verificada"`, com o selo "Perfil assumido" ou "Perfil oficial") e, dentro de cada grupo, os atualizados mais recentemente;
   - **Mais recentes:** pela data de entrada no diretório;
   - **Nome (A–Z)**.
   - Não existe ranking por nota nem anúncio pago.
@@ -694,7 +763,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 - **Filtros ao lado** (no celular, recolhidos em "Filtros"):
   - **tipo de negócio:** vários de uma vez, mostrando negócios de **qualquer** um deles. Os 8 com mais negócios aparecem direto, e o resto fica em "Ver todos os 16 tipos";
   - **causas,** separadas pelos três grupos: quem marca várias vê os negócios que têm **todas** elas;
-  - **só verificados pelo dono.**
+  - **só perfis assumidos** (`status = "verificada"`, com o selo "Perfil assumido" ou "Perfil oficial").
   - Cada opção mostra quantos negócios aparecem se ela for marcada. Nos tipos, a conta ignora os tipos já marcados. Opções com zero ficam apagadas.
 - **Filtros em uso** aparecem acima dos resultados, cada um com um "✕" para tirar.
 - **Grade ou lista:** a lista mostra um negócio por linha, com resumo, categoria e cidade.
@@ -715,7 +784,7 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
 | Causa | `/causas/opcoes-veganas` (o slug da causa) | o título da causa, como "Negócios com opções veganas" |
 | Tipo | `/tipos/cafe-e-padaria` (o slug do tipo) | "Negócios de café e padaria" |
 
-- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (verificados primeiro) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
+- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (perfis assumidos primeiro) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
 - **Links para continuar:**
   - na cidade: os tipos e as causas que existem nela, que abrem o diretório com a cidade e aquele filtro, e as outras cidades do mesmo estado;
   - na causa: as cidades e os tipos que têm a causa, que abrem o diretório com os dois filtros, e as outras causas do mesmo grupo;
@@ -922,7 +991,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 - **Um @ tirado do ar fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404 até a moderação publicar de novo.
 - **O @ de um negócio não muda.** Se o negócio trocar de @ no Instagram, hoje só dá para ajustar direto no banco.
 - **Cidades cadastradas antes da lista do IBGE** continuam como foram digitadas até o negócio ser editado. Se a grafia não bate com a lista, a edição pede para escolher a cidade de novo.
-- **Não dá para tirar um dono** sem transferir o perfil para outra pessoa. O selo "Verificado pelo dono" não volta atrás.
+- **Não dá para tirar um dono** sem transferir o perfil para outra pessoa. O `status = "verificada"` não volta atrás. O selo "Perfil oficial" sai quando a moderação transfere o perfil para quem enviou os dados do negócio.
 - "Atualizada em", ao lado da história, usa a data da última mudança em **qualquer** dado do negócio (inclusive foto e visibilidade), não só no texto.
 
 **Reivindicações**

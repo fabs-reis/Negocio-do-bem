@@ -22,7 +22,7 @@ export function EmpresaLinha({ empresa }: { empresa: EmpresaResumo }) {
                 />
               </svg>
             ) : (
-              <span role="img" aria-label="Assumido pelo dono" className="shrink-0 text-suave">
+              <span role="img" aria-label="Perfil assumido" className="shrink-0 text-suave">
                 •
               </span>
             ))}

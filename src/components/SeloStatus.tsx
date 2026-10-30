@@ -1,6 +1,6 @@
 /**
- * O selo diz como o perfil foi assumido: indicado pela comunidade, assumido por
- * quem cuida do negócio, ou confirmado pelo Instagram do negócio (perfil oficial).
+ * O selo diz como o perfil está: indicado pela comunidade, assumido por uma conta
+ * ou confirmado pelo Instagram do negócio (perfil oficial).
  */
 export function SeloStatus({ status, oficial }: { status: string; oficial: boolean }) {
   if (status === "verificada" && oficial) {
@@ -22,11 +22,11 @@ export function SeloStatus({ status, oficial }: { status: string; oficial: boole
   if (status === "verificada") {
     return (
       <span
-        title="Quem cuida do negócio assumiu este perfil. Ele ainda não foi confirmado pelo Instagram."
+        title="Uma conta assumiu este perfil. O selo não certifica a identidade nem as causas do negócio."
         className="inline-flex items-center gap-1 rounded-full border border-linha bg-superficie px-2.5 py-1 text-xs font-semibold text-suave"
       >
         <span aria-hidden="true">•</span>
-        Assumido pelo dono
+        Perfil assumido
       </span>
     );
   }

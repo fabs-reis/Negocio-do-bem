@@ -72,7 +72,7 @@ export default function Sobre() {
         <p>
           {perfil ? "Sem acesso ao Instagram do negócio? Envie" : "Para assumir o perfil, envie"} os dados do negócio:
           CNPJ ou MEI (se tiver), site e um contato. Se ninguém assumiu o perfil ainda, ele passa a ser seu na hora, com
-          o selo &ldquo;Assumido pelo dono&rdquo;, e você já pode editá-lo no painel.
+          o selo &ldquo;Perfil assumido&rdquo;, e você já pode editá-lo no painel.
           {perfil && " Depois, quando quiser, confirme pelo Instagram para ganhar o selo de perfil oficial."}
         </p>
         <p>
