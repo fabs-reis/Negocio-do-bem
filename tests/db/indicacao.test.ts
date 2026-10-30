@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 // A sessão e o redirecionamento dependem do Next. Aqui o usuário é fixo
 // e o redirecionamento vira uma exceção, como na Server Action de verdade.
-const sessao = vi.hoisted(() => ({ usuario: null as { id: string; nome: string; email: string; moderador: boolean } | null }));
+const sessao = vi.hoisted(() => ({ usuario: null as { id: string; nome: string; email: string; moderador: boolean; emailConfirmado: boolean } | null }));
 
 class Redirecionou extends Error {}
 
@@ -34,7 +34,7 @@ async function criarUsuarioLogado() {
   const usuario = await db.usuario.create({
     data: { nome: "Pessoa", email: `indicadora${contador}@exemplo.com`, senhaHash: "x" },
   });
-  sessao.usuario = { id: usuario.id, nome: usuario.nome, email: usuario.email, moderador: false };
+  sessao.usuario = { id: usuario.id, nome: usuario.nome, email: usuario.email, moderador: false, emailConfirmado: true };
   return usuario;
 }
 
