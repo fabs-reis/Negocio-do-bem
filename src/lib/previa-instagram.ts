@@ -17,12 +17,16 @@ export type PreviaInstagram = {
   foto: string | null;
 };
 
-/** Cada @ é consultado uma vez a cada 15 minutos por servidor, para não gastar o limite da Meta. */
+/**
+ * A prévia de cada @ fica guardada por 15 minutos em cada servidor, para não gastar
+ * o limite da Meta. Só a que existe: sem prévia, a próxima procura consulta de novo,
+ * e o "Já mudei, procurar de novo" funciona logo depois de a conta virar profissional.
+ */
 const VALIDADE_MS = 15 * 60 * 1000;
 const MAXIMO_GUARDADAS = 500;
 const LIMITE_DA_FOTO = 300_000;
 const ESPERA_MS = 5000;
-const guardadas = new Map<string, { em: number; previa: PreviaInstagram | null }>();
+const guardadas = new Map<string, { em: number; previa: PreviaInstagram }>();
 
 export function configPrevia(): { token: string; igUserId: string; versao: string } | null {
   const token = process.env.META_ACCESS_TOKEN?.trim();
@@ -94,6 +98,7 @@ export async function buscarPreviaDoInstagram(username: string): Promise<PreviaI
   if (guardada && agora - guardada.em < VALIDADE_MS) return guardada.previa;
 
   const previa = await consultar(username);
+  if (!previa) return null;
   if (guardadas.size >= MAXIMO_GUARDADAS) guardadas.delete(guardadas.keys().next().value!);
   guardadas.set(username, { em: agora, previa });
   return previa;

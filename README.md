@@ -141,7 +141,7 @@ O webhook confere a assinatura `X-Hub-Signature-256` de cada chamada, descobre o
 
 Quando alguém digita o @ de um negócio novo, o cadastro mostra a foto, o nome e o site do perfil, e preenche o nome e o site. A consulta usa a mesma conta e o mesmo token da rotina de fotos, abaixo.
 
-**No Vercel:** configure `META_ACCESS_TOKEN` e `META_IG_USER_ID` em Production, com os mesmos valores do `.env.fotos`. `META_GRAPH_VERSION` é opcional (padrão `v26.0`). Sem as variáveis, ou com a Meta fora do ar, o cadastro segue normal, sem a prévia. Só contas profissionais (comerciais ou de criador) têm prévia.
+**No Vercel:** configure `META_ACCESS_TOKEN` e `META_IG_USER_ID` em Production, com os mesmos valores do `.env.fotos`. `META_GRAPH_VERSION` é opcional (padrão `v26.0`). Sem as variáveis, ou com a Meta fora do ar, o cadastro segue normal, sem a prévia. Só contas profissionais têm prévia. Prefira o tipo Empresa: há relatos de contas de criador que a consulta não acha.
 
 ## Ativando a rotina de fotos do Instagram (opcional)
 

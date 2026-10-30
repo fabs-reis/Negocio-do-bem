@@ -69,6 +69,21 @@ describe("prévia do Instagram", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("sem prévia, consulta de novo: a conta pode ter acabado de virar profissional", async () => {
+    let profissional = false;
+    const fetch = vi.fn(async () =>
+      profissional
+        ? respostaJson({ business_discovery: { name: "Casa do Fantasma" } })
+        : respostaJson({ error: { code: 110, message: "Invalid user id" } }, 400),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    expect(await buscarPreviaDoInstagram("casadofantasma")).toBeNull();
+    profissional = true;
+    expect(await buscarPreviaDoInstagram("casadofantasma")).toMatchObject({ nome: "Casa do Fantasma" });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("não baixa foto grande demais nem de outro tipo", async () => {
     const perfil = { business_discovery: { name: "Padaria Flor", profile_picture_url: FOTO } };
     vi.stubGlobal("fetch", vi.fn(async (url: URL | string) => (String(url).includes("graph") ? respostaJson(perfil) : respostaImagem(400_000))));

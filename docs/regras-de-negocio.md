@@ -321,7 +321,7 @@ Uma pergunta por vez, com a barra de progresso e "Etapa N de M". "← Voltar" n�
 - **De onde vem:** a API oficial da Meta (Business Discovery), com `META_ACCESS_TOKEN` e `META_IG_USER_ID`, o mesmo token da rotina de fotos. A consulta roda só no servidor, no "Procurar", e não a cada letra.
 - **O que traz:** foto, nome e site do perfil. O nome (e, para o dono, o site) já chega preenchido, com "Veio do Instagram. Pode mudar."
 - **A foto é só prévia.** O servidor baixa a imagem (só de `*.fbcdn.net` e `*.cdninstagram.com`, por https, JPEG, PNG ou WebP, até 300 KB) e manda como data URL, porque a política de conteúdo não libera o CDN da Meta. Quem grava a foto no perfil continua sendo a rotina das fotos.
-- **Cada @ é consultado uma vez a cada 15 minutos** por servidor, para não gastar o limite da Meta.
+- **A prévia de cada @ fica guardada por 15 minutos** em cada servidor, para não gastar o limite da Meta. Só a que existe: sem prévia, a próxima procura consulta de novo, para o "Já mudei, procurar de novo" funcionar logo depois de a conta virar profissional.
 - **Sem prévia, sem erro.** Sem as variáveis, com o token vencido ou com a Meta fora do ar, a prévia some e o cadastro segue normal.
 
 ### @ sem prévia
