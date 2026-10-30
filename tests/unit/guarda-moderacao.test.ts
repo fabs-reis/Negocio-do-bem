@@ -4,7 +4,7 @@ import { exigirModerador } from "@/lib/auth/sessao";
 const mocks = vi.hoisted(() => ({
   sessao: vi.fn(),
   naoEncontrado: vi.fn(() => { throw new Error("pagina-nao-encontrada"); }),
-  redirecionar: vi.fn((_destino: string) => { throw new Error("recusa-publica"); }),
+  redirecionar: vi.fn((destino: string) => { throw new Error(`recusa-publica:${destino}`); }),
 }));
 vi.mock("@/lib/db", () => ({ db: { sessao: { findUnique: mocks.sessao } } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => ({ value: "sessao-sintetica" }) }) }));
