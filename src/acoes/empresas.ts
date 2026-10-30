@@ -7,7 +7,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { caminhoSeguro, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { filtrarCausas } from "@/lib/causas";
-import { db } from "@/lib/db";
+import { db, esquemaSql } from "@/lib/db";
 import { CATEGORIAS } from "@/lib/dominio";
 import {
   campoEmail,
@@ -98,7 +98,7 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
   let empresa;
   try {
     empresa = await db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "Usuario" WHERE id = ${usuario.id} FOR NO KEY UPDATE`;
+      await tx.$queryRaw`SELECT id FROM ${esquemaSql}."Usuario" WHERE id = ${usuario.id} FOR NO KEY UPDATE`;
       const recentes = await tx.empresa.count({
         where: { indicadaPorId: usuario.id, criadoEm: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
       });
