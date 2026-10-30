@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { sair } from "@/acoes/conta";
 import { usuarioAtual } from "@/lib/auth/sessao";
 
 export async function MenuUsuario({ modo = "menu" }: { modo?: "menu" | "painel" } = {}) {
@@ -9,7 +8,7 @@ export async function MenuUsuario({ modo = "menu" }: { modo?: "menu" | "painel" 
     return <section className="menu-conta-direta" aria-label="Sua conta">
       {usuario ? <>
         <div className="menu-conta-identidade"><span aria-hidden="true">{usuario.nome[0]?.toUpperCase()}</span><div><strong>{usuario.nome}</strong><p>{usuario.email}</p></div></div>
-        <nav aria-label="Opções da conta"><Link href="/painel">Meu painel <span aria-hidden="true">↗</span></Link>{usuario.moderador && <Link href="/moderacao">Moderação <span aria-hidden="true">↗</span></Link>}<form action={sair}><button type="submit">Sair da conta <span aria-hidden="true">↗</span></button></form></nav>
+        <nav aria-label="Opções da conta"><Link href="/painel">Meu painel <span aria-hidden="true">↗</span></Link>{usuario.moderador && <Link href="/moderacao">Moderação <span aria-hidden="true">↗</span></Link>}<Link href="/sair" data-sem-cortina>Sair da conta <span aria-hidden="true">↗</span></Link></nav>
       </> : <><h2>Sua conta</h2><p>Entre para indicar, compartilhar experiências e cuidar do seu negócio.</p><div className="menu-conta-acesso"><Link href="/entrar" className="botao">Entrar</Link><Link href="/cadastrar" className="botao-claro">Criar conta</Link></div></>}
     </section>;
   }
@@ -41,7 +40,7 @@ export async function MenuUsuario({ modo = "menu" }: { modo?: "menu" | "painel" 
             Moderação
           </Link>
         )}
-        <form action={sair}><button type="submit" className="block w-full rounded-xl px-3 py-2 text-left text-suave hover:bg-papel hover:text-tinta">Sair da conta</button></form>
+        <Link href="/sair" data-sem-cortina className="block w-full rounded-xl px-3 py-2 text-left text-suave hover:bg-papel hover:text-tinta">Sair da conta</Link>
       </div>
     </details>
   );

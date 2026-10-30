@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { salvarEmpresa } from "@/acoes/empresas";
 import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
@@ -39,14 +39,18 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
   const causas = Array.isArray(valores?.causas) ? valores.causas : empresa.causas;
   const [historia, setHistoria] = useState(empresa.historia);
   const [aba, setAba] = useState<"escrever" | "ver">("escrever");
+  const formulario = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (estado?.erros || estado?.erro) formulario.current?.querySelector<HTMLElement>('[aria-invalid="true"], [data-erro-campo="true"], [data-erro-formulario]')?.focus();
+  }, [estado]);
 
   return (
-    <form action={acao} onSubmit={enviarSemLimpar(acao)} className="space-y-8">
+    <form ref={formulario} action={acao} onSubmit={enviarSemLimpar(acao)} aria-busy={pendente} className="form-empresa space-y-8">
       <input type="hidden" name="empresaId" value={empresa.id} />
       <input type="hidden" name="voltar" value={voltar} />
 
-      <section className="cartao space-y-5 p-6 sm:p-8">
-        <h2 className="font-serif text-2xl font-semibold">Informações</h2>
+      <section id="informacoes-edicao" className="cartao space-y-5 p-6 sm:p-8">
+        <header className="edicao-titulo-grupo"><h2 className="font-serif text-2xl font-semibold">Informações do negócio</h2><p>É assim que as pessoas encontram e reconhecem seu negócio no diretório.</p></header>
         <Campo id="nome" rotulo="Nome do negócio" erro={erros.nome}>
           <input id="nome" name="nome" required maxLength={80} defaultValue={valor("nome")} className="campo" />
         </Campo>
@@ -68,9 +72,9 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         </div>
       </section>
 
-      <section className="cartao space-y-5 p-6 sm:p-8">
+      <section id="contatos-edicao" className="cartao space-y-5 p-6 sm:p-8">
         <div>
-          <h2 className="font-serif text-2xl font-semibold">Contato</h2>
+          <h2 className="font-serif text-2xl font-semibold">Contatos públicos</h2>
           <p className="mt-1 text-sm text-suave">Tudo opcional. O que você preencher vira botão no perfil.</p>
         </div>
         <Campo id="site" rotulo="Site" erro={erros.site}>
@@ -86,7 +90,7 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         </div>
       </section>
 
-      <section className="cartao space-y-4 p-6 sm:p-8">
+      <section id="causas" className="cartao space-y-4 p-6 sm:p-8">
         <div>
           <h2 className="font-serif text-2xl font-semibold">Causas que vocês abraçam</h2>
           <p className="mt-1 text-sm text-suave">Elas viram selos no perfil e filtros na busca. Marque só o que é verdade no dia a dia.</p>
@@ -94,19 +98,18 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         <SeletorCausas key={causas.join()} selecionadas={causas} />
       </section>
 
-      <section className="cartao p-6 sm:p-8">
+      <section id="historia" className="cartao p-6 sm:p-8" aria-labelledby="titulo-historia-edicao" data-erro-campo={erros.historia ? "true" : undefined} aria-describedby={erros.historia ? "historia-erro" : undefined} tabIndex={erros.historia ? -1 : undefined}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-serif text-2xl font-semibold">Nossa história</h2>
+            <h2 id="titulo-historia-edicao" className="font-serif text-2xl font-semibold">Nossa história</h2>
             <p className="mt-1 text-sm text-suave">Como tudo começou, o que move vocês, quem faz acontecer.</p>
           </div>
-          <div className="flex rounded-full bg-papel p-1 text-sm" role="tablist">
+          <div className="modo-historia flex rounded-full bg-papel p-1 text-sm" role="group" aria-label="Modo da história">
             {(["escrever", "ver"] as const).map((opcao) => (
               <button
                 key={opcao}
                 type="button"
-                role="tab"
-                aria-selected={aba === opcao}
+                aria-pressed={aba === opcao}
                 onClick={() => setAba(opcao)}
                 className={`rounded-full px-4 py-1.5 font-medium transition ${aba === opcao ? "bg-superficie shadow-sm" : "text-suave"}`}
               >
@@ -126,17 +129,18 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
             {historia.trim() ? <Historia markdown={historia} /> : <p className="text-suave italic">Nada escrito ainda.</p>}
           </div>
         )}
-        {erros.historia && <p className="erro-campo">{erros.historia}</p>}
+        {erros.historia && <p id="historia-erro" className="erro-campo">{erros.historia}</p>}
         <p className="ajuda">
           Selecione um trecho e use a barra para títulos, negrito, links e citações. As fotos entram onde está o cursor,
           e a legenda vai logo embaixo delas. O ✦ separa capítulos.
         </p>
       </section>
 
-      {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
+      {estado?.erro && <div tabIndex={-1} data-erro-formulario><Aviso tipo="erro">{estado.erro}</Aviso></div>}
       {estado?.erros && Object.keys(estado.erros).length > 0 && <Aviso tipo="erro">Confira os campos destacados acima.</Aviso>}
 
-      <div className="sticky bottom-4 z-10 flex justify-end">
+      <div className="edicao-acoes sticky bottom-4 z-10 flex justify-end">
+        <p className="edicao-ajuda hidden">Revise os dados e salve para atualizar o perfil.</p>
         <BotaoEnviar pendente={pendente} className="botao-coral px-8 py-3 text-base shadow-lg shadow-coral/20" enviando="Salvando…">
           Salvar alterações
         </BotaoEnviar>
