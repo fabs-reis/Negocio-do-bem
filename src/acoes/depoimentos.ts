@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
-import { db } from "@/lib/db";
+import { db, semDuplicar } from "@/lib/db";
 import { texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 import { avisarNovaDenuncia, avisarNovoDepoimento } from "@/lib/notificacoes";
 
@@ -36,12 +36,15 @@ export async function publicarDepoimento(_estado: EstadoFormulario, dados: FormD
     return { erros: { texto: resultado.error.issues[0]?.message ?? "Texto inválido." }, valores: valoresDoFormulario(dados) };
   }
 
-  const jaEscreveu = await db.depoimento.findUnique({
-    where: { empresaId_autorId: { empresaId: empresa.id, autorId: usuario.id } },
-  });
-  if (jaEscreveu) return { erro: "Você já deixou um depoimento para este negócio. Obrigado!" };
+  const jaEscreveu = { erro: "Você já deixou um depoimento para este negócio. Obrigado!" };
+  if (await db.depoimento.findUnique({ where: { empresaId_autorId: { empresaId: empresa.id, autorId: usuario.id } } })) {
+    return jaEscreveu;
+  }
 
-  const depoimento = await db.depoimento.create({ data: { empresaId: empresa.id, autorId: usuario.id, texto: resultado.data } });
+  const depoimento = await semDuplicar(
+    db.depoimento.create({ data: { empresaId: empresa.id, autorId: usuario.id, texto: resultado.data } }),
+  );
+  if (!depoimento) return jaEscreveu;
   after(() => avisarNovoDepoimento(depoimento.id));
   redirect(`/empresas/${empresa.instagramUsername}?aviso=depoimento_publicado#depoimentos`);
 }

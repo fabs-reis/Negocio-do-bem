@@ -463,6 +463,8 @@ Decisões do esquema:
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;
   - um código de DM único.
+
+  As ações consultam antes de criar, para dar o aviso certo. Mas dois envios ao mesmo tempo passam juntos pela consulta. No cadastro e no depoimento, a criação vai dentro de `semDuplicar` (`src/lib/db.ts`): a violação de unicidade (`P2002`) vira o mesmo aviso, e qualquer outro erro continua subindo. Na indicação, a criação roda na transação da cota e trata o mesmo erro ali.
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
   - **uma conta:** apaga as sessões, os vínculos de dono, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
   - **um negócio:** apaga as causas, os donos, os depoimentos e os pedidos ligados a ele.
@@ -545,7 +547,7 @@ npm run typecheck
 
 - **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob) e Instagram.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
-- **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
+- **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo), algumas Server Actions (com o `redirect` e a sessão simulados, como em `tests/db/duplicados.test.ts`) e as regras de reivindicação contra um Postgres de verdade:
   - código por DM;
   - Entrar com Instagram;
   - conflitos;

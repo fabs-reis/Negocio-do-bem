@@ -57,7 +57,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - nome de 2 a 80 caracteres;
   - e-mail válido de até 200 caracteres, guardado em minúsculas;
   - senha de 8 a 200 caracteres.
-- **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?").
+- **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?"). Dois envios ao mesmo tempo com o mesmo e-mail criam uma conta só: o outro recebe o mesmo aviso, sem sessão.
 - **Login** (`/entrar`): e-mail e senha.
   - O erro é sempre o mesmo, "E-mail ou senha incorretos".
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
@@ -682,7 +682,7 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 - **Precisa de login.**
 - Só em negócios **publicados e não ocultos.**
 - **Donos não escrevem depoimento no próprio negócio.** Eles respondem.
-- **Um depoimento por pessoa por negócio.**
+- **Um depoimento por pessoa por negócio.** Vale também para dois envios ao mesmo tempo: o segundo recebe "Você já deixou um depoimento para este negócio".
 - **Tamanho:** de 20 a 1.500 caracteres.
 - **Vai ao ar na hora,** sem moderação prévia, com o nome de quem escreveu e a data.
 - **Os donos recebem um e-mail** com o texto e o link para responder ([seção 14](#14-avisos-por-e-mail)).
