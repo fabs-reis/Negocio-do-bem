@@ -4,6 +4,7 @@ import { CausaBadge } from "@/components/CausaBadge";
 import { CAUSAS, GRUPOS, type GrupoCausa } from "@/lib/causas";
 import { hrefCausa } from "@/lib/diretorio";
 import { REPOSITORIO } from "@/lib/dominio";
+import { linkPerfil, perfilOficial } from "@/lib/instagram";
 import { metadadosDaPagina } from "@/lib/seo";
 
 export const metadata: Metadata = metadadosDaPagina({
@@ -13,6 +14,8 @@ export const metadata: Metadata = metadadosDaPagina({
 });
 
 export default function Sobre() {
+  // O @ que recebe o código por DM (o do projeto, se o INSTAGRAM_PERFIL_OFICIAL não trocar).
+  const perfil = perfilOficial();
   return (
     <div className="mx-auto max-w-3xl px-4 pt-14 sm:px-6">
       <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Manifesto</p>
@@ -38,8 +41,9 @@ export default function Sobre() {
             ar na hora, e a moderação tira do ar o que for spam ou perfil falso.
           </li>
           <li>
-            <strong>O dono assume o perfil</strong> enviando os dados do negócio. A partir daí, ele cuida das
-            informações. A moderação também pode corrigir qualquer perfil, e cada mudança fica registrada.
+            <strong>O dono assume o perfil</strong> confirmando pelo Instagram ou enviando os dados do negócio. A partir
+            daí, ele cuida das informações. A moderação também pode corrigir qualquer perfil, e cada mudança fica
+            registrada.
           </li>
           <li>
             <strong>A comunidade fortalece</strong> deixando depoimentos e buscando pelas causas que importam.
@@ -50,13 +54,26 @@ export default function Sobre() {
           Para donos de negócio
         </h2>
         <p>
-          Procure seu negócio no{" "}
-          <Link href="/explorar">diretório</Link> e clique em <strong>&ldquo;Sou o dono&rdquo;</strong>. Se ele ainda não
-          estiver lá, <Link href="/indicar">cadastre</Link> marcando &ldquo;Este negócio é meu&rdquo;.
+          Comece em <Link href="/participar">Tenho um negócio</Link>: coloque o @ do seu negócio no Instagram, e a gente
+          mostra o próximo passo. Se ele já estiver no <Link href="/explorar">diretório</Link>, você também pode abrir o
+          perfil e clicar em <strong>&ldquo;É meu negócio&rdquo;</strong>.
         </p>
+        {perfil && (
+          <p>
+            Para confirmar que o negócio é seu, você gera um código em &ldquo;É meu negócio&rdquo; e manda por DM, do
+            Instagram do negócio, para o{" "}
+            <a href={linkPerfil(perfil)} target="_blank" rel="noopener noreferrer">
+              @{perfil}
+            </a>
+            . O perfil confirmado assim ganha o selo <strong>&ldquo;Perfil oficial&rdquo;</strong>, que mostra pra quem
+            visita que foi você mesmo que assumiu o perfil.
+          </p>
+        )}
         <p>
-          Depois, envie os dados do negócio: CNPJ ou MEI (se tiver), site e um contato. Se ninguém assumiu o perfil
-          ainda, ele passa a ser seu na hora, e você já pode editá-lo no painel.
+          {perfil ? "Sem acesso ao Instagram do negócio? Envie" : "Para assumir o perfil, envie"} os dados do negócio:
+          CNPJ ou MEI (se tiver), site e um contato. Se ninguém assumiu o perfil ainda, ele passa a ser seu na hora, com
+          o selo &ldquo;Assumido pelo dono&rdquo;, e você já pode editá-lo no painel.
+          {perfil && " Depois, quando quiser, confirme pelo Instagram para ganhar o selo de perfil oficial."}
         </p>
         <p>
           Se outra pessoa já assumiu o seu perfil, use a mesma página para pedir a revisão. Qualquer disputa vai para a

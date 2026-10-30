@@ -86,7 +86,7 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         </div>
       </section>
 
-      <section className="cartao space-y-4 p-6 sm:p-8">
+      <section id="causas" className="cartao scroll-mt-24 space-y-4 p-6 sm:p-8">
         <div>
           <h2 className="font-serif text-2xl font-semibold">Causas que vocês abraçam</h2>
           <p className="mt-1 text-sm text-suave">Elas viram selos no perfil e filtros na busca. Marque só o que é verdade no dia a dia.</p>
@@ -94,7 +94,7 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         <SeletorCausas key={causas.join()} selecionadas={causas} />
       </section>
 
-      <section className="cartao p-6 sm:p-8">
+      <section id="historia" className="cartao scroll-mt-24 p-6 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-serif text-2xl font-semibold">Nossa história</h2>

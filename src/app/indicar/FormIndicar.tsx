@@ -10,14 +10,16 @@ import { Campo } from "@/components/Campo";
 import { CampoMunicipio } from "@/components/CampoMunicipio";
 import { SeletorCausas } from "@/components/SeletorCausas";
 import { CATEGORIAS } from "@/lib/dominio";
+import type { Preenchimento } from "./preenchimento";
 
-export function FormIndicar() {
+/** `preenchimento` traz o @ e o "Este negócio é meu" da URL, só como valores iniciais. */
+export function FormIndicar({ preenchimento }: { preenchimento: Preenchimento }) {
   const [estado, acao, pendente] = useActionState(indicarEmpresa, undefined);
   const erros = estado?.erros ?? {};
   const valores = estado?.valores ?? {};
   const valor = (campo: string) => (typeof valores[campo] === "string" ? (valores[campo] as string) : "");
   const causas = Array.isArray(valores.causas) ? valores.causas : [];
-  const [souDono, setSouDono] = useState(valor("souDono") === "sim");
+  const [souDono, setSouDono] = useState(estado ? valor("souDono") === "sim" : preenchimento.souDono);
 
   return (
     <form action={acao} onSubmit={enviarSemLimpar(acao)} className="cartao space-y-6 p-6 sm:p-8">
@@ -33,7 +35,7 @@ export function FormIndicar() {
         <span>
           <span className="block font-medium">Este negócio é meu</span>
           <span className="block text-sm text-suave">
-            Depois de cadastrar, você envia os dados do negócio e já pode editar o perfil.
+            Depois de cadastrar, você confirma pelo Instagram ou envia os dados do negócio e já pode editar o perfil.
           </span>
         </span>
       </label>
@@ -41,7 +43,7 @@ export function FormIndicar() {
       <Campo rotulo="@ do Instagram" erro={erros.instagram} id="instagram">
         <div className="relative">
           <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-suave">@</span>
-          <input id="instagram" name="instagram" required maxLength={80} placeholder="padariadobairro" defaultValue={valor("instagram")} className="campo pl-8" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+          <input id="instagram" name="instagram" required maxLength={80} placeholder="padariadobairro" defaultValue={estado ? valor("instagram") : preenchimento.instagram} className="campo pl-8" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
         </div>
       </Campo>
       {estado?.existente && (
@@ -107,7 +109,7 @@ export function FormIndicar() {
       {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
 
       <BotaoEnviar pendente={pendente} className="botao-coral w-full py-3 text-base" enviando="Enviando…">
-        {souDono ? "Cadastrar e verificar meu negócio" : "Enviar indicação"}
+        {souDono ? "Cadastrar meu negócio" : "Enviar indicação"}
       </BotaoEnviar>
     </form>
   );

@@ -44,11 +44,16 @@ export default async function Imagem({ params }: { params: Promise<{ usuario: st
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <LogoNaImagem largura={290} />
-          {empresa.status === "verificada" && (
-            <Etiqueta fundo="#e8f3ec" cor={CORES_DA_MARCA.verde}>
-              Verificado pelo dono
-            </Etiqueta>
-          )}
+          {empresa.status === "verificada" &&
+            (empresa.oficial ? (
+              <Etiqueta fundo="#e8f3ec" cor={CORES_DA_MARCA.verde}>
+                Perfil oficial
+              </Etiqueta>
+            ) : (
+              <Etiqueta fundo="#fffdf9" cor={SUAVE}>
+                Assumido pelo dono
+              </Etiqueta>
+            ))}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", flex: 1, gap: 48 }}>

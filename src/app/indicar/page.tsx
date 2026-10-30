@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { metadadosDaPagina } from "@/lib/seo";
 import { FormIndicar } from "./FormIndicar";
+import { lerPreenchimento } from "./preenchimento";
 
 export const metadata: Metadata = metadadosDaPagina({
   titulo: "Indicar um negócio",
@@ -11,7 +12,7 @@ export const metadata: Metadata = metadadosDaPagina({
   caminho: "/indicar",
 });
 
-export default function Indicar() {
+export default function Indicar(props: PageProps<"/indicar">) {
   return (
     <div className="mx-auto max-w-2xl px-4 pt-14 sm:px-6">
       <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Indicar</p>
@@ -24,15 +25,21 @@ export default function Indicar() {
       </p>
       <div className="mt-10">
         <Suspense fallback={<div className="h-[40rem] animate-pulse rounded-3xl bg-superficie" />}>
-          <Conteudo />
+          <Conteudo searchParams={props.searchParams} />
         </Suspense>
       </div>
     </div>
   );
 }
 
-async function Conteudo() {
-  const usuario = await usuarioAtual();
+async function Conteudo({ searchParams }: Pick<PageProps<"/indicar">, "searchParams">) {
+  const [usuario, busca] = await Promise.all([usuarioAtual(), searchParams]);
+  const preenchimento = lerPreenchimento(busca);
+  // Quem chega da /participar volta para o formulário com o @ depois de entrar.
+  const params = new URLSearchParams();
+  if (preenchimento.instagram) params.set("instagram", preenchimento.instagram);
+  if (preenchimento.souDono) params.set("dono", "sim");
+  const voltar = encodeURIComponent(params.size > 0 ? `/indicar?${params}` : "/indicar");
   if (!usuario) {
     return (
       <div className="cartao p-8 text-center">
@@ -41,15 +48,15 @@ async function Conteudo() {
           Pedimos uma conta para manter a comunidade segura e saber a quem agradecer.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link href="/entrar?voltar=/indicar" className="botao">
+          <Link href={`/entrar?voltar=${voltar}`} className="botao">
             Entrar
           </Link>
-          <Link href="/cadastrar?voltar=/indicar" className="botao-claro">
+          <Link href={`/cadastrar?voltar=${voltar}`} className="botao-claro">
             Criar conta
           </Link>
         </div>
       </div>
     );
   }
-  return <FormIndicar />;
+  return <FormIndicar preenchimento={preenchimento} />;
 }

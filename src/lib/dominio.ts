@@ -89,3 +89,6 @@ export const ACOES_AUDITORIA: Record<string, string> = {
 
 /** Onde fica o código aberto do projeto. */
 export const REPOSITORIO = "https://github.com/fabsreis/Negocio-do-bem";
+
+/** O @ do projeto no Instagram: recebe as DMs com código e as dúvidas de quem chega. */
+export const INSTAGRAM_DO_PROJETO = "ofabsreis";

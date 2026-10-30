@@ -105,7 +105,7 @@ async function Numeros() {
       <dl className="grid grid-cols-3 gap-3 border-t border-papel/15 pt-4 escuro:border-linha">
         <Numero valor={resumo.cidades} rotulo={resumo.cidades === 1 ? "cidade" : "cidades"} />
         <Numero valor={resumo.estados} rotulo={resumo.estados === 1 ? "estado" : "estados"} />
-        <Numero valor={resumo.verificados} rotulo="verificados pelo dono" />
+        <Numero valor={resumo.verificados} rotulo="com dono no perfil" />
       </dl>
     </div>
   );
@@ -204,7 +204,8 @@ function ComoFunciona() {
     {
       emoji: "🔑",
       titulo: "O dono assume o perfil",
-      texto: "Quem cuida do negócio envia CNPJ, site e contato e já passa a contar a própria história no perfil.",
+      texto:
+        "Quem cuida do negócio confirma pelo Instagram ou envia os dados e já passa a contar a própria história no perfil.",
     },
     {
       emoji: "🤝",
