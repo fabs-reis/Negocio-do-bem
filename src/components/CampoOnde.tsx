@@ -58,6 +58,7 @@ export function CampoOnde({ cidades, valorInicial }: { cidades: CidadeComNegocio
             placeholder="Todo o Brasil"
             autoComplete="off"
             role="combobox"
+            {...{ toolparamdescription: "Cidade e estado (ex.: Recife, PE) ou estado para filtrar negócios por localização" }}
             aria-autocomplete="list"
             aria-expanded={sugestoes.length > 0}
             aria-controls={lista}

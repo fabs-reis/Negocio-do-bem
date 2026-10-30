@@ -18,6 +18,11 @@ export function BuscaDiretorio({
       action="/explorar"
       role="search"
       className="cartao flex flex-wrap gap-2 p-2 shadow-xl shadow-tinta/5"
+      {...{
+        toolname: "buscarNegocios",
+        tooldescription: "Busca e filtra negócios do bem conscientes no Brasil por palavra-chave, segmento ou localização",
+        toolautosubmit: "true",
+      }}
     >
       {filtros.tipos.map((tipo) => (
         <input key={tipo} type="hidden" name="tipo" value={slugCategoria(tipo)} />
@@ -42,6 +47,7 @@ export function BuscaDiretorio({
             maxLength={100}
             placeholder="Padaria, brechó, pet shop, yoga…"
             className="w-full border-0 bg-transparent p-0 text-[17px] text-tinta placeholder:text-suave focus:outline-none"
+            {...{ toolparamdescription: "Palavra-chave, nome do negócio, categoria ou produto procurado" }}
           />
         </span>
       </label>
