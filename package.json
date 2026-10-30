@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "cf:build": "sh scripts/cloudflare-build.sh",
+    "cf:preview": "sh scripts/cloudflare-preview.sh",
     "preview:cloudflare": "DEPLOY_ENV=preview npm run cf:build && DEPLOY_ENV=preview opennextjs-cloudflare preview",
     "deploy:cloudflare": "DEPLOY_ENV=production npm run cf:build && DEPLOY_ENV=production opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",

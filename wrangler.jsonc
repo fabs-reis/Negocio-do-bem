@@ -31,5 +31,19 @@
       "NEXT_PUBLIC_R2_PUBLIC_URL": "https://pub-cc632c3026aa4be198825fef23f9a388.r2.dev"
     }
   },
+  // Só para o npm run cf:preview preencher o cache dos previews. O populateCache
+  // do OpenNext lê o bucket de cache daqui e não conhece o bloco previews; com
+  // --env previews-cache, ele grava no bucket dos previews. Repete os buckets e
+  // as variáveis fixas do bloco previews, porque um ambiente não herda essas
+  // chaves e o wrangler avisa quando faltam. Nada é publicado com este ambiente.
+  "env": {
+    "previews-cache": {
+      "vars": { "DEPLOY_ENV": "preview", "CLOUDFLARE_DEPLOY": "1" },
+      "r2_buckets": [
+        { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "negocio-do-bem-preview-cache" },
+        { "binding": "UPLOADS", "bucket_name": "negocio-do-bem-preview-fotos" }
+      ]
+    }
+  },
   "observability": { "enabled": true }
 }

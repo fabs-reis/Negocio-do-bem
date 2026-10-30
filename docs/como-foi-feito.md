@@ -364,6 +364,15 @@ No mesmo dia, o site passou dos 100 e-mails por dia do plano grátis do Resend. 
 - **Desligar num lugar só.** `usuarioAtual` devolve `emailConfirmado: true` para toda conta, e as travas, o "Confirme seu e-mail" e a rota do Instagram continuam olhando o mesmo campo. Nada delas saiu do código.
 - **O cadastro não manda o link.** Assim a cota fica para o "Entrar por link" e para os avisos. Quem já recebeu um link ainda pode usá-lo, e `emailConfirmadoEm` continua sendo gravado, então a ficha da moderação mostra quem de fato confirmou.
 
+### 30 de outubro: o cache das páginas nos previews do Cloudflare ([#172](https://github.com/fabsreis/Negocio-do-bem/issues/172))
+
+Depois da migração para o Cloudflare, o build do preview da `stage` passava, mas as páginas não abriam: `/`, `/sobre`, `/entrar` e `/explorar` respondiam erro 1101, e o log do Worker dizia que o código tinha travado. O banco funcionava: o `/sitemap.xml`, que é dinâmico, listava os negócios do seed.
+
+- **A causa era o cache vazio.** Com o Cache Components, cada página tem uma casca estática gerada no build (Partial Prerender), guardada no cache incremental do OpenNext, um bucket R2. O Worker lê a casca e completa só as partes dinâmicas. Sem a casca, ele tenta gerá-la na hora, e isso trava no Workers.
+- **Em produção, o `opennextjs-cloudflare deploy` preenche o cache; nos previews, ninguém preenchia.** O preview command era o `npx wrangler preview`, que só sobe o Worker. Agora é o `npm run cf:preview` (`scripts/cloudflare-preview.sh`), que roda o `opennextjs-cloudflare populateCache remote` antes.
+- **Um ambiente só para o cache.** O `populateCache` lê o bucket de cache do `wrangler.jsonc` e não conhece o bloco `previews`. O ambiente `previews-cache` aponta para os buckets dos previews, e o script passa `--env previews-cache`. Nada é publicado com ele.
+- **A Preview base config é copiada na criação do preview.** As variáveis cadastradas nela depois não chegaram ao preview da `stage`, que já existia, e foi preciso cadastrá-las também na página dele. O mesmo vale para o preview command. A seta do botão Salvar tem a opção "Aplicar a pré-visualizações existentes", que leva a mudança a todos.
+
 ---
 
 ## 4. Arquitetura
@@ -579,7 +588,8 @@ npm run typecheck
 1. Workers Builds conectado ao repositório executa builds de produção na `main` e previews em branches não produtivas. Configure preview bindings e secrets com o banco e buckets de teste; eles não devem apontar para recursos de produção.
 2. O PR da `stage` para `main` leva o que foi homologado para produção. O merge na `main` publica a produção. O merge é sempre com **"Create a merge commit"**, a única opção que o ruleset da `main` aceita.
 3. `scripts/cloudflare-build.sh` aplica `prisma migrate deploy` antes do bundle, usando `DATABASE_URL_UNPOOLED` quando existe. Em preview, roda também o seed, que só preenche banco vazio.
-   - **O ambiente vem da branch, e não de uma variável.** As variáveis de build do Workers Builds são as mesmas para todas as branches. O script lê a `WORKERS_CI_BRANCH`: só a `main` é produção. As outras branches usam as variáveis `PREVIEW_*` e falham se faltar alguma. Assim, a migração de um PR ainda não aprovado nunca chega ao banco de produção.
+   - **O ambiente vem da branch, e não de uma variável.** As variáveis de build da produção e as dos previews ficam em abas diferentes do painel, e um engano ali não pode levar a migração de um PR ao banco de produção. O script lê a `WORKERS_CI_BRANCH`: só a `main` é produção. As outras branches usam as variáveis `PREVIEW_*` e falham se faltar alguma. Assim, a migração de um PR ainda não aprovado nunca chega ao banco de produção.
+4. Na `main`, o `opennextjs-cloudflare deploy` preenche o cache das páginas no bucket de produção e publica. Nas outras branches, o `npm run cf:preview` (`scripts/cloudflare-preview.sh`) preenche o cache no bucket dos previews e roda o `wrangler preview`.
 
 **Segurança dos previews:**
 
@@ -762,6 +772,8 @@ O PR só conflita se a `main` recebeu algo que não passou pela `stage`. Nesse c
 - **Conexão com o banco no Worker.** Uma conexão aberta numa requisição não pode ser usada em outra. Por isso, o `db` (`src/lib/db.ts`) cria um cliente por requisição no Worker, e um só no Node.
 - **Senha (scrypt) no Worker.** Cada cálculo usa ~32 MB e ~100 ms de CPU. No Worker, o `scrypt` roda um de cada vez no isolate, mesmo com vários logins ao mesmo tempo, então a memória não soma: os logins esperam na fila. Medido no workerd local: 8 logins simultâneos terminam em ~0,8 s.
 - **Deploys de preview** precisam de bindings R2 e banco de teste próprios no Cloudflare Worker Previews; os padrões de `wrangler.jsonc` são para produção.
+- **Preview sem o cache preenchido trava.** Se as páginas de um preview respondem erro 1101 e o log diz que o código travou, confira se o preview command é o `npm run cf:preview`, e não só o `wrangler preview` ([#172](https://github.com/fabsreis/Negocio-do-bem/issues/172)).
+- **A Preview base config só vale para previews novos.** Ela é copiada quando o preview de uma branch é criado. Mudou uma variável ou o preview command nela? Salve com a seta do Salvar, "Aplicar a pré-visualizações existentes", ou mude também na página de cada preview que já existe, como o da `stage`.
 - **Filtros no endereço multiplicam as páginas para os robôs.** Uma página nova que monta links com filtros no endereço (`?tipo=...&causa=...`) precisa entrar no `disallow` do `src/app/robots.ts`, como o `/explorar?`. Sem isso, um robô abre cada combinação e cada uma consulta o banco ([#141](https://github.com/fabsreis/Negocio-do-bem/issues/141)).
 - **Status 200 não quer dizer que a página abriu.** Com o Cache Components, a página chega com status 200 e o erro do banco vem dentro do conteúdo. Para saber se o site está no ar, confira se a lista de negócios aparece, e não só o status.
 
