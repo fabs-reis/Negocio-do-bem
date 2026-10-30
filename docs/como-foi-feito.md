@@ -589,31 +589,84 @@ npm run typecheck
 - **Um PR que muda o banco já funciona no preview.** O build do preview aplica as migrações do PR no banco dos previews.
 - **Cada deployment usa um esquema próprio.** `src/lib/banco.ts` deriva o nome de `VERCEL_DEPLOYMENT_ID`, inclusive para a `stage`. Duas versões da mesma branch também ficam separadas. O identificador precisa estar disponível no build e no runtime. Sem uma identidade válida ou uma conexão PostgreSQL válida, o preview falha antes de acessar o banco, sem recorrer a `public`.
 - **CLI, aplicação, seed, moderação e correção de cidades selecionam o mesmo esquema.** A CLI recebe o parâmetro `schema` na URL. Os clientes também passam o esquema explicitamente ao `PrismaPg`, porque apenas alterar a URL não basta para o adaptador. Fora de preview, a URL permanece intacta e seu esquema explícito também é respeitado.
-- **SQL bruto precisa qualificar a tabela.** `src/lib/db.ts` exporta `esquemaSql`, um identificador delimitado e escapado da mesma seleção usada pelo ORM. Use, por exemplo, `FROM ${esquemaSql}."Empresa"` dentro de uma consulta marcada com `$queryRaw`. O fragmento não vem da requisição e não é um parâmetro de valor SQL. Não dependa de `search_path`, cujo estado pode mudar em pools transacionais. Uma tabela ausente no preview deve falhar, nunca recorrer à de `public`. A aba Sistema da moderação (`_prisma_migrations`) e o `npm run cidades:corrigir` já seguem essa regra. Os scripts, que não importam `src/lib/db.ts`, montam o fragmento com `identificadorSql` de `src/lib/banco.ts`. O teste `tests/unit/esquema-explicito.test.ts` falha se algum arquivo de `src`, `scripts` ou `prisma` usar `$queryRaw` ou `$executeRaw` sem `esquemaSql`, ou criar um `PrismaPg` sem `schema`.
+- **SQL bruto precisa qualificar a tabela.** `src/lib/db.ts` exporta `esquemaSql`, um identificador delimitado e escapado da mesma seleção usada pelo ORM. Use, por exemplo, `FROM ${esquemaSql}."Empresa"` dentro de uma consulta marcada com `$queryRaw`. O fragmento não vem da requisição e não é um parâmetro de valor SQL. Não dependa de `search_path`, cujo estado pode mudar em pools transacionais. Uma tabela ausente no preview deve falhar, nunca recorrer à de `public`. A aba Sistema da moderação (`_prisma_migrations`) e o `npm run cidades:corrigir` já seguem essa regra. Os scripts, que não importam `src/lib/db.ts`, montam o fragmento com `identificadorSql` de `src/lib/banco.ts`. O teste `tests/unit/esquema-explicito.test.ts` falha se algum arquivo de `src`, `scripts` ou `prisma` usar `$queryRaw` ou `$executeRaw` sem `esquemaSql`, ou criar um `PrismaPg` sem `schema`. Ele cobre só as formas simples, escritas sem espaço entre `$queryRaw` e a crase ou o parêntese, e entre `PrismaPg` e o parêntese. Ele confere apenas que a consulta cita `esquemaSql`, não que cada tabela de um `JOIN` esteja qualificada. Por isso, ele não substitui a revisão do SQL novo.
 - **Uma migração normal de A não muda as tabelas de B.** Cada esquema tem seu próprio histórico `_prisma_migrations`. Isso evita interferência entre deployments, mas não restringe SQL hostil: a credencial compartilhada ainda pode acessar outros esquemas. O lock do Prisma continua ativo, e uma falha de migração interrompe o build.
 - **Cada deployment começa com dados fictícios novos.** O seed só preenche um esquema vazio. Alterações manuais na homologação não acompanham o próximo deployment. O esquema compartilhado antigo e os deployments anteriores permanecem intactos, sem cópia ou limpeza automática. Não apague tabelas compartilhadas para corrigir um PR abandonado.
 - **A migração do preview roda num esquema vazio.** Antes, a migração de um PR rodava no banco compartilhado, que já tinha linhas. Agora ela nunca vê dados. Uma migração que falha com linhas existentes, como `ADD COLUMN ... NOT NULL` sem valor padrão, passa no preview e na `stage` e falha só no `prisma migrate deploy` de produção. Esse erro bloqueia os deploys seguintes (P3009) até alguém rodar `prisma migrate resolve`. Antes de abrir o PR, rode `npm run db:migrate` num banco local com o seed aplicado.
-- **Os esquemas antigos ocupam a cota do projeto Neon dos previews.** Cada deployment cria 9 tabelas, 27 índices e as linhas do seed. Medido no PostgreSQL local, isso dá cerca de 520 kB por esquema. Com a cota de armazenamento cheia, o `prisma migrate deploy` falha em todo build de preview, inclusive o da `stage`. O nome do esquema é um hash, e por isso ele não diz a qual deployment pertence. Para limpar, use a idade: a primeira migração de cada esquema (`_prisma_migrations.started_at`) marca quando o deployment foi criado. Conecte-se ao projeto `negocio-do-bem-preview` (confira o nome antes), no console SQL do Neon, e rode o bloco abaixo. Ele apaga os esquemas `preview_*` criados há mais de 30 dias e ignora os que não têm `_prisma_migrations`. Depois, faça um novo deploy da `stage`, porque a homologação pode ter perdido o esquema.
+- **Os esquemas antigos ocupam a cota do projeto Neon dos previews.** Cada deployment cria 9 tabelas, 27 índices e as linhas do seed. Medido no PostgreSQL local, isso dá cerca de 520 kB por esquema. Com a cota de armazenamento cheia, o `prisma migrate deploy` falha em todo build de preview, inclusive o da `stage`. Nenhum esquema é apagado sozinho. A receita abaixo usa a idade só para **listar candidatos**. A idade nunca prova que o deployment saiu de uso: a `stage`, por exemplo, serve o mesmo deployment por semanas. Só se apaga o esquema de um deployment que a pessoa comprovou que não está mais em uso.
+  1. **Junte os identificadores dos deployments ainda vivos.** No painel do Vercel (projeto, aba Deployments), anote o ID `dpl_…` de cada deployment de preview que ainda pode ser aberto: o atual da `stage`, o último de cada PR aberto e qualquer outro que alguém ainda use. O ID aparece na página do deployment, e é o mesmo valor que o Vercel entrega em `VERCEL_DEPLOYMENT_ID`. Na dúvida, mantenha o deployment na lista. Para liberar espaço de um deployment antigo, apague-o antes no Vercel e só depois o esquema.
+  2. **Calcule o nome do esquema de cada um.** O nome é `preview_` mais os 55 primeiros caracteres hexadecimais do SHA-256 do ID, a mesma conta de `configuracaoDoBanco` em `src/lib/banco.ts`. Para conferir um ID pelo código:
 
-  ```sql
-  DO $$
-  DECLARE
-    esquema text;
-    primeira timestamptz;
-  BEGIN
-    FOR esquema IN SELECT nspname FROM pg_namespace WHERE nspname LIKE 'preview\_%' LOOP
-      IF to_regclass(format('%I._prisma_migrations', esquema)) IS NULL THEN
-        RAISE NOTICE 'sem _prisma_migrations, ignorado: %', esquema;
-        CONTINUE;
-      END IF;
-      EXECUTE format('SELECT min(started_at) FROM %I._prisma_migrations', esquema) INTO primeira;
-      IF primeira < now() - interval '30 days' THEN
-        RAISE NOTICE 'apagando % (primeira migração em %)', esquema, primeira;
-        EXECUTE format('DROP SCHEMA %I CASCADE', esquema);
-      END IF;
-    END LOOP;
-  END $$;
-  ```
+     ```bash
+     npx tsx -e 'import { configuracaoDoBanco } from "./src/lib/banco"; console.log(configuracaoDoBanco("postgresql://x/y", "preview", process.argv[1]).esquema)' dpl_SEU_ID
+     ```
+
+     Os dois blocos SQL abaixo fazem essa mesma conta sozinhos, a partir da lista de IDs. Não é preciso copiar o nome para eles.
+  3. **Liste os candidatos.** No console SQL do Neon, no projeto `negocio-do-bem-preview` (confira o nome antes), troque os IDs de exemplo pelos da etapa 1 e rode o bloco. Ele não apaga nada. Mostra cada esquema `preview_*` como `em uso, mantido`, `candidato` (primeira migração há mais de 30 dias, em `_prisma_migrations.started_at`) ou `recente, mantido`. Esquemas sem `_prisma_migrations` ou com outro nome ficam de fora, e `public` nunca aparece.
+
+     ```sql
+     -- LISTAR: não apaga nada
+     DO $$
+     DECLARE
+       vivos text[] := ARRAY['dpl_ID_ATIVO_1', 'dpl_ID_ATIVO_2'];
+       esquema text;
+       primeira timestamptz;
+     BEGIN
+       IF coalesce(cardinality(vivos), 0) = 0 THEN
+         RAISE EXCEPTION 'a lista de deployments ativos está vazia';
+       END IF;
+       FOR esquema IN SELECT nspname FROM pg_namespace WHERE nspname ~ '^preview_[0-9a-f]{55}$' ORDER BY nspname LOOP
+         IF EXISTS (
+           SELECT 1 FROM unnest(vivos) AS vivo
+           WHERE 'preview_' || left(encode(sha256(convert_to(vivo, 'UTF8')), 'hex'), 55) = esquema
+         ) THEN
+           RAISE NOTICE 'em uso, mantido: %', esquema;
+         ELSIF to_regclass(format('%I._prisma_migrations', esquema)) IS NULL THEN
+           RAISE NOTICE 'sem _prisma_migrations, ignorado: %', esquema;
+         ELSE
+           EXECUTE format('SELECT min(started_at) FROM %I._prisma_migrations', esquema) INTO primeira;
+           IF primeira < now() - interval '30 days' THEN
+             RAISE NOTICE 'candidato: % (primeira migração em %)', esquema, primeira;
+           ELSE
+             RAISE NOTICE 'recente, mantido: %', esquema;
+           END IF;
+         END IF;
+       END LOOP;
+     END $$;
+     ```
+  4. **Apague um esquema de cada vez.** Para cada candidato que você confirmou que não está em uso, rode o bloco abaixo com o nome do candidato e a mesma lista de IDs. Ele recusa o nome que não tem a forma `preview_` mais 55 caracteres hexadecimais (então nunca apaga `public`), recusa a lista vazia, recusa o esquema de um deployment da lista, o esquema sem `_prisma_migrations` e o esquema com menos de 30 dias. Não repita o bloco em laço e não apague vários esquemas de uma vez.
+
+     ```sql
+     -- APAGAR: um esquema por vez
+     DO $$
+     DECLARE
+       vivos text[] := ARRAY['dpl_ID_ATIVO_1', 'dpl_ID_ATIVO_2'];
+       alvo text := 'preview_ESQUEMA_A_APAGAR';
+       primeira timestamptz;
+     BEGIN
+       IF alvo !~ '^preview_[0-9a-f]{55}$' THEN
+         RAISE EXCEPTION 'nome fora do padrão preview_ + 55 caracteres hexadecimais: %', alvo;
+       END IF;
+       IF coalesce(cardinality(vivos), 0) = 0 THEN
+         RAISE EXCEPTION 'a lista de deployments ativos está vazia';
+       END IF;
+       IF EXISTS (
+         SELECT 1 FROM unnest(vivos) AS vivo
+         WHERE 'preview_' || left(encode(sha256(convert_to(vivo, 'UTF8')), 'hex'), 55) = alvo
+       ) THEN
+         RAISE EXCEPTION 'esquema em uso por um deployment ativo: %', alvo;
+       END IF;
+       IF to_regclass(format('%I._prisma_migrations', alvo)) IS NULL THEN
+         RAISE EXCEPTION 'sem _prisma_migrations: %', alvo;
+       END IF;
+       EXECUTE format('SELECT min(started_at) FROM %I._prisma_migrations', alvo) INTO primeira;
+       IF primeira IS NULL OR primeira >= now() - interval '30 days' THEN
+         RAISE EXCEPTION 'primeira migração com menos de 30 dias: %', alvo;
+       END IF;
+       EXECUTE format('DROP SCHEMA %I CASCADE', alvo);
+       RAISE NOTICE 'apagado: %', alvo;
+     END $$;
+     ```
 - **As contas de exemplo continuam restritas aos previews.** O seed se recusa a rodar em produção. As contas são as do [README](../README.md#rodando-localmente), e os previews exigem login no Vercel. Desenvolvimento, produção e testes mantêm suas conexões anteriores.
 - **A prova local usa dados descartáveis.** `tests/db/preview-isolado.test.ts` aplica migrações e seed em namespaces separados e altera a estrutura apenas em A. B, homologação e o legado precisam permanecer iguais. Ela verifica também SQL bruto com `FOR UPDATE`, o histórico de migrações da aba Sistema, o `cidades:corrigir` (que altera só o esquema de quem o executa), um esquema de desenvolvimento explícito, escape de aspas em identificadores e a recusa de uma tabela ausente sem fallback para `public`. Com `NDB_TESTAR_PREVIEW=1`, a prova verifica B por HTTP em um Next com build de produção, antes e depois da migração de A.
 - **Limite da dependência instalada:** o ORM do Prisma 7.10.1 falhou na prova local com nomes de esquema contendo aspas. O fragmento de SQL bruto escapa essas aspas corretamente, mas não corrige esse limite do ORM. Use nomes simples para os esquemas configurados. Os nomes de preview são gerados só com prefixo, letras e dígitos hexadecimais.
