@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { setTimeout } from "node:timers/promises";
@@ -93,9 +94,7 @@ async function abrirServidor(env: NodeJS.ProcessEnv) {
 }
 
 it("isola migrações, seed e clientes de deployments de preview", async () => {
-  const temporarios = path.join(raiz, ".nott/tmp");
-  mkdirSync(temporarios, { recursive: true });
-  const pasta = mkdtempSync(path.join(temporarios, "preview-isolado-"));
+  const pasta = mkdtempSync(path.join(tmpdir(), "preview-isolado-"));
   const prefixo = randomUUID().replaceAll("-", "");
   const ids = [`dpl_${prefixo}a`, `dpl_${prefixo}b`, `dpl_${prefixo}h`];
   const esquemas = ids.map(esquemaDoDeployment);
@@ -116,6 +115,8 @@ it("isola migrações, seed e clientes de deployments de preview", async () => {
   }
 
   try {
+    // Uma execução interrompida não pode deixar arquivos soltos dentro do repositório.
+    expect(path.relative(raiz, pasta).startsWith(".."), "A pasta temporária precisa ficar fora do repositório.").toBe(true);
     const legado = await retrato("public");
     for (const [indice, id] of ids.entries()) {
       const env = ambiente(id, pasta);
