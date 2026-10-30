@@ -17,6 +17,7 @@
     "db:seed": "prisma db seed",
     "fotos:instagram": "tsx scripts/fotos-instagram.ts",
     "fotos:agendar": "sh scripts/agendar-fotos.sh",
+    "fotos:limpar": "node --conditions=react-server --import tsx scripts/limpar-fotos-historias.ts",
     "municipios:atualizar": "tsx scripts/municipios-ibge.ts",
     "cidades:corrigir": "tsx scripts/corrigir-cidades.ts",
     "moderacao": "tsx scripts/moderacao.ts",

@@ -1,18 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { del, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import { apagarFoto, guardarFoto } from "@/lib/armazenamento";
 
 vi.mock("@vercel/blob", () => ({
   put: vi.fn(async (nome: string) => ({ url: `https://abc123.public.blob.vercel-storage.com/${nome}` })),
   del: vi.fn(async () => {}),
+  list: vi.fn(),
+}));
+
+vi.mock("@/lib/ciclo-fotos", () => ({
+  descartarFotos: vi.fn(async (urls: string[], excluir: (url: string) => Promise<void>) => {
+    await Promise.all(urls.map(excluir));
+    return urls.map((url) => ({ url, status: "descartada" }));
+  }),
 }));
 
 const FOTO = { arquivo: new File([new Uint8Array([0xff, 0xd8, 0xff])], "foto"), tipo: "image/jpeg" as const };
-const URL_BLOB = "https://abc123.public.blob.vercel-storage.com/perfis/x.jpg";
+const URL_BLOB = "https://abc123.public.blob.vercel-storage.com/perfis/aaaaaaaaaaaaaaaaaaaaaaaa.jpg";
 
 beforeEach(() => {
   vi.stubEnv("BLOB_STORE_ID", "");
   vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+  vi.stubEnv("FOTOS_DOMINIO_EXCLUSIVO", "confirmado");
+  vi.mocked(list).mockResolvedValue({
+    blobs: [{ url: URL_BLOB, pathname: "perfis/aaaaaaaaaaaaaaaaaaaaaaaa.jpg", size: 3, uploadedAt: new Date(), downloadUrl: URL_BLOB, etag: "teste" }],
+    hasMore: false,
+  });
 });
 
 afterEach(() => {

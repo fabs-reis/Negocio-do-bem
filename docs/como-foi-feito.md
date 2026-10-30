@@ -460,6 +460,18 @@ O melhor exemplo é `src/lib/reivindicacao.ts`: as Server Actions e as rotas do 
 
 Erros que podem ser mostrados para a pessoa usam uma classe própria (`ErroReivindicacao`). Os outros erros sobem normalmente.
 
+### Ciclo das fotos
+
+Fotos de histórias são enviadas antes de salvar o texto. Uma limpeza que apenas compara URLs e apaga arquivos tem uma corrida: outra requisição pode salvar a referência depois da consulta. Segurar uma transação durante o Blob também não resolve uma resposta externa incerta.
+
+O comando manual `npm run fotos:limpar` usa diagnóstico por padrão. Para um descarte explícito, a rotina consulta todas as histórias e perfis sob a mesma trava PostgreSQL usada por `salvarEmpresa`. Ela registra `foto.descarte_iniciado` na auditoria antes de chamar o armazenamento. O salvamento recusa essa identidade a partir daí, mesmo se a exclusão falhar. Não foi criado modelo, serviço ou agendamento.
+
+`fotosDaHistoria` usa o `react-markdown` e o GFM já instalados, como a exibição pública. Não há um segundo parser baseado em expressões regulares. A identidade do objeto ignora parâmetros e fragmentos, mas só admite caminhos gerados pelo próprio site. Aceitar uma imagem para exibição não autoriza apagar seu store.
+
+A coordenação só é válida quando todos os escritores e bancos que referenciam o armazenamento são conhecidos. `FOTOS_DOMINIO_EXCLUSIVO` permanece desabilitada por padrão. Essa barreira também preserva fotos antigas de perfil. Não habilite exclusões reais sem confirmar a topologia, especialmente quando previews compartilham fotos. A rotina local e os testes não demonstram essa configuração de produção.
+
+Para interromper a limpeza, deixe a variável desabilitada. Nunca remova os registros de descarte ou reative escritores antigos enquanto houver exclusões pendentes. O comando não carrega `.env`, exige a conexão explícita e mostra cada resultado, sem tratar uma falha como sucesso.
+
 ### Interface
 
 - **Componentes de formulário:** `Campo` (rótulo, ajuda e erro), `BotaoEnviar` (mostra "Enviando…"), `Aviso`.
