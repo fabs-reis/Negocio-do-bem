@@ -61,6 +61,14 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Login** (`/entrar`): e-mail e senha.
   - O erro é sempre o mesmo, "E-mail ou senha incorretos".
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
+- **Limite de tentativas** (`src/lib/auth/tentativas.ts`), conferido antes do scrypt, porque cada conferência de senha custa ~32 MB de memória:
+  - **por IP:** 10 tentativas de login ou cadastro, somadas, a cada 15 minutos;
+  - **de onde vem o IP:** no Vercel, só do cabeçalho `x-vercel-forwarded-for`, que o Vercel escreve. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
+  - **IPv6:** o IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) conta como o IPv4. Os outros endereços IPv6 contam pelo prefixo /64, então todos os endereços da mesma rede dividem a cota;
+  - **sem IP conhecido** (fora do Vercel sem proxy declarado, ou cabeçalho ausente ou inválido), todas as tentativas dividem um contador só, de 10 a cada 15 minutos. É o lado seguro: o cadastro não tem limite por e-mail, e sem esse contador o scrypt ficaria sem freio. O custo é que, sem o proxy declarado, quem tenta entrar pode ficar recusado por causa dos outros visitantes;
+  - **por e-mail, em cada origem:** 5 tentativas de senha a cada 15 minutos para o mesmo e-mail, vindas do mesmo IP (ou do mesmo /64 no IPv6). Cada origem tem o próprio contador, então quem erra a senha de outra pessoa não a impede de entrar de outro lugar. Sem IP conhecido, as tentativas sem IP dividem um contador por e-mail. A tentativa é contada antes de a senha ser conferida, e não depois: assim, tentativas que chegam juntas não passam todas. A sexta já nem chega à conferência, mesmo com a senha certa. Um login certo zera a contagem daquele e-mail naquela origem;
+  - no login, a recusa pelo limite mostra o mesmo "E-mail ou senha incorretos", para não revelar quais e-mails existem. No cadastro, aparece "Muitas tentativas seguidas. Espere alguns minutos e tente de novo";
+  - o banco guarda só o hash (sha256) do IP e do e-mail, e as janelas vencidas são apagadas na tentativa seguinte.
 - **Senha:**
   - guardada com scrypt (N=2^15, r=8, p=1, sal aleatório de 16 bytes) no formato `scrypt$N$r$p$sal$hash`;
   - a comparação é em tempo constante.
@@ -71,7 +79,10 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - "Sair" apaga a sessão do banco e o cookie.
 - **Volta para onde a pessoa estava:**
   - páginas que exigem login mandam para `/entrar?voltar=<caminho>`;
-  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site.
+  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site;
+  - `caminhoSeguro` recusa o valor com caractere de controle (de U+0000 a U+001F e U+007F, como TAB, LF e CR), com `//` no começo ou com barra invertida;
+  - depois ele interpreta o valor como URL (padrão WHATWG) e só aceita se a origem continuar a do site, porque o TAB, o LF e o CR somem na interpretação e `/<TAB>/host` viraria `//host`;
+  - o que ele recusa cai no destino padrão, e o caminho interno válido (com consulta e âncora) passa sem mudar.
 
 ### E-mail confirmado e links por e-mail
 
@@ -276,12 +287,12 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`
 
 - **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta.
 - **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
-- **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil.
+- **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa.
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
-- **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período.
+- **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
 - **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
-- **Auditoria:** registra `empresa.indicada`.
+- **Auditoria:** registra `empresa.indicada` na mesma transação da criação. Se a auditoria falhar, a indicação falha e o negócio não fica salvo. Isso inclui erros de unicidade da auditoria, que não significam que o @ já existe.
 
 ### "Este negócio é meu"
 
@@ -379,7 +390,8 @@ O @ do Instagram não é pedido: é o do próprio perfil.
   - enquanto ele está em análise, o formulário dá lugar ao aviso "Seus dados estão com a moderação".
 - **Limite:**
   - no máximo **10 pedidos de reivindicação em 24 horas** por conta, somando todos os caminhos e todos os negócios;
-  - pedidos cancelados também contam.
+  - pedidos cancelados também contam;
+  - o limite vale mesmo com pedidos simultâneos: cada caminho trava a linha da conta, confere a cota e cria o pedido na mesma transação, então os pedidos da mesma conta entram um de cada vez.
 - **Cancelar:** a pessoa pode cancelar o próprio pedido pendente na página de reivindicação.
 - **Validade:**
   - o pedido guarda uma data de validade de 30 dias, que a moderação vê como "expirado em";
@@ -676,7 +688,7 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 
 ### Denúncias
 
-- **Quem denuncia:** qualquer pessoa logada que **não seja a autora** do depoimento, incluindo o dono do negócio.
+- **Quem denuncia:** qualquer pessoa logada que **não seja a autora** do depoimento, incluindo o dono do negócio. A página esconde o botão para a autora, e a ação também recusa: se ela chamar a ação direto, volta para o perfil sem gravar nada.
 - **Motivo:** opcional, até 300 caracteres. Sem motivo, fica "Sem motivo informado".
 - **Denunciar não esconde o depoimento.** Ele continua no ar até a moderação decidir.
 - **A moderação recebe um e-mail** com o negócio e o link da fila, sem dizer quem denunciou.
@@ -910,6 +922,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
 | Quem denunciou e o motivo | `Depoimento` | Só a moderação. |
 | Auditoria | `RegistroAuditoria` | Só a moderação. |
+| Tentativas de login e cadastro | `TentativaAcesso` | Ninguém vê o IP nem o e-mail: só o sha256 deles e a contagem são guardados. A moderação vê só quantos contadores existem. |
 
 ### O que não fazemos
 
@@ -947,6 +960,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Duração da sessão | 30 dias | `src/lib/auth/sessao.ts` |
 | Senha | 8 a 200 caracteres | `src/acoes/conta.ts` |
+| Tentativas de login e cadastro por IP | 10 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
+| Tentativas de senha por e-mail, em cada origem (IP ou /64) | 5 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |
 | Pedidos de reivindicação por conta | 10 a cada 24 horas | `src/lib/reivindicacao.ts` |
 | Validade do código por DM | 48 horas | `src/lib/reivindicacao.ts` |
@@ -1009,7 +1024,6 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 **Contas**
 
 - Não há recuperação de senha, confirmação de e-mail, troca de nome ou e-mail, nem exclusão da conta.
-- Não há limite de tentativas de login.
 - Não há registro do último acesso: "Sair" apaga a sessão, então o painel só sabe das sessões que continuam abertas.
 - Sessões vencidas deixam de valer, mas não são apagadas do banco.
 - O e-mail da conta não é confirmado. Um aviso pode ir para um endereço digitado errado, e ninguém fica sabendo.

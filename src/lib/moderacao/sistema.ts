@@ -88,7 +88,7 @@ export async function migracoesAplicadas(): Promise<Migracao[]> {
 
 /** Quantas linhas cada tabela tem. */
 export async function linhasPorTabela() {
-  const [contas, sessoes, negocios, causas, donos, reivindicacoes, depoimentos, auditoria] = await Promise.all([
+  const [contas, sessoes, negocios, causas, donos, reivindicacoes, depoimentos, auditoria, tentativas] = await Promise.all([
     db.usuario.count(),
     db.sessao.count(),
     db.empresa.count(),
@@ -97,6 +97,7 @@ export async function linhasPorTabela() {
     db.reivindicacao.count(),
     db.depoimento.count(),
     db.registroAuditoria.count(),
+    db.tentativaAcesso.count(),
   ]);
   return [
     { tabela: "Usuario", rotulo: "Contas", total: contas },
@@ -107,5 +108,6 @@ export async function linhasPorTabela() {
     { tabela: "Reivindicacao", rotulo: "Pedidos de reivindicação", total: reivindicacoes },
     { tabela: "Depoimento", rotulo: "Depoimentos", total: depoimentos },
     { tabela: "RegistroAuditoria", rotulo: "Registros da auditoria", total: auditoria },
+    { tabela: "TentativaAcesso", rotulo: "Contadores de tentativas de acesso", total: tentativas },
   ];
 }

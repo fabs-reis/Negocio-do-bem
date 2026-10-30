@@ -84,9 +84,24 @@ export async function exigirModerador(): Promise<UsuarioSessao> {
   return usuario;
 }
 
-/** Aceita só caminhos internos, para o ?voltar= não virar um redirecionamento aberto. */
+/**
+ * Aceita só caminhos internos, para o ?voltar= não virar um redirecionamento aberto.
+ * Recusa autoridades, barras invertidas e controles antes de conferir a origem da URL (padrão WHATWG).
+ * O TAB, o LF e o CR somem na interpretação, então "/<TAB>/host" viraria "//host", uma URL de outro site.
+ */
 export function caminhoSeguro(valor: unknown, padrao = "/"): string {
-  if (typeof valor !== "string" || !valor.startsWith("/") || valor.startsWith("//") || valor.includes("\\")) {
+  if (
+    typeof valor !== "string" ||
+    !valor.startsWith("/") ||
+    valor.startsWith("//") ||
+    /[\\\u0000-\u001f\u007f]/.test(valor)
+  ) {
+    return padrao;
+  }
+  const origem = "http://origem.invalid";
+  try {
+    if (new URL(valor, origem).origin !== origem) return padrao;
+  } catch {
     return padrao;
   }
   return valor;

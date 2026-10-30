@@ -1,12 +1,13 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import { COOKIE_LINK, criarLink, enviarLink, usarLink } from "@/lib/auth/links";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { caminhoSeguro, criarSessao, encerrarSessao, exigirUsuario } from "@/lib/auth/sessao";
+import { ipDoCabecalho, reservarTentativaDoEmail, tentativaDoIpLiberada, zerarTentativasDoEmail } from "@/lib/auth/tentativas";
 import { db } from "@/lib/db";
 import { errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 
@@ -18,6 +19,11 @@ const esquemaCadastro = z.object({
   senha: z.string().min(8, "Use pelo menos 8 caracteres.").max(200, "Senha muito longa."),
 });
 
+/** IP de quem fez a requisição, ou null se não der para confiar em nenhum cabeçalho (veja `ipDoCabecalho`). */
+async function ipDaRequisicao(): Promise<string | null> {
+  return ipDoCabecalho(await headers());
+}
+
 export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const resultado = esquemaCadastro.safeParse({
     nome: texto(dados, "nome"),
@@ -28,6 +34,10 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
     return { erros: errosPorCampo(resultado.error), valores: valoresDoFormulario(dados) };
   }
   const { nome, email, senha } = resultado.data;
+
+  if (!(await tentativaDoIpLiberada(await ipDaRequisicao()))) {
+    return { erro: "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.", valores: valoresDoFormulario(dados) };
+  }
 
   const existente = await db.usuario.findUnique({ where: { email } });
   if (existente) {
@@ -51,12 +61,18 @@ let hashFalso: Promise<string> | undefined;
 export async function entrar(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const email = texto(dados, "email").trim().toLowerCase();
   const senha = texto(dados, "senha");
+  const recusado = { erro: "E-mail ou senha incorretos.", valores: valoresDoFormulario(dados) };
+
+  const ip = await ipDaRequisicao();
+  if (!(await tentativaDoIpLiberada(ip)) || (email && !(await reservarTentativaDoEmail(email, ip)))) {
+    return recusado;
+  }
+
   const usuario = email ? await db.usuario.findUnique({ where: { email } }) : null;
   const senhaConfere = await verificarSenha(senha, usuario?.senhaHash ?? (await (hashFalso ??= gerarHashSenha("senha-que-nao-existe"))));
 
-  if (!usuario || !senhaConfere) {
-    return { erro: "E-mail ou senha incorretos.", valores: valoresDoFormulario(dados) };
-  }
+  if (!usuario || !senhaConfere) return recusado;
+  await zerarTentativasDoEmail(email, ip);
   await criarSessao(usuario.id);
   redirect(caminhoSeguro(texto(dados, "voltar")));
 }

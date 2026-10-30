@@ -46,6 +46,14 @@ model Sessao {
   @@index([usuarioId])
 }
 
+model TentativaAcesso {
+  chave            String   @id
+  contagem         Int
+  janelaIniciadaEm DateTime
+
+  @@index([janelaIniciadaEm])
+}
+
 // Link mandado por e-mail para confirmar o endereço ou entrar sem senha (src/lib/auth/links.ts).
 model LinkEmail {
   // sha256 do token que vai no link, como na Sessao

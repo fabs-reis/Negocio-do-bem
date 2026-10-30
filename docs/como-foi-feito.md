@@ -368,7 +368,25 @@ O cadastro aceitava qualquer e-mail. Uma conta com o e-mail de outra pessoa, ou 
 
 A autenticação é feita no próprio projeto (`src/lib/auth/`), com e-mail, senha (scrypt), link por e-mail e sessão em cookie. Isso evita depender de um serviço externo para algo simples.
 
+O scrypt que protege as senhas custa ~32 MB de memória por conferência, então login e cadastro têm limite de tentativas por IP e por e-mail, conferido antes dele (`src/lib/auth/tentativas.ts`). A contagem fica numa tabela do Postgres (`TentativaAcesso`), e não na memória, porque no Vercel o site roda em várias instâncias. Cada tentativa é somada num `INSERT ... ON CONFLICT DO UPDATE` só, que também abre a janela nova quando a anterior venceu: assim, tentativas simultâneas não zeram a contagem umas das outras. Um serviço próprio para contadores (Upstash, Vercel KV) traria mais uma dependência e mais uma variável.
+
+O limite por IP só vale se o IP for de verdade. Fora do Vercel, o `x-forwarded-for` e o `x-real-ip` podem ser escritos por qualquer visitante: se o site confiasse neles, cada tentativa traria um IP novo, e o limite nunca agiria (além de dar para gastar a cota de outra pessoa). Por isso `ipDoCabecalho` (`src/lib/auth/tentativas.ts`) lê só o `x-vercel-forwarded-for` no Vercel (`VERCEL=1`), que o Vercel escreve e o visitante não consegue trocar. Em outra hospedagem, ignora todos os cabeçalhos, a menos que quem cuida do site declare `AUTENTICACAO_PROXY_CONFIAVEL=1`. Aí lê o último valor do `x-forwarded-for` e confere que é um IP. Quando não há IP confiável, todas as tentativas dividem um contador só, em vez de passarem sem limite: o cadastro não tem limite por e-mail, então liberar quem não tem IP deixaria o scrypt sem freio. O preço é que, numa hospedagem sem proxy declarado, os visitantes dividem as 10 tentativas por 15 minutos. Quando essa cota acaba, o login mostra "E-mail ou senha incorretos." até para quem digitou a senha certa, e nada aponta a causa. Fica a favor do site e é fácil de corrigir. Em desenvolvimento (`npm run dev`) também vale: 10 tentativas a cada 15 minutos para o computador todo. Para zerar, apague as linhas da tabela `TentativaAcesso`.
+
+O IP passa por `normalizarIp` antes de virar chave do contador. O IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) volta a ser IPv4. Os endereços IPv6 viram o prefixo /64, porque quem recebe uma rede IPv6 escolhe qualquer endereço dela a cada requisição: sem isso, cada endereço abriria um contador novo, e o limite por IP não valeria contra quem tem IPv6. A contrapartida é que uma rede /64 inteira, como a de uma casa, divide uma cota só. Um prefixo maior que /64 (como um /56) ainda tem um contador para cada /64, e o cadastro só tem o limite por IP.
+
+O limite por e-mail também é conferido antes do scrypt. A tentativa é reservada por `reservarTentativaDoEmail`, no mesmo `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, que soma e devolve a contagem num comando só. Primeiro conferir e depois contar deixaria passar todas as tentativas que chegam juntas, cada uma de um IP, e o limite por IP não impede isso. Também não há transação aberta durante o scrypt: ela prenderia uma conexão e a linha do contador por ~100 ms a cada login. Quando o login dá certo, a contagem do e-mail é apagada.
+
+O contador do e-mail é separado por origem (a chave é o e-mail junto com o IP, ou o /64 no IPv6). Com um contador só por e-mail, quem soubesse o e-mail de alguém poderia errar a senha 5 vezes e deixar a dona da conta 15 minutos sem entrar, e repetir a cada janela. Separando por origem, o bloqueio vale só para quem está errando. O preço é que um ataque espalhado por muitos IPs ganha 5 palpites por IP para o mesmo e-mail, em vez de 5 no total. Cada IP continua limitado a 10 tentativas por janela, somando todos os e-mails. Um passo além, se for preciso, é o "cookie de dispositivo" que a OWASP recomenda: o navegador onde a pessoa já entrou ganha uma marca assinada e não cai no bloqueio que outros causaram, e aí dá para voltar a ter um limite por e-mail para todo o resto.
+
 O e-mail nunca dá permissão, nem depois de confirmado: as contas antigas não confirmaram, e quem se cadastra primeiro com um endereço escolhe o que confirmar. A moderação vem só do `papel` gravado no banco, conferido no servidor a cada requisição, e quem cuida do projeto dá esse papel com `npm run moderacao`. Até outubro de 2026 a variável `ADMIN_EMAILS` também dava moderação, e qualquer pessoa que se cadastrasse com um daqueles e-mails antes do dono levava o acesso.
+
+Toda resposta leva cabeçalhos de segurança (`headers()` no `next.config.ts`):
+
+- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site, do Vercel Blob (`*.public.blob.vercel-storage.com`) e do Google Analytics. Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
+- **Sem nonce:** a CSP aceita scripts inline (`'unsafe-inline'`), como o script do tema no `layout.tsx` e os do próprio Next. Uma CSP com nonce obriga toda página a ser renderizada a cada acesso e é incompatível com o Partial Prerendering, que o projeto usa com o Cache Components. Ficaríamos sem pré-render e sem cache na CDN.
+- **`Strict-Transport-Security`** (2 anos), **`X-Frame-Options: DENY`** (para navegadores antigos), **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: strict-origin-when-cross-origin`** (sites abertos a partir do perfil não recebem o endereço completo) e **`Permissions-Policy`** (sem câmera, microfone, localização, pagamento, USB nem `browsing-topics`).
+
+Se uma página nova precisar de um script, imagem ou iframe de outro endereço, o endereço entra na política, senão o navegador bloqueia e avisa no console.
 
 ### Como uma requisição anda
 
@@ -511,7 +529,8 @@ npm run typecheck
   - conflitos;
   - transferência;
   - dados do negócio;
-  - limite diário.
+  - limite diário;
+  - limite de tentativas de login e cadastro: `tests/db/tentativas.test.ts` testa os contadores, e `tests/db/acoes-conta.test.ts` passa pelas ações `entrar` e `cadastrar` de verdade, com espiões no scrypt. Só o Next (cabeçalhos, redirect e cookie) é de mentira. Esses testes falham se alguém tirar o limite do cadastro, mover o limite para depois do scrypt, ou confiar num cabeçalho de IP que o visitante escreve.
 - **O banco de teste é separado** (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`).
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
@@ -568,6 +587,7 @@ npm run typecheck
 | `BLOB_READ_WRITE_TOKEN` | Em produção, fora do Vercel | Fotos no Vercel Blob onde não há OIDC. No Vercel, o site não precisa dela. |
 | `NEXT_PUBLIC_GA_ID` | Não | Google Analytics. Configure só em Production. |
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
+| `AUTENTICACAO_PROXY_CONFIAVEL` | Não | Defina `1` só se há um proxy seu na frente do site, que escreve o `x-forwarded-for` e é o único caminho até ele. Fora do Vercel, o limite de tentativas de login e cadastro usa então o último valor desse cabeçalho. Vazia, todos os visitantes dividem um limite só. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
 | `INSTAGRAM_PERFIL_OFICIAL` | Não | Liga o código por DM. |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_GRAPH_VERSION` | Não | Ligam o "Entrar com Instagram". |

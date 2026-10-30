@@ -73,6 +73,8 @@ export async function denunciarDepoimento(dados: FormData): Promise<void> {
   if (!depoimento) redirect("/");
   const voltar = `/empresas/${depoimento.empresa.instagramUsername}`;
   const usuario = await exigirUsuario(voltar);
+  // A página esconde o botão para o autor; a regra vale aqui também.
+  if (depoimento.autorId === usuario.id) redirect(`${voltar}#depoimentos`);
   if (!usuario.emailConfirmado) redirect(`${voltar}?aviso=confirmar_email#depoimentos`);
 
   if (!depoimento.denunciado) {
