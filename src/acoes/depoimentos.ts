@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import { exigirUsuario } from "@/lib/auth/sessao";
+import { AVISOS } from "@/lib/avisos";
 import { db } from "@/lib/db";
 import { texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 import { avisarNovaDenuncia, avisarNovoDepoimento } from "@/lib/notificacoes";
@@ -21,6 +22,7 @@ export async function publicarDepoimento(_estado: EstadoFormulario, dados: FormD
   });
   if (!empresa) return { erro: "Negócio não encontrado." };
   const usuario = await exigirUsuario(`/empresas/${empresa.instagramUsername}#depoimentos`);
+  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto, valores: valoresDoFormulario(dados) };
 
   if (empresa.moderacao !== "aprovada" || empresa.oculta) {
     return { erro: "Este perfil ainda não está recebendo depoimentos." };
@@ -71,6 +73,7 @@ export async function denunciarDepoimento(dados: FormData): Promise<void> {
   if (!depoimento) redirect("/");
   const voltar = `/empresas/${depoimento.empresa.instagramUsername}`;
   const usuario = await exigirUsuario(voltar);
+  if (!usuario.emailConfirmado) redirect(`${voltar}?aviso=confirmar_email#depoimentos`);
 
   if (!depoimento.denunciado) {
     await db.depoimento.update({

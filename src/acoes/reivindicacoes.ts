@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 import { exigirUsuario } from "@/lib/auth/sessao";
+import { AVISOS } from "@/lib/avisos";
 import { cnpjValido, limparCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
 import { campoSite, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
@@ -21,6 +22,7 @@ async function carregar(dados: FormData) {
 
 export async function gerarCodigoDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const { empresa, usuario, caminho } = await carregar(dados);
+  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto };
   if (!perfilOficial()) return { erro: "A verificação por DM está desligada. Envie os dados do negócio abaixo." };
   try {
     await iniciarPorCodigoDm(empresa.id, usuario.id);
@@ -51,6 +53,7 @@ const esquemaDocumento = z.object({
 
 export async function enviarDocumento(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const { empresa, usuario, caminho } = await carregar(dados);
+  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto, valores: valoresDoFormulario(dados) };
   const resultado = esquemaDocumento.safeParse({
     cnpj: texto(dados, "cnpj"),
     site: texto(dados, "site"),

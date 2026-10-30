@@ -13,11 +13,11 @@ import { enviarEmail, envioLigado } from "@/lib/email";
 import { hrefModeracao } from "@/lib/moderacao/filtros";
 import { ENDERECO_DO_SITE, NOME_DO_SITE } from "@/lib/seo";
 
-function primeiroNome(nome: string): string {
+export function primeiroNome(nome: string): string {
   return nome.trim().split(/\s+/)[0] || nome;
 }
 
-function corpo(...paragrafos: string[]): string {
+export function corpo(...paragrafos: string[]): string {
   return [...paragrafos, NOME_DO_SITE].join("\n\n");
 }
 
