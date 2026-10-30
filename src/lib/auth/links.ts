@@ -5,7 +5,7 @@
 //
 // Abrir o link não usa o token: /api/link guarda o token num cookie e leva a /link,
 // que pede um clique. Assim os filtros de e-mail que abrem links sozinhos não gastam
-// o link, e o token sai do endereço antes de a página carregar o Google Analytics.
+// o link, e o token sai do endereço antes de a página ser exibida.
 
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
