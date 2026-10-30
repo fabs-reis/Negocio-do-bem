@@ -183,7 +183,7 @@ Funciona em qualquer hospedagem de Next.js com um PostgreSQL gerenciado.
 5. Crie um **segundo Blob** público, só para os previews, e conecte do mesmo jeito, só no ambiente **Preview**. Assim, o código de um PR nunca grava nem apaga as fotos de produção.
 6. Opcional: em **Environment Variables**, só para **Production**, configure `NEXT_PUBLIC_GA_ID` com o ID de medição do Google Analytics (`G-…`). Sem ela, o Analytics não carrega.
    - Para o Google Search Console e o Bing Webmaster Tools, configure também `GOOGLE_SITE_VERIFICATION` e `BING_SITE_VERIFICATION`, e depois envie o `sitemap.xml` nos dois painéis. O passo a passo está em [Como o projeto foi feito](docs/como-foi-feito.md#cadastrar-o-site-no-google-e-no-bing).
-7. A cada deploy, de produção ou de preview, o `scripts/vercel-build.sh` aplica as migrações pendentes no banco daquele ambiente antes do build. Nos previews, ele também roda o seed, que só preenche um banco vazio.
+7. A cada deploy, de produção ou de preview, o `scripts/vercel-build.sh` aplica as migrações antes do build. Cada preview usa um esquema exclusivo de `VERCEL_DEPLOYMENT_ID` e recebe o seed fictício se estiver vazio. O identificador precisa estar disponível no build e no runtime. Alterações na homologação não passam para o próximo deployment. Os detalhes e os limites desse isolamento estão em [Publicação e infraestrutura](docs/como-foi-feito.md#7-publicação-e-infraestrutura).
 8. Depois do primeiro deploy, cadastre a sua conta no site e dê a moderação a ela com a conexão direta do banco de produção: `DATABASE_URL="postgresql://..." npm run moderacao -- dar voce@exemplo.com`.
 
 **Em outra hospedagem**

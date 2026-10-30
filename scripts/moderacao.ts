@@ -14,6 +14,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { registrarAuditoria } from "../src/lib/auditoria";
+import { configuracaoDoBanco } from "../src/lib/banco";
 
 // Ações que só a moderação faz. Com usuarioId preenchido, mostram quem agiu como
 // moderação, inclusive quem teve acesso por uma regra que já não vale.
@@ -30,13 +31,14 @@ const ACOES_DA_MODERACAO = [
   "depoimento.removido",
 ];
 
-const urlDoBanco = process.env.DATABASE_URL;
+const banco = configuracaoDoBanco(process.env.DATABASE_URL, process.env.VERCEL_ENV, process.env.VERCEL_DEPLOYMENT_ID);
+const urlDoBanco = banco.url;
 if (!urlDoBanco) {
   console.error("Falta DATABASE_URL. Configure no .env ou passe na frente do comando.");
   process.exit(1);
 }
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: urlDoBanco }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: urlDoBanco }, { schema: banco.esquema }) });
 const data = (d: Date) => d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
 async function listar() {
@@ -87,7 +89,7 @@ async function mudarPapel(email: string, papel: "moderador" | "membro") {
 
 async function main() {
   const { host, pathname } = new URL(urlDoBanco!);
-  console.log(`Banco: ${host}${pathname}\n`);
+  console.log(`Banco: ${host}${pathname}${banco.esquema ? ` · esquema ${banco.esquema}` : ""}\n`);
 
   const [comando, email] = process.argv.slice(2);
   const emailNormalizado = email?.trim().toLowerCase();

@@ -1,8 +1,8 @@
 #!/bin/sh
 # Build no Vercel. Em produção e nos previews, aplica as migrações pendentes
 # antes do build, para o banco sempre ter as tabelas que o código espera.
-# O Preview tem um banco Neon só dele, separado do de produção: a migração de
-# um PR ainda não aprovado nunca chega ao banco de produção.
+# O Preview tem um banco Neon separado da produção. A configuração do Prisma
+# seleciona um esquema por deployment, tanto aqui quanto no runtime.
 set -e
 
 case "$VERCEL_ENV" in
@@ -14,7 +14,7 @@ case "$VERCEL_ENV" in
 esac
 
 if [ "$VERCEL_ENV" = "preview" ]; then
-  # Dados de exemplo para homologar. No Vercel, o seed só preenche um banco vazio.
+  # Dados de exemplo para homologar, só no esquema vazio deste deployment.
   npx prisma db seed
 fi
 

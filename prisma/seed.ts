@@ -6,6 +6,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { gerarHashSenha } from "../src/lib/auth/senha";
 import { textoDeBusca } from "../src/lib/texto";
+import { configuracaoDoBanco } from "../src/lib/banco";
 
 // No Vercel, quem diz o ambiente é VERCEL_ENV: o build dos previews também roda o seed.
 const emProducao = process.env.VERCEL_ENV
@@ -15,7 +16,8 @@ if (emProducao) {
   throw new Error("O seed cria contas com senha conhecida e não pode rodar em produção.");
 }
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const banco = configuracaoDoBanco(process.env.DATABASE_URL, process.env.VERCEL_ENV, process.env.VERCEL_DEPLOYMENT_ID);
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: banco.url }, { schema: banco.esquema }) });
 const SENHA_DEMO = "senha-demo-123";
 
 type NegocioExemplo = {
@@ -193,10 +195,9 @@ const DEPOIMENTOS: { negocio: string; autor: string; texto: string; resposta?: s
 ];
 
 async function main() {
-  // No Vercel, só preenche um banco vazio. Um preview ligado por engano ao banco
-  // de produção encontra usuários reais e não cria as contas de senha conhecida.
+  // No Vercel, só preenche o esquema vazio selecionado para este deployment.
   if (process.env.VERCEL && (await db.usuario.count()) > 0) {
-    console.log("O banco já tem usuários. No Vercel, o seed só preenche um banco vazio.");
+    console.log("O esquema já tem usuários. No Vercel, o seed só preenche um esquema vazio.");
     return;
   }
 
