@@ -2,8 +2,11 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { denunciarDepoimento } from "@/acoes/depoimentos";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
+import { after } from "next/server";
 
 vi.mock("@/lib/auth/sessao", () => ({ exigirUsuario: vi.fn() }));
+// O aviso por e-mail (after) não roda: o teste só conta quantas vezes ele foi agendado.
+vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("next/navigation", () => ({
   redirect: (destino: string): never => {
     throw new Error(`redirecionamento:${destino}`);
@@ -47,11 +50,12 @@ function dadosDaDenuncia(depoimentoId: string, motivo: string) {
 }
 
 function autenticar(usuario: { id: string; nome: string; email: string }) {
-  vi.mocked(exigirUsuario).mockResolvedValueOnce({ ...usuario, moderador: false });
+  vi.mocked(exigirUsuario).mockResolvedValueOnce({ ...usuario, moderador: false, emailConfirmado: true });
 }
 
 beforeEach(async () => {
   vi.mocked(exigirUsuario).mockReset();
+  vi.mocked(after).mockReset();
   await limparBanco();
 });
 afterAll(async () => {
@@ -74,6 +78,7 @@ describe("denunciarDepoimento", () => {
       denunciadoPorId: primeiraPessoa.id,
       status: "publicado",
     });
+    expect(after).toHaveBeenCalledTimes(1);
   });
 
   it("mantém o motivo e a autoria da denúncia que já estava aberta", async () => {
@@ -94,6 +99,7 @@ describe("denunciarDepoimento", () => {
       motivoDenuncia: "Primeiro motivo",
       denunciadoPorId: primeiraPessoa.id,
     });
+    expect(after).not.toHaveBeenCalled();
   });
 
   it("não deixa uma leitura concorrente antiga substituir a primeira denúncia", async () => {
@@ -106,12 +112,12 @@ describe("denunciarDepoimento", () => {
     vi.mocked(exigirUsuario).mockImplementationOnce(async () => {
       primeiraLeu.resolve();
       await ambasLeram.promise;
-      return { ...primeiraPessoa, moderador: false };
+      return { ...primeiraPessoa, moderador: false, emailConfirmado: true };
     });
     vi.mocked(exigirUsuario).mockImplementationOnce(async () => {
       ambasLeram.resolve();
       await primeiraTerminou.promise;
-      return { ...segundaPessoa, moderador: false };
+      return { ...segundaPessoa, moderador: false, emailConfirmado: true };
     });
 
     const primeira = denunciarDepoimento(dadosDaDenuncia(depoimento.id, "Primeiro motivo"));
@@ -127,6 +133,8 @@ describe("denunciarDepoimento", () => {
     await segundaConcluida;
 
     expect(exigirUsuario).toHaveBeenCalledTimes(2);
+    // Só a denúncia gravada avisa a moderação.
+    expect(after).toHaveBeenCalledTimes(1);
     expect(await db.depoimento.findUniqueOrThrow({ where: { id: depoimento.id } })).toMatchObject({
       denunciado: true,
       motivoDenuncia: "Primeiro motivo",
