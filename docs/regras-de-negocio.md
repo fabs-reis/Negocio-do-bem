@@ -245,7 +245,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
 - **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
 - **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
-- **Auditoria:** registra `empresa.indicada`.
+- **Auditoria:** registra `empresa.indicada` na mesma transação da criação. Se a auditoria falhar, a indicação falha e o negócio não fica salvo. Isso inclui erros de unicidade da auditoria, que não significam que o @ já existe.
 
 ### "Este negócio é meu"
 

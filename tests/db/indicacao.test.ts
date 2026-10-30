@@ -137,6 +137,50 @@ describe("cota diária de indicações", () => {
   });
 });
 
+describe("falha na auditoria da indicação", () => {
+  it("propaga P2002 da auditoria e desfaz o negócio sem consumir a cota", async () => {
+    const usuario = await criarUsuarioLogado();
+    await indicacoesAnteriores(usuario.id, LIMITE - 1);
+    const registro = await db.registroAuditoria.create({
+      data: { id: "auditoria-repetida", usuarioId: usuario.id, acao: "teste", alvoTipo: "usuario", alvoId: usuario.id },
+    });
+
+    await db.$executeRawUnsafe(`
+      CREATE FUNCTION "repetirIdAuditoriaIndicacaoTeste"() RETURNS trigger AS $$
+      BEGIN
+        IF NEW.acao = 'empresa.indicada' THEN
+          NEW.id := 'auditoria-repetida';
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    try {
+      await db.$executeRawUnsafe(`
+        CREATE TRIGGER "repetirIdAuditoriaIndicacaoTeste"
+        BEFORE INSERT ON "RegistroAuditoria"
+        FOR EACH ROW EXECUTE FUNCTION "repetirIdAuditoriaIndicacaoTeste"()
+      `);
+      const dados = formulario("auditoria.falha");
+      dados.append("causas", "negocio-de-bairro");
+      const [resultado] = await Promise.allSettled([indicarEmpresa({}, dados)]);
+
+      expect(await db.empresa.findUnique({ where: { instagramUsername: "auditoria.falha" } })).toBeNull();
+      expect(await db.empresaCausa.count()).toBe(0);
+      expect(await db.empresa.count({ where: { indicadaPorId: usuario.id } })).toBe(LIMITE - 1);
+      expect(await db.registroAuditoria.findMany()).toEqual([registro]);
+      expect(resultado).toMatchObject({ status: "rejected", reason: { code: "P2002" } });
+    } finally {
+      await db.$executeRawUnsafe('DROP TRIGGER IF EXISTS "repetirIdAuditoriaIndicacaoTeste" ON "RegistroAuditoria"');
+      await db.$executeRawUnsafe('DROP FUNCTION "repetirIdAuditoriaIndicacaoTeste"()');
+    }
+
+    expect((await indicar("auditoria.falha")).publicada).toBe(true);
+    expect(await db.empresa.count({ where: { indicadaPorId: usuario.id } })).toBe(LIMITE);
+    expect(await db.registroAuditoria.count({ where: { usuarioId: usuario.id, acao: "empresa.indicada" } })).toBe(1);
+  });
+});
+
 describe("indicação do mesmo username ao mesmo tempo", () => {
   it("publica uma vez e avisa a outra pessoa que o negócio já existe", async () => {
     await criarUsuarioLogado();

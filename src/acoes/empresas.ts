@@ -92,6 +92,7 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
   // A cota é conferida na mesma transação que cria o negócio. Antes de contar,
   // a linha da pessoa fica travada: envios simultâneos dela esperam a vez e
   // cada um enxerga o que o anterior publicou.
+  const empresaDuplicada = new Error("O negócio já existe.");
   let empresa;
   try {
     empresa = await db.$transaction(async (tx) => {
@@ -112,6 +113,10 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
           busca: textoDeBusca({ ...campos, instagramUsername: instagram }),
           causas: { create: filtrarCausas(dados.getAll("causas").map(String)).map((causa) => ({ causa })) },
         },
+      }).catch((erro: unknown) => {
+        // Só a criação do negócio pode indicar um @ duplicado.
+        if (violouUnicidade(erro)) throw empresaDuplicada;
+        throw erro;
       });
       await registrarAuditoria(tx, {
         usuarioId: usuario.id,
@@ -123,7 +128,7 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
     });
   } catch (erro) {
     // Outra pessoa indicou o mesmo @ entre a conferência acima e a criação.
-    if (violouUnicidade(erro)) return jaExiste;
+    if (erro === empresaDuplicada) return jaExiste;
     throw erro;
   }
   if (!empresa) {
