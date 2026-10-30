@@ -682,7 +682,7 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 ### Criar uma ação de moderação
 
 1. Crie a Server Action em `src/acoes/moderacao.ts`, começando por `exigirModerador()`.
-2. Registre na auditoria com `registrarAuditoria`, com uma ação no formato `alvo.verbo` (por exemplo, `empresa.despublicada`), e acrescente a descrição dela em `ACOES_AUDITORIA` (`src/lib/dominio.ts`).
+2. Registre na auditoria com `registrarAuditoria(tx, ...)`, dentro da mesma transação da decisão (nunca com `db`, para uma falha no registro também desfazer a decisão), com uma ação no formato `alvo.verbo` (por exemplo, `empresa.despublicada`), e acrescente a descrição dela em `ACOES_AUDITORIA` (`src/lib/dominio.ts`).
 3. Volte para a aba certa com um aviso: `redirect("/moderacao?aba=…&aviso=feito")`. Se o botão fica numa lista com busca, filtro ou página, mande a lista num campo `voltar` e redirecione com `destinoNaModeracao` e `comAviso`, como em `moderarEmpresa`.
 4. Atualize a [tabela da auditoria](regras-de-negocio.md#13-auditoria).
 

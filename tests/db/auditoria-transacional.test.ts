@@ -108,6 +108,26 @@ const casos = [
     },
   },
   {
+    nome: "publicação do negócio",
+    antes: () => db.empresa.update({ where: { id: empresaId }, data: { moderacao: "pendente" } }),
+    acao: () => moderarEmpresa(formulario({ decisao: "aprovar" })),
+    registro: "empresa.aprovada",
+    conferir: async (alterada: boolean) => {
+      expect((await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).moderacao).toBe(alterada ? "aprovada" : "pendente");
+    },
+  },
+  {
+    nome: "denúncia mantida no ar",
+    acao: () => decidirDenuncia(formulario({ depoimentoId, decisao: "manter" })),
+    registro: "depoimento.mantido",
+    conferir: async (alterada: boolean) => {
+      const depoimento = await db.depoimento.findUniqueOrThrow({ where: { id: depoimentoId } });
+      expect(depoimento.status).toBe("publicado");
+      expect(depoimento.denunciado).toBe(!alterada);
+      expect(depoimento.motivoDenuncia).toBe(alterada ? null : "Motivo original");
+    },
+  },
+  {
     nome: "decisão da denúncia",
     acao: () => decidirDenuncia(formulario({ depoimentoId, decisao: "remover" })),
     registro: "depoimento.removido",
@@ -170,7 +190,8 @@ const casos = [
 ];
 
 describe("alteração e auditoria na mesma transação", () => {
-  it.each(casos)("desfaz $nome quando a auditoria falha", async ({ acao, conferir }) => {
+  it.each(casos)("desfaz $nome quando a auditoria falha", async ({ antes, acao, conferir }) => {
+    await antes?.();
     await db.$executeRawUnsafe('ALTER TABLE "RegistroAuditoria" ADD CONSTRAINT "falha_auditoria_teste" CHECK (false)');
 
     await expect(acao()).rejects.toThrow();
@@ -179,7 +200,8 @@ describe("alteração e auditoria na mesma transação", () => {
     expect(await db.registroAuditoria.count()).toBe(0);
   });
 
-  it.each(casos)("salva $nome e sua auditoria quando tudo funciona", async ({ acao, conferir, registro }) => {
+  it.each(casos)("salva $nome e sua auditoria quando tudo funciona", async ({ antes, acao, conferir, registro }) => {
+    await antes?.();
     await expect(acao()).rejects.toThrow(/^REDIRECIONAR:/);
 
     await conferir(true);
