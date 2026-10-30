@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
+import { AvisoDaUrl } from "@/components/Avisos";
 import { caminhoSeguro, usuarioAtual } from "@/lib/auth/sessao";
 
 /** Moldura das páginas de entrar/cadastrar: quem já está logado segue direto. */
@@ -34,7 +35,17 @@ async function Conteudo({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
   formulario: (voltar: string) => ReactNode;
 }) {
-  const voltar = caminhoSeguro((await searchParams).voltar);
+  const parametros = await searchParams;
+  const voltar = caminhoSeguro(parametros.voltar);
   if (await usuarioAtual()) redirect(voltar);
-  return formulario(voltar);
+  return (
+    <>
+      {parametros.aviso && (
+        <div className="mb-4">
+          <AvisoDaUrl codigo={parametros.aviso} />
+        </div>
+      )}
+      {formulario(voltar)}
+    </>
+  );
 }

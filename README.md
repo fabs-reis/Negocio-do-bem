@@ -206,7 +206,7 @@ tests/               testes (unit/ sem banco, db/ com banco)
 ## Próximos passos sugeridos
 
 - Uma verificação de verdade para o dono: hoje quem pede um negócio sem dono vira dono na hora, sem conferência. Um caminho é comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
-- Recuperação de senha e confirmação de e-mail, com o envio que já existe em `src/lib/email.ts`.
+- Confirmação de e-mail, com o envio que já existe em `src/lib/email.ts`.
 - Limite de tentativas de login por IP.
 - Renovação automática do token do Instagram usado pelo webhook.
 

@@ -64,6 +64,13 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Senha:**
   - guardada com scrypt (N=2^15, r=8, p=1, sal aleatório de 16 bytes) no formato `scrypt$N$r$p$sal$hash`;
   - a comparação é em tempo constante.
+- **Esqueci minha senha** (`/esqueci-a-senha`, com o link na tela de entrar):
+  - a pessoa digita o e-mail e recebe um link para criar uma senha nova. A resposta é a mesma exista a conta ou não, para não revelar quais e-mails têm conta;
+  - o link vale **1 hora** e **uma vez só**. Pedir outro link invalida o anterior, e cada conta só recebe um novo link depois de **1 minuto**;
+  - o banco guarda só o SHA-256 do token (`RedefinicaoSenha`), como nas sessões;
+  - o link do e-mail passa por `/api/redefinir-senha`, que guarda o token num cookie `httpOnly` e abre `/redefinir-senha` sem ele na URL, para o token não ir para o histórico nem para o Google Analytics;
+  - a senha nova segue a regra do cadastro (8 a 200 caracteres). Ao trocar, **todas as sessões da conta são encerradas** e a pessoa entra de novo;
+  - o e-mail sai pelo `after()`, como os outros avisos. Sem o envio configurado nada é enviado: no desenvolvimento o link aparece no terminal do `npm run dev`; nos previews e sem as variáveis, a redefinição não funciona.
 - **Sessão:**
   - dura 30 dias;
   - o cookie `ndb_sessao` é `httpOnly`, `sameSite=lax` e `secure` em produção, e guarda um token aleatório;
@@ -838,6 +845,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 | Quando | Quem recebe | O que vai no e-mail |
 | --- | --- | --- |
+| Alguém pede para redefinir a senha em `/esqueci-a-senha` | A conta com aquele e-mail | O link para criar uma senha nova, que vale 1 hora. |
 | A moderação aprova um pedido de reivindicação: como co-dono, com transferência ou pelo botão "Aprovar os N pedidos sem dono" | Quem pediu | O negócio e o link do painel dele. |
 | A moderação recusa um pedido | Quem pediu | O negócio, o motivo da recusa e o link do painel. |
 | Um pedido pelos dados do negócio fica na fila (o negócio tem dono ou está fora do ar), ou um "Entrar com Instagram" fica em análise | Cada pessoa da moderação | O negócio e o link da fila de reivindicações. |
@@ -865,6 +873,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Nome da conta | `Usuario` | **Público** quando a pessoa escreve um depoimento ou quando a indicação dela aparece no perfil ("indicado por …"). A moderação vê nas filas. |
 | E-mail da conta | `Usuario` | Só a própria pessoa (no menu) e a moderação, que vê o e-mail de todas as contas na aba "Contas" e na ficha de cada uma, além das filas. Nunca aparece no site público. Serve para entrar e para receber os [avisos por e-mail](#14-avisos-por-e-mail). |
 | Senha | `Usuario.senhaHash` | Ninguém: só o hash scrypt é guardado. |
+| Link de redefinição de senha | `RedefinicaoSenha` | Ninguém vê o token: só o hash é guardado, por no máximo 1 hora. |
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
@@ -908,6 +917,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Duração da sessão | 30 dias | `src/lib/auth/sessao.ts` |
 | Senha | 8 a 200 caracteres | `src/acoes/conta.ts` |
+| Validade do link de redefinição de senha | 1 hora, uso único | `src/lib/auth/redefinicao.ts` |
+| Intervalo entre links de redefinição da mesma conta | 1 minuto | `src/lib/auth/redefinicao.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |
 | Pedidos de reivindicação por conta | 10 a cada 24 horas | `src/lib/reivindicacao.ts` |
 | Validade do código por DM | 48 horas | `src/lib/reivindicacao.ts` |
@@ -969,8 +980,8 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 **Contas**
 
-- Não há recuperação de senha, confirmação de e-mail, troca de nome ou e-mail, nem exclusão da conta.
-- Não há limite de tentativas de login.
+- Não há confirmação de e-mail, troca de nome ou e-mail, nem exclusão da conta.
+- Não há limite de tentativas de login. O pedido de redefinição de senha só tem o intervalo de 1 minuto por conta, sem limite por IP.
 - Não há registro do último acesso: "Sair" apaga a sessão, então o painel só sabe das sessões que continuam abertas.
 - Sessões vencidas deixam de valer, mas não são apagadas do banco.
 - O e-mail da conta não é confirmado. Um aviso pode ir para um endereço digitado errado, e ninguém fica sabendo.

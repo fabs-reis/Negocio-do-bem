@@ -40,6 +40,11 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     tipo: "erro",
     texto: "Você fez muitas solicitações nas últimas 24 horas. Tente de novo amanhã.",
   },
+  redefinicao_pedida: {
+    tipo: "info",
+    texto: "Se existe uma conta com esse e-mail, enviamos um link para criar uma senha nova. Ele vale por uma hora.",
+  },
+  senha_redefinida: { tipo: "sucesso", texto: "Senha alterada. Entre com a senha nova." },
   salvo: { tipo: "sucesso", texto: "Alterações salvas." },
   foto_salva: { tipo: "sucesso", texto: "Foto atualizada." },
   foto_removida: { tipo: "info", texto: "Foto removida." },

@@ -22,6 +22,7 @@ model Usuario {
   criadoEm  DateTime @default(now())
 
   sessoes             Sessao[]
+  redefinicoesSenha   RedefinicaoSenha[]
   indicacoes          Empresa[]        @relation("IndicadaPor")
   depoimentos         Depoimento[]     @relation("AutorDepoimento")
   denuncias           Depoimento[]     @relation("DenunciadoPor")
@@ -33,6 +34,17 @@ model Usuario {
 
 model Sessao {
   // sha256 do token guardado no cookie: quem lê o banco não consegue se passar pelo usuário
+  id        String   @id
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+
+  @@index([usuarioId])
+}
+
+model RedefinicaoSenha {
+  // sha256 do token enviado por e-mail: quem lê o banco não consegue redefinir a senha de ninguém
   id        String   @id
   usuarioId String
   usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)

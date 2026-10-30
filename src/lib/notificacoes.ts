@@ -131,3 +131,28 @@ export async function avisarNovoDepoimento(depoimentoId: string): Promise<void> 
     });
   }
 }
+
+/**
+ * Para quem pediu para redefinir a senha: o link que vale por uma hora. O link passa
+ * por uma rota que guarda o token num cookie e abre a página sem ele na URL, para o
+ * token não ir parar no Google Analytics. Sem o envio configurado, no desenvolvimento
+ * o link sai no terminal; nos previews e na produção, ninguém recebe nada.
+ */
+export async function avisarRedefinicaoDeSenha(usuarioId: string, token: string): Promise<void> {
+  const usuario = await db.usuario.findUnique({ where: { id: usuarioId }, select: { nome: true, email: true } });
+  if (!usuario) return;
+  const link = `${ENDERECO_DO_SITE}/api/redefinir-senha?token=${encodeURIComponent(token)}`;
+  if (!envioLigado()) {
+    if (process.env.NODE_ENV === "development") console.info(`[redefinição de senha] ${usuario.email}: ${link}`);
+    return;
+  }
+  await enviarEmail({
+    para: usuario.email,
+    assunto: `Redefina a sua senha no ${NOME_DO_SITE}`,
+    texto: corpo(
+      `Olá, ${primeiroNome(usuario.nome)}!`,
+      `Recebemos um pedido para redefinir a senha da sua conta. Para escolher uma senha nova, abra o link abaixo. Ele vale por uma hora e só funciona uma vez:\n${link}`,
+      "Não foi você? É só ignorar este e-mail: a sua senha continua a mesma.",
+    ),
+  });
+}

@@ -357,6 +357,8 @@ Ninguém recebia e-mail do site. Quem pedia um perfil que já tinha dono só des
 
 A autenticação é feita no próprio projeto (`src/lib/auth/`), com e-mail, senha (scrypt) e sessão em cookie. Isso evita depender de um serviço externo para algo simples.
 
+A recuperação de senha (`src/lib/auth/redefinicao.ts`) segue o mesmo desenho das sessões: o e-mail leva um token aleatório, e o banco guarda só o hash dele, com validade de 1 hora e uso único. O link do e-mail aponta para uma rota (`/api/redefinir-senha`) que troca o token por um cookie e redireciona, porque o site carrega o Google Analytics e uma URL com o token seria enviada a ele. Trocar a senha encerra todas as sessões da conta.
+
 Como o e-mail do cadastro não é confirmado, ele nunca dá permissão. A moderação vem só do `papel` gravado no banco, conferido no servidor a cada requisição, e quem cuida do projeto dá esse papel com `npm run moderacao`. Até outubro de 2026 a variável `ADMIN_EMAILS` também dava moderação, e qualquer pessoa que se cadastrasse com um daqueles e-mails antes do dono levava o acesso.
 
 ### Como uma requisição anda
@@ -397,6 +399,7 @@ As linhas tracejadas são serviços opcionais. O site funciona sem eles.
 ```mermaid
 erDiagram
     Usuario ||--o{ Sessao : "tem"
+    Usuario ||--o{ RedefinicaoSenha : "pede"
     Usuario ||--o{ EmpresaMembro : "é dono via"
     Empresa ||--o{ EmpresaMembro : "tem donos"
     Empresa ||--o{ EmpresaCausa : "abraça"
