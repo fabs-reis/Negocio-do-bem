@@ -29,7 +29,7 @@ async function main() {
     banco = `${url.hostname}${url.pathname}`;
     const inicio = new Date();
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: conexao }) });
-    const [relogio] = await db.$queryRaw<{ agora: Date }[]>`SELECT CURRENT_TIMESTAMP AS "agora"`;
+    const [relogio] = await db.$queryRaw<{ agora: Date }[]>`SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS "agora"`;
     const referencia = referenciaLimpezaSessoes(inicio, relogio.agora);
     resultado = await limparSessoesVencidas(db, opcoes, referencia);
   } catch (erro) {

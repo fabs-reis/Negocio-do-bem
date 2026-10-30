@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import { limparSessoesVencidas } from "@/lib/limpeza-sessoes";
@@ -22,14 +24,18 @@ async function retratoDosOutrosDados() {
   ]);
 }
 
-async function cliComBanco(conexao: string, ...argumentos: string[]) {
+async function cliComAmbiente(conexao: string, ambiente: Partial<NodeJS.ProcessEnv>, ...argumentos: string[]) {
   return new Promise<{ codigo: number; stdout: string; stderr: string }>((resolve) => {
     execFile("npm", ["run", "--silent", "sessoes:limpar", "--", ...argumentos], {
-      env: { ...process.env, DATABASE_URL: conexao },
+      env: { ...process.env, ...ambiente, DATABASE_URL: conexao },
     }, (erro, stdout, stderr) => {
       resolve({ codigo: typeof erro?.code === "number" ? erro.code : erro ? 1 : 0, stdout, stderr });
     });
   });
+}
+
+async function cliComBanco(conexao: string, ...argumentos: string[]) {
+  return cliComAmbiente(conexao, {}, ...argumentos);
 }
 
 async function cli(...argumentos: string[]) {
@@ -53,9 +59,9 @@ beforeEach(async () => {
   await db.depoimento.create({ data: { empresaId: empresa.id, autorId: usuarioId, texto: "Depoimento sintético", status: "removido" } });
   await db.registroAuditoria.create({ data: { usuarioId, acao: "fixture", alvoTipo: "empresa", alvoId: empresa.id } });
   await db.sessao.createMany({ data: [
-    { id: "01".repeat(32), usuarioId, expiraEm: vencimento },
-    { id: "02".repeat(32), usuarioId, expiraEm: vencimento },
+    { id: "02".repeat(32), usuarioId, expiraEm: new Date(vencimento.getTime() + 1000) },
     { id: "ff".repeat(32), usuarioId, expiraEm: futura },
+    { id: "01".repeat(32), usuarioId, expiraEm: vencimento },
   ] });
 });
 
@@ -65,6 +71,33 @@ afterAll(async () => {
 });
 
 describe("CLI de limpeza de sessões", () => {
+  it.each(["Asia/Tokyo", "America/Sao_Paulo"])("usa o instante UTC no fuso %s com operador adiantado", async (fuso) => {
+    const antes = new Date();
+    await db.sessao.deleteMany();
+    const vencidaId = "a1".repeat(32);
+    const validaId = "b2".repeat(32);
+    await db.sessao.createMany({ data: [
+      { id: vencidaId, usuarioId, expiraEm: new Date(antes.getTime() - 3_600_000) },
+      { id: validaId, usuarioId, expiraEm: new Date(antes.getTime() + 3_600_000) },
+    ] });
+    const valida = await db.sessao.findUniqueOrThrow({ where: { id: validaId } });
+    const url = new URL(URL_BANCO_TESTE);
+    url.searchParams.set("options", `-c TimeZone=${fuso}`);
+    const relogio = pathToFileURL(path.resolve("tests/apoio/limpeza-sessoes-relogio.mjs")).href;
+    const resultado = await cliComAmbiente(url.toString(), {
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import ${relogio}`,
+    }, "--aplicar");
+    const depois = new Date();
+    expect({ codigo: resultado.codigo, stderr: resultado.stderr }).toEqual({ codigo: 0, stderr: "" });
+    expect(await db.sessao.findMany()).toEqual([valida]);
+    expect(await db.sessao.findUnique({ where: { id: vencidaId } })).toBeNull();
+    expect(resultado.stdout).toContain("Sessões removidas: 1.");
+    const referencia = resultado.stdout.match(/Referência UTC: (\S+)/)?.[1];
+    expect(referencia).toBeDefined();
+    expect(new Date(referencia!).getTime()).toBeGreaterThanOrEqual(antes.getTime());
+    expect(new Date(referencia!).getTime()).toBeLessThanOrEqual(depois.getTime());
+  }, 20_000);
+
   it("diagnostica pela CLI real sem mudar nenhuma tabela", async () => {
     const antes = await retratoDosOutrosDados();
     const sessoes = await db.sessao.findMany({ orderBy: { id: "asc" } });
@@ -79,26 +112,40 @@ describe("CLI de limpeza de sessões", () => {
     expect(await retratoDosOutrosDados()).toEqual(antes);
   }, 20_000);
 
-  it("aplica um lote pela CLI, preserva os outros dados e pode ser repetida", async () => {
+  it("aplica um lote pela CLI em ordem de vencimento e ID, preserva os outros dados e pode ser repetida", async () => {
     const antes = await retratoDosOutrosDados();
     const valida = await db.sessao.findUniqueOrThrow({ where: { id: "ff".repeat(32) } });
+    await db.sessao.deleteMany({ where: { id: { not: valida.id } } });
+    await db.sessao.createMany({ data: [
+      { id: "00".repeat(32), usuarioId, expiraEm: new Date(vencimento.getTime() + 2000) },
+      { id: "02".repeat(32), usuarioId, expiraEm: vencimento },
+      { id: "01".repeat(32), usuarioId, expiraEm: vencimento },
+    ] });
     const primeira = await cli("--aplicar", "--lote", "1");
     expect(primeira.codigo).toBe(0);
     expect(primeira.stderr).toBe("");
     expect(primeira.stdout).toContain("Sessões selecionadas: 1.");
     expect(primeira.stdout).toContain("Sessões removidas: 1.");
     expect(await db.sessao.findMany({ orderBy: { id: "asc" } })).toEqual([
+      expect.objectContaining({ id: "00".repeat(32) }),
       expect.objectContaining({ id: "02".repeat(32) }), valida,
     ]);
     const segunda = await cli("--aplicar", "--lote", "1");
     expect(segunda.stdout).toContain("Sessões removidas: 1.");
+    expect(await db.sessao.findMany({ orderBy: { id: "asc" } })).toEqual([
+      expect.objectContaining({ id: "00".repeat(32) }), valida,
+    ]);
+    const terceira = await cli("--aplicar", "--lote", "1");
+    expect(terceira.stdout).toContain("Sessões removidas: 1.");
+    expect(await db.sessao.findMany()).toEqual([valida]);
     const repetida = await cli("--aplicar", "--lote", "1");
     expect(repetida.stdout).toContain("Sessões removidas: 0.");
     expect(await db.sessao.findMany()).toEqual([valida]);
     expect(segunda.codigo).toBe(0);
+    expect(terceira.codigo).toBe(0);
     expect(repetida.codigo).toBe(0);
     expect(await retratoDosOutrosDados()).toEqual(antes);
-    for (const resultado of [primeira, segunda, repetida]) {
+    for (const resultado of [primeira, segunda, terceira, repetida]) {
       expect(resultado.stdout + resultado.stderr).not.toContain(usuarioId);
       expect(resultado.stdout + resultado.stderr).not.toContain("limpeza@example.invalid");
       expect(resultado.stdout + resultado.stderr).not.toContain("01".repeat(32));
@@ -189,7 +236,7 @@ describe("limpeza no PostgreSQL", () => {
     await db.sessao.deleteMany();
     await db.sessao.createMany({ data: expiracoes.map((expiraEm, i) => ({
       id: i.toString(16).padStart(64, "0"), usuarioId, expiraEm,
-    })) });
+    })).reverse() });
   }
 
   it("inclui o vencimento exato e preserva a sessão um milissegundo depois", async () => {
@@ -204,10 +251,22 @@ describe("limpeza no PostgreSQL", () => {
   });
 
   it.each([1, 100, 1000])("limita a seleção e o DELETE a %i sessões com desempate por ID", async (lote) => {
-    await substituirSessoes(Array.from({ length: lote + 1 }, () => vencimento));
+    await db.sessao.deleteMany();
+    const antigas = Array.from({ length: lote - 1 }, (_, i) => ({
+      id: `1${i.toString(16).padStart(63, "0")}`, usuarioId, expiraEm: vencimento,
+    }));
+    const empateMenor = { id: "a1".repeat(32), usuarioId, expiraEm: new Date(vencimento.getTime() + 1000) };
+    const empateMaior = { id: "a2".repeat(32), usuarioId, expiraEm: empateMenor.expiraEm };
+    const maisRecente = { id: "00".repeat(32), usuarioId, expiraEm: new Date(vencimento.getTime() + 2000) };
+    const valida = { id: "ff".repeat(32), usuarioId, expiraEm: futura };
+    await db.sessao.createMany({ data: [maisRecente, empateMaior, ...antigas.reverse(), valida, empateMenor] });
+    const antes = await db.sessao.findMany({ orderBy: { id: "asc" } });
     const resultado = await limparSessoesVencidas(db, { aplicar: true, lote }, corte);
-    expect(resultado).toMatchObject({ vencidas: lote + 1, selecionadas: lote, removidas: lote });
-    expect(await db.sessao.findMany()).toEqual([expect.objectContaining({ id: lote.toString(16).padStart(64, "0") })]);
+    expect(resultado).toMatchObject({ vencidas: lote + 2, selecionadas: lote, removidas: lote });
+    const restantes = await db.sessao.findMany({ orderBy: { id: "asc" } });
+    expect(restantes).toEqual(antes.filter(({ id }) => [empateMaior.id, maisRecente.id, valida.id].includes(id)));
+    const idsRemovidos = antes.filter(({ id }) => !restantes.some((sessao) => sessao.id === id)).map(({ id }) => id);
+    expect(idsRemovidos).toEqual([...antigas.map(({ id }) => id), empateMenor.id].sort());
   });
 
   it("preserva a sessão renovada entre a seleção e o DELETE real", async () => {
