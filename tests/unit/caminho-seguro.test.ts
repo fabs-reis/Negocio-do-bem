@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { caminhoSeguro } from "@/lib/auth/sessao";
 
@@ -15,6 +17,8 @@ describe("caminhoSeguro", () => {
     "/moderacao?aba=empresas&pagina=2",
     "/a/b/../c",
     "/%09/x",
+    "/busca?q=//origem.invalid/#resultados",
+    "/painel#meu_negocio",
   ])("mantém o caminho interno %j sem mudar", (valor) => {
     expect(caminhoSeguro(valor)).toBe(valor);
   });
@@ -30,6 +34,8 @@ describe("caminhoSeguro", () => {
     ["DEL (U+007F)", "/\u007f/destino.invalid"],
     ["TAB no fim", "/painel\t"],
     ["barra dupla", "//destino.invalid"],
+    ["autoridade igual à origem fictícia", "//origem.invalid/"],
+    ["credencial com ponto e vírgula", "//evil.example;@origem.invalid/"],
     ["barra invertida", "/\\destino.invalid"],
     ["sem barra inicial", "destino.invalid"],
     ["URL absoluta", "https://destino.invalid/x"],
@@ -54,6 +60,36 @@ describe("caminhoSeguro", () => {
       const aceito = caminhoSeguro(valor, "/padrao");
       expect(new URL(aceito, ORIGEM).origin).toBe(ORIGEM);
     }
+  });
+});
+
+describe("cabeçalho de redirecionamento do Next", () => {
+  const carregar = createRequire(import.meta.url);
+  const fonte = readFileSync(carregar.resolve("next/dist/client/components/router-reducer/reducers/server-action-reducer"), "utf8");
+  const inicio = fonte.indexOf("    const redirectHeader =");
+  const fim = fonte.indexOf("    const contentType =", inicio);
+
+  it.each([
+    ["//origem.invalid/", "http://origem.invalid/"],
+    ["//evil.example;@origem.invalid/", "http://evil.example/"],
+  ])("mantém %s interno após o parser real do cabeçalho", (valor, destinoSemFiltro) => {
+    expect(inicio).toBeGreaterThanOrEqual(0);
+    expect(fim).toBeGreaterThan(inicio);
+    // Executa o trecho instalado do parser, sem carregar o roteador nem acessar a rede.
+    const interpretar = (destino: string): URL => runInNewContext(
+      `(() => { ${fonte.slice(inicio, fim)} return redirectLocation; })()`,
+      {
+        res: new Response(null, { headers: { "x-action-redirect": `${destino};push` } }),
+        state: { canonicalUrl: "/entrar" },
+        window: { location: { href: "http://site.invalid/entrar" } },
+        URL,
+        _approuterheaders: carregar("next/dist/client/components/app-router-headers"),
+        _actionrevalidationkind: carregar("next/dist/shared/lib/action-revalidation-kind"),
+        _assignlocation: carregar("next/dist/client/assign-location"),
+      },
+    );
+    expect(interpretar(valor).href).toBe(destinoSemFiltro);
+    expect(interpretar(caminhoSeguro(valor)).href).toBe("http://site.invalid/");
   });
 });
 
