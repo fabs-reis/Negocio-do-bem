@@ -78,6 +78,7 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "empresa.foto_do_instagram": "Colocou a foto do Instagram",
   "empresa.ocultada": "Tirou o próprio negócio do diretório",
   "empresa.reexibida": "Devolveu o próprio negócio ao diretório",
+  "usuario.senha_redefinida": "Trocou a senha pelo link do e-mail",
   "reivindicacao.aprovada": "Aprovou um pedido de reivindicação",
   "reivindicacao.aprovada_com_transferencia": "Aprovou um pedido e transferiu o negócio",
   "reivindicacao.recusada": "Recusou um pedido de reivindicação",

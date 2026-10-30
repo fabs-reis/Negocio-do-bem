@@ -19,10 +19,13 @@ model Usuario {
   senhaHash String
   // "membro" | "moderador"
   papel     String   @default("membro")
+  // Quando a pessoa abriu um link mandado para o e-mail dela. Sem isso a conta entra,
+  // mas não indica, não escreve nem denuncia depoimentos e não reivindica negócios.
+  emailConfirmadoEm DateTime?
   criadoEm  DateTime @default(now())
 
   sessoes             Sessao[]
-  redefinicoesSenha   RedefinicaoSenha[]
+  links               LinkEmail[]
   indicacoes          Empresa[]        @relation("IndicadaPor")
   depoimentos         Depoimento[]     @relation("AutorDepoimento")
   denuncias           Depoimento[]     @relation("DenunciadoPor")
@@ -43,15 +46,35 @@ model Sessao {
   @@index([usuarioId])
 }
 
-model RedefinicaoSenha {
-  // sha256 do token enviado por e-mail: quem lê o banco não consegue redefinir a senha de ninguém
-  id        String   @id
-  usuarioId String
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  expiraEm  DateTime
-  criadoEm  DateTime @default(now())
+model TentativaAcesso {
+  chave            String   @id
+  contagem         Int
+  janelaIniciadaEm DateTime
+  // sha256 do e-mail, nas linhas do limite por e-mail: zera as de todas as origens de uma vez
+  email            String?
 
-  @@index([usuarioId])
+  @@index([janelaIniciadaEm])
+  @@index([email])
+}
+
+// Link mandado por e-mail para confirmar o endereço, entrar sem senha ou criar uma senha nova (src/lib/auth/links.ts).
+model LinkEmail {
+  // sha256 do token que vai no link, como na Sessao
+  id         String    @id
+  usuarioId  String
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  // "confirmar" | "entrar" | "redefinir"
+  finalidade String
+  // Endereço para onde o link foi: ele só vale enquanto a conta tiver este e-mail.
+  email      String
+  // Caminho interno aonde a pessoa vai depois de usar o link.
+  destino    String    @default("/")
+  expiraEm   DateTime
+  // Cada link vale uma vez só.
+  usadoEm    DateTime?
+  criadoEm   DateTime  @default(now())
+
+  @@index([usuarioId, criadoEm])
 }
 
 model Empresa {

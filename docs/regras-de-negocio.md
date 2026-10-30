@@ -61,16 +61,26 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Login** (`/entrar`): e-mail e senha.
   - O erro é sempre o mesmo, "E-mail ou senha incorretos".
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
+- **Limite de tentativas** (`src/lib/auth/tentativas.ts`), conferido antes do scrypt, porque cada conferência de senha custa ~32 MB de memória:
+  - **por IP:** 10 tentativas de login ou cadastro, somadas, a cada 15 minutos;
+  - **de onde vem o IP:** no Cloudflare, só do cabeçalho `cf-connecting-ip`, escrito pela rede, quando `CLOUDFLARE_DEPLOY=1`; no Vercel, só do cabeçalho `x-vercel-forwarded-for`, que o Vercel escreve. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
+  - **IPv6:** o IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) conta como o IPv4. Os outros endereços IPv6 contam pelo prefixo /64, então todos os endereços da mesma rede dividem a cota;
+  - **sem IP conhecido** (fora do Vercel/Cloudflare sem proxy declarado, ou cabeçalho ausente ou inválido), todas as tentativas dividem um contador só, de 10 a cada 15 minutos. É o lado seguro: o cadastro não tem limite por e-mail, e sem esse contador o scrypt ficaria sem freio. O custo é que, sem o proxy declarado, quem tenta entrar pode ficar recusado por causa dos outros visitantes;
+  - **por e-mail, em cada origem:** 5 tentativas de senha a cada 15 minutos para o mesmo e-mail, vindas do mesmo IP (ou do mesmo /64 no IPv6). Cada origem tem o próprio contador, então quem erra a senha de outra pessoa não a impede de entrar de outro lugar. Sem IP conhecido, as tentativas sem IP dividem um contador por e-mail. A tentativa é contada antes de a senha ser conferida, e não depois: assim, tentativas que chegam juntas não passam todas. A sexta já nem chega à conferência, mesmo com a senha certa. Um login certo zera a contagem daquele e-mail naquela origem, e trocar a senha por "Esqueci minha senha" zera em todas as origens;
+  - no login, a recusa pelo limite mostra o mesmo "E-mail ou senha incorretos", para não revelar quais e-mails existem. No cadastro, aparece "Muitas tentativas seguidas. Espere alguns minutos e tente de novo";
+  - o banco guarda só o hash (sha256) do IP e do e-mail, e as janelas vencidas são apagadas na tentativa seguinte.
 - **Senha:**
   - guardada com scrypt (N=2^15, r=8, p=1, sal aleatório de 16 bytes) no formato `scrypt$N$r$p$sal$hash`;
   - a comparação é em tempo constante.
-- **Esqueci minha senha** (`/esqueci-a-senha`, com o link na tela de entrar):
-  - a pessoa digita o e-mail e recebe um link para criar uma senha nova. A resposta é a mesma exista a conta ou não, para não revelar quais e-mails têm conta;
-  - o link vale **1 hora** e **uma vez só**. Pedir outro link invalida o anterior, e cada conta só recebe um novo link depois de **1 minuto**;
-  - o banco guarda só o SHA-256 do token (`RedefinicaoSenha`), como nas sessões;
-  - o link do e-mail passa por `/api/redefinir-senha`, que guarda o token num cookie `httpOnly` e abre `/redefinir-senha` sem ele na URL, para o token não ir para o histórico nem para o Google Analytics;
-  - a senha nova segue a regra do cadastro (8 a 200 caracteres). Ao trocar, **todas as sessões da conta são encerradas** e a pessoa entra de novo;
-  - o e-mail sai pelo `after()`, como os outros avisos. Sem o envio configurado nada é enviado: no desenvolvimento o link aparece no terminal do `npm run dev`; nos previews e sem as variáveis, a redefinição não funciona.
+- **Esqueci minha senha** (`/esqueci-a-senha`, com o link na tela de entrar, ao lado de "Entre com um link por e-mail"). Usa o mesmo sistema de [links por e-mail](#e-mail-confirmado-e-links-por-e-mail), com a finalidade "redefinir":
+  - a pessoa digita o e-mail e recebe um link para criar uma senha nova. A resposta é a mesma exista a conta ou não, e o link é criado e mandado depois da resposta, para o tempo de resposta também não revelar quais e-mails têm conta;
+  - cada pedido gasta uma tentativa do limite por IP (o mesmo do login). A conta também tem o limite de 5 links por hora;
+  - o link vale **1 hora** e **uma vez só**;
+  - o link abre `/link`, que mostra a conta e o formulário da senha nova. Funciona também para quem já está logado: a página não redireciona;
+  - a senha nova segue a regra do cadastro (8 a 200 caracteres) e a troca passa pelo limite por IP, porque calcula o scrypt;
+  - a troca é uma transação só. Ela **encerra todas as sessões da conta**, **gasta os outros links ainda abertos** (inclusive o de entrar), confirma o e-mail e grava `usuario.senha_redefinida` na auditoria;
+  - a troca **zera as tentativas de senha daquele e-mail em todas as origens**, para a senha nova não ser recusada até a janela de 15 minutos vencer;
+  - a conta recebe um e-mail avisando da troca, para quem não foi quem trocou perceber a invasão.
 - **Sessão:**
   - dura 30 dias;
   - o cookie `ndb_sessao` é `httpOnly`, `sameSite=lax` e `secure` em produção, e guarda um token aleatório;
@@ -78,7 +88,54 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - "Sair" apaga a sessão do banco e o cookie.
 - **Volta para onde a pessoa estava:**
   - páginas que exigem login mandam para `/entrar?voltar=<caminho>`;
-  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site.
+  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site;
+  - `caminhoSeguro` recusa o valor com caractere de controle (de U+0000 a U+001F e U+007F, como TAB, LF e CR), com `//` no começo ou com barra invertida;
+  - depois ele interpreta o valor como URL (padrão WHATWG) e só aceita se a origem continuar a do site, porque o TAB, o LF e o CR somem na interpretação e `/<TAB>/host` viraria `//host`;
+  - o que ele recusa cai no destino padrão, e o caminho interno válido (com consulta e âncora) passa sem mudar.
+
+### E-mail confirmado e links por e-mail
+
+Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.ts` e `src/app/link/page.tsx`.
+
+> **A exigência está desligada por enquanto** ([#148](https://github.com/fabsreis/Negocio-do-bem/issues/148)). `CONFIRMACAO_DE_EMAIL_LIGADA`, em `src/lib/auth/links.ts`, está `false` porque o plano grátis do Resend manda só 100 e-mails por dia, e quem se cadastrava depois disso ficava sem o link e travado. Enquanto ela estiver desligada:
+>
+> - toda conta, nova ou antiga, vale como confirmada: indica, escreve e denuncia depoimentos e reivindica sem confirmar nada, e "Confirme seu e-mail" não aparece em lugar nenhum;
+> - o cadastro não manda o link de confirmação;
+> - o "Entrar por link" e os links de confirmação já mandados continuam funcionando, e um link usado continua gravando `emailConfirmadoEm`.
+>
+> As regras abaixo voltam a valer quando a constante for ligada de novo, junto com a troca do envio de e-mails.
+
+- **O cadastro manda um link de confirmação** para o e-mail digitado. A conta já entra no site na hora.
+- **Sem o e-mail confirmado, a conta não** indica negócios, não escreve nem denuncia depoimentos e não reivindica negócios, por nenhum dos caminhos.
+  - Nesses lugares, e no topo do `/painel`, aparece "Confirme seu e-mail", com um botão para mandar o link de novo.
+  - As Server Actions conferem de novo no servidor e respondem "Antes, confirme o seu e-mail".
+- **O resto funciona sem confirmar:** entrar, sair, o painel, editar o próprio negócio, responder depoimentos e cancelar pedidos.
+- **Contas criadas antes da confirmação existir** (`emailConfirmadoEm` vazio) confirmam na próxima vez que forem fazer uma dessas ações.
+- **Entrar por link** (`/entrar/link`, também em "Esqueceu a senha?" no `/entrar`): a pessoa digita o e-mail e recebe um link para entrar sem senha.
+  - A resposta é sempre "Confira seu e-mail", com ou sem conta para aquele endereço.
+  - O link é criado e mandado depois da resposta, para o tempo de resposta também não revelar quais e-mails têm conta.
+  - A senha continua valendo. Entrar por link não muda a senha.
+- **Os três links:**
+
+  | Link | Vale por | Ao usar |
+  | --- | --- | --- |
+  | Confirmar o e-mail | 24 horas | Confirma o e-mail. Não abre sessão. |
+  | Entrar | 15 minutos | Abre a sessão e também confirma o e-mail. |
+  | Senha nova | 1 hora | Troca a senha, encerra as sessões e confirma o e-mail. Não abre sessão. |
+
+- **Cada link vale uma vez.** Dois cliques ao mesmo tempo usam o link uma vez só.
+- **O link só vale para o e-mail para onde foi.** Se a conta mudar de e-mail, os links antigos deixam de valer.
+- **Abrir o link não usa o link.** `/api/link` guarda o token num cookie (`ndb_link`, `httpOnly`, só no caminho `/link`) e leva a `/link`, que mostra a conta e pede um clique em "Entrar" ou em "Confirmar meu e-mail".
+  - Filtros de e-mail que abrem links sozinhos (Outlook, antivírus) não gastam o link nem confirmam um e-mail sem a pessoa.
+  - O token sai do endereço antes de a página carregar o Google Analytics.
+- **Depois do clique,** o link de entrar leva ao `voltar` de quando foi pedido. O de confirmar mostra "E-mail confirmado" e um botão para continuar de onde a pessoa estava.
+- **O banco guarda só o SHA-256 do token,** como na sessão.
+- **Limite:** no máximo **5 links por conta a cada hora**, somando os três tipos.
+  - Ao mandar de novo a confirmação, quem passou do limite vê "Você pediu muitos e-mails na última hora".
+  - No "Entrar por link", a resposta continua a mesma, e o e-mail simplesmente não sai.
+  - Os links vencidos há mais de uma hora são apagados quando a conta recebe outro.
+- **O endereço do link vem da configuração** (`ENDERECO_DO_SITE`, ou o domínio canônico configurado por ambiente), nunca do cabeçalho `Host` da requisição.
+- **Sem o envio de e-mail configurado,** o link vai para o log do servidor no `npm run dev` e nos previews, para dar para testar. Na produção, ele não vai para o log.
 
 ### Papéis
 
@@ -87,13 +144,13 @@ Um papel não exclui o outro: uma pessoa da moderação também pode ser dona de
 | Papel | Quem é | O que pode fazer |
 | --- | --- | --- |
 | **Visitante** | Sem login | Ver o diretório, os perfis publicados e os depoimentos. Não indica, não escreve depoimento, não reivindica. |
-| **Membro** | Qualquer conta | Indicar negócios, escrever depoimentos, denunciar depoimentos, reivindicar um negócio, ver as próprias indicações e solicitações em `/painel`. |
+| **Membro** | Qualquer conta | Ver as próprias indicações e solicitações em `/painel`. Com o [e-mail confirmado](#e-mail-confirmado-e-links-por-e-mail) (exigência desligada por enquanto): indicar negócios, escrever e denunciar depoimentos e reivindicar um negócio. |
 | **Dono** | Conta aprovada como dona de um negócio | Tudo do membro, mais: editar o perfil do próprio negócio, trocar a foto, responder depoimentos e ocultar ou mostrar o negócio no diretório. Não pode escrever depoimento no próprio negócio. |
 | **Moderação** | `papel = "moderador"` no banco | Tudo do membro, mais: o painel de `/moderacao` (visão geral, filas, todos os negócios, contas e depoimentos, auditoria e sistema), tirar do ar e publicar de novo qualquer negócio, editar qualquer perfil. |
 
 Detalhes da moderação:
 
-- **Só o papel no banco dá moderação.** O cadastro não confirma o e-mail, então o e-mail nunca dá acesso: se desse, quem se cadastrasse primeiro com o endereço certo levaria a moderação.
+- **Só o papel no banco dá moderação.** O e-mail nunca dá acesso, nem confirmado: se desse, quem se cadastrasse primeiro com o endereço certo levaria a moderação, e as contas antigas nem confirmaram o e-mail.
 - Quem cuida do projeto dá e tira a moderação com `npm run moderacao`, que roda com a conexão direta do banco e registra na auditoria. Vale a partir da próxima página aberta, sem precisar sair e entrar.
 - Para quem não é moderação, `/moderacao`, `/moderacao/negocios/<@>` e `/moderacao/contas/<id>` respondem 404: a área simplesmente não existe.
 - A moderação **não** responde depoimentos nem oculta negócios dos outros. Isso é só do dono.
@@ -141,7 +198,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 - **A busca** procura no nome e no e-mail. Cada palavra precisa aparecer, sem diferenciar maiúsculas. Acentos contam: "joao" não acha "João".
 - **Filtros:** todas, moderação, donos de negócio, novas (criadas nos últimos 7 dias) e sem atividade (não indicaram, não escreveram depoimento nem denúncia, não pediram e não são donas de nenhum negócio).
 - **A ficha da conta** (`/moderacao/contas/<id>`) junta:
-  - nome, e-mail, papel, quando a conta foi criada e as sessões abertas;
+  - nome, e-mail, papel, quando a conta foi criada, quando confirmou o e-mail e as sessões abertas;
   - os negócios de que é dona, as indicações, os depoimentos, as denúncias e os pedidos de reivindicação, até 30 de cada, os mais recentes primeiro, com o total quando há mais;
   - quantos pedidos decidiu, se é moderação;
   - os 20 registros mais recentes da auditoria feitos por ela ou sobre a conta dela, com um link para todos.
@@ -157,8 +214,8 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 
 **Sistema:**
 
-- **Ambiente:** o nome (`production`, `preview` ou `development`), o endereço público, se os buscadores podem indexar e, no Vercel, o branch, o commit e a região.
-- **Integrações:** só se cada uma está ligada (fotos no Vercel Blob, código por DM, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
+- **Ambiente:** o nome (`production`, `preview` ou `development`), o endereço público e se os buscadores podem indexar; quando informados pelo host, também o branch e o commit.
+- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, código por DM, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
 - **Banco:** quantas linhas cada tabela tem e as migrações aplicadas, da mais nova para a mais antiga. Uma migração que começou e não terminou aparece em destaque, porque trava o próximo deploy.
 
 ---
@@ -248,12 +305,12 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`
 
 - **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta.
 - **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
-- **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil.
+- **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa.
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
-- **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período.
+- **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
 - **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
-- **Auditoria:** registra `empresa.indicada`.
+- **Auditoria:** registra `empresa.indicada` na mesma transação da criação. Se a auditoria falhar, a indicação falha e o negócio não fica salvo. Isso inclui erros de unicidade da auditoria, que não significam que o @ já existe.
 
 ### "Este negócio é meu"
 
@@ -351,7 +408,8 @@ O @ do Instagram não é pedido: é o do próprio perfil.
   - enquanto ele está em análise, o formulário dá lugar ao aviso "Seus dados estão com a moderação".
 - **Limite:**
   - no máximo **10 pedidos de reivindicação em 24 horas** por conta, somando todos os caminhos e todos os negócios;
-  - pedidos cancelados também contam.
+  - pedidos cancelados também contam;
+  - o limite vale mesmo com pedidos simultâneos: cada caminho trava a linha da conta, confere a cota e cria o pedido na mesma transação, então os pedidos da mesma conta entram um de cada vez.
 - **Cancelar:** a pessoa pode cancelar o próprio pedido pendente na página de reivindicação.
 - **Validade:**
   - o pedido guarda uma data de validade de 30 dias, que a moderação vê como "expirado em";
@@ -527,7 +585,7 @@ Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts` e `src/app/
 - **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Verificado pelo dono". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
 - **Fora da busca:** login, cadastro, painel, reivindicação e moderação levam `noindex`. `/painel`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
-- **Previews do Vercel** bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
+- **Previews** (`DEPLOY_ENV=preview`) bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
 
 ### Painel do dono
 
@@ -598,7 +656,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
 - **De onde vem a foto:**
   1. de um arquivo na pasta local `fotos-manuais/`, com o @ no nome (`<@>.jpg`, `.png` ou `.webp`), se existir;
   2. senão, da **API oficial da Meta** (Business Discovery), que devolve a foto de perfil de contas **comerciais ou de criador** em 1080×1080. Contas pessoais, privadas ou inexistentes não aparecem e o negócio continua sem foto.
-- **Preparo, no computador:** a foto é recortada no centro, em quadrado de 600×600, e convertida para WebP. O Vercel só recebe o arquivo pronto.
+- **Preparo, no computador:** a foto é recortada no centro, em quadrado de 600×600, e convertida para WebP. O Worker só recebe o arquivo pronto.
 - **Gravação, no site:** a rota `/api/fotos-instagram` exige o token `FOTOS_TOKEN` e confere a foto como qualquer outra. Ela **só grava se o negócio continuar sem foto**: a foto enviada pelo dono ou pela moderação nunca é trocada, nem se chegar no meio do envio.
 - **Sem `FOTOS_TOKEN` configurado,** a rota responde 404.
 - **Auditoria:** cada foto gravada registra `empresa.foto_do_instagram`, como "sistema".
@@ -613,16 +671,15 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
 
 **No servidor:**
 
-- Limite de **3 MB por foto**. O limite de envio das Server Actions é 4 MB (`next.config.ts`), e o do Vercel é 4,5 MB.
+- Limite de **3 MB por foto**. O limite de envio das Server Actions é 4 MB (`next.config.ts`).
 - O tipo é conferido **pelos primeiros bytes do arquivo** (JPEG, PNG ou WebP), não pelo que o navegador diz.
 - O nome do arquivo é aleatório, nas pastas `perfis/` ou `historias/`.
 - Onde a foto fica:
-  - em produção, no **Vercel Blob**, com acesso público. O site usa o Blob quando existe `BLOB_STORE_ID` (no Vercel, com o OIDC do deploy) ou `BLOB_READ_WRITE_TOKEN`;
-  - nos previews do Vercel, inclusive o da `stage`, em outro Vercel Blob, só deles;
-  - no computador de quem desenvolve, sem nenhuma das duas, em `public/enviados/`, fora do Git;
-  - em produção sem nenhuma das duas, a pessoa vê uma mensagem de erro em vez de o site quebrar.
+  - em produção e preview, no bucket **Cloudflare R2** ligado ao Worker; cada ambiente precisa do seu próprio bucket público de uploads;
+  - no computador de quem desenvolve, sem URL R2 configurada, em `public/enviados/`, fora do Git;
+  - em produção sem o binding ou a URL pública R2, a pessoa vê uma mensagem de erro em vez de o site quebrar.
 
-**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços de qualquer store do Vercel Blob (o de produção ou o dos previews) ou da pasta `/enviados/`. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
+**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado, endereços antigos do Vercel Blob durante a transição, ou da pasta `/enviados/`. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
 
 ---
 
@@ -648,7 +705,7 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 
 ### Denúncias
 
-- **Quem denuncia:** qualquer pessoa logada que **não seja a autora** do depoimento, incluindo o dono do negócio.
+- **Quem denuncia:** qualquer pessoa logada que **não seja a autora** do depoimento, incluindo o dono do negócio. A página esconde o botão para a autora, e a ação também recusa: se ela chamar a ação direto, volta para o perfil sem gravar nada.
 - **Motivo:** opcional, até 300 caracteres. Sem motivo, fica "Sem motivo informado".
 - **Denunciar não esconde o depoimento.** Ele continua no ar até a moderação decidir.
 - **A moderação recebe um e-mail** com o negócio e o link da fila, sem dizer quem denunciou.
@@ -820,6 +877,7 @@ A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 
 | `empresa.foto_trocada` / `empresa.foto_removida` | O dono trocou ou removeu a foto do perfil. |
 | `empresa.foto_do_instagram` | A rotina de fotos colocou a foto do Instagram num negócio sem foto. Os detalhes trazem o @. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
+| `usuario.senha_redefinida` | A pessoa trocou a senha pelo link de "Esqueci minha senha". |
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
 | `reivindicacao.recusada` | Um pedido foi recusado. Os detalhes trazem o motivo. |
@@ -846,18 +904,22 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Quando | Quem recebe | O que vai no e-mail |
 | --- | --- | --- |
 | Alguém pede para redefinir a senha em `/esqueci-a-senha` | A conta com aquele e-mail | O link para criar uma senha nova, que vale 1 hora. |
+| A senha é trocada pelo link de "Esqueci minha senha" | A conta | Aviso de que a senha foi trocada e todos os aparelhos saíram. |
 | A moderação aprova um pedido de reivindicação: como co-dono, com transferência ou pelo botão "Aprovar os N pedidos sem dono" | Quem pediu | O negócio e o link do painel dele. |
 | A moderação recusa um pedido | Quem pediu | O negócio, o motivo da recusa e o link do painel. |
 | Um pedido pelos dados do negócio fica na fila (o negócio tem dono ou está fora do ar), ou um "Entrar com Instagram" fica em análise | Cada pessoa da moderação | O negócio e o link da fila de reivindicações. |
 | Um depoimento é denunciado | Cada pessoa da moderação | O negócio e o link da fila de denúncias. |
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
+| Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail". Só com a confirmação ligada, e hoje ela está desligada | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |
+| Alguém pede para entrar por link | O e-mail digitado, se tiver conta | O link para entrar, que vale por 15 minutos. |
 
+- **Os links de confirmar e de entrar** seguem as regras de [e-mail confirmado e links por e-mail](#e-mail-confirmado-e-links-por-e-mail).
 - **A aprovação na hora não manda e-mail.** Quem vira dono pelos dados do negócio ou pelo Instagram já vê o resultado na tela.
 - **Cada pessoa recebe o próprio e-mail.** Ninguém vê o endereço de outra, nem entre a moderação nem entre co-donos.
 - **Os avisos para a moderação não levam dados pessoais:** nada de nome, e-mail ou contato de quem pediu ou denunciou. Isso fica só nas filas.
 - **O e-mail sai depois da resposta,** pelo `after()` do Next. A pessoa não espera o envio, e uma falha fica só no log, sem desfazer a ação.
 - **Remetente e resposta:** o e-mail sai de `EMAIL_REMETENTE`, um endereço de domínio verificado no Resend, e as respostas vão para `EMAIL_RESPOSTA`.
-- **Ligado só com `RESEND_API_KEY` e `EMAIL_REMETENTE`.** Sem elas, ninguém recebe e-mail, e o resto funciona igual. Nos previews do Vercel o envio fica desligado mesmo com as variáveis, porque o banco dos previews só tem contas de teste. A aba "Sistema" da moderação mostra se o envio está ligado.
+- **Ligado só com `RESEND_API_KEY` e `EMAIL_REMETENTE`.** Sem elas, ninguém recebe e-mail, e o resto funciona igual. Nos previews do Cloudflare o envio fica desligado mesmo com as variáveis, porque o banco dos previews só tem contas de teste. A aba "Sistema" da moderação mostra se o envio está ligado.
 - **Fica de fora:**
   - o código por DM, desligado por padrão, não avisa a moderação;
   - quem indica um negócio, tem o negócio tirado do ar ou deixa de ser dono numa transferência não recebe e-mail.
@@ -873,13 +935,14 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Nome da conta | `Usuario` | **Público** quando a pessoa escreve um depoimento ou quando a indicação dela aparece no perfil ("indicado por …"). A moderação vê nas filas. |
 | E-mail da conta | `Usuario` | Só a própria pessoa (no menu) e a moderação, que vê o e-mail de todas as contas na aba "Contas" e na ficha de cada uma, além das filas. Nunca aparece no site público. Serve para entrar e para receber os [avisos por e-mail](#14-avisos-por-e-mail). |
 | Senha | `Usuario.senhaHash` | Ninguém: só o hash scrypt é guardado. |
-| Link de redefinição de senha | `RedefinicaoSenha` | Ninguém vê o token: só o hash é guardado, por no máximo 1 hora. |
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
+| Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
 | Quem denunciou e o motivo | `Depoimento` | Só a moderação. |
 | Auditoria | `RegistroAuditoria` | Só a moderação. |
+| Tentativas de login e cadastro | `TentativaAcesso` | Ninguém vê o IP nem o e-mail: só o sha256 deles e a contagem são guardados. A moderação vê só quantos contadores existem. |
 
 ### O que não fazemos
 
@@ -890,7 +953,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 ### Medição de visitas
 
-- O site usa o **Google Analytics 4**, só em produção: ele só carrega quando `NEXT_PUBLIC_GA_ID` está configurado, e essa variável só existe no ambiente Production do Vercel.
+- O site usa o **Google Analytics 4**, só em produção: ele só carrega quando `NEXT_PUBLIC_GA_ID` está configurado, e essa variável só existe no ambiente de produção do Cloudflare.
 - A "medição otimizada" está ligada. Ela conta:
   - páginas vistas;
   - rolagem;
@@ -917,8 +980,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Duração da sessão | 30 dias | `src/lib/auth/sessao.ts` |
 | Senha | 8 a 200 caracteres | `src/acoes/conta.ts` |
-| Validade do link de redefinição de senha | 1 hora, uso único | `src/lib/auth/redefinicao.ts` |
-| Intervalo entre links de redefinição da mesma conta | 1 minuto | `src/lib/auth/redefinicao.ts` |
+| Tentativas de login e cadastro por IP | 10 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
+| Tentativas de senha por e-mail, em cada origem (IP ou /64) | 5 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |
 | Pedidos de reivindicação por conta | 10 a cada 24 horas | `src/lib/reivindicacao.ts` |
 | Validade do código por DM | 48 horas | `src/lib/reivindicacao.ts` |
@@ -980,8 +1043,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 **Contas**
 
-- Não há confirmação de e-mail, troca de nome ou e-mail, nem exclusão da conta.
-- Não há limite de tentativas de login. O pedido de redefinição de senha só tem o intervalo de 1 minuto por conta, sem limite por IP.
+- Não há recuperação de senha, confirmação de e-mail, troca de nome ou e-mail, nem exclusão da conta.
 - Não há registro do último acesso: "Sair" apaga a sessão, então o painel só sabe das sessões que continuam abertas.
 - Sessões vencidas deixam de valer, mas não são apagadas do banco.
 - O e-mail da conta não é confirmado. Um aviso pode ir para um endereço digitado errado, e ninguém fica sabendo.
