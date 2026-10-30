@@ -90,8 +90,10 @@ export async function tentativaDoIpLiberada(ip: string | null): Promise<boolean>
   if (!ip) {
     if (process.env.NODE_ENV !== "production") return true;
     console.error(
-      "Login e cadastro recusados: não há IP confiável nesta requisição. Fora do Vercel, defina AUTENTICACAO_PROXY_CONFIAVEL=1 " +
-        "se há um proxy seu na frente do site que escreve o x-forwarded-for. Veja a seção \"Publicando\", \"Em outra hospedagem\", do README.",
+      "Login e cadastro recusados: não há IP confiável nesta requisição. No Vercel, confira o x-vercel-forwarded-for. " +
+        "No Cloudflare, confira CLOUDFLARE_DEPLOY=1 e o cf-connecting-ip. " +
+        "Em outra hospedagem, defina AUTENTICACAO_PROXY_CONFIAVEL=1 só se há um proxy seu que escreve o x-forwarded-for " +
+        "e é o único caminho até o site. Veja a seção \"Publicando\" do README.",
     );
     return false;
   }

@@ -119,7 +119,10 @@ describe("de onde vem o IP", () => {
     expect(erroDoOperador).toHaveBeenCalledTimes(respostas.length);
     for (const [aviso] of erroDoOperador.mock.calls) {
       expect(aviso).toContain("AUTENTICACAO_PROXY_CONFIAVEL");
-      expect(aviso).toContain("Em outra hospedagem");
+      expect(aviso).toContain("CLOUDFLARE_DEPLOY=1");
+      expect(aviso).toContain("cf-connecting-ip");
+      expect(aviso).toContain("Publicando");
+      expect(aviso).toContain("README");
     }
   }
 

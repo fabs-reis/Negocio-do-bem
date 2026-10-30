@@ -64,6 +64,9 @@ describe("limite por IP", () => {
     expect(await tentativaDoIpLiberada("200.0.0.1")).toBe(true);
     expect(erro).toHaveBeenCalledTimes(1);
     expect(erro.mock.calls[0]![0]).toContain("AUTENTICACAO_PROXY_CONFIAVEL");
+    expect(erro.mock.calls[0]![0]).toContain("CLOUDFLARE_DEPLOY=1");
+    expect(erro.mock.calls[0]![0]).toContain("cf-connecting-ip");
+    expect(erro.mock.calls[0]![0]).toContain("README");
     expect(await db.tentativaAcesso.count()).toBe(1);
   });
 
