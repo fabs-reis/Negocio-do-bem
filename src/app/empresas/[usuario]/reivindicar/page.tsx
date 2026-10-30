@@ -46,9 +46,12 @@ async function Reivindicar({
   const loginDisponivel = !!configLogin();
   const oficial = perfilOficial();
   const peloInstagram = loginDisponivel || !!oficial;
-  const dono = !!usuario && empresa.membros.some((m) => m.usuarioId === usuario.id);
-  // Quem já é dono e ainda não tem o selo confirma pelo Instagram nesta mesma página.
-  const pedirSelo = dono && !empresa.oficial && peloInstagram;
+  const membro = usuario ? empresa.membros.find((m) => m.usuarioId === usuario.id) : undefined;
+  const dono = !!membro;
+  // Dono que nunca confirmou (src/lib/donos.ts): confirma aqui para voltar a editar.
+  const faltaConfirmar = !!membro && !membro.confirmadoEm;
+  // Quem já é dono e ainda não confirmou, ou não tem o selo, confirma pelo Instagram nesta mesma página.
+  const pedirSelo = dono && (faltaConfirmar || !empresa.oficial) && peloInstagram;
 
   const cabecalho = (
     <div className="mb-8 space-y-4">
@@ -56,10 +59,16 @@ async function Reivindicar({
         ← Voltar para o perfil
       </Link>
       <h1 className="font-serif text-4xl leading-tight font-semibold tracking-tight">
-        {pedirSelo ? "Confirme pelo Instagram" : "Este negócio é seu?"}
+        {faltaConfirmar ? "Confirme que o negócio é seu" : pedirSelo ? "Confirme pelo Instagram" : "Este negócio é seu?"}
       </h1>
       <p className="text-lg leading-relaxed text-suave">
-        {pedirSelo ? (
+        {faltaConfirmar ? (
+          <>
+            Você assumiu o perfil de <strong className="font-semibold text-tinta">@{username}</strong>, mas ainda não
+            confirmou que cuida do negócio. Confirme para editar o perfil
+            {peloInstagram ? " e ganhar o selo de perfil oficial." : "."}
+          </>
+        ) : pedirSelo ? (
           <>
             Você já cuida do perfil de <strong className="font-semibold text-tinta">@{username}</strong>. Confirme pelo
             Instagram do negócio e ganhe o selo de perfil oficial.
@@ -101,7 +110,7 @@ async function Reivindicar({
     );
   }
 
-  if (dono && !pedirSelo) {
+  if (dono && !pedirSelo && !faltaConfirmar) {
     return (
       <>
         {cabecalho}
@@ -302,7 +311,7 @@ async function Reivindicar({
           </section>
         )}
 
-        {dono ? null : dadosEmAnalise ? (
+        {dono && !faltaConfirmar ? null : dadosEmAnalise ? (
           <Aviso tipo="info">
             Seu pedido de análise está com a moderação. O resultado chega por e-mail e aparece no{" "}
             <Link href="/painel" className="font-semibold underline">

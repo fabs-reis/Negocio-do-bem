@@ -8,6 +8,7 @@ import { caminhoSeguro, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { filtrarCausas } from "@/lib/causas";
 import { db } from "@/lib/db";
+import { donoConfirmado } from "@/lib/donos";
 import { CATEGORIAS } from "@/lib/dominio";
 import {
   campoEmail,
@@ -146,6 +147,12 @@ const esquemaEdicao = z.object({
   historia: z.string().max(20_000, "A história pode ter até 20 mil caracteres.").default(""),
 });
 
+/** Quem é dono mas ainda não confirmou que cuida do negócio volta ao painel, que explica como confirmar. */
+function pedirConfirmacao(empresa: { instagramUsername: string }): never {
+  redirect(`/painel/${empresa.instagramUsername}?aviso=confirmar_dono`);
+}
+
+/** Só o dono confirmado (ver src/lib/donos.ts). */
 async function exigirDono(empresaId: string, voltarPara: string) {
   const usuario = await exigirUsuario(voltarPara);
   const membro = await db.empresaMembro.findUnique({
@@ -153,20 +160,23 @@ async function exigirDono(empresaId: string, voltarPara: string) {
     include: { empresa: true },
   });
   if (!membro) redirect("/painel");
+  if (!donoConfirmado(membro)) pedirConfirmacao(membro.empresa);
   return { usuario, empresa: membro.empresa };
 }
 
-/** O dono do perfil ou a moderação, que pode editar qualquer negócio. */
+/** O dono confirmado ou a moderação, que pode editar qualquer negócio. */
 async function exigirEditor(empresaId: string, voltarPara: string) {
   const usuario = await exigirUsuario(voltarPara);
   const empresa = await db.empresa.findUnique({
     where: { id: empresaId },
-    include: { membros: { select: { usuarioId: true } } },
+    include: { membros: { select: { usuarioId: true, confirmadoEm: true } } },
   });
   if (!empresa) redirect("/");
-  const dono = empresa.membros.some((m) => m.usuarioId === usuario.id);
-  if (!dono && !usuario.moderador) redirect("/painel");
-  return { usuario, empresa, pelaModeracao: !dono };
+  const membro = empresa.membros.find((m) => m.usuarioId === usuario.id);
+  if (donoConfirmado(membro)) return { usuario, empresa, pelaModeracao: false };
+  if (usuario.moderador) return { usuario, empresa, pelaModeracao: true };
+  if (membro) pedirConfirmacao(empresa);
+  redirect("/painel");
 }
 
 /** Edições feitas pela moderação ficam marcadas na auditoria. */

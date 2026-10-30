@@ -4,11 +4,15 @@ import Link from "next/link";
 import { Suspense } from "react";
 import {
   aprovarReivindicacao,
+  confirmarDonoPelaModeracao,
   decidirDenuncia,
   moderarEmpresa,
+  pedirConfirmacaoATodosOsDonos,
+  pedirConfirmacaoDoDono,
   publicarIndicacoesPendentes,
   recusarReivindicacao,
   registrarEnvioDoCodigo,
+  removerDonosQueNaoConfirmaram,
 } from "@/acoes/moderacao";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
@@ -18,6 +22,7 @@ import { consultarCnpj, formatarCnpj } from "@/lib/cnpj";
 import { extrairCodigo, mensagemDoCodigo } from "@/lib/codigo";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
+import { donosSemConfirmacao, LOTE_DE_PEDIDOS, PRAZO_CONFIRMACAO_DIAS } from "@/lib/donos";
 import { linkPerfil, normalizarUsername, perfilOficial } from "@/lib/instagram";
 import { ABAS, lerFiltros, type Aba } from "@/lib/moderacao/filtros";
 import { LIMITE_TENTATIVAS } from "@/lib/reivindicacao";
@@ -55,12 +60,13 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   const codigo = extrairCodigo(procura);
   const instagram = codigo ? null : normalizarUsername(procura);
 
-  const [reivindicacoes, indicacoes, denuncias] = await Promise.all([
+  const [reivindicacoes, indicacoes, denuncias, donos] = await Promise.all([
     db.reivindicacao.count({ where: { status: "pendente" } }),
     db.empresa.count({ where: { moderacao: "pendente" } }),
     db.depoimento.count({ where: { denunciado: true, status: "publicado" } }),
+    db.empresaMembro.count({ where: { confirmadoEm: null } }),
   ]);
-  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias };
+  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias, donos };
 
   return (
     <div className="mt-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
@@ -74,6 +80,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
         {filtros.aba === "reivindicacoes" && <Reivindicacoes codigo={codigo} instagram={instagram} procura={procura} />}
         {filtros.aba === "indicacoes" && <Indicacoes />}
         {filtros.aba === "denuncias" && <Denuncias />}
+        {filtros.aba === "donos" && <Donos />}
         {filtros.aba === "negocios" && <Negocios filtros={filtros} />}
         {filtros.aba === "contas" && <Contas filtros={filtros} />}
         {filtros.aba === "depoimentos" && <Depoimentos filtros={filtros} />}
@@ -321,6 +328,99 @@ async function Reivindicacoes({ codigo, instagram, procura }: { codigo: string |
           </article>
         );
       })}
+    </div>
+  );
+}
+
+/** Quem assumiu um perfil sem confirmar: o pedido por e-mail, o prazo e a remoção (src/lib/donos.ts). */
+async function Donos() {
+  const donos = await donosSemConfirmacao();
+  if (donos.length === 0) return <p className="cartao p-8 text-center text-suave">Todos os donos confirmaram. 🎉</p>;
+  const semPedido = donos.filter((d) => !d.confirmacaoPedidaEm).length;
+  const vencidos = donos.filter((d) => d.vencido).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="cartao space-y-3 p-4 text-sm leading-relaxed text-suave">
+        <p>
+          Estes donos assumiram o perfil sem confirmar pelo Instagram. Eles veem o painel, mas não editam. O pedido de
+          confirmação vai por e-mail, e o prazo é de {PRAZO_CONFIRMACAO_DIAS} dias. O prazo não corre enquanto houver um
+          pedido de código ou de análise em andamento. Quem já mexeu no perfil aparece primeiro.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {semPedido > 0 && (
+            <form action={pedirConfirmacaoATodosOsDonos}>
+              <BotaoEnviar className="botao botao-pequeno" enviando="Enviando…">
+                {semPedido === 1
+                  ? "Pedir a confirmação ao dono que falta"
+                  : `Pedir a confirmação a ${Math.min(semPedido, LOTE_DE_PEDIDOS)} donos`}
+              </BotaoEnviar>
+            </form>
+          )}
+          {vencidos > 0 && (
+            <form action={removerDonosQueNaoConfirmaram}>
+              <BotaoEnviar className="botao-coral botao-pequeno" enviando="Removendo…">
+                {vencidos === 1 ? "Remover o dono que não confirmou" : `Remover os ${vencidos} donos que não confirmaram`}
+              </BotaoEnviar>
+            </form>
+          )}
+        </div>
+        {semPedido > LOTE_DE_PEDIDOS && (
+          <p>Cada clique manda até {LOTE_DE_PEDIDOS} e-mails, por causa do limite diário do envio.</p>
+        )}
+      </div>
+
+      {donos.map((d) => (
+        <article key={`${d.empresaId}:${d.usuarioId}`} className="cartao space-y-3 p-5">
+          <header className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <Link href={`/empresas/${d.empresa.instagramUsername}`} className="font-serif text-xl font-semibold hover:text-coral-700">
+                {d.empresa.nome}
+              </Link>
+              <p className="text-sm text-suave">
+                @{d.empresa.instagramUsername}
+                {d.empresa.moderacao === "rejeitada" && <span className="font-semibold text-coral-700"> · fora do ar</span>}
+              </p>
+            </div>
+            <p className="text-sm">
+              <Link href={`/moderacao/contas/${d.usuario.id}`} className="font-semibold hover:text-coral-700 hover:underline">
+                {d.usuario.nome}
+              </Link>{" "}
+              <span className="text-suave">({d.usuario.email})</span>
+            </p>
+          </header>
+          <ul className="space-y-1 text-sm">
+            <li className={d.edicoes > 0 ? "font-medium text-coral-700" : "text-suave"}>
+              {d.edicoes === 0 ? "Não mexeu no perfil." : `Mexeu no perfil ${d.edicoes === 1 ? "1 vez" : `${d.edicoes} vezes`}: confira na auditoria.`}
+            </li>
+            <li className="text-suave">
+              {d.confirmacaoPedidaEm
+                ? `Pedido de confirmação em ${formatarDataHora(d.confirmacaoPedidaEm)}. Prazo até ${formatarDataHora(d.prazo!)}.`
+                : "Ainda não recebeu o pedido de confirmação."}
+            </li>
+            {d.pedidoEmAndamento && <li className="text-folha">Tem um pedido de código ou de análise em andamento: o prazo espera.</li>}
+            {d.vencido && <li className="font-medium text-coral-700">O prazo acabou.</li>}
+          </ul>
+          <div className="flex flex-wrap gap-2 border-t border-linha pt-3">
+            {!d.confirmacaoPedidaEm && (
+              <form action={pedirConfirmacaoDoDono}>
+                <input type="hidden" name="empresaId" value={d.empresaId} />
+                <input type="hidden" name="usuarioId" value={d.usuarioId} />
+                <BotaoEnviar className="botao botao-pequeno" enviando="Enviando…">
+                  Pedir confirmação
+                </BotaoEnviar>
+              </form>
+            )}
+            <form action={confirmarDonoPelaModeracao}>
+              <input type="hidden" name="empresaId" value={d.empresaId} />
+              <input type="hidden" name="usuarioId" value={d.usuarioId} />
+              <BotaoEnviar className="botao-claro botao-pequeno" enviando="Confirmando…">
+                Conheço esta pessoa: confirmar dono
+              </BotaoEnviar>
+            </form>
+          </div>
+        </article>
+      ))}
     </div>
   );
 }

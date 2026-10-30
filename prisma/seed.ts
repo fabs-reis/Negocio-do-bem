@@ -27,6 +27,8 @@ type NegocioExemplo = {
   uf: string;
   causas: string[];
   dono?: string;
+  /** Um dono de antes da #133, que assumiu sem confirmar: vê o painel, mas não edita. */
+  donoSemConfirmacao?: boolean;
   historia?: string;
   motivo?: string;
   moderacao?: string;
@@ -136,6 +138,7 @@ Desde 2024 a equipe trabalha quatro dias por semana, sem redução de salário. 
     uf: "SC",
     causas: ["escala-4x3", "liderado-por-mulheres", "lgbtqia", "remuneracao-justa"],
     dono: "bia",
+    donoSemConfirmacao: true,
     historia: `A gente faz sites, aplicativos e identidades visuais, mas só para quem está tentando deixar o mundo um pouco melhor.
 
 Trabalhamos quatro dias por semana, todo mundo ganha a mesma faixa salarial publicada no nosso site, e 10% das horas vão para projetos de ONGs sem custo.`,
@@ -233,7 +236,16 @@ async function main() {
         indicadaPorId: n.dono ? pessoas[n.dono as keyof typeof pessoas].id : [pessoas.carla, pessoas.ana, pessoas.joao][i % 3]!.id,
         busca: textoDeBusca(n),
         causas: { create: n.causas.map((causa) => ({ causa })) },
-        ...(n.dono ? { membros: { create: { usuarioId: pessoas[n.dono as keyof typeof pessoas].id } } } : {}),
+        ...(n.dono
+          ? {
+              membros: {
+                create: {
+                  usuarioId: pessoas[n.dono as keyof typeof pessoas].id,
+                  confirmadoEm: n.donoSemConfirmacao ? null : new Date(),
+                },
+              },
+            }
+          : {}),
       },
     });
     empresas.set(n.instagramUsername, empresa.id);

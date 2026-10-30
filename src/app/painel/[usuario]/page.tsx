@@ -10,8 +10,9 @@ import { exigirUsuario } from "@/lib/auth/sessao";
 import { checklistDoPerfil } from "@/lib/boas-vindas";
 import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
+import { donoConfirmado, prazoDaConfirmacao } from "@/lib/donos";
 import { configLogin, normalizarUsername, perfilOficial } from "@/lib/instagram";
-import { formatarData } from "@/lib/texto";
+import { formatarData, formatarDataHora } from "@/lib/texto";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 
@@ -34,7 +35,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
   const empresa = await db.empresa.findUnique({
     where: { instagramUsername: username },
     include: {
-      membros: { select: { usuarioId: true } },
+      membros: { select: { usuarioId: true, confirmadoEm: true, confirmacaoPedidaEm: true } },
       causas: { select: { causa: true } },
       depoimentos: {
         where: { status: "publicado" },
@@ -43,7 +44,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
       },
     },
   });
-  if (!empresa || !empresa.membros.some((m) => m.usuarioId === usuario.id)) notFound();
+  const membro = empresa?.membros.find((m) => m.usuarioId === usuario.id);
+  if (!empresa || !membro) notFound();
+  // Quem não confirmou que cuida do negócio vê o painel, mas não edita (src/lib/donos.ts).
+  const confirmado = donoConfirmado(membro);
   const { aviso } = await searchParams;
   const checklist = checklistDoPerfil(empresa, !!perfilOficial() || !!configLogin());
 
@@ -67,17 +71,23 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         <AvisoDaUrl codigo={aviso} />
       </div>
 
-      {checklist.mostrar && (
-        <BoasVindas nome={usuario.nome.split(" ")[0]!} username={empresa.instagramUsername} checklist={checklist} />
+      {!confirmado ? (
+        <ConfirmarDono username={empresa.instagramUsername} pedidaEm={membro.confirmacaoPedidaEm} />
+      ) : (
+        <>
+          {checklist.mostrar && (
+            <BoasVindas nome={usuario.nome.split(" ")[0]!} username={empresa.instagramUsername} checklist={checklist} />
+          )}
+          <EdicaoEmpresa empresa={empresa} voltar={`/painel/${empresa.instagramUsername}`} />
+        </>
       )}
-
-      <EdicaoEmpresa empresa={empresa} voltar={`/painel/${empresa.instagramUsername}`} />
 
       <section id="depoimentos" className="scroll-mt-24">
         <h2 className="font-serif text-2xl font-semibold">Depoimentos</h2>
         <p className="mt-1 text-sm text-suave">
-          Você pode responder a cada depoimento. Para manter a confiança da comunidade, donos não apagam depoimentos:
-          se algum for ofensivo, use &ldquo;Denunciar&rdquo; no perfil público e a moderação avalia.
+          {confirmado ? "Você pode responder a cada depoimento." : "Depois de confirmar, você pode responder a cada depoimento."}{" "}
+          Para manter a confiança da comunidade, donos não apagam depoimentos: se algum for ofensivo, use
+          &ldquo;Denunciar&rdquo; no perfil público e a moderação avalia.
         </p>
         <div className="mt-4 space-y-4">
           {empresa.depoimentos.length === 0 && <p className="text-suave italic">Nenhum depoimento ainda.</p>}
@@ -87,45 +97,73 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
               <p className="mt-2 text-sm text-suave">
                 {d.autor.nome} · {formatarData(d.criadoEm)}
               </p>
-              <form action={responderDepoimento} className="mt-4 space-y-2">
-                <input type="hidden" name="depoimentoId" value={d.id} />
-                <label htmlFor={`resposta-${d.id}`} className="sr-only">
-                  Sua resposta
-                </label>
-                <textarea
-                  id={`resposta-${d.id}`}
-                  name="resposta"
-                  rows={2}
-                  maxLength={1000}
-                  defaultValue={d.resposta ?? ""}
-                  placeholder="Escreva uma resposta (opcional)…"
-                  className="campo sm:text-sm"
-                />
-                <BotaoEnviar className="botao-claro botao-pequeno" enviando="Salvando…">
-                  {d.resposta ? "Atualizar resposta" : "Responder"}
-                </BotaoEnviar>
-              </form>
+              {d.resposta && !confirmado && <p className="mt-3 text-sm text-suave">Sua resposta: {d.resposta}</p>}
+              {confirmado && (
+                <form action={responderDepoimento} className="mt-4 space-y-2">
+                  <input type="hidden" name="depoimentoId" value={d.id} />
+                  <label htmlFor={`resposta-${d.id}`} className="sr-only">
+                    Sua resposta
+                  </label>
+                  <textarea
+                    id={`resposta-${d.id}`}
+                    name="resposta"
+                    rows={2}
+                    maxLength={1000}
+                    defaultValue={d.resposta ?? ""}
+                    placeholder="Escreva uma resposta (opcional)…"
+                    className="campo sm:text-sm"
+                  />
+                  <BotaoEnviar className="botao-claro botao-pequeno" enviando="Salvando…">
+                    {d.resposta ? "Atualizar resposta" : "Responder"}
+                  </BotaoEnviar>
+                </form>
+              )}
             </div>
           ))}
         </div>
       </section>
 
-      <section className="cartao p-6">
-        <h2 className="font-serif text-2xl font-semibold">Aparecer no diretório</h2>
-        <p className="mt-1 text-sm leading-relaxed text-suave">
-          {empresa.oculta
-            ? "Seu negócio está oculto: ninguém encontra o perfil no diretório nem pelo link."
-            : "Se preferir, você pode tirar seu negócio do diretório a qualquer momento. O perfil fica guardado e você pode voltar quando quiser."}
-        </p>
-        <form action={alternarVisibilidade} className="mt-4">
-          <input type="hidden" name="empresaId" value={empresa.id} />
-          <input type="hidden" name="ocultar" value={empresa.oculta ? "nao" : "sim"} />
-          <BotaoEnviar className={empresa.oculta ? "botao-coral" : "botao-claro"} enviando="Salvando…">
-            {empresa.oculta ? "Voltar a aparecer no diretório" : "Ocultar meu negócio"}
-          </BotaoEnviar>
-        </form>
-      </section>
+      {confirmado && (
+        <section className="cartao p-6">
+          <h2 className="font-serif text-2xl font-semibold">Aparecer no diretório</h2>
+          <p className="mt-1 text-sm leading-relaxed text-suave">
+            {empresa.oculta
+              ? "Seu negócio está oculto: ninguém encontra o perfil no diretório nem pelo link."
+              : "Se preferir, você pode tirar seu negócio do diretório a qualquer momento. O perfil fica guardado e você pode voltar quando quiser."}
+          </p>
+          <form action={alternarVisibilidade} className="mt-4">
+            <input type="hidden" name="empresaId" value={empresa.id} />
+            <input type="hidden" name="ocultar" value={empresa.oculta ? "nao" : "sim"} />
+            <BotaoEnviar className={empresa.oculta ? "botao-coral" : "botao-claro"} enviando="Salvando…">
+              {empresa.oculta ? "Voltar a aparecer no diretório" : "Ocultar meu negócio"}
+            </BotaoEnviar>
+          </form>
+        </section>
+      )}
     </div>
+  );
+}
+
+/** Para o dono que não confirmou: por que a edição está pausada e como confirmar. */
+function ConfirmarDono({ username, pedidaEm }: { username: string; pedidaEm: Date | null }) {
+  return (
+    <section id="confirmar" className="scroll-mt-24 rounded-3xl border border-coral/20 bg-coral-50/60 p-6 sm:p-8">
+      <h2 className="font-serif text-2xl font-semibold">Confirme que você cuida deste negócio</h2>
+      <p className="mt-2 leading-relaxed text-suave">
+        Você assumiu este perfil sem confirmar pelo Instagram do negócio. Para proteger os negócios de quem se passa
+        por eles, a edição fica pausada até a confirmação. É rápido: você pede um código, manda um &ldquo;Oi&rdquo;
+        pelo Instagram do negócio e cola o código que chegar.
+      </p>
+      {pedidaEm && (
+        <p className="mt-3 text-sm font-medium">
+          Prazo: até {formatarDataHora(prazoDaConfirmacao(pedidaEm))}. Depois disso, sem um pedido em andamento, o perfil
+          volta a ficar sem dono.
+        </p>
+      )}
+      <Link href={`/empresas/${username}/reivindicar`} className="botao-coral mt-5">
+        Confirmar agora
+      </Link>
+    </section>
   );
 }
 

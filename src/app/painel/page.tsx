@@ -81,7 +81,7 @@ async function Conteudo() {
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {empresas.map(({ empresa }) => (
+            {empresas.map(({ empresa, confirmadoEm }) => (
               <div key={empresa.id} className="cartao flex flex-col p-5">
                 <div className="flex items-center gap-3">
                   <Monograma nome={empresa.nome} chave={empresa.instagramUsername} />
@@ -92,12 +92,13 @@ async function Conteudo() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <SeloStatus status={empresa.status} oficial={empresa.oficial} />
+                  {!confirmadoEm && <Etiqueta status="pendente" texto="Falta confirmar que é seu" />}
                   {empresa.oculta && <Etiqueta status="expirada" texto="Oculto do diretório" />}
                   {!empresa.historia.trim() && <Etiqueta status="pendente" texto="Falta contar a história" />}
                 </div>
                 <div className="mt-5 flex gap-2">
                   <Link href={`/painel/${empresa.instagramUsername}`} className="botao botao-pequeno">
-                    Editar perfil
+                    {confirmadoEm ? "Editar perfil" : "Confirmar que é seu"}
                   </Link>
                   <Link href={`/empresas/${empresa.instagramUsername}`} className="botao-claro botao-pequeno">
                     Ver perfil

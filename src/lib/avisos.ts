@@ -56,6 +56,13 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   depoimento_publicado: { tipo: "sucesso", texto: "Obrigado! Seu depoimento já está no ar." },
   resposta_publicada: { tipo: "sucesso", texto: "Resposta publicada." },
   denuncia_enviada: { tipo: "info", texto: "Denúncia enviada. A moderação vai avaliar." },
+  confirmar_dono: {
+    tipo: "erro",
+    texto: "Antes de editar, confirme que você cuida deste negócio. É rápido: veja como logo abaixo.",
+  },
+  confirmacao_pedida: { tipo: "sucesso", texto: "Pedido de confirmação enviado por e-mail." },
+  donos_removidos: { tipo: "info", texto: "Pronto. Quem passou do prazo sem confirmar deixou de ser dono." },
+  dono_confirmado: { tipo: "sucesso", texto: "Dono confirmado. A edição do perfil está liberada para ele." },
   confirmar_email: {
     tipo: "erro",
     texto: "Antes, confirme o seu e-mail: abra o link que mandamos para você ou peça outro no seu painel.",

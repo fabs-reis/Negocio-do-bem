@@ -5,9 +5,10 @@ import { after } from "next/server";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
+import { confirmarDono, marcarPedidoDeConfirmacao, pedirConfirmacaoATodos, removerDonosVencidos } from "@/lib/donos";
 import { texto } from "@/lib/formulario";
 import { comAviso, destinoNaModeracao } from "@/lib/moderacao/filtros";
-import { avisarDecisaoDaReivindicacao } from "@/lib/notificacoes";
+import { avisarDecisaoDaReivindicacao, avisarDonoRemovido, avisarPedidoDeConfirmacao } from "@/lib/notificacoes";
 import { aprovar, ErroReivindicacao, recusar, registrarEnvio, type ModoAprovacao } from "@/lib/reivindicacao";
 
 function voltar(aba: string, aviso: string): never {
@@ -24,6 +25,45 @@ export async function registrarEnvioDoCodigo(dados: FormData): Promise<void> {
     throw erro;
   }
   voltar("reivindicacoes", "codigo_enviado");
+}
+
+function donoDoFormulario(dados: FormData) {
+  return { empresaId: texto(dados, "empresaId"), usuarioId: texto(dados, "usuarioId") };
+}
+
+/** Pede, por e-mail, que um dono sem confirmação confirme. O prazo começa a contar. */
+export async function pedirConfirmacaoDoDono(dados: FormData): Promise<void> {
+  const moderador = await exigirModerador();
+  const par = donoDoFormulario(dados);
+  if (await marcarPedidoDeConfirmacao({ ...par, moderadorId: moderador.id })) after(() => avisarPedidoDeConfirmacao(par));
+  voltar("donos", "confirmacao_pedida");
+}
+
+/** Pede a confirmação a um lote de donos que ainda não receberam o pedido. */
+export async function pedirConfirmacaoATodosOsDonos(): Promise<void> {
+  const moderador = await exigirModerador();
+  const marcados = await pedirConfirmacaoATodos(moderador.id);
+  after(async () => {
+    for (const par of marcados) await avisarPedidoDeConfirmacao(par);
+  });
+  voltar("donos", "confirmacao_pedida");
+}
+
+/** A moderação conhece o dono e confirma sem o Instagram. */
+export async function confirmarDonoPelaModeracao(dados: FormData): Promise<void> {
+  const moderador = await exigirModerador();
+  await confirmarDono({ ...donoDoFormulario(dados), moderadorId: moderador.id });
+  voltar("donos", "dono_confirmado");
+}
+
+/** Tira o vínculo de quem passou do prazo sem confirmar e sem pedido em andamento. */
+export async function removerDonosQueNaoConfirmaram(): Promise<void> {
+  const moderador = await exigirModerador();
+  const removidos = await removerDonosVencidos(moderador.id);
+  after(async () => {
+    for (const par of removidos) await avisarDonoRemovido({ ...par, motivo: "prazo" });
+  });
+  voltar("donos", "donos_removidos");
 }
 
 /** Esvazia a fila antiga: publica todas as indicações que esperavam a moderação. */

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { db } from "@/lib/db";
+import { donoConfirmado } from "@/lib/donos";
 import { texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 import { avisarNovaDenuncia, avisarNovoDepoimento } from "@/lib/notificacoes";
 
@@ -49,12 +50,15 @@ export async function publicarDepoimento(_estado: EstadoFormulario, dados: FormD
 export async function responderDepoimento(dados: FormData): Promise<void> {
   const depoimento = await db.depoimento.findUnique({
     where: { id: texto(dados, "depoimentoId") },
-    include: { empresa: { include: { membros: { select: { usuarioId: true } } } } },
+    include: { empresa: { include: { membros: { select: { usuarioId: true, confirmadoEm: true } } } } },
   });
   if (!depoimento) redirect("/painel");
   const usuario = await exigirUsuario("/painel");
   const { empresa } = depoimento;
-  if (!empresa.membros.some((m) => m.usuarioId === usuario.id)) redirect("/painel");
+  const membro = empresa.membros.find((m) => m.usuarioId === usuario.id);
+  if (!membro) redirect("/painel");
+  // Responder fala em nome do negócio: só o dono confirmado (ver src/lib/donos.ts).
+  if (!donoConfirmado(membro)) redirect(`/painel/${empresa.instagramUsername}?aviso=confirmar_dono`);
 
   const resposta = texto(dados, "resposta").trim().slice(0, 1000);
   await db.depoimento.update({

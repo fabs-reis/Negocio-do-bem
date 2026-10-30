@@ -148,7 +148,7 @@ describe("código por DM", () => {
     const antigo = await criarUsuario("Antigo");
     const novo = await criarUsuario("Novo");
     const empresa = await criarEmpresa("padaria.flor");
-    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: antigo.id } });
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: antigo.id, confirmadoEm: new Date() } });
     const moderador = await criarUsuario("Moderação");
     const { codigo, id } = await iniciarPorCodigoDm(empresa.id, novo.id);
 
@@ -326,7 +326,7 @@ describe("código mandado pela DM do projeto", () => {
   it("com outro dono, o código certo fica com a moderação, que aprova com o selo", async () => {
     const [antiga, nova, moderador] = await Promise.all(["Antiga", "Nova", "Moderação"].map((nome) => criarUsuario(nome)));
     const empresa = await criarEmpresa("padaria.flor");
-    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: antiga.id } });
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: antiga.id, confirmadoEm: new Date() } });
     const { pedido } = await pedidoEnviado(empresa.id, nova.id);
 
     expect(await confirmar(empresa.id, nova.id, pedido.codigo!)).toBe("em_analise");
@@ -602,7 +602,7 @@ describe("documento e moderação", () => {
     const pessoa = await criarUsuario();
     const dono = await criarUsuario();
     const empresa = await criarEmpresa("ateliê".normalize("NFD").replace(/[̀-ͯ]/g, ""));
-    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id, confirmadoEm: new Date() } });
     const dados = {
       empresaId: empresa.id,
       usuarioId: pessoa.id,
@@ -625,7 +625,7 @@ describe("documento e moderação", () => {
     const moderador = await criarUsuario();
     const dono = await criarUsuario();
     const empresa = await criarEmpresa("loja.x");
-    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id, confirmadoEm: new Date() } });
     const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, cnpj: null, site: null, relacao: "Dono", contato: "x", mensagem: null });
 
     await recusar({ reivindicacaoId: pedido.id, revisorId: moderador.id, motivo: "Não conseguimos confirmar." });
@@ -656,7 +656,7 @@ describe("documento e moderação", () => {
       const empresas = [];
       for (let i = 0; i < quantidade; i++) {
         const empresa = await criarEmpresa(`${prefixo}${i}`);
-        await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+        await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id, confirmadoEm: new Date() } });
         empresas.push(empresa);
       }
       return empresas;
@@ -811,9 +811,9 @@ describe("documento e moderação", () => {
   it("não deixa quem já é dono pedir de novo", async () => {
     const dono = await criarUsuario();
     const empresa = await criarEmpresa("loja.y");
-    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id, confirmadoEm: new Date() } });
     await expect(solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dono.id, cnpj: null, site: null, relacao: "Dona", contato: "x", mensagem: null })).rejects.toThrow(/já é dono/);
-    // O código por DM fica aberto a quem já é dono só enquanto o perfil não é oficial.
+    // O código por DM fica aberto a quem já é dono enquanto falta a confirmação dele ou o selo do perfil.
     await db.empresa.update({ where: { id: empresa.id }, data: { oficial: true } });
     await expect(iniciarPorCodigoDm(empresa.id, dono.id)).rejects.toThrow(/já é dono/);
   });
@@ -961,7 +961,7 @@ describe("negócio tirado do ar", () => {
   async function tiradoDoAr(username: string, dono?: { id: string }) {
     const empresa = await criarEmpresa(username);
     if (dono) {
-      await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+      await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id, confirmadoEm: new Date() } });
       await db.empresa.update({ where: { id: empresa.id }, data: { status: "verificada" } });
     }
     await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });

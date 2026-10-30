@@ -10,6 +10,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { enviarEmail, envioLigado } from "@/lib/email";
+import { prazoDaConfirmacao } from "@/lib/donos";
+import { perfilOficial } from "@/lib/instagram";
 import { hrefModeracao } from "@/lib/moderacao/filtros";
 import { ENDERECO_DO_SITE, NOME_DO_SITE } from "@/lib/seo";
 
@@ -66,6 +68,60 @@ export async function avisarDecisaoDaReivindicacao(reivindicacaoId: string): Pro
       ),
     });
   }
+}
+
+/**
+ * Para o dono que nunca confirmou: a moderação pede que ele confirme. O código não
+ * vai no e-mail: o e-mail só prova acesso ao e-mail de quem assumiu o perfil.
+ */
+export async function avisarPedidoDeConfirmacao(par: { empresaId: string; usuarioId: string }): Promise<void> {
+  if (!envioLigado()) return;
+  const membro = await db.empresaMembro.findUnique({
+    where: { empresaId_usuarioId: par },
+    include: {
+      usuario: { select: { nome: true, email: true } },
+      empresa: { select: { nome: true, instagramUsername: true } },
+    },
+  });
+  if (!membro?.confirmacaoPedidaEm || membro.confirmadoEm) return;
+  const { usuario, empresa } = membro;
+  const prazo = prazoDaConfirmacao(membro.confirmacaoPedidaEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const projeto = perfilOficial();
+  await enviarEmail({
+    para: usuario.email,
+    assunto: `Confirme que você cuida de ${empresa.nome} no ${NOME_DO_SITE}`,
+    texto: corpo(
+      `Olá, ${primeiroNome(usuario.nome)}!`,
+      `Estamos confirmando quem cuida de cada perfil. Você assumiu o perfil de ${empresa.nome} (@${empresa.instagramUsername}) sem confirmar pelo Instagram do negócio, e por isso a edição está pausada.`,
+      `Para confirmar, abra a página abaixo e peça o código.${projeto ? ` Depois, pelo Instagram do negócio, siga o @${projeto} e mande um "Oi": a gente responde com o código nessa conversa.` : ""} Sem acesso ao Instagram do negócio, peça uma análise manual na mesma página.\n${ENDERECO_DO_SITE}/empresas/${empresa.instagramUsername}/reivindicar`,
+      `O prazo vai até ${prazo}. Depois disso, se não houver um pedido em andamento, o perfil volta a ficar sem dono, livre para quem cuida do negócio.`,
+    ),
+  });
+}
+
+/** Para quem deixou de ser dono sem ter confirmado: pelo prazo ou porque outra pessoa confirmou pelo Instagram. */
+export async function avisarDonoRemovido(par: {
+  empresaId: string;
+  usuarioId: string;
+  motivo: "prazo" | "confirmou_outro";
+}): Promise<void> {
+  if (!envioLigado()) return;
+  const [usuario, empresa] = await Promise.all([
+    db.usuario.findUnique({ where: { id: par.usuarioId }, select: { nome: true, email: true } }),
+    db.empresa.findUnique({ where: { id: par.empresaId }, select: { nome: true, instagramUsername: true } }),
+  ]);
+  if (!usuario || !empresa) return;
+  await enviarEmail({
+    para: usuario.email,
+    assunto: `Você não cuida mais do perfil de ${empresa.nome} no ${NOME_DO_SITE}`,
+    texto: corpo(
+      `Olá, ${primeiroNome(usuario.nome)}!`,
+      par.motivo === "prazo"
+        ? `O prazo para confirmar que você cuida de ${empresa.nome} (@${empresa.instagramUsername}) acabou, e o perfil voltou a ficar sem dono.`
+        : `Outra pessoa confirmou pelo Instagram do negócio que cuida de ${empresa.nome} (@${empresa.instagramUsername}), e o perfil passou para ela.`,
+      `Se você cuida do negócio, confirme pelo Instagram ou peça uma análise manual:\n${ENDERECO_DO_SITE}/empresas/${empresa.instagramUsername}/reivindicar`,
+    ),
+  });
 }
 
 /** Para a moderação: um pedido de reivindicação ficou na fila para ela decidir. */

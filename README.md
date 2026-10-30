@@ -57,7 +57,7 @@ O seed cria negócios fictícios e estas contas, todas com a senha `senha-demo-1
 | E-mail | Papel |
 | --- | --- |
 | `moderacao@exemplo.com` | moderação |
-| `ana@exemplo.com`, `joao@exemplo.com`, `bia@exemplo.com` | donos de negócios de exemplo |
+| `ana@exemplo.com`, `joao@exemplo.com`, `bia@exemplo.com` | donos de negócios de exemplo. A Bia ainda não confirmou o Studio Semente, para mostrar a edição pausada |
 | `carla@exemplo.com` | enviou os dados do Café Arco-Íris e espera a moderação |
 
 Uma conta criada no site precisa confirmar o e-mail para indicar, escrever depoimentos e reivindicar. Sem o envio de e-mail configurado, o link de confirmação (e o de "Entrar por link") aparece no terminal do `npm run dev`.
@@ -102,6 +102,7 @@ Regras que protegem os negócios (em `src/lib/reivindicacao.ts`):
 - **Não existe aprovação automática quando há conflito**: o negócio já tem dono, o ID da conta é diferente do registrado ou a conta já está ligada a outro perfil. Nesses casos a moderação decide se adiciona a pessoa como co-dona ou transfere o perfil.
 - O código da DM vale 48 horas depois do envio, fica preso à conta de quem pediu e aceita 5 tentativas. A pessoa pode pedir outro envio uma vez, e o código muda. A mensagem diz quem pediu e avisa para não passar o código para ninguém.
 - O envio de dados nunca aprova sozinho: CNPJ e contato não provam que a pessoa cuida do negócio.
+- **Dono sem confirmação não edita.** Quem virou dono pelos dados do negócio antes dessa regra vê o painel, mas só edita, responde depoimentos ou tira o negócio do diretório depois de confirmar pelo Instagram ou pela moderação. A moderação pede a confirmação por e-mail, na aba "Donos sem confirmação", e tira o vínculo de quem passa de 7 dias sem confirmar. Quem confirma pelo Instagram passa na frente de um dono que nunca confirmou.
 - Cada pessoa pode fazer no máximo 10 solicitações e 10 indicações por dia.
 - Toda aprovação, recusa, edição e decisão de moderação fica registrada na auditoria (`/moderacao?aba=auditoria`).
 - Donos respondem depoimentos, mas não apagam. Uma denúncia não esconde o depoimento: só a moderação remove.

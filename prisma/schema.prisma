@@ -138,6 +138,11 @@ model EmpresaMembro {
   // "dono"
   papel     String   @default("dono")
   criadoEm  DateTime @default(now())
+  // Quando o dono provou que cuida do negócio: pelo Instagram ou pela aprovação de
+  // alguém da moderação. Sem isso, ele vê o painel mas não edita (src/lib/donos.ts).
+  confirmadoEm        DateTime?
+  // Quando a moderação pediu, por e-mail, que ele confirme. O prazo conta daqui.
+  confirmacaoPedidaEm DateTime?
 
   @@id([empresaId, usuarioId])
   @@index([usuarioId])

@@ -369,6 +369,18 @@ Depois do #114 o selo dizia a verdade, mas qualquer conta ainda virava dona de u
 - **O selo exige o código.** Um pedido `codigo_dm` aprovado pela moderação sem o código colado (`codigoConfirmadoEm`) não liga o `oficial`.
 - **Aprovação simultânea.** O teste de colar o mesmo código duas vezes ao mesmo tempo mostrou que o `aprovar` deixava duas aprovações passarem. A gravação final do status virou condicional ("só se ainda estiver pendente"), no mesmo ponto da ordem de travas da [#131](https://github.com/fabsreis/Negocio-do-bem/pull/131): mover a decisão para o começo trava o pedido antes do negócio e quebra a ordem que evita o deadlock.
 
+
+### 30 de outubro: dono sem confirmação não edita ([#134](https://github.com/fabsreis/Negocio-do-bem/issues/134))
+
+A #133 fechou a porta para os novos, mas quem tinha virado dono pelos dados do negócio continuava editando tudo, até tirando o negócio do diretório.
+
+- **A confirmação é de cada dono, não do negócio.** O `Empresa.oficial` vale para o negócio inteiro: num negócio com uma dona confirmada e um sócio sem confirmação, o sócio continuaria editando. Por isso o campo novo fica em `EmpresaMembro` (`confirmadoEm`).
+- **Uma regra só para editar.** As ações conferiam o dono de três jeitos (`exigirDono`, `exigirEditor` e uma checagem solta em `responderDepoimento`). Agora todas passam por `donoConfirmado`, em `src/lib/donos.ts`.
+- **Na migração, só o Instagram conta.** O botão de aprovar em lote gravava o nome de quem estava na moderação, então `revisadoPorId` preenchido não prova nada para os pedidos antigos. Na dúvida, a edição fica pausada, e a moderação confirma quem ela conhece com um clique.
+- **O prazo é o que resolve.** Sem prazo, quem assumiu um perfil que não era seu ficaria travado, mas dono para sempre. Com 7 dias e o botão de remoção (e não uma rotina automática, como os outros botões de lote do painel), o perfil volta a ficar livre. O prazo espera enquanto há um pedido em andamento, para ninguém perder o perfil pela demora da moderação em mandar a DM.
+- **Quem confirma pelo Instagram passa na frente** de quem nunca confirmou. É a prova mais forte que existe aqui, e evita que o dono de verdade dependa da moderação para recuperar o próprio perfil.
+- **O e-mail nunca leva o código.** Ele vai para quem assumiu o perfil, que pode ser justamente quem se passou pelo negócio.
+
 ---
 
 ## 4. Arquitetura

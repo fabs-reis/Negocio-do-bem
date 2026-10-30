@@ -3,7 +3,7 @@ import { ABAS, hrefModeracao, type Aba } from "@/lib/moderacao/filtros";
 
 const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Painel", abas: ["visao-geral"] },
-  { titulo: "Filas", abas: ["reivindicacoes", "indicacoes", "denuncias"] },
+  { titulo: "Filas", abas: ["reivindicacoes", "indicacoes", "denuncias", "donos"] },
   { titulo: "Cadastros", abas: ["negocios", "contas", "depoimentos"] },
   { titulo: "Registros", abas: ["auditoria", "sistema"] },
 ];

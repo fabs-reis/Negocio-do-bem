@@ -382,8 +382,9 @@ A porta passa o @ por `normalizarUsername`. Um @ inválido mostra "Esse @ não p
 
 - **Qualquer conta logada** que ainda não seja dona daquele negócio.
 - **Quem já é dono:**
-  - de um perfil oficial, vê "Você já é dono deste perfil" e o link para o painel;
-  - de um perfil que não é oficial, vê só os caminhos pelo Instagram, para ganhar o selo (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)). A análise manual não aparece, porque o perfil já é dele.
+  - confirmado e de um perfil oficial, vê "Você já é dono deste perfil" e o link para o painel;
+  - confirmado e de um perfil que não é oficial, vê só os caminhos pelo Instagram, para ganhar o selo (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)). A análise manual não aparece, porque o perfil já é dele;
+  - sem confirmação, vê "Confirme que o negócio é seu", com os caminhos pelo Instagram e a análise manual (ver [Donos sem confirmação](#donos-sem-confirmação)).
 - A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela:
   - pelo botão **"É meu negócio"** do perfil e do cartão da `/participar`;
   - pelo "Este negócio é meu" da indicação;
@@ -396,7 +397,7 @@ A porta passa o @ por `normalizarUsername`. Um @ inválido mostra "Esse @ não p
 
 Desde a [issue #133](https://github.com/fabsreis/Negocio-do-bem/issues/133), **só o Instagram aprova sozinho**: o código por DM colado no site ou o "Entrar com Instagram", sem conflito. O pedido pelos dados do negócio sempre fica com a moderação, porque CNPJ e contato não provam que a pessoa cuida do negócio: o CNPJ é público, e o contato é ela quem digita. Antes, um pedido pelos dados de um negócio sem dono virava dono na hora, sem conferência ([issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20)).
 
-Quem já virou dono assim continua dono, com o selo "Perfil assumido".
+Quem já virou dono assim continua dono, com o selo "Perfil assumido", mas só edita depois de confirmar (ver [Donos sem confirmação](#donos-sem-confirmação)).
 
 ### Análise manual (`documento`)
 
@@ -464,8 +465,8 @@ O que a moderação confere na análise manual: se o CNPJ, o site e o contato ba
 
 **O que a aprovação faz,** tudo numa transação só:
 
-1. Cria o vínculo de dono (ou mantém, se já existia).
-2. No modo "transferir", remove todos os outros donos.
+1. Cria o vínculo de dono (ou mantém, se já existia). O dono fica **confirmado** quando provou pelo Instagram ou quando alguém da moderação aprovou.
+2. No modo "transferir", remove todos os outros donos. Numa aprovação pelo Instagram, remove os outros donos que nunca confirmaram, e cada um recebe um e-mail.
 3. Marca o negócio como `verificada`. Na aprovação pela moderação, também como `aprovada`, o que o publica.
 4. Liga ou desliga o selo de perfil oficial (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)).
 5. Liga os IDs do Instagram ao negócio, se o pedido trouxe algum. Se a mesma conta do Instagram estava ligada a outro perfil, a ligação sai de lá.
@@ -511,7 +512,7 @@ Os dois caminhos dão o selo de perfil oficial. Na página de reivindicação, a
 **A regra de ouro: não existe aprovação automática quando há conflito.** Em `conflitosDeVerificacao`, um conflito é qualquer uma destas situações:
 
 1. O negócio foi tirado do ar pela moderação. Vale para quem já é dono e para quem não é: só a moderação publica de novo. A anotação diz que o negócio está fora do ar.
-2. O negócio já tem outro dono.
+2. O negócio já tem outro dono **confirmado**. Um dono que nunca confirmou não segura o perfil: quem confirma pelo Instagram passa na frente (ver [Donos sem confirmação](#donos-sem-confirmação)).
 3. A conta do Instagram é diferente da registrada antes no negócio (o @ pode ter mudado de dono).
 4. A conta do Instagram já está ligada a **outro** perfil do diretório (talvez o negócio tenha trocado de @).
 
@@ -563,6 +564,43 @@ Código: `iniciarPorCodigoDm`, `registrarEnvio`, `pedirOutroEnvio` e `confirmarC
   - código vencido, @ diferente ou @ que não deu para descobrir viram anotações para a moderação;
   - se der erro, a rota responde 500 e a Meta tenta de novo;
   - aprovações automáticas aparecem na auditoria como "sistema".
+
+### Donos sem confirmação
+
+Código: `src/lib/donos.ts` (com testes em `tests/db/donos.test.ts`), as ações em `src/acoes/moderacao.ts`, `src/acoes/empresas.ts` e `src/acoes/depoimentos.ts`, e a aba em `src/app/moderacao/page.tsx`.
+
+Antes da [issue #133](https://github.com/fabsreis/Negocio-do-bem/issues/133), quem enviava os dados de um negócio sem dono virava dono na hora, sem provar nada. Desde a [issue #134](https://github.com/fabsreis/Negocio-do-bem/issues/134), cada dono tem um `confirmadoEm` (`EmpresaMembro`):
+
+- **Fica confirmado** quem foi aprovado pelo Instagram (código por DM ou login) ou por alguém da moderação, e quem a moderação confirma pelo botão "Conheço esta pessoa: confirmar dono".
+- **Os donos de antes:** a migração `20261030140000_confirmacao_dos_donos` confirmou só quem tem uma reivindicação aprovada pelo Instagram. A aprovação pela moderação não serviu de prova para os antigos, porque o botão de aprovar em lote gravava o nome de quem estava na moderação.
+
+**Dono sem confirmação** vê o painel, com o bloco "Confirme que você cuida deste negócio" e o botão "Confirmar agora", mas não:
+
+- edita nome, texto, contatos, causas e cidade (`salvarEmpresa`);
+- troca ou tira a foto, nem envia fotos da história;
+- tira o negócio do diretório (`alternarVisibilidade`);
+- responde depoimentos (`responderDepoimento`).
+
+Essas ações conferem a mesma regra (`donoConfirmado`) e, para quem não confirmou, voltam ao painel com o aviso "Antes de editar, confirme que você cuida deste negócio". A moderação continua editando qualquer negócio. A trava não desfaz o que já foi editado: por isso a aba da moderação mostra quem já mexeu no perfil.
+
+**Como ele confirma:** na página "É meu negócio", pelo código por DM ou pelo Entrar com Instagram. Sem acesso ao Instagram, ele pode pedir a análise manual, e a aprovação da moderação confirma. Em `/painel`, o negócio aparece com "Falta confirmar que é seu".
+
+**Quem confirma pelo Instagram passa na frente.** Se o negócio tem donos que nunca confirmaram e outra pessoa confirma pelo Instagram (código colado, login ou webhook), ela vira dona sem ir para a moderação. Os donos sem confirmação saem, cada um recebe um e-mail, e a auditoria registra `empresa.dono_removido`. Com um dono confirmado, continua sendo conflito.
+
+**A aba "Donos sem confirmação"** (`/moderacao?aba=donos`) lista os donos sem confirmação, primeiro quem já mexeu no perfil (pela auditoria), depois quem ainda não recebeu o pedido. Cada um mostra o negócio, a pessoa, quantas vezes mexeu no perfil, o pedido e o prazo, e se há um pedido em andamento.
+
+| Botão | Efeito |
+| --- | --- |
+| **Pedir confirmação** | Manda o e-mail ([seção 14](#14-avisos-por-e-mail)) e grava `confirmacaoPedidaEm`. Só a primeira vez conta. |
+| **Pedir a confirmação a N donos** | O mesmo para até 50 donos que ainda não receberam o pedido, por causa do limite diário do envio de e-mail. |
+| **Conheço esta pessoa: confirmar dono** | Confirma sem o Instagram. Fica na auditoria como `empresa.dono_confirmado`. |
+| **Remover os N donos que não confirmaram** | Tira o vínculo de quem passou do prazo. |
+
+**O prazo** é de **7 dias** (`PRAZO_CONFIRMACAO_DIAS`), contados do pedido por e-mail. Ele **não corre** enquanto houver um pedido de código por DM ou de análise manual em andamento daquela pessoa para aquele negócio. A remoção:
+
+- só pega quem passou do prazo sem pedido em andamento, e confere de novo dentro da transação;
+- devolve o negócio a `indicada` e sem selo quando ele fica sem nenhum dono;
+- manda um e-mail para quem saiu e registra `empresa.dono_removido` com quem da moderação clicou.
 
 ### O selo de perfil oficial
 
@@ -658,6 +696,7 @@ Código: `src/app/painel/`.
   - os pedidos para assumir um perfil;
   - as indicações dela, com a situação de cada uma na moderação.
 - **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404).
+- **Dono sem confirmação:** o `/painel/<@>` mostra só o bloco "Confirme que você cuida deste negócio" (com o prazo, se a moderação já pediu), os depoimentos sem o campo de resposta e nada de edição (ver [Donos sem confirmação](#donos-sem-confirmação)).
 - **Boas-vindas:** no topo do `/painel/<@>`, o bloco "Que bom ter você aqui, <primeiro nome>!" lista três coisas que deixam o perfil com a cara do negócio, cada uma com o link da sua seção do painel. Código: `checklistDoPerfil` em `src/lib/boas-vindas.ts`, com testes em `tests/unit/boas-vindas.test.ts`.
   - "Uma foto" fica feita quando o negócio tem foto, "As causas que vocês vivem" com pelo menos uma causa da lista, e "A história de vocês" com a história escrita.
   - Num perfil que não é oficial, com o código por DM ou o Entrar com Instagram ligado, o bloco também convida: "Quer o selo de perfil oficial? Confirme pelo Instagram do negócio.", com o link da página de reivindicação.
@@ -974,6 +1013,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | A moderação recusa um pedido | Quem pediu | O negócio, o motivo da recusa e o link do painel. |
 | Alguém pede o código por DM ou outro envio dele, cola o código certo num perfil que precisa de decisão, pede uma análise manual, ou um "Entrar com Instagram" fica em análise | Cada pessoa da moderação | O negócio e o link da fila de reivindicações. |
 | Um depoimento é denunciado | Cada pessoa da moderação | O negócio e o link da fila de denúncias. |
+| A moderação pede que um dono sem confirmação confirme | O dono | Por que a edição está pausada, o link da página de confirmação, como confirmar e o prazo. Nunca o código. |
+| Um dono sem confirmação sai: pelo prazo, ou porque outra pessoa confirmou pelo Instagram | Quem saiu | O motivo e o link para confirmar, se ele cuida do negócio. |
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
 | Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail" | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |
 | Alguém pede para entrar por link | O e-mail digitado, se tiver conta | O link para entrar, que vale por 15 minutos. |
@@ -982,7 +1023,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 - **A aprovação na hora não manda e-mail.** Quem vira dono pelo Instagram já vê o resultado na tela.
 - **Cada pessoa recebe o próprio e-mail.** Ninguém vê o endereço de outra, nem entre a moderação nem entre co-donos.
 - **Os avisos para a moderação não levam dados pessoais:** nada de nome, e-mail ou contato de quem pediu ou denunciou. Isso fica só nas filas.
-- **O e-mail sai depois da resposta,** pelo `after()` do Next. A pessoa não espera o envio, e uma falha fica só no log, sem desfazer a ação.
+- **O e-mail sai depois da resposta,** pelo `after()` do Next. A pessoa não espera o envio, e uma falha fica só no log, sem desfazer a ação. A exceção é o aviso para o dono que saiu porque outra pessoa confirmou pelo Instagram: ele sai dentro do `aprovar`, depois da transação, porque a aprovação também vem do webhook.
 - **Remetente e resposta:** o e-mail sai de `EMAIL_REMETENTE`, um endereço de domínio verificado no Resend, e as respostas vão para `EMAIL_RESPOSTA`.
 - **Ligado só com `RESEND_API_KEY` e `EMAIL_REMETENTE`.** Sem elas, ninguém recebe e-mail, e o resto funciona igual. Nos previews do Vercel o envio fica desligado mesmo com as variáveis, porque o banco dos previews só tem contas de teste. A aba "Sistema" da moderação mostra se o envio está ligado.
 - **Fica de fora:**
@@ -1089,7 +1130,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 **Negócios e moderação**
 
 - **Indicações entram no ar sem conferência:** a moderação só age depois. Para virar dono, é preciso confirmar pelo Instagram ou passar pela moderação ([seção 6](#nada-é-aprovado-só-com-os-dados-do-negócio)).
-- **Quem virou dono pelos dados do negócio antes da [issue #133](https://github.com/fabsreis/Negocio-do-bem/issues/133)** continua dono, com o selo "Perfil assumido" e a edição liberada.
+- **Quem virou dono pelos dados do negócio antes da [issue #133](https://github.com/fabsreis/Negocio-do-bem/issues/133)** continua dono, com o selo "Perfil assumido", até confirmar ou passar do prazo. O selo público não mostra que a edição está pausada.
 - **Um @ tirado do ar fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404 até a moderação publicar de novo.
 - **O @ de um negócio não muda.** Se o negócio trocar de @ no Instagram, hoje só dá para ajustar direto no banco.
 - **Cidades cadastradas antes da lista do IBGE** continuam como foram digitadas até o negócio ser editado. Se a grafia não bate com a lista, a edição pede para escolher a cidade de novo.
