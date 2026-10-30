@@ -25,6 +25,11 @@ async function limparBanco() {
   );
 }
 
+/** Falha se a operação ficar presa esperando uma trava que ela não deveria pedir. */
+function comLimite<T>(operacao: Promise<T>, ms = 3000): Promise<T> {
+  return Promise.race([operacao, new Promise<never>((_, rejeitar) => setTimeout(() => rejeitar(new Error("Esperou uma trava")), ms))]);
+}
+
 function criarEmpresa(username: string, historia: string) {
   return db.empresa.create({
     data: {
@@ -211,10 +216,79 @@ describe("ciclo das fotos", () => {
     expect(del).not.toHaveBeenCalled();
   });
 
-  it("não exclui quando o banco falha antes de decidir o descarte", async () => {
-    vi.spyOn(db, "$transaction").mockRejectedValueOnce(new Error("Falha simulada de consulta"));
-    await expect(limparFotosHistorias([FOTO], true)).rejects.toThrow("Falha simulada");
+  it("não exclui quando o banco falha de verdade antes de decidir o descarte", async () => {
+    // A tabela some do caminho: a consulta das referências falha no PostgreSQL real.
+    await db.$executeRawUnsafe(`ALTER TABLE "Empresa" RENAME TO "Empresa_indisponivel"`);
+    try {
+      await expect(limparFotosHistorias([FOTO], true)).rejects.toThrow();
+    } finally {
+      await db.$executeRawUnsafe(`ALTER TABLE "Empresa_indisponivel" RENAME TO "Empresa"`);
+    }
     expect(del).not.toHaveBeenCalled();
+    expect(await db.registroAuditoria.count()).toBe(0);
+  });
+
+  it("preserva a foto citada pela história de um negócio oculto, pendente ou rejeitado", async () => {
+    const oculto = await criarEmpresa("historia.oculta", `Nossa vitrine.\n\n![Vitrine](${FOTO})`);
+    await db.empresa.update({ where: { id: oculto.id }, data: { oculta: true } });
+    expect(await limparFotosHistorias([FOTO], true)).toEqual([{ url: FOTO, status: "preservada" }]);
+
+    for (const moderacao of ["pendente", "rejeitada"]) {
+      await db.empresa.update({ where: { id: oculto.id }, data: { oculta: false, moderacao } });
+      expect(await limparFotosHistorias([FOTO], true)).toEqual([{ url: FOTO, status: "preservada" }]);
+    }
+    expect(del).not.toHaveBeenCalled();
+    expect(await db.registroAuditoria.count()).toBe(0);
+  });
+
+  it("registra no log a falha de exclusão da foto do perfil", async () => {
+    const erro = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(del).mockRejectedValueOnce(new Error("Resposta perdida depois do envio"));
+
+    expect(await apagarFoto(FOTO)).toBe("falha");
+
+    expect(erro).toHaveBeenCalledWith(expect.stringContaining("Não foi possível apagar a foto"), FOTO, expect.any(Error));
+  });
+
+  it("o diagnóstico não espera a trava dos salvamentos", async () => {
+    const liberar = Promise.withResolvers<void>();
+    const presa = Promise.withResolvers<void>();
+    const trava = db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(7346019)`;
+      presa.resolve();
+      await liberar.promise;
+    });
+    await presa.promise;
+    try {
+      expect(await comLimite(limparFotosHistorias())).toEqual([{ url: FOTO, status: "candidata" }]);
+    } finally {
+      liberar.resolve();
+      await trava;
+    }
+  });
+
+  it("salvar uma história sem fotos não espera a trava", async () => {
+    const liberar = Promise.withResolvers<void>();
+    const presa = Promise.withResolvers<void>();
+    const trava = db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(7346019)`;
+      presa.resolve();
+      await liberar.promise;
+    });
+    await presa.promise;
+    try {
+      await comLimite(db.$transaction((tx) => validarFotosDaHistoria(tx, "Uma história só com texto e [um link](https://exemplo.com).")));
+    } finally {
+      liberar.resolve();
+      await trava;
+    }
+  });
+
+  it("a transação do descarte tem um limite de tempo explícito", async () => {
+    const espiao = vi.spyOn(db, "$transaction");
+    await limparFotosHistorias([FOTO], true);
+    expect(espiao).toHaveBeenCalledTimes(1);
+    expect(espiao.mock.calls[0]![1]).toEqual({ maxWait: expect.any(Number), timeout: expect.any(Number) });
   });
 
   it("ignora links simbólicos no inventário local", async () => {

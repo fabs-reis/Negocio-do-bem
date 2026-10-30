@@ -15,6 +15,12 @@ const PASTA_LOCAL = path.join(process.cwd(), "public", "enviados");
 
 export const usaBlob = () => Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
 
+/** Diz onde o comando de limpeza vai ler as fotos, para quem o roda saber o que o inventário cobre. */
+export function descreverArmazenamento(): string {
+  if (usaBlob()) return "Vercel Blob (prefixo historias/)";
+  return "pasta local public/enviados/historias (nenhum Vercel Blob configurado: defina BLOB_READ_WRITE_TOKEN para ler o Blob)";
+}
+
 const EXTENSOES: Record<TipoDeFoto, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 // Primeiros bytes de cada formato: o tipo informado pelo navegador não basta.
@@ -122,7 +128,8 @@ export async function apagarFoto(url: string | null): Promise<ResultadoDescarte[
     if (!objetos.has(identidade)) return "bloqueada";
     const [resultado] = await descartarFotos([identidade], (foto) => excluirObjeto(foto, objetos), true);
     return resultado.status;
-  } catch {
+  } catch (erro) {
+    console.error("Não foi possível apagar a foto", url, erro);
     return "falha";
   }
 }

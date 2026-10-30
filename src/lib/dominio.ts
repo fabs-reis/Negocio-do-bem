@@ -83,6 +83,7 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "reivindicacao.recusada": "Recusou um pedido de reivindicação",
   "depoimento.mantido": "Manteve um depoimento denunciado",
   "depoimento.removido": "Removeu um depoimento denunciado",
+  "foto.descarte_iniciado": "Iniciou o descarte de uma foto sem uso",
   "usuario.moderacao_dada": "Deu a moderação a uma conta",
   "usuario.moderacao_tirada": "Tirou a moderação de uma conta",
 };

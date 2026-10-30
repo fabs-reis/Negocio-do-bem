@@ -328,6 +328,20 @@ describe("listarAuditoria", () => {
     expect(await acoes({ alvo: { tipo: "empresa", id: livraria.id } })).toEqual(["empresa.aprovada", "empresa.rejeitada"]);
   });
 
+  it("mostra a foto como alvo, com o nome do arquivo e sem afirmar que foi removida", async () => {
+    const url = "https://abc123.public.blob.vercel-storage.com/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg";
+    await db.registroAuditoria.create({ data: { usuarioId: null, acao: "foto.descarte_iniciado", alvoTipo: "foto", alvoId: url } });
+    const alvo = { tipo: "foto", id: url } as const;
+
+    const r = await listarAuditoria({ ...sem, alvo });
+    expect(r.itens.map((i) => i.acao)).toEqual(["foto.descarte_iniciado"]);
+    expect(r.itens[0]!.alvo).toEqual({ rotulo: "Foto historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg", href: null });
+    expect(await descreverFiltroDaAuditoria({ pessoa: "", alvo })).toEqual({
+      pessoa: null,
+      alvo: "Foto historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    });
+  });
+
   it("descreve os filtros com o nome da pessoa e do alvo", async () => {
     expect(await descreverFiltroDaAuditoria({ pessoa: moderadora.id, alvo: { tipo: "empresa", id: padaria.id } })).toEqual({
       pessoa: "Marta Moderadora",
