@@ -509,6 +509,12 @@ No cliente, os formulários com `useActionState` usam `enviarSemLimpar` (`src/co
 
 - **Os dados do banco não usam `use cache`,** para estarem sempre atualizados.
 - `usuarioAtual()` usa o `cache` do React: a sessão é lida uma vez por requisição, mesmo que vários componentes perguntem.
+- **Quando algo falha no servidor**, como o banco fora do ar ([#141](https://github.com/fabsreis/Negocio-do-bem/issues/141)), três peças evitam a tela padrão do Next, em inglês:
+  - `src/app/error.tsx` fica no lugar da página, com "Tentar de novo" (o `retry()` do Next), um link para o início e o código do erro (o `digest`, que acha a mensagem nos logs do Vercel). O cabeçalho e o rodapé continuam na tela;
+  - o `error.tsx` não cobre o layout do mesmo nível, e o menu da conta, que lê a sessão no banco, fica no layout. Por isso o `MenuUsuario` vai dentro do `ProtecaoDoMenu` (`catchError` do Next), que mostra o "Entrar" se a leitura falhar;
+  - `src/app/global-error.tsx` é o último recurso, para uma falha no próprio layout. Ele substitui a página inteira e por isso traz o `<html>`, as fontes, o CSS e o script do tema.
+
+  Nenhuma das três consulta o banco. A página com erro continua respondendo com status 200: o erro aparece quando o navegador processa a página.
 
 ### Regras de negócio fora da interface
 
