@@ -77,14 +77,17 @@ describe("denunciarDepoimento", () => {
   });
 
   it("mantém o motivo e a autoria da denúncia que já estava aberta", async () => {
-    const { primeiraPessoa, segundaPessoa, depoimento } = await criarCenario();
+    const { primeiraPessoa, segundaPessoa, empresa, depoimento } = await criarCenario();
     await db.depoimento.update({
       where: { id: depoimento.id },
       data: { denunciado: true, motivoDenuncia: "Primeiro motivo", denunciadoPorId: primeiraPessoa.id },
     });
     autenticar(segundaPessoa);
 
-    await expect(denunciarDepoimento(dadosDaDenuncia(depoimento.id, "Outro motivo"))).rejects.toThrow("redirecionamento:");
+    // A segunda pessoa volta ao perfil com o mesmo aviso, mas nada é gravado.
+    await expect(denunciarDepoimento(dadosDaDenuncia(depoimento.id, "Outro motivo"))).rejects.toThrow(
+      `redirecionamento:/empresas/${empresa.instagramUsername}?aviso=denuncia_enviada#depoimentos`,
+    );
 
     expect(await db.depoimento.findUniqueOrThrow({ where: { id: depoimento.id } })).toMatchObject({
       denunciado: true,
@@ -95,6 +98,8 @@ describe("denunciarDepoimento", () => {
 
   it("não deixa uma leitura concorrente antiga substituir a primeira denúncia", async () => {
     const { primeiraPessoa, segundaPessoa, depoimento } = await criarCenario();
+    // Este teste depende da ordem dentro da ação: ela lê o depoimento ANTES de chamar `exigirUsuario` e grava DEPOIS.
+    // Se o login passar a ser checado antes da leitura, as duas leituras deixam de ser antigas e o teste passa sem provar nada.
     const primeiraLeu = Promise.withResolvers<void>();
     const ambasLeram = Promise.withResolvers<void>();
     const primeiraTerminou = Promise.withResolvers<void>();
