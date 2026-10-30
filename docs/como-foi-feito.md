@@ -364,6 +364,14 @@ No mesmo dia, o site passou dos 100 e-mails por dia do plano grátis do Resend. 
 - **Desligar num lugar só.** `usuarioAtual` devolve `emailConfirmado: true` para toda conta, e as travas, o "Confirme seu e-mail" e a rota do Instagram continuam olhando o mesmo campo. Nada delas saiu do código.
 - **O cadastro não manda o link.** Assim a cota fica para o "Entrar por link" e para os avisos. Quem já recebeu um link ainda pode usá-lo, e `emailConfirmadoEm` continua sendo gravado, então a ficha da moderação mostra quem de fato confirmou.
 
+### 30 de outubro: estabilidade visual e navegação agêntica com WebMCP ([#159](https://github.com/fabsreis/Negocio-do-bem/issues/159))
+
+A auditoria de Navegação Agêntica do PageSpeed Insights apontou Cumulative Layout Shift (CLS de 0.113) na página inicial e oportunidade de descoberta via WebMCP.
+
+- **Estabilidade visual (CLS < 0.02):** a seção `CidadesComMaisNegocios` ficava num `<Suspense>` sem fallback; ao carregar do banco, empurrava a seção seguinte em ~200px. Um esqueleto (`CidadesCarregando`) reserva a grade, e `Numeros` e `NumerosCarregando` tiveram a altura mínima equalizada em `min-h-[21rem]`.
+- **Anotações declarativas WebMCP:** o formulário de busca (`BuscaDiretorio.tsx` e `CampoOnde.tsx`) ganhou atributos `toolname="buscarNegocios"`, `tooldescription` e `toolparamdescription` do padrão WebMCP do Chrome, permitindo que agentes de IA usem a busca como ferramenta nativa.
+- **Catálogo de IA:** `/.well-known/ai-catalog.json` publica o manifesto no padrão Agentic Resource Discovery (ARD 1.0), conectando a busca, o `/llms.txt` e o `sitemap.xml`.
+
 ---
 
 ## 4. Arquitetura

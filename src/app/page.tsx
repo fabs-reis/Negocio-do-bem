@@ -80,7 +80,7 @@ export default function Inicio() {
         </Suspense>
       </section>
 
-      <Suspense>
+      <Suspense fallback={<CidadesCarregando />}>
         <CidadesComMaisNegocios />
       </Suspense>
 
@@ -92,7 +92,7 @@ export default function Inicio() {
 async function Numeros() {
   const resumo = await resumoDoDiretorio();
   return (
-    <div className="flex flex-[1_1_20rem] flex-col justify-between gap-7 rounded-[2rem] bg-tinta p-8 text-papel escuro:bg-superficie escuro:text-tinta escuro:ring-1 escuro:ring-linha">
+    <div className="flex min-h-[21rem] flex-[1_1_20rem] flex-col justify-between gap-7 rounded-[2rem] bg-tinta p-8 text-papel escuro:bg-superficie escuro:text-tinta escuro:ring-1 escuro:ring-linha">
       <div>
         <p className="text-xs font-semibold tracking-[0.08em] text-papel/70 uppercase escuro:text-suave">Já no diretório</p>
         <p className="mt-2.5 font-serif text-8xl leading-[0.92] font-semibold tracking-tight text-coral escuro:text-coral-700">
@@ -121,7 +121,23 @@ function Numero({ valor, rotulo }: { valor: number; rotulo: string }) {
 }
 
 function NumerosCarregando() {
-  return <div className="min-h-72 flex-[1_1_20rem] animate-pulse rounded-[2rem] bg-superficie" aria-busy="true" />;
+  return (
+    <div
+      className="flex min-h-[21rem] flex-[1_1_20rem] flex-col justify-between gap-7 rounded-[2rem] bg-superficie p-8 animate-pulse"
+      aria-busy="true"
+    >
+      <div>
+        <div className="h-4 w-28 rounded-full bg-linha/60" />
+        <div className="mt-3 h-20 w-40 rounded-2xl bg-linha/60" />
+        <div className="mt-3 h-6 w-48 rounded-full bg-linha/60" />
+      </div>
+      <div className="grid grid-cols-3 gap-3 border-t border-linha/60 pt-4">
+        <div className="h-10 rounded-xl bg-linha/60" />
+        <div className="h-10 rounded-xl bg-linha/60" />
+        <div className="h-10 rounded-xl bg-linha/60" />
+      </div>
+    </div>
+  );
 }
 
 async function BuscaComCidades() {
@@ -178,6 +194,22 @@ async function CidadesComMaisNegocios() {
             {cidade.cidade}, {cidade.uf}
             <span className="text-sm text-suave tabular-nums">{cidade.total}</span>
           </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CidadesCarregando() {
+  return (
+    <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-6" aria-busy="true">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="h-9 w-60 animate-pulse rounded-full bg-superficie" />
+        <div className="h-5 w-36 animate-pulse rounded-full bg-superficie" />
+      </div>
+      <div className="mt-5 flex min-h-[5.5rem] flex-wrap gap-2">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div key={i} className="h-10 w-28 animate-pulse rounded-full bg-superficie" />
         ))}
       </div>
     </section>
