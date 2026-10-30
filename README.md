@@ -168,7 +168,7 @@ npm run build
 npm run test:integracao  # Next real em porta local, depois do build
 ```
 
-A integração usa configuração própria. O `npm test` comum não inicia servidores nem coleta cópias em `.nott/`.
+A integração usa configuração própria. O `npm test` comum não inicia servidores nem o build.
 
 Os testes usam um banco separado (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`). Ele é criado na primeira execução e as tabelas são limpas entre os testes. Por segurança, a suíte só roda se o nome do banco tiver "test".
 
