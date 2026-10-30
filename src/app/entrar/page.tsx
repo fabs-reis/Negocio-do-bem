@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Entrar", robots: FORA_DA_BUSCA };
 export default function Entrar(props: PageProps<"/entrar">) {
   return (
     <PaginaConta
-      titulo="Que bom te ver"
+      titulo="Que bom te ver por aqui!"
       subtitulo="Entre para indicar negócios, deixar depoimentos e cuidar do seu perfil."
       searchParams={props.searchParams}
       formulario={(voltar) => <FormEntrar voltar={voltar} />}

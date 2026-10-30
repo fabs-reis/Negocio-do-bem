@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { caminhoSeguro, usuarioAtual } from "@/lib/auth/sessao";
+import { BotoesOAuth } from "@/components/BotoesOAuth";
 
 /** Moldura das páginas de entrar/cadastrar: quem já está logado segue direto. */
 export function PaginaConta({
@@ -36,5 +37,24 @@ async function Conteudo({
 }) {
   const voltar = caminhoSeguro((await searchParams).voltar);
   if (await usuarioAtual()) redirect(voltar);
-  return formulario(voltar);
+  
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Aqui entra o FormEntrar ou FormCadastro nativo */}
+      {formulario(voltar)}
+
+      {/* Divisor Visual */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-gray-200" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-papel px-2 text-suave">Ou continue com</span>
+        </div>
+      </div>
+
+      {/* Seu novo Client Component com os botões sociais */}
+      <BotoesOAuth />
+    </div>
+  );
 }
