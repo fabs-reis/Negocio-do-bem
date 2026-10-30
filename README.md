@@ -50,7 +50,7 @@ npm run db:seed               # dados de exemplo (opcional)
 npm run dev                   # http://localhost:3000
 ```
 
-Sem proxy declarado, o login e o cadastro dividem 10 tentativas a cada 15 minutos no `npm run dev`. Para zerar, apague as linhas da tabela `TentativaAcesso`.
+No `npm run dev`, o login e o cadastro não têm limite por IP, porque não há IP confiável. O limite por e-mail do login (5 tentativas a cada 15 minutos) continua valendo. Para zerá-lo, apague as linhas da tabela `TentativaAcesso`. Se você rodar a versão de produção no seu computador (`npm run build` e `npm start`), o login e o cadastro são recusados, porque em produção sem IP confiável eles não funcionam. Use o `npm run dev`.
 
 O seed cria negócios fictícios e estas contas, todas com a senha `senha-demo-123` e o e-mail já confirmado:
 
@@ -191,7 +191,7 @@ Funciona em qualquer hospedagem de Next.js com um PostgreSQL gerenciado.
 1. Configure as variáveis de `.env.example` no painel da hospedagem. `APP_URL` precisa ser o domínio público. Para as fotos, use a `BLOB_READ_WRITE_TOKEN` de um Vercel Blob: fora do Vercel não há OIDC.
 2. Aplique as migrações no banco de produção com `npm run db:deploy`. Faça isso a cada mudança no `prisma/schema.prisma`.
 3. O `npm install` gera o cliente do Prisma, e o `npm run build` faz o resto.
-4. Diga ao site de onde vem o IP de cada visitante, que o limite de tentativas de login e cadastro usa. Sem isso, o site ignora os cabeçalhos de IP, porque qualquer visitante pode escrevê-los, e todos os visitantes dividem um limite só (10 tentativas a cada 15 minutos). Se há um proxy ou balanceador seu na frente do site, que escreve o `x-forwarded-for` e é o único caminho até o site, defina `AUTENTICACAO_PROXY_CONFIAVEL=1`. O site usa o último valor do `x-forwarded-for`, o que o proxy acrescentou. Se o proxy não é o único caminho, ou se não escreve esse cabeçalho, deixe a variável vazia.
+4. Diga ao site de onde vem o IP de cada visitante, que o limite de tentativas de login e cadastro usa. Sem isso, o site ignora os cabeçalhos de IP, porque qualquer visitante pode escrevê-los, e em produção **o login e o cadastro são recusados**, com a mensagem "Não foi possível entrar agora. Tente de novo mais tarde." e um aviso no log do servidor que cita `AUTENTICACAO_PROXY_CONFIAVEL`. Se há um proxy ou balanceador seu na frente do site, que escreve o `x-forwarded-for` e é o único caminho até o site, defina `AUTENTICACAO_PROXY_CONFIAVEL=1`. O site usa o último valor do `x-forwarded-for`, o que o proxy acrescentou. Se o último valor do `x-forwarded-for` não for um IP, a tentativa é recusada do mesmo jeito. Se o proxy não é o único caminho, ou se não escreve esse cabeçalho, deixe a variável vazia: o login e o cadastro ficam recusados, o que é mais seguro do que confiar num cabeçalho que o visitante escreve.
 5. Cadastre a sua conta no site e dê a moderação a ela: `DATABASE_URL="<conexão de produção>" npm run moderacao -- dar voce@exemplo.com`.
 
 Nunca rode o seed em produção: ele cria contas com senha conhecida e se recusa a rodar quando `NODE_ENV=production` ou, no Vercel, quando `VERCEL_ENV=production`.

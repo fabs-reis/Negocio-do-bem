@@ -35,8 +35,12 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
   }
   const { nome, email, senha } = resultado.data;
 
-  if (!(await tentativaDoIpLiberada(await ipDaRequisicao()))) {
-    return { erro: "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.", valores: valoresDoFormulario(dados) };
+  const ip = await ipDaRequisicao();
+  if (!(await tentativaDoIpLiberada(ip))) {
+    const erro = ip
+      ? "Muitas tentativas seguidas. Espere alguns minutos e tente de novo."
+      : "Não foi possível criar a conta agora. Tente de novo mais tarde.";
+    return { erro, valores: valoresDoFormulario(dados) };
   }
 
   const existente = await db.usuario.findUnique({ where: { email } });
@@ -66,9 +70,10 @@ export async function entrar(_estado: EstadoFormulario, dados: FormData): Promis
   const recusado = { erro: "E-mail ou senha incorretos.", valores: valoresDoFormulario(dados) };
 
   const ip = await ipDaRequisicao();
-  if (!(await tentativaDoIpLiberada(ip)) || (email && !(await reservarTentativaDoEmail(email, ip)))) {
-    return recusado;
+  if (!(await tentativaDoIpLiberada(ip))) {
+    return ip ? recusado : { erro: "Não foi possível entrar agora. Tente de novo mais tarde.", valores: valoresDoFormulario(dados) };
   }
+  if (email && !(await reservarTentativaDoEmail(email, ip))) return recusado;
 
   const usuario = email ? await db.usuario.findUnique({ where: { email } }) : null;
   const senhaConfere = await verificarSenha(senha, usuario?.senhaHash ?? (await (hashFalso ??= gerarHashSenha("senha-que-nao-existe"))));
