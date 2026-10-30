@@ -489,6 +489,95 @@ describe("selo de perfil oficial", () => {
   });
 });
 
+describe("negócio tirado do ar", () => {
+  const dadosDoNegocio = { cnpj: null, site: null, relacao: "Dona", contato: "(81) 99999-0000", mensagem: null };
+
+  /** Negócio que a moderação tirou do ar, com ou sem um dono que assumiu pelos dados. */
+  async function tiradoDoAr(username: string, dono?: { id: string }) {
+    const empresa = await criarEmpresa(username);
+    if (dono) await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dono.id, ...dadosDoNegocio });
+    await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });
+    return empresa;
+  }
+
+  /** Continua fora do ar, sem selo, com o pedido pendente e a anotação para a moderação. */
+  async function esperaAModeracao(empresaId: string, usuarioId: string, donosEsperados: string[]) {
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).toMatchObject({ moderacao: "rejeitada", oficial: false });
+    expect(await donos(empresaId)).toEqual(donosEsperados);
+    const pedido = await db.reivindicacao.findFirstOrThrow({ where: { empresaId, usuarioId, metodo: { not: "documento" } } });
+    expect(pedido.status).toBe("pendente");
+    expect(pedido.notas).toContain("fora do ar");
+    expect(await db.registroAuditoria.count({ where: { alvoId: empresaId, acao: { startsWith: "reivindicacao.aprovada" }, usuarioId: null } })).toBe(
+      donosEsperados.length,
+    );
+  }
+
+  it("a DM certa de quem não é dono fica com a moderação", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.dm");
+    const { codigo } = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+
+    const resultado = await processarDm({ remetenteId: "igsid-pessoa", texto: codigo!, buscarUsername: responde("fora.do.ar.dm") });
+
+    expect(resultado).toBe("em_analise");
+    await esperaAModeracao(empresa.id, pessoa.id, []);
+  });
+
+  it("a DM certa de quem já é dono fica com a moderação", async () => {
+    const dona = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.dm.dono", dona);
+    const { codigo } = await iniciarPorCodigoDm(empresa.id, dona.id);
+
+    const resultado = await processarDm({ remetenteId: "igsid-dona", texto: codigo!, buscarUsername: responde("fora.do.ar.dm.dono") });
+
+    expect(resultado).toBe("em_analise");
+    await esperaAModeracao(empresa.id, dona.id, [dona.id]);
+  });
+
+  it("o login certo de quem não é dono fica com a moderação", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.login");
+
+    const resultado = await processarLoginInstagram({
+      empresaId: empresa.id,
+      usuarioId: pessoa.id,
+      conta: { userId: "id-pessoa", username: "fora.do.ar.login" },
+    });
+
+    expect(resultado).toEqual({ tipo: "em_analise" });
+    await esperaAModeracao(empresa.id, pessoa.id, []);
+  });
+
+  it("o login certo de quem já é dono fica com a moderação", async () => {
+    const dona = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.login.dono", dona);
+
+    const resultado = await processarLoginInstagram({
+      empresaId: empresa.id,
+      usuarioId: dona.id,
+      conta: { userId: "id-dona", username: "fora.do.ar.login.dono" },
+    });
+
+    expect(resultado).toEqual({ tipo: "em_analise" });
+    await esperaAModeracao(empresa.id, dona.id, [dona.id]);
+  });
+
+  it("a aprovação sem moderação não publica de novo; a da moderação publica", async () => {
+    const [pessoa, moderador] = await Promise.all(["Pessoa", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await tiradoDoAr("fora.do.ar.aprovar");
+    const { id } = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+
+    await aprovar({ reivindicacaoId: id, revisorId: null });
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).moderacao).toBe("rejeitada");
+
+    const outra = await criarEmpresa("fora.do.ar.moderacao");
+    await db.empresa.update({ where: { id: outra.id }, data: { moderacao: "rejeitada" } });
+    const pedido = await iniciarPorCodigoDm(outra.id, pessoa.id);
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: outra.id } })).moderacao).toBe("aprovada");
+  });
+});
+
 describe("migração do perfil oficial", () => {
   /** O UPDATE da migração que liga o selo nos negócios que já existiam. */
   function sqlDoPreenchimento(): string {
