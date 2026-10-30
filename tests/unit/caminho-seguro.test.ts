@@ -102,13 +102,16 @@ describe("quem usa o voltar passa por caminhoSeguro", () => {
     expect(fonte).not.toMatch(/redirect\(\s*(?!voltar\b)/);
   });
 
-  it("as ações entrar e cadastrar filtram o voltar antes do redirect", () => {
+  it("as ações de conta só redirecionam para um caminho fixo ou filtrado por caminhoSeguro", () => {
     const fonte = ler("src/acoes/conta.ts");
-    const redirecionamentos = fonte.match(/redirect\([^)]*\)+/g) ?? [];
-    expect(redirecionamentos.length).toBeGreaterThanOrEqual(2);
-    for (const r of redirecionamentos.filter((x) => x.includes("voltar"))) {
-      expect(r).toContain("caminhoSeguro(");
+    // Variáveis que guardam o resultado de caminhoSeguro, como `const voltar = caminhoSeguro(...)`.
+    const filtradas = new Set([...fonte.matchAll(/const (\w+) = caminhoSeguro\(/g)].map((m) => m[1]));
+    const destinos = [...fonte.matchAll(/redirect\(([^;]*)\);/g)].map((m) => m[1]!.trim());
+    expect(destinos.length).toBeGreaterThanOrEqual(2);
+    for (const destino of destinos) {
+      // Um texto fixo só vale se começa com uma barra seguida de outra coisa que não barra nem ${...}.
+      const fixo = /^(["`])\/(?:\1|[^$/\\])/.test(destino);
+      expect(fixo || destino.startsWith("caminhoSeguro(") || filtradas.has(destino), destino).toBe(true);
     }
-    expect(fonte.match(/redirect\(caminhoSeguro\(texto\(dados, "voltar"\)\)\)/g)).toHaveLength(2);
   });
 });
