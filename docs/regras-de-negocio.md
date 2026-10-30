@@ -620,12 +620,12 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
 
 Código: `src/lib/ciclo-fotos.ts`, `src/lib/fotos-historias.ts` e `scripts/limpar-fotos-historias.ts`.
 
-- **O diagnóstico é manual:** `npm run fotos:limpar -- listar`. O comando exige `DATABASE_URL` explícito e não carrega arquivos `.env`. Ele lista somente o inventário de `historias/` do armazenamento atual e não apaga nem registra descarte.
+- **O diagnóstico é manual:** `npm run fotos:limpar -- listar`. O comando exige `DATABASE_URL` explícito e não carrega arquivos `.env`. Ele lista somente o inventário de `historias/` do armazenamento atual e não apaga nem registra descarte. Como só lê, não pega a trava do banco que os salvamentos usam. No começo, o comando mostra qual armazenamento (Vercel Blob ou a pasta local `public/enviados`) e qual banco ele leu. Sem as variáveis do Blob, ele lê a pasta local, e não as fotos de produção. Se uma etapa falha, o comando mostra o motivo.
 - **Aplicar exige seleção explícita:** `npm run fotos:limpar -- descartar URL [URL ...]`. Não existe descarte por idade, fechamento do editor ou agendamento automático.
-- **A exclusão fica bloqueada por padrão**, inclusive para fotos antigas de perfil. `FOTOS_DOMINIO_EXCLUSIVO=confirmado` só pode ser habilitada depois de confirmar todos os bancos e escritores que compartilham o armazenamento. A variável registra essa confirmação operacional, mas não a comprova. Produção, previews e outros bancos podem referenciar a mesma foto. Não habilite a exclusão enquanto isso permanecer desconhecido.
+- **A exclusão fica bloqueada por padrão**, inclusive para fotos antigas de perfil. A variável `FOTOS_DOMINIO_EXCLUSIVO` age em dois lugares: no comando `fotos:limpar` (defina no terminal de quem o roda) e na exclusão da foto de perfil antiga pelo site (defina no Production do Vercel). Antes de habilitar, confira que os deploys antigos de produção não estão mais acessíveis em seus próprios endereços, porque eles salvam histórias sem conferir a marca de descarte. `FOTOS_DOMINIO_EXCLUSIVO=confirmado` só pode ser habilitada depois de confirmar todos os bancos e escritores que compartilham o armazenamento. A variável registra essa confirmação operacional, mas não a comprova. Produção, previews e outros bancos podem referenciar a mesma foto. Não habilite a exclusão enquanto isso permanecer desconhecido.
 - **Referências de qualquer negócio protegem o arquivo**, inclusive histórias ocultas, pendentes ou rejeitadas e fotos atuais de perfil. O mesmo parser Markdown/GFM da exibição encontra imagens, referências e links. Parâmetros e fragmentos não criam outra identidade para o arquivo.
 - **Inventário não é permissão para apagar:** só são administrados nomes gerados pelo site no armazenamento atual. Outro store pode ser aceito para exibição sem ser administrável por esta rotina. Links simbólicos, caminhos ambíguos e arquivos fora do padrão são preservados.
-- **Salvar e autorizar descarte usam a mesma trava no banco.** Antes da exclusão externa, a transação grava `foto.descarte_iniciado`. Esse registro é permanente, inclusive se a resposta do armazenamento falhar. A rotina distingue foto candidata, preservada, descartada, bloqueada e falha.
+- **Salvar e autorizar descarte usam a mesma trava no banco.** Antes da exclusão externa, a transação grava `foto.descarte_iniciado`. Esse registro é permanente, inclusive se a resposta do armazenamento falhar. Salvar uma história que não cita nenhuma foto não pega a trava. A transação do descarte tem limite de tempo próprio (60 s, com 10 s de espera para começar), para a leitura de muitas histórias não estourar o padrão de 5 s. Toda falha ao apagar uma foto vai para o log do servidor, e o comando mostra o resultado "falha". A rotina distingue foto candidata, preservada, descartada, bloqueada e falha.
 - **Uma foto marcada não pode voltar para uma história salva.** O formulário preserva o texto e pede novo envio da imagem. Uma nova execução pode repetir o descarte sem remover a marca.
 - **Nenhuma limpeza real foi habilitada por esta mudança.** Não apague os registros de descarte nem restaure escritores antigos enquanto houver exclusões pendentes ou incertas.
 
@@ -812,8 +812,8 @@ Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quand
 A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 por página:
 
 - cada ação aparece com uma descrição em português (`ACOES_AUDITORIA`, em `src/lib/dominio.ts`) e com o código embaixo;
-- quem fez leva à ficha da conta, e o alvo leva ao negócio, à conta ou ao perfil do depoimento, enquanto ele existir. Alvo apagado aparece como "removido";
-- **filtros:** por ação (a lista mostra quantas vezes cada uma aparece), por quem fez (inclusive "sistema") e por alvo. O link "histórico" de cada linha, o "Histórico" da aba Negócios e o "Tudo o que esta conta fez" da ficha usam esses filtros.
+- quem fez leva à ficha da conta, e o alvo leva ao negócio, à conta ou ao perfil do depoimento, enquanto ele existir. Alvo apagado aparece como "removido". O alvo de tipo foto não tem página: aparece como "Foto" e o nome do arquivo (`historias/…` ou `perfis/…`), e a tela não diz se o arquivo ainda existe;
+- **filtros:** por ação (a lista mostra quantas vezes cada uma aparece), por quem fez (inclusive "sistema") e por alvo (empresa, conta, pedido, depoimento ou foto). O link "histórico" de cada linha, o "Histórico" da aba Negócios e o "Tudo o que esta conta fez" da ficha usam esses filtros.
 
 | Ação registrada | Quando |
 | --- | --- |
@@ -822,7 +822,7 @@ A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 
 | `empresa.editada` | O dono salvou o perfil. |
 | `empresa.foto_trocada` / `empresa.foto_removida` | O dono trocou ou removeu a foto do perfil. |
 | `empresa.foto_do_instagram` | A rotina de fotos colocou a foto do Instagram num negócio sem foto. Os detalhes trazem o @. |
-| `foto.descarte_iniciado` | O arquivo deixou de ter referências e entrou no protocolo de descarte. A identidade fica em `alvoId`. O registro não pode ser removido por retenção genérica da auditoria. |
+| `foto.descarte_iniciado` ("Iniciou o descarte de uma foto sem uso") | O arquivo deixou de ter referências e entrou no protocolo de descarte. A identidade fica em `alvoId`. O registro não pode ser removido por retenção genérica da auditoria. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
@@ -961,5 +961,6 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 **Fotos**
 
 - Fotos da história que saem do texto, ou que foram enviadas e nunca salvas, aguardam o diagnóstico e descarte manual descritos na seção 9. Sem domínio exclusivo confirmado, permanecem no armazenamento.
+- Fotos de perfil trocadas ou removidas, e a que perde a corrida do Instagram, também ficam em `perfis/` enquanto a exclusão estiver bloqueada. O diagnóstico lista só `historias/`, então essas fotos ainda não aparecem nele.
 
 Os [próximos passos do README](../README.md#próximos-passos-sugeridos) listam outras ideias.

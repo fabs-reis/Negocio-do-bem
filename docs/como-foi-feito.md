@@ -470,7 +470,9 @@ O comando manual `npm run fotos:limpar` usa diagnóstico por padrão. Para um de
 
 A coordenação só é válida quando todos os escritores e bancos que referenciam o armazenamento são conhecidos. `FOTOS_DOMINIO_EXCLUSIVO` permanece desabilitada por padrão. Essa barreira também preserva fotos antigas de perfil. Não habilite exclusões reais sem confirmar a topologia, especialmente quando previews compartilham fotos. A rotina local e os testes não demonstram essa configuração de produção.
 
-Para interromper a limpeza, deixe a variável desabilitada. Nunca remova os registros de descarte ou reative escritores antigos enquanto houver exclusões pendentes. O comando não carrega `.env`, exige a conexão explícita e mostra cada resultado, sem tratar uma falha como sucesso.
+Para interromper a limpeza, deixe a variável desabilitada. Nunca remova os registros de descarte ou reative escritores antigos enquanto houver exclusões pendentes. O comando não carrega `.env`, exige a conexão explícita e mostra cada resultado, sem tratar uma falha como sucesso. Ele diz no início qual armazenamento e qual banco leu, e, quando falha, imprime o motivo.
+
+O diagnóstico não pega a trava, porque só lê. O salvamento interpreta o texto antes de pedir a trava e só a pede quando há foto nele. A transação do descarte tem `maxWait` e `timeout` explícitos, pois o padrão de 5 s do Prisma conta a espera pela trava e não serve para ler todas as histórias. A falha ao apagar uma foto vai para `console.error`, também na foto de perfil, e o resultado volta como "falha".
 
 ### Interface
 

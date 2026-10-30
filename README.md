@@ -164,14 +164,15 @@ Funciona em qualquer hospedagem de Next.js com um PostgreSQL gerenciado.
    - Crie o Blob pelo Storage da conta, e não pelo do projeto: criado dentro do projeto, ele já se conecta a Production e Preview.
    - O site não precisa da `BLOB_READ_WRITE_TOKEN`. Se o painel recomendar revogar o token (na página **Projects** do Blob), faça um redeploy e revogue.
 5. Crie um **segundo Blob** público, só para os previews, e conecte do mesmo jeito, só no ambiente **Preview**. Assim, o código de um PR nunca grava nem apaga as fotos de produção.
-6. Opcional: em **Environment Variables**, só para **Production**, configure `NEXT_PUBLIC_GA_ID` com o ID de medição do Google Analytics (`G-…`). Sem ela, o Analytics não carrega.
+6. Fotos sem referência: por padrão, o site não apaga nenhuma foto antiga de perfil e o comando `npm run fotos:limpar` só faz diagnóstico. Para liberar a exclusão, configure `FOTOS_DOMINIO_EXCLUSIVO=confirmado`, e só depois de conferir que nenhum outro banco, preview ou deploy antigo de produção usa o mesmo Blob. A variável age em dois lugares: no **Production** do Vercel (apagar a foto de perfil trocada ou removida) e no terminal de quem roda o comando, com a conexão do banco de produção e o `BLOB_READ_WRITE_TOKEN`. Sem o token, o comando lê só a pasta local `public/enviados` e avisa isso no início. As regras estão em [Fotos abandonadas e descarte](docs/regras-de-negocio.md#fotos-abandonadas-e-descarte).
+7. Opcional: em **Environment Variables**, só para **Production**, configure `NEXT_PUBLIC_GA_ID` com o ID de medição do Google Analytics (`G-…`). Sem ela, o Analytics não carrega.
    - Para o Google Search Console e o Bing Webmaster Tools, configure também `GOOGLE_SITE_VERIFICATION` e `BING_SITE_VERIFICATION`, e depois envie o `sitemap.xml` nos dois painéis. O passo a passo está em [Como o projeto foi feito](docs/como-foi-feito.md#cadastrar-o-site-no-google-e-no-bing).
-7. A cada deploy, de produção ou de preview, o `scripts/vercel-build.sh` aplica as migrações pendentes no banco daquele ambiente antes do build. Nos previews, ele também roda o seed, que só preenche um banco vazio.
-8. Depois do primeiro deploy, cadastre a sua conta no site e dê a moderação a ela com a conexão direta do banco de produção: `DATABASE_URL="postgresql://..." npm run moderacao -- dar voce@exemplo.com`.
+8. A cada deploy, de produção ou de preview, o `scripts/vercel-build.sh` aplica as migrações pendentes no banco daquele ambiente antes do build. Nos previews, ele também roda o seed, que só preenche um banco vazio.
+9. Depois do primeiro deploy, cadastre a sua conta no site e dê a moderação a ela com a conexão direta do banco de produção: `DATABASE_URL="postgresql://..." npm run moderacao -- dar voce@exemplo.com`.
 
 **Em outra hospedagem**
 
-1. Configure as variáveis de `.env.example` no painel da hospedagem. `APP_URL` precisa ser o domínio público. Para as fotos, use a `BLOB_READ_WRITE_TOKEN` de um Vercel Blob: fora do Vercel não há OIDC.
+1. Configure as variáveis de `.env.example` no painel da hospedagem. `APP_URL` precisa ser o domínio público. Para liberar a exclusão de fotos sem referência, veja o passo 6 do Vercel: a `FOTOS_DOMINIO_EXCLUSIVO` vale para o servidor do site e para o terminal de quem roda `npm run fotos:limpar`. Para as fotos, use a `BLOB_READ_WRITE_TOKEN` de um Vercel Blob: fora do Vercel não há OIDC.
 2. Aplique as migrações no banco de produção com `npm run db:deploy`. Faça isso a cada mudança no `prisma/schema.prisma`.
 3. O `npm install` gera o cliente do Prisma, e o `npm run build` faz o resto.
 4. Cadastre a sua conta no site e dê a moderação a ela: `DATABASE_URL="<conexão de produção>" npm run moderacao -- dar voce@exemplo.com`.
