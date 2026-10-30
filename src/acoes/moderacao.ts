@@ -6,6 +6,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
+import { decidirDenunciaDoDepoimento, moderarNegocio, situacaoDaModeracao } from "@/lib/moderacao/decisoes";
 import { comAviso, destinoNaModeracao } from "@/lib/moderacao/filtros";
 import { avisarDecisaoDaReivindicacao } from "@/lib/notificacoes";
 import { aprovar, aprovarPendentesSemDono, ErroReivindicacao, recusar, type ModoAprovacao } from "@/lib/reivindicacao";
@@ -80,34 +81,20 @@ export async function moderarEmpresa(dados: FormData): Promise<void> {
   const moderador = await exigirModerador();
   const decisao = dados.get("decisao") === "aprovar" ? "aprovada" : "rejeitada";
   const aba = dados.get("aba") === "negocios" ? "negocios" : "indicacoes";
-  const empresa = await db.empresa.update({
-    where: { id: texto(dados, "empresaId") },
-    data: { moderacao: decisao },
-  });
-  await registrarAuditoria(db, {
-    usuarioId: moderador.id,
-    acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",
-    alvoTipo: "empresa",
-    alvoId: empresa.id,
-    detalhes: `@${empresa.instagramUsername}`,
-  });
+  const de = situacaoDaModeracao(dados.get("de")) ?? "pendente";
+  const aplicada = await moderarNegocio({ empresaId: texto(dados, "empresaId"), de, decisao, moderadorId: moderador.id });
+  const aviso = aplicada ? "feito" : "ja_decidido";
   const destino = destinoNaModeracao(dados.get("voltar"));
-  if (destino) redirect(comAviso(destino, "feito"));
-  voltar(aba, "feito");
+  if (destino) redirect(comAviso(destino, aviso));
+  voltar(aba, aviso);
 }
 
 export async function decidirDenuncia(dados: FormData): Promise<void> {
   const moderador = await exigirModerador();
-  const remover = dados.get("decisao") === "remover";
-  const depoimento = await db.depoimento.update({
-    where: { id: texto(dados, "depoimentoId") },
-    data: remover ? { status: "removido", denunciado: false } : { denunciado: false, motivoDenuncia: null, denunciadoPorId: null },
+  const aplicada = await decidirDenunciaDoDepoimento({
+    depoimentoId: texto(dados, "depoimentoId"),
+    remover: dados.get("decisao") === "remover",
+    moderadorId: moderador.id,
   });
-  await registrarAuditoria(db, {
-    usuarioId: moderador.id,
-    acao: remover ? "depoimento.removido" : "depoimento.mantido",
-    alvoTipo: "depoimento",
-    alvoId: depoimento.id,
-  });
-  voltar("denuncias", "feito");
+  voltar("denuncias", aplicada ? "feito" : "ja_decidido");
 }
