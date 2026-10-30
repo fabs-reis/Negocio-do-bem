@@ -1,5 +1,5 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { db } from "@/lib/db";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { db, type Prisma } from "@/lib/db";
 import {
   aprovar,
   aprovarPendentesSemDono,
@@ -226,6 +226,124 @@ describe("Entrar com Instagram", () => {
     expect((await db.empresa.findUniqueOrThrow({ where: { id: novo.id } })).instagramUserId).toBe("id-123");
     expect((await db.empresa.findUniqueOrThrow({ where: { id: antigo.id } })).instagramUserId).toBeNull();
   });
+});
+
+describe("renovação durante aprovação com troca do ID do Instagram", () => {
+  function sinal() {
+    let liberar!: () => void;
+    const promessa = new Promise<void>((resolve) => { liberar = resolve; });
+    return { promessa, liberar };
+  }
+
+  it.each(["instagram_login", "codigo_dm"] as const)("renova %s sem deadlock na mesma empresa", async (metodo) => {
+    const pessoa = await criarUsuario();
+    const moderador = await criarUsuario("Moderação");
+    const empresa = await criarEmpresa("renovacao", { instagramUserId: "id-anterior" });
+    const antigo = await db.reivindicacao.create({
+      data: {
+        empresaId: empresa.id, usuarioId: pessoa.id, metodo,
+        instagramUserId: metodo === "instagram_login" ? "id-aprovado" : null,
+        expiraEm: new Date(Date.now() - 60_000),
+      },
+    });
+    // Na DM, a aprovação de outro pedido cancela o código vencido da mesma pessoa.
+    const paraAprovar = metodo === "instagram_login" ? antigo : await db.reivindicacao.create({
+      data: {
+        empresaId: empresa.id, usuarioId: pessoa.id, metodo: "instagram_login",
+        instagramUserId: "id-aprovado", expiraEm: new Date(Date.now() + 60_000),
+      },
+    });
+    const pedidoLido = sinal();
+    const continuarAprovacao = sinal();
+    const renovacaoPronta = sinal();
+    const continuarRenovacao = sinal();
+    const empresaAlterada = sinal();
+    const concluirAprovacao = sinal();
+    let numero = 0;
+    let pidAprovacao = 0;
+    let pidRenovacao = 0;
+    let alterouPedido = false;
+
+    // As operações SQL são reais. As pausas fixam a ordem sem depender de atrasos.
+    const cliente = db.$extends({ query: {
+      reivindicacao: {
+        async findUnique({ args, query }) {
+          const pedido = await query(args);
+          pedidoLido.liberar();
+          await continuarAprovacao.promessa;
+          return pedido;
+        },
+        async updateMany({ args, query }) {
+          const resultado = await query(args);
+          if (args.where?.metodo === metodo) alterouPedido = resultado.count > 0;
+          return resultado;
+        },
+      },
+      empresa: {
+        async update({ args, query }) {
+          const atualizada = await query(args);
+          empresaAlterada.liberar();
+          await concluirAprovacao.promessa;
+          return atualizada;
+        },
+      },
+    } });
+    const transacionar = cliente.$transaction.bind(cliente);
+    vi.spyOn(db, "$transaction").mockImplementation(async (operacao, opcoes) => transacionar(async (tx) => {
+      const [{ pid }] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+      if (++numero === 1) {
+        pidAprovacao = pid;
+      } else {
+        pidRenovacao = pid;
+        renovacaoPronta.liberar();
+        await continuarRenovacao.promessa;
+      }
+      // A extensão só pausa consultas. Ela não muda modelos nem resultados.
+      return operacao(tx as unknown as Prisma.TransactionClient);
+    }, { ...opcoes, timeout: 12_000 }));
+
+    const resultados: Promise<PromiseSettledResult<unknown>[]>[] = [];
+    try {
+      resultados.push(Promise.allSettled([aprovar({ reivindicacaoId: paraAprovar.id, revisorId: moderador.id })]));
+      await pedidoLido.promessa;
+      resultados.push(Promise.allSettled([metodo === "instagram_login"
+        ? processarLoginInstagram({ empresaId: empresa.id, usuarioId: pessoa.id,
+          conta: { userId: "id-renovado", username: empresa.instagramUsername } })
+        : iniciarPorCodigoDm(empresa.id, pessoa.id)]));
+      await renovacaoPronta.promessa;
+      continuarAprovacao.liberar();
+      await empresaAlterada.promessa;
+      continuarRenovacao.liberar();
+
+      // A aprovação segura Empresa. A renovação deve esperar nela, não segurar o pedido antigo.
+      await expect.poll(async () => {
+        const [{ bloqueadores }] = await db.$queryRaw<{ bloqueadores: number[] }[]>`
+          SELECT pg_blocking_pids(${pidRenovacao}::int) AS bloqueadores`;
+        return bloqueadores;
+      }).toContain(pidAprovacao);
+      console.info(`${metodo}: renovação bloqueada pela aprovação, pedido antigo alterado: ${alterouPedido}`);
+      concluirAprovacao.liberar();
+      const concluidos = (await Promise.all(resultados)).flat();
+      expect(concluidos).toEqual([
+        { status: "fulfilled", value: undefined },
+        { status: "fulfilled", value: metodo === "instagram_login" ? { tipo: "em_analise" } : expect.objectContaining({ metodo: "codigo_dm" }) },
+      ]);
+      expect(alterouPedido).toBe(false);
+      expect(await donos(empresa.id)).toEqual([pessoa.id]);
+      expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).instagramUserId).toBe("id-aprovado");
+      expect((await db.reivindicacao.findUniqueOrThrow({ where: { id: antigo.id } })).status)
+        .toBe(metodo === "instagram_login" ? "aprovada" : "cancelada");
+      expect(await db.reivindicacao.count({ where: { empresaId: empresa.id, metodo, status: "pendente" } })).toBe(1);
+      expect(await db.reivindicacao.count({ where: { usuarioId: pessoa.id } })).toBe(metodo === "instagram_login" ? 2 : 3);
+      expect(await db.registroAuditoria.count({ where: { alvoId: empresa.id, acao: "reivindicacao.aprovada" } })).toBe(1);
+    } finally {
+      continuarAprovacao.liberar();
+      continuarRenovacao.liberar();
+      concluirAprovacao.liberar();
+      await Promise.all(resultados);
+      vi.restoreAllMocks();
+    }
+  }, 15_000);
 });
 
 describe("documento e moderação", () => {

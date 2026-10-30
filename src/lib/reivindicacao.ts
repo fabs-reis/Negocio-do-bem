@@ -53,11 +53,15 @@ async function exigirQueNaoSejaDono(empresaId: string, usuarioId: string) {
  * A trava é FOR NO KEY UPDATE (e não FOR UPDATE) de propósito: o banco pede
  * FOR KEY SHARE na linha da pessoa a cada linha que aponta para ela, como o
  * `aprovar` faz ao criar o dono. Essa trava não conflita com a nossa, então
- * `aprovar` nunca espera por um pedido em andamento da mesma pessoa e os dois
- * não formam um deadlock quando `aprovar` bloquear a empresa.
+ * a aprovação não espera pela trava da cota enquanto segura a empresa.
  */
 async function bloquearPessoa(tx: Prisma.TransactionClient, usuarioId: string) {
   await tx.$queryRaw`SELECT id FROM "Usuario" WHERE id = ${usuarioId} FOR NO KEY UPDATE`;
+}
+
+// Antecipa a trava da chave estrangeira: empresa antes de pedidos, como em aprovar.
+async function bloquearEmpresa(tx: Prisma.TransactionClient, empresaId: string) {
+  await tx.$queryRaw`SELECT id FROM "Empresa" WHERE id = ${empresaId} FOR KEY SHARE`;
 }
 
 /** Só vale depois de `bloquearPessoa`, na mesma transação que cria o pedido. */
@@ -90,6 +94,7 @@ export async function iniciarPorCodigoDm(empresaId: string, usuarioId: string) {
         if (vigente) return vigente;
 
         await exigirLimiteDiario(tx, usuarioId);
+        await bloquearEmpresa(tx, empresaId);
         await tx.reivindicacao.updateMany({
           where: { empresaId, usuarioId, metodo: "codigo_dm", status: "pendente", expiraEm: { lte: new Date() } },
           data: { status: "expirada" },
@@ -199,6 +204,7 @@ export async function processarLoginInstagram(params: {
   const reivindicacao = await db.$transaction(async (tx) => {
     await bloquearPessoa(tx, usuarioId);
     await exigirLimiteDiario(tx, usuarioId);
+    await bloquearEmpresa(tx, empresaId);
     // Tentativas anteriores pelo mesmo caminho ficam obsoletas.
     await tx.reivindicacao.updateMany({
       where: { empresaId, usuarioId, metodo: "instagram_login", status: "pendente" },
