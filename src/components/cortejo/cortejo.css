@@ -1,0 +1,521 @@
+/*
+ * O cortejo: as figuras, os ciclos (ciclos.css), as quatro técnicas e o palco.
+ * Tudo fica dentro de .figura ou .cortejo, para não vazar para o resto da página.
+ * As cores usam os tokens do tema com o valor do plano como reserva.
+ */
+
+/* ------------------------------------------------------------------ figuras: pintura (padrão) */
+
+.figura {
+  overflow: visible;
+  --tinta-do-palco: var(--color-tinta, #1e1a16);
+  --volume-cor: #3b2140;
+  --volume-forca: 0.5;
+  --brilho-cor: #fff7e8;
+  --brilho-forca: 0.5;
+  --longe-cor: #261a2e;
+  --longe-forca: 0.18;
+  --chao-cor: var(--color-tinta, #1e1a16);
+  --chao-forca: 0.13;
+}
+
+.figura .t-pele { fill: var(--pele); }
+.figura .t-cabelo { fill: var(--cabelo); }
+.figura .t-roupa { fill: var(--roupa); }
+.figura .t-roupa-2 { fill: var(--roupa-2); }
+.figura .t-acessorio { fill: var(--acessorio); }
+.figura .t-acessorio-2 { fill: var(--acessorio-2); }
+.figura .t-sapato { fill: var(--sapato); }
+.figura .t-objeto { fill: var(--objeto); }
+.figura .t-placa { fill: var(--placa); }
+.figura .t-letra { fill: var(--letra); }
+.figura .t-traco { fill: var(--traco); }
+
+.figura .t-linha {
+  fill: none;
+  stroke: var(--traco);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.figura .t-volume {
+  mix-blend-mode: multiply;
+  opacity: var(--volume-forca);
+}
+.figura .e-volume { stop-color: var(--volume-cor); }
+
+.figura .t-longe {
+  fill: var(--longe-cor);
+  opacity: var(--longe-forca);
+  mix-blend-mode: multiply;
+}
+
+.figura .t-brilho {
+  opacity: var(--brilho-forca);
+}
+.figura .e-brilho { stop-color: var(--brilho-cor); }
+
+.figura .t-chao {
+  fill: var(--chao-cor);
+  opacity: var(--chao-forca);
+}
+
+.figura .t-placa-fibra {
+  fill: none;
+  stroke: #b8925a;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  opacity: 0.45;
+}
+
+.cortejo-letra {
+  font-family: var(--font-display, "Nimbus Sans Narrow", "Arial Narrow", "Roboto Condensed", sans-serif);
+  font-weight: 800;
+  font-stretch: 75%;
+  font-variation-settings: "wdth" 75;
+}
+
+/* ------------------------------------------------------------------ ciclos: ligação das classes do rig */
+
+/*
+ * Toda peça do rig anda pelo mesmo relógio da figura. Parada por padrão (sem JavaScript, com
+ * movimento reduzido, fora da tela): fica no quadro de --fase, uma pose de passo no meio do ciclo.
+ * O palco põe data-estado="rodando" para andar.
+ */
+.figura [class^="r-"] {
+  animation-duration: var(--ciclo);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: calc(var(--fase, 0s) + var(--atraso, 0s));
+  animation-play-state: paused;
+}
+
+.rig-bipede { --ciclo: var(--ciclo-da-vaga, 1.2s); }
+.rig-bipede .r-corpo { animation-name: passo-corpo; }
+.rig-bipede .r-perna-frente { animation-name: passo-coxa; }
+.rig-bipede .r-canela-frente { animation-name: passo-joelho; }
+.rig-bipede .r-pe-frente { animation-name: passo-tornozelo; }
+.rig-bipede .r-perna-tras { animation-name: passo-coxa; --atraso: calc(var(--ciclo) / -2); }
+.rig-bipede .r-canela-tras { animation-name: passo-joelho; --atraso: calc(var(--ciclo) / -2); }
+.rig-bipede .r-pe-tras { animation-name: passo-tornozelo; --atraso: calc(var(--ciclo) / -2); }
+.rig-bipede .r-braco-tras { animation-name: passo-braco; }
+.rig-bipede .r-antebraco-tras { animation-name: passo-cotovelo; }
+.rig-bipede .r-braco-frente { animation-name: passo-segura; }
+.rig-bipede .r-placa { animation-name: passo-placa; }
+.rig-bipede .r-cabeca { animation-name: passo-cabeca; }
+
+.rig-cadeira { --ciclo: var(--ciclo-da-vaga, 1.6s); }
+.rig-cadeira .r-corpo { animation-name: empurra-corpo; }
+.rig-cadeira .r-braco-tras { animation-name: empurra-braco-tras; --atraso: -0.04s; }
+.rig-cadeira .r-antebraco-tras { animation-name: empurra-antebraco; --atraso: -0.04s; }
+.rig-cadeira .r-braco-frente { animation-name: empurra-braco-frente; }
+.rig-cadeira .r-antebraco-frente { animation-name: empurra-antebraco; }
+.rig-cadeira .r-cabeca { animation-name: empurra-cabeca; }
+.rig-cadeira .r-placa { animation-name: empurra-placa; }
+.rig-cadeira .r-roda-tras { animation-name: empurra-roda; }
+.rig-cadeira .r-roda-frente { animation-name: empurra-rodizio; }
+
+.rig-quadrupede { --ciclo: var(--ciclo-da-vaga, 0.6s); }
+.rig-quadrupede .r-corpo { animation-name: trote-corpo; }
+.rig-quadrupede .r-pata-1 { animation-name: trote-frente; }
+.rig-quadrupede .r-pata-1-baixo { animation-name: trote-frente-baixo; }
+.rig-quadrupede .r-pata-2 { animation-name: trote-frente; --atraso: calc(var(--ciclo) / -2); }
+.rig-quadrupede .r-pata-2-baixo { animation-name: trote-frente-baixo; --atraso: calc(var(--ciclo) / -2); }
+.rig-quadrupede .r-pata-3 { animation-name: trote-tras; --atraso: calc(var(--ciclo) / -2); }
+.rig-quadrupede .r-pata-3-baixo { animation-name: trote-tras-baixo; --atraso: calc(var(--ciclo) / -2); }
+.rig-quadrupede .r-pata-4 { animation-name: trote-tras; }
+.rig-quadrupede .r-pata-4-baixo { animation-name: trote-tras-baixo; }
+.rig-quadrupede .r-rabo { animation-name: trote-rabo; }
+.rig-quadrupede .r-cabeca { animation-name: trote-cabeca; }
+
+.cortejo[data-estado="rodando"] .figura [class^="r-"] {
+  animation-play-state: running;
+}
+
+/* Passar o mouse ou focar uma pessoa para só ela. */
+.cortejo[data-estado="rodando"] .cortejo-pessoa:is(:hover, :focus-visible) .figura [class^="r-"] {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cortejo .figura [class^="r-"],
+  .figura [class^="r-"] {
+    animation-play-state: paused !important;
+  }
+}
+
+/*
+ * Textura: a Forma desenha uma cópia de cada forma (t-grao), pintada com um padrão do palco.
+ * Sem filtro SVG: um filtro sobre figuras que andam custa um quadro inteiro por quadro.
+ */
+.figura .t-grao { fill: none; pointer-events: none; }
+.cortejo:is(.pintura, .barro) .figura .t-grao { fill: var(--textura-grao); }
+.cortejo.xilogravura .figura .t-grao { fill: var(--textura-falhas); }
+
+/* ------------------------------------------------------------------ técnicas de uma tinta só */
+
+/* Cada papel pinta com o seu tom (--x-tom) e ganha contorno (--x-contorno). */
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura {
+  --contorno-largura: 2;
+}
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura :is(
+  .t-pele, .t-cabelo, .t-roupa, .t-roupa-2, .t-acessorio, .t-acessorio-2, .t-sapato, .t-objeto, .t-placa
+) {
+  stroke-width: var(--contorno-largura);
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-pele { fill: var(--pele-tom); stroke: var(--pele-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-cabelo { fill: var(--cabelo-tom); stroke: var(--cabelo-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-roupa { fill: var(--roupa-tom); stroke: var(--roupa-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-roupa-2 { fill: var(--roupa-2-tom); stroke: var(--roupa-2-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-acessorio { fill: var(--acessorio-tom); stroke: var(--acessorio-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-acessorio-2 { fill: var(--acessorio-2-tom); stroke: var(--acessorio-2-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-sapato { fill: var(--sapato-tom); stroke: var(--sapato-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-objeto { fill: var(--objeto-tom); stroke: var(--objeto-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-placa { fill: var(--placa-tom); stroke: var(--placa-contorno); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-traco { fill: var(--traco-solido); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-linha { stroke: var(--traco-solido); }
+.cortejo:is(.xilogravura, .barro, .azulejo) .figura .t-letra { fill: var(--letra-da-tecnica); }
+.cortejo:not(.pintura) .figura .t-so-pintura { display: none; }
+.figura .t-placa-leitura { display: none; }
+.cortejo:is(.xilogravura, .barro) .figura .t-placa-leitura { display: block; fill: var(--placa-leitura-fundo); }
+
+/*
+ * Xilogravura: preto de madeira entalhada sobre papel de cordel, e o vermelho como segunda tinta.
+ * O escuro é madeira (preto com veios), o médio é hachura, o claro é o papel.
+ * Contorno branco nas partes pretas: o corte que separa uma peça da outra.
+ */
+.cortejo.xilogravura .figura {
+  --tom-escuro: var(--xilo-madeira, #1e1a16);
+  --tom-medio: var(--xilo-hachura, #6d655c);
+  --tom-claro: #f7efdf;
+  --contorno-escuro: #f7efdf;
+  --contorno-medio: #1e1a16;
+  --contorno-claro: #1e1a16;
+  --contorno-largura: 2.6;
+  --solido-escuro: #1e1a16;
+  --solido-medio: #1e1a16;
+  --solido-claro: #f7efdf;
+  --letra-da-tecnica: #b23a22;
+  --placa-leitura-fundo: #f7efdf;
+  --chao-cor: #1e1a16;
+  --chao-forca: 0.9;
+}
+/* Na gravura o volume vem do tom (preto, hachura, papel), não de degradê. */
+.cortejo.xilogravura .figura .t-volume { display: none; }
+.cortejo.xilogravura .figura .t-brilho {
+  fill: var(--xilo-entalhe);
+  opacity: 1;
+}
+.cortejo.xilogravura .figura .t-longe {
+  fill: var(--xilo-sombra);
+  mix-blend-mode: normal;
+  opacity: 1;
+}
+.cortejo.xilogravura .figura .t-chao {
+  fill: var(--xilo-sombra);
+}
+.cortejo.xilogravura .figura .t-placa-fibra { stroke: #1e1a16; opacity: 0.5; }
+
+/* Barro: terracota de uma cor só, com a luz de uma peça modelada. */
+.cortejo.barro .figura {
+  --tom-escuro: #7c3519;
+  --tom-medio: #ae5631;
+  --tom-claro: #d68a5f;
+  --contorno-escuro: #5a210c;
+  --contorno-medio: #6d2b12;
+  --contorno-claro: #9b4624;
+  --contorno-largura: 1.2;
+  --solido-escuro: #4d1b09;
+  --solido-medio: #5a210c;
+  --solido-claro: #f3b98f;
+  --letra-da-tecnica: #5a210c;
+  --placa-leitura-fundo: #edb98c;
+  --volume-cor: #561d08;
+  --volume-forca: 0.62;
+  --brilho-cor: #ffe0c2;
+  --brilho-forca: 0.6;
+  --longe-cor: #2a0b02;
+  --longe-forca: 0.24;
+  --chao-cor: #5a210c;
+  --chao-forca: 0.28;
+}
+.cortejo.barro .figura .t-placa-fibra { stroke: #7c3519; opacity: 0.55; }
+/* Mistura normal no barro e no azulejo: multiply custa caro e, numa tinta só, dá quase o mesmo tom. */
+.cortejo:is(.barro, .azulejo) .figura :is(.t-volume, .t-longe) { mix-blend-mode: normal; }
+
+/* Azulejo: azul cobalto sobre branco esmaltado, com contorno e aguada. */
+.cortejo.azulejo .figura {
+  --tom-escuro: #1f3f95;
+  --tom-medio: #8fa9dd;
+  --tom-claro: #fbfbf7;
+  --contorno-escuro: #1f3f95;
+  --contorno-medio: #1f3f95;
+  --contorno-claro: #1f3f95;
+  --contorno-largura: 2.2;
+  --solido-escuro: #1f3f95;
+  --solido-medio: #1f3f95;
+  --solido-claro: #fbfbf7;
+  --letra-da-tecnica: #1f3f95;
+  --volume-cor: #1f3f95;
+  --volume-forca: 0.42;
+  --brilho-forca: 0;
+  --longe-cor: #1f3f95;
+  --longe-forca: 0.16;
+  --chao-cor: #1f3f95;
+  --chao-forca: 0.18;
+}
+.cortejo.azulejo .figura .t-placa-fibra { stroke: #1f3f95; opacity: 0.35; }
+
+/* ------------------------------------------------------------------ palco */
+
+.cortejo-texturas {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.cortejo {
+  --c-tinta: var(--color-tinta, #1e1a16);
+  --c-papel: var(--color-papel, #f7f0e3);
+  --c-superficie: var(--color-superficie, #fffaf2);
+  --c-suave: var(--color-suave, #5e564c);
+  --c-linha: var(--color-linha, #e6dccb);
+  --palco-topo: 2.25rem;
+  position: relative;
+  isolation: isolate;
+  /* Nada do palco empurra a página para o lado; o anel de foco ainda aparece inteiro. */
+  overflow-x: clip;
+  overflow-clip-margin: 0.75rem;
+  container-type: inline-size;
+}
+
+.cortejo-palco {
+  position: relative;
+  padding-top: var(--palco-topo);
+}
+
+.cortejo-fila {
+  /* Altura das figuras: até --cortejo-altura, e menos quando o palco é estreito, para os cinco caberem. */
+  --h: min(var(--cortejo-altura, 340px), calc(100cqw * 400 / 1000));
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-evenly;
+  max-width: calc(var(--h) * 3.4);
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.cortejo-vaga {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+/* As caixas das figuras têm margem vazia dos lados: os vizinhos encostam sem cobrir a placa. */
+.cortejo-vaga + .cortejo-vaga {
+  margin-left: calc(var(--h) * -0.08);
+}
+
+.cortejo-fila .figura {
+  display: block;
+  height: var(--h);
+  width: auto;
+}
+
+.cortejo-pessoa {
+  position: relative;
+  display: block;
+  border-radius: 1.5rem;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cortejo-pessoa .figura {
+  pointer-events: none;
+}
+.cortejo-pessoa .figura :is(path, ellipse, circle, rect, text) {
+  pointer-events: visiblePainted;
+}
+.cortejo-pessoa .figura .t-chao {
+  pointer-events: none;
+}
+.cortejo-pessoa:focus-visible {
+  outline: 3px solid var(--c-tinta);
+  outline-offset: 4px;
+}
+
+.cortejo-cachorro {
+  margin-left: calc(var(--h) * -0.24);
+  pointer-events: none;
+}
+
+/* A etiqueta: categoria e contagem, numa pílula inclinada, ao passar o mouse ou focar. */
+.cortejo-etiqueta {
+  position: absolute;
+  bottom: calc(100% - 1.4rem);
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  gap: 0.05rem;
+  width: max-content;
+  max-width: 11rem;
+  padding: 0.45rem 0.85rem 0.5rem;
+  border-radius: 999px;
+  background: var(--c-tinta);
+  color: var(--c-papel);
+  font-size: 0.8125rem;
+  line-height: 1.15;
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, 0.4rem) rotate(-4deg);
+  transition:
+    opacity 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.cortejo-etiqueta-rotulo { font-weight: 700; }
+.cortejo-etiqueta-total { opacity: 0.8; font-variant-numeric: tabular-nums; }
+.cortejo-vaga:first-child .cortejo-etiqueta {
+  left: 0;
+  transform: translate(0, 0.4rem) rotate(-4deg);
+}
+.cortejo-vaga:last-child .cortejo-etiqueta {
+  left: auto;
+  right: 0;
+  transform: translate(0, 0.4rem) rotate(3deg);
+}
+.cortejo-pessoa:is(:hover, :focus-visible) .cortejo-etiqueta {
+  opacity: 1;
+  transform: translate(-50%, 0) rotate(-4deg);
+}
+.cortejo-vaga:first-child .cortejo-pessoa:is(:hover, :focus-visible) .cortejo-etiqueta {
+  transform: translate(0, 0) rotate(-4deg);
+}
+.cortejo-vaga:last-child .cortejo-pessoa:is(:hover, :focus-visible) .cortejo-etiqueta {
+  transform: translate(0, 0) rotate(3deg);
+}
+
+/* ------------------------------------------------------------------ fundos e texturas das técnicas */
+
+.cortejo-camada {
+  position: absolute;
+  inset: var(--palco-topo) 0 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Painel de azulejos atrás das figuras, e o rejunte que passa por cima delas. */
+.cortejo-azulejos,
+.cortejo-rejunte {
+  --azulejo: calc(min(var(--cortejo-altura, 340px), calc(100cqw * 400 / 1000)) / 5.2);
+  background-size: var(--azulejo) var(--azulejo);
+  background-position: center bottom;
+}
+.cortejo-azulejos {
+  z-index: 0;
+  background-color: #fbfbf7;
+  background-image:
+    linear-gradient(to right, #d5dbe6 1px, transparent 1px),
+    linear-gradient(to bottom, #d5dbe6 1px, transparent 1px),
+    radial-gradient(circle at 0 0, #c9d4ec 0 6%, transparent 7%),
+    radial-gradient(circle at 100% 100%, #c9d4ec 0 6%, transparent 7%);
+  box-shadow:
+    inset 0 3px 0 #1f3f95,
+    inset 0 7px 0 #fbfbf7,
+    inset 0 9px 0 #1f3f95,
+    inset 0 -3px 0 #1f3f95,
+    inset 0 -7px 0 #fbfbf7,
+    inset 0 -9px 0 #1f3f95;
+}
+.cortejo-rejunte {
+  z-index: 2;
+  background-image:
+    linear-gradient(to right, rgb(232 236 243 / 0.85) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, rgb(232 236 243 / 0.85) 1.5px, transparent 1.5px);
+}
+.cortejo.azulejo :is(.cortejo-azulejos, .cortejo-rejunte) { opacity: 1; }
+
+/* No tema escuro, a xilogravura ganha o papel em que foi impressa: o preto da madeira some no fundo escuro. */
+.cortejo-papel {
+  z-index: 0;
+  background: #f4ead6;
+  box-shadow: inset 0 0 0 1px rgb(30 26 22 / 0.08);
+}
+:where([data-tema="escuro"]) .cortejo.xilogravura .cortejo-papel { opacity: 1; }
+
+/* ------------------------------------------------------------------ controle de pausa e legenda */
+
+.cortejo-controle {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  max-width: 76rem;
+  margin: 0.75rem auto 0;
+}
+
+.cortejo-tecnicas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--c-suave);
+  font-size: 0.8125rem;
+}
+.cortejo-tecnicas li {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  transition:
+    background-color 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cortejo-tecnicas li[data-atual] {
+  background: var(--c-tinta);
+  color: var(--c-papel);
+}
+@media (max-width: 40rem) {
+  .cortejo-tecnicas li:not([data-atual]) { display: none; }
+}
+
+.cortejo-pausa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1rem 0 0.85rem;
+  border: 1.5px solid var(--c-tinta);
+  border-radius: 999px;
+  background: var(--c-superficie);
+  color: var(--c-tinta);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 160ms ease-out;
+}
+.cortejo-pausa[hidden] { display: none; }
+.cortejo-pausa:hover { background: var(--c-papel); }
+.cortejo-pausa:focus-visible {
+  outline: 3px solid var(--c-tinta);
+  outline-offset: 3px;
+}
+.cortejo-pausa svg { width: 0.875rem; height: 0.875rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cortejo-camada,
+  .cortejo-etiqueta,
+  .cortejo-tecnicas li { transition: none; }
+  .cortejo-pausa { display: none; }
+}

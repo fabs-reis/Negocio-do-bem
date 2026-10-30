@@ -13,12 +13,13 @@ import { normalizarUsername } from "@/lib/instagram";
 import { formatarData } from "@/lib/texto";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import "../../area-interna.css";
 
 export const metadata: Metadata = { title: "Editar perfil", robots: FORA_DA_BUSCA };
 
 export default function EditarEmpresa(props: PageProps<"/painel/[usuario]">) {
   return (
-    <div className="mx-auto max-w-3xl px-4 pt-12 sm:px-6">
+    <div className={`area-usuario edicao-usuario container-editorial pagina-operacional`}>
       <Suspense fallback={<div className="h-[40rem] animate-pulse rounded-3xl bg-superficie" />}>
         <Conteudo params={props.params} searchParams={props.searchParams} />
       </Suspense>
@@ -47,12 +48,13 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
 
   return (
     <div className="space-y-10">
-      <div className="space-y-4">
+      <div className="usuario-cabecalho-edicao space-y-4">
         <Link href="/painel" className="text-sm text-suave hover:text-tinta">
           ← Meu painel
         </Link>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
+            <p className="usuario-contexto">Editar perfil do negócio</p>
             <h1 className="font-serif text-4xl font-semibold tracking-tight">{empresa.nome}</h1>
             <p className="text-suave">
               @{empresa.instagramUsername} · {empresa.oculta ? "Oculto do diretório" : MODERACAO_EMPRESA[empresa.moderacao]}
@@ -65,6 +67,11 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         <AvisoDaUrl codigo={aviso} />
       </div>
 
+
+
+      <div className="edicao-composicao">
+        <nav className="edicao-indice" aria-label="Seções da edição"><p>Neste perfil</p><a href="#foto">Foto</a><a href="#informacoes-edicao">Informações</a><a href="#contatos-edicao">Contatos</a><a href="#causas">Causas</a><a href="#historia">História</a><a href="#depoimentos">Depoimentos</a><a href="#visibilidade-edicao">Visibilidade</a></nav>
+        <div className="edicao-paineis space-y-10">
       <EdicaoEmpresa empresa={empresa} voltar={`/painel/${empresa.instagramUsername}`} />
 
       <section id="depoimentos" className="scroll-mt-24">
@@ -104,7 +111,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         </div>
       </section>
 
-      <section className="cartao p-6">
+      <section id="visibilidade-edicao" className="usuario-visibilidade cartao p-6">
         <h2 className="font-serif text-2xl font-semibold">Aparecer no diretório</h2>
         <p className="mt-1 text-sm leading-relaxed text-suave">
           {empresa.oculta
@@ -119,6 +126,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
           </BotaoEnviar>
         </form>
       </section>
+        </div>
+      </div>
     </div>
   );
 }

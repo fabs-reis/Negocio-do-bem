@@ -14,7 +14,7 @@ export function OrdenarPor({ atual, links }: { atual: Ordem; links: Record<Ordem
       <select
         value={atual}
         onChange={(evento) => router.push(links[evento.target.value as Ordem], { scroll: false })}
-        className="rounded-full border border-linha bg-superficie py-2 pr-8 pl-3 text-base font-medium text-tinta sm:text-sm"
+        className="rounded-full border border-borda-controle bg-superficie py-2 pr-8 pl-3 text-base font-medium text-tinta sm:text-sm"
       >
         {(Object.keys(ORDENS) as Ordem[]).map((ordem) => (
           <option key={ordem} value={ordem}>

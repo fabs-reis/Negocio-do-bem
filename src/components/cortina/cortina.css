@@ -1,0 +1,153 @@
+.cortina-navegacao {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  contain: paint;
+}
+
+.cortina-folha {
+  position: absolute;
+  inset-block: 0;
+  width: calc(50% + 1px);
+  will-change: auto;
+}
+
+.cortina-folha-esquerda {
+  left: 0;
+  background: var(--color-papel, #f7f0e3);
+  transform: translateX(-102%);
+}
+
+.cortina-folha-direita {
+  right: 0;
+  background: var(--cortina-tinta, var(--color-verde-escuro, #1f5a3c));
+  transform: translateX(102%);
+}
+
+.cortina-navegacao:not([data-fase="oculta"]) {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.cortina-navegacao:not([data-fase="oculta"]) .cortina-folha {
+  will-change: transform;
+}
+
+.cortina-navegacao[data-fase="fechando"] .cortina-folha {
+  transform: translateX(0);
+  transition: transform 220ms cubic-bezier(0.55, 0, 0.8, 0.45);
+}
+
+.cortina-navegacao[data-fase="fechando"] .cortina-folha-direita {
+  transition-delay: 35ms;
+}
+
+.cortina-navegacao[data-fase="coberta"] .cortina-folha {
+  transform: translateX(0);
+}
+
+.cortina-navegacao[data-fase="abrindo"] .cortina-folha {
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cortina-navegacao[data-fase="abrindo"] .cortina-folha-direita {
+  transition-duration: 460ms;
+  transition-delay: 55ms;
+}
+
+.cortina-abertura {
+  display: none;
+}
+
+html[data-abertura] .cortina-abertura {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  contain: paint;
+  animation: cortina-abertura-finaliza 1ms linear 2500ms both;
+}
+
+.cortina-abertura-folha {
+  position: absolute;
+  inset-block: 0;
+  width: calc(50% + 1px);
+  background: var(--color-papel, #f7f0e3);
+}
+
+.cortina-abertura-esquerda {
+  left: 0;
+  animation: cortina-abertura-esquerda 460ms cubic-bezier(0.16, 1, 0.3, 1) 1750ms both;
+}
+
+.cortina-abertura-direita {
+  right: 0;
+  animation: cortina-abertura-direita 500ms cubic-bezier(0.16, 1, 0.3, 1) 1830ms both;
+}
+
+.cortina-abertura-marca {
+  position: relative;
+  z-index: 1;
+  width: min(84vw, 34rem);
+  height: auto;
+  animation: cortina-marca-sai 140ms ease-out 1660ms both;
+}
+
+/* Outro nome reinicia a contagem ao pular, sem aproveitar o tempo da abertura. */
+html[data-abertura="pulada"] .cortina-abertura {
+  animation: cortina-abertura-pula-finaliza 1ms linear 550ms both;
+}
+
+html[data-abertura="pulada"] .cortina-abertura-esquerda {
+  animation: cortina-abertura-pula-esquerda 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+html[data-abertura="pulada"] .cortina-abertura-direita {
+  animation: cortina-abertura-pula-direita 360ms cubic-bezier(0.16, 1, 0.3, 1) 40ms both;
+}
+
+html[data-abertura="pulada"] .cortina-abertura-marca {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes cortina-abertura-esquerda {
+  to { transform: translateX(-102%); }
+}
+@keyframes cortina-abertura-direita {
+  to { transform: translateX(102%); }
+}
+@keyframes cortina-abertura-pula-esquerda {
+  to { transform: translateX(-102%); }
+}
+@keyframes cortina-abertura-pula-direita {
+  to { transform: translateX(102%); }
+}
+@keyframes cortina-marca-sai {
+  to { opacity: 0; }
+}
+@keyframes cortina-abertura-finaliza {
+  to { visibility: hidden; pointer-events: none; }
+}
+@keyframes cortina-abertura-pula-finaliza {
+  to { visibility: hidden; pointer-events: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cortina-navegacao,
+  html[data-abertura] .cortina-abertura {
+    display: none;
+  }
+}
+
+@media print {
+  .cortina-navegacao,
+  html[data-abertura] .cortina-abertura {
+    display: none;
+  }
+}

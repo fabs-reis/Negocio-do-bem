@@ -528,10 +528,26 @@ Erros que podem ser mostrados para a pessoa usam uma classe própria (`ErroReivi
 
 - **Componentes de formulário:** `Campo` (rótulo, ajuda e erro), `BotaoEnviar` (mostra "Enviando…"), `Aviso`.
 - **Classes de `globals.css`:** `.botao`, `.botao-coral`, `.botao-claro`, `.cartao`, `.campo`, `.link` e `.historia`. Prefira essas classes a repetir utilitários do Tailwind.
-- **Cores do tema:** `papel`, `superficie`, `tinta`, `suave`, `linha`, `coral` e `folha`. Para algo que só muda no escuro, use a variante `escuro:`.
+- **Cores do tema:** `papel`, `superficie`, `tinta`, `suave` e `linha` formam a base. As tintas e `borda-controle` seguem o contrato abaixo. `coral` e `folha` continuam como nomes de compatibilidade. Para algo que só muda no escuro, use a variante `escuro:`.
 - **Cores da marca:** `marca-laranja`, `marca-verde`, `marca-marrom` e `marca-creme` são as do manual e não mudam no escuro. Use para a marca, não para a interface. O logo é o componente `Logo`, e a altura vem do `className`.
 - **Cor fixa nunca:** `bg-white` e afins não mudam no modo escuro. Use `superficie`.
-- **Tipografia:** textos longos usam a fonte serifada (Newsreader), e a interface usa a Inter.
+- **Tipografia:** os títulos usam Bricolage Grotesque. Textos e interface usam Figtree.
+
+### Identidade visual e movimento
+
+- `globals.css` define as cores nos dois temas.
+- Cada `<tinta>` tem três tokens: a cor para fundos e desenhos, `<tinta>-texto` sobre papel e `sobre-<tinta>` sobre a cor.
+- `borda-controle` delimita campos e controles. `linha` fica para separações decorativas.
+- Bricolage Grotesque usa largura 75 nos títulos. Figtree atende textos, interface e histórias.
+- As fontes variáveis vêm dos pacotes locais. As imagens OpenGraph mantêm suas fontes estáticas em `assets/fontes`.
+- A abertura desenha o logo só na primeira visita à página inicial por aba.
+- Toque, clique, roda do mouse ou tecla pulam a abertura. Menos movimento a desativa.
+- A cortina dupla cobre a troca entre páginas internas. Ela não cobre filtros, âncoras nem envios de formulários.
+- Links externos, downloads e cliques modificados mantêm a navegação nativa.
+- Escape e voltar liberam a cortina. Menos movimento desativa a transição.
+- O cortejo mantém suas figuras em SVG, com quatro técnicas e um controle de pausa.
+- `npm run cortejo:ciclos` executa `scripts/gerar-ciclos.mjs` e gera `src/components/cortejo/ciclos.css`.
+- Não edite os ciclos gerados. As medidas e os pivôs estão em `src/components/cortejo/RIG.md`.
 
 ---
 

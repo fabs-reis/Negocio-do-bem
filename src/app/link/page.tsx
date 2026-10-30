@@ -7,13 +7,14 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CONFIRMACAO_DE_EMAIL_LIGADA, COOKIE_LINK, lerLink } from "@/lib/auth/links";
 import { caminhoSeguro, usuarioAtual } from "@/lib/auth/sessao";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import "../area-interna.css";
 
 export const metadata: Metadata = { title: "Link por e-mail", robots: FORA_DA_BUSCA };
 
 /** Aonde leva o link do e-mail, depois de /api/link: um clique confirma o e-mail ou entra. */
 export default function PaginaLink(props: PageProps<"/link">) {
   return (
-    <div className="mx-auto max-w-md px-4 pt-16 sm:px-6">
+    <div className={`acesso-conta conta-status container-editorial pagina-operacional`}>
       <Suspense fallback={<div className="h-64 animate-pulse rounded-3xl bg-superficie" />}>
         <Conteudo searchParams={props.searchParams} />
       </Suspense>

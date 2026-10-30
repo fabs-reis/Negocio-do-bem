@@ -9,13 +9,14 @@ import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, MODERACAO_EMPRESA, STATUS_REIVINDICACAO } from "@/lib/dominio";
 import { formatarData } from "@/lib/texto";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import "../area-interna.css";
 
 export const metadata: Metadata = { title: "Meu painel", robots: FORA_DA_BUSCA };
 
 export default function Painel() {
   return (
-    <div className="mx-auto max-w-4xl px-4 pt-12 sm:px-6">
-      <h1 className="font-serif text-4xl font-semibold tracking-tight">Meu painel</h1>
+    <div className={`area-usuario container-editorial pagina-operacional`}>
+      <header className="usuario-cabecalho"><div><p className="usuario-contexto">Sua participação na comunidade</p><h1>Meu painel</h1></div><div className="usuario-cabecalho-acoes"><Link href="/explorar" className="botao-claro">Explorar negócios ↗</Link><Link href="/sair" data-sem-cortina className="usuario-sair">Sair da conta</Link></div></header>
       <Suspense fallback={<div className="mt-8 h-80 animate-pulse rounded-3xl bg-superficie" />}>
         <Conteudo />
       </Suspense>
@@ -58,18 +59,28 @@ async function Conteudo() {
   ]);
 
   return (
-    <div className="mt-2 space-y-12">
-      <p className="text-suave">Olá, {usuario.nome.split(" ")[0]}! Aqui você cuida dos seus negócios e acompanha suas indicações.</p>
+    <div className="usuario-conteudo usuario-shell">
+      <aside className="usuario-navegacao">
+        <div className="usuario-identidade"><span aria-hidden="true">{usuario.nome[0]?.toUpperCase()}</span><div><strong>{usuario.nome}</strong><p>{usuario.email}</p></div></div>
+        <nav className="usuario-secoes" aria-label="Seções da sua conta">
+          <a href="#meus-negocios">Meus negócios <span>{empresas.length}</span></a>
+          {reivindicacoes.length > 0 && <a href="#meus-pedidos">Pedidos recentes <span>{reivindicacoes.length}</span></a>}
+          <a href="#minhas-indicacoes">Minhas indicações</a>
+        </nav>
+        <Link href="/indicar" className="usuario-indicar">Indicar um negócio <span aria-hidden="true">↗</span></Link>
+      </aside>
+      <div className="usuario-principal space-y-10">
+      <section className="usuario-boas-vindas" aria-labelledby="titulo-boas-vindas"><div><p className="usuario-contexto">Bom ter você por aqui</p><h2 id="titulo-boas-vindas">Olá, {usuario.nome.split(" ")[0]}!</h2><p>Cuide das informações dos seus negócios e acompanhe sua participação na comunidade.</p></div><Link href={empresas.length === 1 ? `/painel/${empresas[0]!.empresa.instagramUsername}` : empresas.length ? "#meus-negocios" : "/indicar"} className="botao-coral">{empresas.length > 1 ? "Escolher um negócio" : empresas.length ? "Cuidar do meu negócio" : "Cadastrar meu negócio"} <span aria-hidden="true">↗</span></Link></section>
 
       {!usuario.emailConfirmado && (
         <ConfirmarEmail email={usuario.email} para="indicar, deixar depoimentos e assumir negócios" voltar="/painel" />
       )}
 
-      <section>
-        <h2 className="font-serif text-2xl font-semibold">Meus negócios</h2>
+      <section id="meus-negocios">
+        <div className="usuario-titulo-secao"><div><h2>Meus negócios</h2><p>Atualize o perfil que a comunidade encontra no diretório.</p></div><Link href="/indicar" className="link">Adicionar negócio ↗</Link></div>
         {empresas.length === 0 ? (
           <div className="cartao mt-4 p-6 text-suave">
-            Você ainda não tem um negócio verificado.{" "}
+            Você ainda não cuida de nenhum negócio por aqui.{" "}
             <Link href="/indicar" className="link">
               Cadastrar meu negócio
             </Link>{" "}
@@ -77,25 +88,26 @@ async function Conteudo() {
             <Link href="/explorar" className="link">
               diretório
             </Link>{" "}
-            e clique em &ldquo;Sou o dono&rdquo;.
+            e clique em &ldquo;É meu negócio&rdquo;.
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {empresas.map(({ empresa }) => (
-              <div key={empresa.id} className="cartao flex flex-col p-5">
+              <div key={empresa.id} className="usuario-negocio cartao flex flex-col p-5">
                 <div className="flex items-center gap-3">
                   <Monograma nome={empresa.nome} chave={empresa.instagramUsername} />
                   <div className="min-w-0">
-                    <p className="truncate font-serif text-xl font-semibold">{empresa.nome}</p>
+                    <h3 className="usuario-nome-negocio"><Link href={`/painel/${empresa.instagramUsername}`}>{empresa.nome}</Link></h3>
                     <p className="text-sm text-suave">@{empresa.instagramUsername}</p>
                   </div>
                 </div>
+                <p className="usuario-local-negocio">{empresa.categoria} · {empresa.cidade}, {empresa.uf}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <SeloStatus status={empresa.status} />
                   {empresa.oculta && <Etiqueta status="expirada" texto="Oculto do diretório" />}
                   {!empresa.historia.trim() && <Etiqueta status="pendente" texto="Falta contar a história" />}
                 </div>
-                <div className="mt-5 flex gap-2">
+                <div className="usuario-negocio-acoes mt-5 flex flex-wrap gap-2">
                   <Link href={`/painel/${empresa.instagramUsername}`} className="botao botao-pequeno">
                     Editar perfil
                   </Link>
@@ -110,8 +122,8 @@ async function Conteudo() {
       </section>
 
       {reivindicacoes.length > 0 && (
-        <section>
-          <h2 className="font-serif text-2xl font-semibold">Minhas solicitações de reivindicação</h2>
+        <section id="meus-pedidos">
+          <h2 className="font-serif text-2xl font-semibold">Meus pedidos para assumir um perfil</h2>
           <ul className="cartao mt-4 divide-y divide-linha">
             {reivindicacoes.map((r) => (
               <li key={r.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -133,7 +145,7 @@ async function Conteudo() {
         </section>
       )}
 
-      <section>
+      <section id="minhas-indicacoes">
         <h2 className="font-serif text-2xl font-semibold">Minhas indicações</h2>
         {indicacoes.length === 0 ? (
           <p className="mt-4 text-suave">
@@ -155,6 +167,7 @@ async function Conteudo() {
           </ul>
         )}
       </section>
+      </div>
     </div>
   );
 }

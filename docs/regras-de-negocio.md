@@ -296,7 +296,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`
 - **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta.
 - **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa.
-- **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
+- **Motivo da indicação:** até 600 caracteres, opcional. Até o dono escrever a história, aparece no perfil e na página inicial com o nome de quem indicou. Nos cards de `/explorar`, aparece sem o nome.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
 - **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
 - **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
@@ -722,11 +722,11 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 ### Página inicial
 
-- **O número de negócios cadastrados** aparece em destaque, subindo de zero até o total ao abrir a página (direto no total para quem pede menos movimento no sistema). Embaixo, quantas cidades, quantos estados e quantos negócios verificados pelo dono.
+- **O cortejo animado** apresenta quatro tipos de negócio, com suas contagens e links para as páginas de tipo. Ele tem controle de pausa e respeita a preferência por menos movimento.
 - **A busca** tem dois campos, "O que você procura?" e "Onde?", e leva ao diretório.
-- **"Experimente:"** tem atalhos fixos para um tipo de negócio e algumas causas.
-- **Os 16 tipos de negócio** aparecem com quantos negócios cada um tem. Clicar num tipo abre o diretório com ele marcado. Tipos sem negócios ficam apagados, mas continuam clicáveis.
-- A página inicial não lista negócios nem filtros de causa: isso fica no diretório.
+- **"Quem faz o bem"** mostra até quatro negócios do diretório com foto do site, dos mais recentes para os mais antigos. Sem história, mostra o motivo da indicação e quem indicou. Sem motivo, mostra o resumo. Sem negócios com foto, a seção não aparece.
+- **As três faixas de causas** mostram todas as causas, por grupo, com links para suas páginas.
+- **O convite aos donos** leva à seção "É dono de um negócio?" de `/sobre#dono`.
 
 ### Diretório (`/explorar`)
 
@@ -785,7 +785,7 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
 - **"Outros" não tem página:** não diz nada para quem busca.
 - **Quem chega às páginas:**
   - o perfil público liga o tipo, a cidade e cada causa às suas páginas;
-  - a página inicial mostra as 12 cidades com mais negócios, em "Explore por cidade";
+  - a página inicial liga as causas e os tipos do cortejo às suas páginas;
   - "Como funciona" liga cada causa à sua página;
   - o rodapé tem "Negócios por cidade";
   - o sitemap e o `llms.txt` listam as páginas.

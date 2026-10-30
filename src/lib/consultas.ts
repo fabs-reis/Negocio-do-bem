@@ -1,8 +1,11 @@
 import "server-only";
 import { cache } from "react";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
+import { filtrarCausas } from "@/lib/causas";
+import { recomendacaoPublica, tintaDoNegocio, type Recomendacao, type Tinta } from "@/lib/cortejo";
 import { db, type Prisma } from "@/lib/db";
 import { interpretarLocal, slugCidade, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
+import { ehFotoDoSite } from "@/lib/fotos";
 import { nomeOficial } from "@/lib/municipios";
 import { normalizarTexto } from "@/lib/texto";
 
@@ -155,6 +158,64 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
     porCausa: Object.fromEntries(causas.map((c) => [c.causa, c._count._all])) as Record<string, number>,
     verificados,
   };
+}
+
+/** O que a página inicial mostra de um negócio recente. Só campos públicos: pode ir para o navegador. */
+export type NegocioRecente = {
+  instagramUsername: string;
+  nome: string;
+  cidade: string;
+  uf: string;
+  fotoUrl: string;
+  resumo: string;
+  causas: string[];
+  tinta: Tinta;
+  recomendacao: Recomendacao | null;
+};
+
+/**
+ * Os `n` negócios do diretório com foto do site (ehFotoDoSite) criados mais recentemente.
+ * A indicação vem só quando o dono não escreveu a história (recomendacaoPublica).
+ * A foto é conferida aqui, não no banco: lê de `n` em `n` até completar a lista.
+ */
+export async function recentesComFoto(n: number): Promise<NegocioRecente[]> {
+  const recentes: NegocioRecente[] = [];
+  for (let pular = 0; recentes.length < n; pular += n) {
+    const lote = await db.empresa.findMany({
+      where: { ...NO_DIRETORIO, fotoUrl: { not: null } },
+      orderBy: [{ criadoEm: "desc" }, { id: "desc" }],
+      skip: pular,
+      take: n,
+      select: {
+        instagramUsername: true,
+        nome: true,
+        cidade: true,
+        uf: true,
+        fotoUrl: true,
+        resumo: true,
+        historia: true,
+        motivoIndicacao: true,
+        indicadaPor: { select: { nome: true } },
+        causas: { select: { causa: true } },
+      },
+    });
+    for (const e of lote) {
+      if (recentes.length === n || !ehFotoDoSite(e.fotoUrl)) continue;
+      recentes.push({
+        instagramUsername: e.instagramUsername,
+        nome: e.nome,
+        cidade: e.cidade,
+        uf: e.uf,
+        fotoUrl: e.fotoUrl,
+        resumo: e.resumo,
+        causas: filtrarCausas(e.causas.map((c) => c.causa)),
+        tinta: tintaDoNegocio(e.instagramUsername),
+        recomendacao: recomendacaoPublica(e),
+      });
+    }
+    if (lote.length < n) break;
+  }
+  return recentes;
 }
 
 /** Negócios do diretório para o sitemap, do atualizado mais recentemente ao mais antigo. */
