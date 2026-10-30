@@ -2,22 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { FotoEmpresa } from "@/components/FotoEmpresa";
+import { usuarioAtual } from "@/lib/auth/sessao";
 import { NO_DIRETORIO, resumoDoDiretorio } from "@/lib/consultas";
 import { db } from "@/lib/db";
 import { INSTAGRAM_DO_PROJETO, REPOSITORIO } from "@/lib/dominio";
-import { linkPerfil, normalizarUsername } from "@/lib/instagram";
-import { boaCompanhia, decidirProcura } from "@/lib/participacao";
+import { lerPreenchimento } from "@/lib/indicacao";
+import { linkPerfil, perfilOficial } from "@/lib/instagram";
+import { boaCompanhia } from "@/lib/participacao";
+import { rascunhoDe } from "@/lib/rascunho";
 import { metadadosDaPagina } from "@/lib/seo";
-import { FormParticipar } from "./FormParticipar";
+import { CadastroPorEtapas } from "./CadastroPorEtapas";
 
-// A página do link da bio do Instagram, para quem tem um negócio. A porta pede só o @
-// e leva ao próximo passo (ver src/lib/participacao.ts). O resultado da procura volta para esta
-// mesma página, em /participar?instagram=<@>.
+// A entrada única para cadastrar um negócio: o link da bio do Instagram e o
+// "Cadastrar" do site. O cadastro por etapas começa pelo @ (ver CadastroPorEtapas).
+// O /indicar antigo redireciona para cá, com o @ e o "dono=sim" que ele trazia.
 
 export const metadata: Metadata = metadadosDaPagina({
-  titulo: "Faça parte",
+  titulo: "Cadastrar negócio",
   descricao:
-    "Tem um negócio que cuida das pessoas, da comunidade ou do planeta? Coloque o @ do Instagram e faça parte do Negócio do Bem. É de graça.",
+    "Tem ou conhece um negócio que cuida das pessoas, da comunidade ou do planeta? Comece pelo @ do Instagram e cadastre no Negócio do Bem. É de graça.",
   caminho: "/participar",
 });
 
@@ -70,13 +73,14 @@ export default function Participar(props: PageProps<"/participar">) {
         <div className="flex min-w-0 flex-[999_1_28rem] flex-col justify-center">
           <p className="inline-flex items-center gap-2 self-start rounded-full border border-coral/20 bg-superficie/70 px-4 py-1.5 text-sm font-medium text-coral-700">
             <span aria-hidden="true">🌱</span>
-            <span>Para quem tem um negócio do bem</span>
+            <span>Para quem tem ou conhece um negócio do bem</span>
           </p>
           <h1 className="mt-5 font-serif text-5xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-6xl">
             Que bom que você chegou.
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-suave text-pretty sm:text-xl">
-            Se o seu negócio cuida das pessoas, da comunidade ou do planeta, ele já é do bem. Só falta a gente se conhecer.
+            Se o negócio cuida das pessoas, da comunidade ou do planeta, ele já é do bem. Comece pelo @ do Instagram: leva
+            poucos minutos.
           </p>
         </div>
         <Suspense fallback={<div className="min-h-40 flex-[1_1_18rem] animate-pulse rounded-3xl bg-superficie" aria-busy="true" />}>
@@ -84,18 +88,11 @@ export default function Participar(props: PageProps<"/participar">) {
         </Suspense>
       </section>
 
-      <section className="cartao mt-10 p-6 sm:p-8">
-        <p className="font-serif text-2xl leading-snug text-balance sm:text-3xl">
-          Pra começar, só precisamos do @ do seu negócio no Instagram.
-        </p>
-        <div className="mt-6">
-          <FormParticipar />
-        </div>
+      <section className="mt-10">
+        <Suspense fallback={<div className="h-96 animate-pulse rounded-3xl bg-superficie" aria-busy="true" />}>
+          <Cadastro searchParams={props.searchParams} />
+        </Suspense>
       </section>
-
-      <Suspense>
-        <Resultado searchParams={props.searchParams} />
-      </Suspense>
 
       <Suspense>
         <QuemJaEstaAqui />
@@ -148,9 +145,9 @@ export default function Participar(props: PageProps<"/participar">) {
           </p>
           <p>
             Não é o dono?{" "}
-            <Link href="/indicar" className="font-semibold text-papel underline decoration-coral underline-offset-4">
+            <a href="#instagram" className="font-semibold text-papel underline decoration-coral underline-offset-4">
               Indique um negócio que você ama.
-            </Link>
+            </a>
           </p>
         </div>
       </section>
@@ -169,106 +166,20 @@ async function BoaCompanhia() {
   );
 }
 
-/** O que a procura achou, quando a porta trouxe a pessoa de volta com ?instagram=<@>. */
-async function Resultado({ searchParams }: Pick<PageProps<"/participar">, "searchParams">) {
-  const { instagram: valor } = await searchParams;
-  const instagram = normalizarUsername(Array.isArray(valor) ? valor[0] : valor);
-  if (!instagram) return null;
-  const empresa = await db.empresa.findUnique({
-    where: { instagramUsername: instagram },
-    select: {
-      nome: true,
-      instagramUsername: true,
-      fotoUrl: true,
-      moderacao: true,
-      oculta: true,
-      motivoIndicacao: true,
-      indicadaPor: { select: { nome: true } },
-      _count: { select: { membros: true } },
-    },
-  });
-  const negocio = empresa && { moderacao: empresa.moderacao, oculta: empresa.oculta, donos: empresa._count.membros };
-  // O caso não depende do login: só o destino da indicação depende.
-  const { caso } = decidirProcura(instagram, negocio, false);
-  if (caso === "indicar" || !empresa) return null;
-
-  if (caso === "indisponivel") {
-    // Sem nome, foto ou motivo: o @ pode estar tirado do ar ou oculto pelo dono.
-    return (
-      <Cartao>
-        <p className="leading-relaxed">
-          Não conseguimos seguir com esse @ por aqui. Fala com a gente no{" "}
-          <a href={linkPerfil(INSTAGRAM_DO_PROJETO)} target="_blank" rel="noopener noreferrer" className="link">
-            @{INSTAGRAM_DO_PROJETO}
-          </a>{" "}
-          que a gente resolve.
-        </p>
-      </Cartao>
-    );
-  }
-
-  const perfil = `/empresas/${empresa.instagramUsername}`;
-  const negocioEncontrado = (
-    <div className="flex items-center gap-3">
-      <FotoEmpresa empresa={empresa} />
-      <div className="min-w-0">
-        <p className="truncate font-semibold">{empresa.nome}</p>
-        <p className="truncate text-sm text-suave">@{empresa.instagramUsername}</p>
-      </div>
-    </div>
-  );
-
-  if (caso === "revisao") {
-    return (
-      <Cartao>
-        {negocioEncontrado}
-        <h2 className="mt-5 font-serif text-2xl font-semibold">Esse negócio já tem alguém cuidando do perfil.</h2>
-        <p className="mt-2 leading-relaxed text-suave">
-          Se ele é seu e você não reconhece quem assumiu, peça uma revisão. A gente olha com cuidado.
-        </p>
-        <Link href={`${perfil}/reivindicar`} className="botao mt-5">
-          Pedir revisão
-        </Link>
-      </Cartao>
-    );
-  }
-
+/** Quem está no site, o rascunho guardado na conta e o que veio no endereço. */
+async function Cadastro({ searchParams }: Pick<PageProps<"/participar">, "searchParams">) {
+  const [usuario, busca] = await Promise.all([usuarioAtual(), searchParams]);
+  const { instagram, souDono } = lerPreenchimento(busca);
+  const rascunho = usuario ? await rascunhoDe(usuario.id) : null;
   return (
-    <Cartao destaque>
-      {negocioEncontrado}
-      <h2 className="mt-5 font-serif text-3xl font-semibold">Seu negócio já está aqui!</h2>
-      {empresa.motivoIndicacao ? (
-        <figure className="mt-3">
-          <figcaption className="text-suave">
-            {empresa.indicadaPor?.nome ?? "Alguém da comunidade"} indicou ele com carinho:
-          </figcaption>
-          <blockquote className="mt-2 font-serif text-xl leading-relaxed text-tinta/85">“{empresa.motivoIndicacao}”</blockquote>
-        </figure>
-      ) : (
-        <p className="mt-3 text-suave">Alguém da comunidade indicou ele com carinho.</p>
-      )}
-      <p className="mt-4 font-medium">Agora é só confirmar que ele é seu.</p>
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Link href={`${perfil}/reivindicar`} className="botao-coral px-6 py-3 text-base">
-          É meu negócio
-        </Link>
-        <Link href={perfil} className="botao-claro">
-          Ver o perfil
-        </Link>
-      </div>
-    </Cartao>
-  );
-}
-
-function Cartao({ destaque = false, children }: { destaque?: boolean; children: ReactNode }) {
-  return (
-    <section
-      id="resultado"
-      aria-live="polite"
-      className={`cartao mt-4 scroll-mt-24 p-6 sm:p-8 ${destaque ? "border-coral/30 bg-coral-50/40" : ""}`}
-    >
-      {children}
-    </section>
+    <CadastroPorEtapas
+      conta={{ logado: !!usuario, emailConfirmado: !!usuario?.emailConfirmado, email: usuario?.email ?? null }}
+      rascunho={rascunho}
+      instagramInicial={instagram}
+      donoInicial={souDono}
+      continuar={busca.continuar === "1"}
+      projeto={perfilOficial()}
+    />
   );
 }
 

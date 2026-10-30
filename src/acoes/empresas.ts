@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import { apagarFoto, conferirFoto, guardarFoto } from "@/lib/armazenamento";
 import { registrarAuditoria } from "@/lib/auditoria";
@@ -20,7 +21,11 @@ import {
   valoresDoFormulario,
   type EstadoFormulario,
 } from "@/lib/formulario";
-import { normalizarUsername } from "@/lib/instagram";
+import { semContatosDeTerceiros } from "@/lib/indicacao";
+import { normalizarUsername, perfilOficial } from "@/lib/instagram";
+import { avisarNovaReivindicacao } from "@/lib/notificacoes";
+import { apagarRascunho, guardarRascunho } from "@/lib/rascunho";
+import { ErroReivindicacao, iniciarPorCodigoDm } from "@/lib/reivindicacao";
 import { textoDeBusca } from "@/lib/texto";
 
 const LIMITE_INDICACOES_POR_DIA = 10;
@@ -66,9 +71,13 @@ const esquemaIndicacao = z.object({
 });
 
 export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
-  const usuario = await exigirUsuario("/indicar");
+  const usuario = await exigirUsuario("/participar");
   const valores = valoresDoFormulario(dados, ["causas"]);
-  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto, valores };
+  // Indicar pede o e-mail confirmado. As respostas esperam na conta, e o cadastro
+  // por etapas as traz de volta depois da confirmação, em qualquer aparelho.
+  if (!usuario.emailConfirmado) {
+    return { erro: AVISOS.confirmar_email.texto, valores, rascunhoGuardado: await guardarRascunho(usuario.id, valores) };
+  }
 
   const resultado = esquemaIndicacao.safeParse({
     instagram: texto(dados, "instagram"),
@@ -80,8 +89,9 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
     ...lerContato(dados),
   });
   if (!resultado.success) return { erros: errosPorCampo(resultado.error), valores };
-  const { instagram, motivo, ...campos } = comCidade(resultado.data);
   const souDono = dados.get("souDono") === "sim";
+  const { instagram, motivo, ...todos } = comCidade(resultado.data);
+  const campos = semContatosDeTerceiros(todos, souDono);
 
   const jaExiste: EstadoFormulario = {
     erros: { instagram: `@${instagram} já está no Negócio do Bem.` },
@@ -138,7 +148,22 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
     return { erro: "Você já fez muitas indicações hoje. Obrigado pela energia! Tente de novo amanhã.", valores };
   }
 
-  redirect(souDono ? `/empresas/${instagram}/reivindicar` : `/empresas/${instagram}?aviso=indicada`);
+  await apagarRascunho(usuario.id);
+  if (!souDono) redirect(`/empresas/${instagram}?aviso=indicada`);
+
+  // Quem cadastra o próprio negócio já sai com o código pedido: falta só seguir o
+  // @ do projeto e mandar o "Oi". Até confirmar, o negócio fica como indicado.
+  const caminho = `/empresas/${instagram}/reivindicar`;
+  if (!perfilOficial()) redirect(caminho);
+  try {
+    await iniciarPorCodigoDm(empresa.id, usuario.id);
+  } catch (erro) {
+    if (erro instanceof ErroReivindicacao) redirect(caminho);
+    throw erro;
+  }
+  const empresaId = empresa.id;
+  after(() => avisarNovaReivindicacao(empresaId));
+  redirect(`${caminho}?aviso=codigo_pedido#codigo`);
 }
 
 const esquemaEdicao = z.object({

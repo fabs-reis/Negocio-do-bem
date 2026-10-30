@@ -1,39 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { boaCompanhia, decidirProcura } from "@/lib/participacao";
-import { caminhoSeguro } from "@/lib/auth/sessao";
+import { boaCompanhia, casoDaProcura } from "@/lib/participacao";
 
 const NO_DIRETORIO = { moderacao: "aprovada", oculta: false, donos: 0 };
 
-describe("decidirProcura", () => {
-  it("negócio que ainda não está aqui: vai para a indicação, já marcado como seu", () => {
-    expect(decidirProcura("padaria.flor", null, true)).toEqual({
-      caso: "indicar",
-      destino: "/indicar?instagram=padaria.flor&dono=sim",
-    });
+describe("casoDaProcura", () => {
+  it("negócio que ainda não está aqui: indicar ou cadastrar como dono", () => {
+    expect(casoDaProcura(null)).toBe("indicar");
   });
 
-  it("sem conta, cria a conta antes e volta para a indicação com o @", () => {
-    const { caso, destino } = decidirProcura("padaria.flor", null, false);
-
-    expect(caso).toBe("indicar");
-    const url = new URL(destino, "https://exemplo.org");
-    expect(url.pathname).toBe("/cadastrar");
-    // O cadastro aceita o voltar com a busca inteira.
-    expect(caminhoSeguro(url.searchParams.get("voltar"))).toBe("/indicar?instagram=padaria.flor&dono=sim");
+  it("no diretório e sem dono: confirmar que é seu", () => {
+    expect(casoDaProcura(NO_DIRETORIO)).toBe("confirmar");
   });
 
-  it("no diretório e sem dono: confirma que é seu, na própria página", () => {
-    expect(decidirProcura("padaria.flor", NO_DIRETORIO, false)).toEqual({
-      caso: "confirmar",
-      destino: "/participar?instagram=padaria.flor#resultado",
-    });
-  });
-
-  it("no diretório e com dono: pede revisão", () => {
-    expect(decidirProcura("padaria.flor", { ...NO_DIRETORIO, donos: 2 }, true)).toEqual({
-      caso: "revisao",
-      destino: "/participar?instagram=padaria.flor#resultado",
-    });
+  it("no diretório e com dono: pedir revisão", () => {
+    expect(casoDaProcura({ ...NO_DIRETORIO, donos: 2 })).toBe("revisao");
   });
 
   it.each([
@@ -42,10 +22,7 @@ describe("decidirProcura", () => {
     ["esperando a moderação", { ...NO_DIRETORIO, moderacao: "pendente" }],
     ["oculto pelo dono", { ...NO_DIRETORIO, oculta: true, donos: 1 }],
   ])("fora do diretório (%s): a mesma resposta, sem dizer o motivo", (_, negocio) => {
-    expect(decidirProcura("padaria.flor", negocio, true)).toEqual({
-      caso: "indisponivel",
-      destino: "/participar?instagram=padaria.flor#resultado",
-    });
+    expect(casoDaProcura(negocio)).toBe("indisponivel");
   });
 });
 

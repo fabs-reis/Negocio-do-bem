@@ -33,6 +33,7 @@ model Usuario {
   reivindicacoes      Reivindicacao[]  @relation("Solicitante")
   revisoes            Reivindicacao[]  @relation("Revisor")
   registrosAuditoria  RegistroAuditoria[]
+  rascunhoCadastro    RascunhoCadastro?
 }
 
 model Sessao {
@@ -230,4 +231,14 @@ model RegistroAuditoria {
 
   @@index([criadoEm])
   @@index([alvoTipo, alvoId])
+}
+
+// Respostas do cadastro por etapas (/participar) de quem ainda não confirmou o
+// e-mail. Uma por conta: depois de confirmar, em qualquer aparelho, a pessoa entra
+// e volta para revisar e publicar. Sai ao publicar ou depois de 30 dias.
+model RascunhoCadastro {
+  usuarioId    String   @id
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dados        Json
+  atualizadoEm DateTime @updatedAt
 }

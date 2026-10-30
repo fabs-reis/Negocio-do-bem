@@ -11,7 +11,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 1. [Glossário](#1-glossário)
 2. [Contas e papéis](#2-contas-e-papéis)
 3. [O negócio: identidade, dados e estados](#3-o-negócio-identidade-dados-e-estados)
-4. [Indicação](#4-indicação)
+4. [Indicação e cadastro por etapas](#4-indicação-e-cadastro-por-etapas)
 5. [Moderação das indicações](#5-moderação-das-indicações)
 6. [Reivindicação: como o dono assume o perfil](#6-reivindicação-como-o-dono-assume-o-perfil)
 7. [Perfil público e painel do dono](#7-perfil-público-e-painel-do-dono)
@@ -80,7 +80,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - "Sair" apaga a sessão do banco e o cookie.
 - **Volta para onde a pessoa estava:**
   - páginas que exigem login mandam para `/entrar?voltar=<caminho>`;
-  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site. A busca do caminho vai junto: `/indicar?instagram=<@>&dono=sim` volta inteiro;
+  - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site. A busca e a âncora do caminho vão junto: `/participar?continuar=1#cadastro` volta inteiro;
   - `caminhoSeguro` recusa o valor com caractere de controle (de U+0000 a U+001F e U+007F, como TAB, LF e CR), com `//` no começo ou com barra invertida;
   - depois ele interpreta o valor como URL (padrão WHATWG) e só aceita se a origem continuar a do site, porque o TAB, o LF e o CR somem na interpretação e `/<TAB>/host` viraria `//host`;
   - o que ele recusa cai no destino padrão, e o caminho interno válido (com consulta e âncora) passa sem mudar.
@@ -285,31 +285,78 @@ Repare: quando a moderação aprova uma reivindicação, ela **também publica**
 
 ---
 
-## 4. Indicação
+## 4. Indicação e cadastro por etapas
 
-Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`.
+Código: o cadastro em `src/app/participar/` (`CadastroPorEtapas.tsx`), a procura em `src/acoes/participacao.ts` e `casoDaProcura` (`src/lib/participacao.ts`), a prévia do Instagram em `src/lib/previa-instagram.ts`, o rascunho em `src/lib/rascunho.ts` e o envio em `indicarEmpresa` (`src/acoes/empresas.ts`). Testes em `tests/unit/participacao.test.ts`, `tests/unit/previa-instagram.test.ts`, `tests/unit/indicacao.test.ts` e `tests/db/rascunho.test.ts`.
 
-- **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta, e volta para ela depois, com o que veio na URL.
-- **Valores iniciais pela URL:** `/indicar?instagram=<@>&dono=sim` abre o formulário com o @ preenchido e "Este negócio é meu" marcado. É o caminho da [`/participar`](#a-porta-para-quem-tem-um-negócio-participar) para um negócio que ainda não está aqui. Código: `lerPreenchimento` em `src/lib/indicacao.ts`, com testes em `tests/unit/indicacao.test.ts`.
-  - O @ passa pela mesma normalização do resto do site. Um @ inválido deixa o campo vazio, e só `dono=sim` marca a opção.
-  - São só valores iniciais: o envio valida tudo de novo, como sempre. Sem os parâmetros, o formulário abre vazio.
-- **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
+### Uma entrada só (`/participar`)
+
+`/participar` é o "Cadastrar" do menu, o link da bio do Instagram do projeto e o destino de todos os botões de indicar. O `/indicar` antigo redireciona para lá (`next.config.ts`), com a busca: `/indicar?instagram=<@>&dono=sim` vira `/participar?instagram=<@>&dono=sim`. A página é pública e tem:
+
+- as boas-vindas e os números do diretório ("Você vai estar em boa companhia: N negócios em N cidades.", no singular quando é um só);
+- o cadastro por etapas;
+- até 6 negócios do diretório com dono e foto, os mais recentes primeiro. Sem nenhum, a parte some;
+- as promessas do projeto, as dúvidas mais comuns e o contato do @ do projeto (`ofabsreis`).
+
+### As etapas
+
+Uma pergunta por vez, com a barra de progresso e "Etapa N de M". "← Voltar" não perde nada, e o Enter avança (na cidade, ele escolhe a sugestão). Cada etapa confere os próprios campos antes de seguir, e o envio confere tudo de novo no servidor. Um erro do servidor leva de volta à primeira etapa com o campo errado.
+
+1. **Qual é o @ do negócio no Instagram?** "Procurar" passa o @ por `normalizarUsername` (um @ inválido mostra "Esse @ não parece certo...") e procura no site. Não precisa de login.
+2. **O que você quer fazer?** As opções dependem do @ (`casoDaProcura`):
+
+   | O negócio com esse @ | O que aparece |
+   | --- | --- |
+   | Não existe | A prévia do Instagram (ou o aviso de que não há prévia), "Não é este? Corrigir o @" e as opções "Quero indicar este negócio" e "Sou dono deste negócio". |
+   | No diretório e sem dono | "Esse negócio já está aqui", o cartão do negócio, o motivo da indicação com o nome de quem indicou, e as opções "É meu negócio" (vai para a página de reivindicação) e "Quero deixar um depoimento" (vai para os depoimentos do perfil). |
+   | No diretório e com dono | "Esse negócio já tem alguém cuidando do perfil", o cartão e as opções "É meu negócio: pedir revisão" e "Quero deixar um depoimento". |
+   | Fora do diretório: tirado do ar, esperando a moderação ou oculto pelo dono | A mesma resposta para todos: "Não conseguimos seguir com esse @ por aqui. Fala com a gente no @ofabsreis que a gente resolve." Sem nome, foto ou motivo. |
+
+   Com `dono=sim` no endereço e um @ novo, a pessoa vai direto para as etapas do dono.
+3. **Quem indica:** nome e categoria → cidade e frase → causas e "por que você indica" → conta ou publicar (6 etapas).
+4. **Dono de um @ novo:** nome e categoria → cidade e frase → causas → contatos → conta ou publicar (7 etapas).
+
+### A prévia do Instagram
+
+- **De onde vem:** a API oficial da Meta (Business Discovery), com `META_ACCESS_TOKEN` e `META_IG_USER_ID`, o mesmo token da rotina de fotos. A consulta roda só no servidor, no "Procurar", e não a cada letra.
+- **O que traz:** foto, nome e site do perfil. O nome (e, para o dono, o site) já chega preenchido, com "Veio do Instagram. Pode mudar."
+- **A foto é só prévia.** O servidor baixa a imagem (só de `*.fbcdn.net` e `*.cdninstagram.com`, por https, JPEG, PNG ou WebP, até 300 KB) e manda como data URL, porque a política de conteúdo não libera o CDN da Meta. Quem grava a foto no perfil continua sendo a rotina das fotos.
+- **Cada @ é consultado uma vez a cada 15 minutos** por servidor, para não gastar o limite da Meta.
+- **Sem prévia, sem erro.** Sem as variáveis, com o token vencido ou com a Meta fora do ar, a prévia some e o cadastro segue normal.
+
+### @ sem prévia
+
+A API só enxerga contas profissionais (comerciais ou de criador), e conta profissional nunca é privada. Conta pessoal, privada ou pública, e @ digitado errado voltam iguais. O site avisa, sem bloquear:
+
+- na escolha: "Não conseguimos ver a prévia de @x. Confira se o @ está certo. Contas pessoais não aparecem, e tudo bem.";
+- para o dono, na etapa do nome: o aviso completo, com o porquê (a conta precisa ser profissional, que é sempre pública, e a mudança é grátis) e o botão "Já mudei, procurar de novo". Sem prévia, o dono envia a foto à mão no painel depois de confirmar. O perfil mostra o monograma até lá.
+
+### Conta no fim, com rascunho
+
+- **Sem login,** a última etapa pede "Criar conta e continuar" ou "Já tenho conta". Antes de sair, as respostas ficam guardadas no navegador, e o login ou o cadastro voltam para `/participar?continuar=1`, que abre a revisão com elas.
+- **Sem o e-mail confirmado,** o envio guarda as respostas na conta (`RascunhoCadastro`, uma por conta) e mostra "Confirme seu e-mail para publicar". Depois de confirmar, em qualquer aparelho, a pessoa entra e volta para "Revise e publique". O rascunho só guarda os campos do cadastro, em texto e no tamanho de cada um (`lerRascunho`), sai ao publicar e some depois de 30 dias.
+- **Com o e-mail confirmado,** a última etapa mostra o resumo e "Publicar indicação" (ou "Cadastrar meu negócio").
+
+### O que é gravado
+
+- **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Causas e "por que você indica" são opcionais. Só o dono informa site, WhatsApp e e-mail, também opcionais.
+- **Quem indica não publica contatos** ([#105](https://github.com/fabsreis/Negocio-do-bem/issues/105)). O servidor apaga site, WhatsApp e e-mail de uma indicação, mesmo que alguém mande (`semContatosDeTerceiros`).
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa.
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
 - **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
-- **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
+- **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e quem indicou vai para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
 - **Auditoria:** registra `empresa.indicada` na mesma transação da criação. Se a auditoria falhar, a indicação falha e o negócio não fica salvo. Isso inclui erros de unicidade da auditoria, que não significam que o @ já existe.
 
-### "Este negócio é meu"
+### Quem cadastra o próprio negócio
 
-Quando a pessoa marca **"Este negócio é meu"** no formulário de indicação:
+Quando a pessoa escolhe "Sou dono deste negócio":
 
-- o campo "Por que você indica?" some e o motivo não é guardado;
-- o negócio é criado do mesmo jeito, já publicado, com a pessoa como quem indicou;
-- a pessoa vai direto para a página de reivindicação (`/empresas/<@>/reivindicar`) para confirmar pelo Instagram ou pedir uma análise manual.
+- o "Por que você indica?" não aparece e o motivo não é guardado;
+- o negócio é criado do mesmo jeito, já publicado e como indicado, com a pessoa como quem indicou;
+- o código por DM já sai pedido (`iniciarPorCodigoDm`, e a moderação recebe o aviso), e a pessoa vai para a página de reivindicação com "Pedido feito. Agora siga o perfil do projeto...". Com o código por DM desligado, ou sem cota no dia, ela vai para a página sem o pedido.
 
-Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando cola o código que chegou pela DM ou quando a moderação aprova a análise manual ([seção 6](#nada-é-aprovado-só-com-os-dados-do-negócio)).
+Cadastrar não faz ninguém virar dono. A pessoa vira dona quando cola o código que chegou pela DM ou quando a moderação aprova a análise manual ([seção 6](#nada-é-aprovado-só-com-os-dados-do-negócio)). Até lá, não há painel.
 
 ---
 
@@ -358,26 +405,6 @@ Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindic
 
 Os textos que o dono lê não usam a palavra "reivindicar": a página se chama "Assumir o perfil", e o botão do perfil é "É meu negócio". O endereço `/reivindicar`, os nomes no código e as telas da moderação continuam com a palavra.
 
-### A porta para quem tem um negócio (`/participar`)
-
-Código: a página em `src/app/participar/`, a ação em `src/acoes/participacao.ts` e a decisão em `decidirProcura` (`src/lib/participacao.ts`), com testes em `tests/unit/participacao.test.ts`.
-
-`/participar` é o link da bio do Instagram do projeto. A página é pública e recebe quem tem um negócio com:
-
-- as boas-vindas e os números do diretório ("Você vai estar em boa companhia: N negócios em N cidades.", no singular quando é um só);
-- a porta, que pede só o @ do negócio no Instagram;
-- até 6 negócios do diretório com dono e foto, os mais recentes primeiro. Sem nenhum, a parte some;
-- as promessas do projeto, as dúvidas mais comuns e o contato do @ do projeto (`ofabsreis`).
-
-A porta passa o @ por `normalizarUsername`. Um @ inválido mostra "Esse @ não parece certo. Confira e tente de novo.", e o campo fica com o que a pessoa digitou. Com um @ válido, a procura só lê o banco e leva a pessoa ao próximo passo:
-
-| O negócio com esse @ | Para onde a pessoa vai |
-| --- | --- |
-| Não existe | `/indicar?instagram=<@>&dono=sim` ([seção 4](#4-indicação)). Sem login, passa antes por `/cadastrar`, que volta para esse endereço. |
-| No diretório e sem dono | `/participar?instagram=<@>`, com o cartão "Seu negócio já está aqui!", o motivo da indicação com o nome de quem indicou (o mesmo nome do perfil) e os botões "É meu negócio" e "Ver o perfil". |
-| No diretório e com dono | `/participar?instagram=<@>`, com o cartão "Esse negócio já tem alguém cuidando do perfil." e o botão "Pedir revisão", que leva à página de reivindicação. |
-| Fora do diretório: tirado do ar, esperando a moderação ou oculto pelo dono | `/participar?instagram=<@>`, com a mesma resposta para todos: "Não conseguimos seguir com esse @ por aqui. Fala com a gente no @ofabsreis que a gente resolve." O cartão não mostra o nome, a foto nem o motivo. |
-
 ### Quem pode pedir
 
 - **Qualquer conta logada** que ainda não seja dona daquele negócio.
@@ -386,9 +413,9 @@ A porta passa o @ por `normalizarUsername`. Um @ inválido mostra "Esse @ não p
   - confirmado e de um perfil que não é oficial, vê só os caminhos pelo Instagram, para ganhar o selo (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)). A análise manual não aparece, porque o perfil já é dele;
   - sem confirmação, vê "Confirme que o negócio é seu", com os caminhos pelo Instagram e a análise manual (ver [Donos sem confirmação](#donos-sem-confirmação)).
 - A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela:
-  - pelo botão **"É meu negócio"** do perfil e do cartão da `/participar`;
-  - pelo "Este negócio é meu" da indicação;
-  - pelo "Pedir revisão" da `/participar` e pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis com dono;
+  - pelo botão **"É meu negócio"** do perfil e da escolha do cadastro por etapas ([seção 4](#as-etapas));
+  - pelo fim do cadastro do próprio negócio;
+  - pelo "É meu negócio: pedir revisão" do cadastro e pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis com dono;
   - pelo convite do selo no painel do dono.
 - **Negócio tirado do ar:** a página responde 404.
 - **Negócio que já tem dono:** o pedido é aceito, com um aviso de que a moderação decide. Serve para co-donos e para troca de responsáveis.

@@ -381,6 +381,19 @@ A #133 fechou a porta para os novos, mas quem tinha virado dono pelos dados do n
 - **Quem confirma pelo Instagram passa na frente** de quem nunca confirmou. É a prova mais forte que existe aqui, e evita que o dono de verdade dependa da moderação para recuperar o próprio perfil.
 - **O e-mail nunca leva o código.** Ele vai para quem assumiu o perfil, que pode ser justamente quem se passou pelo negócio.
 
+
+### 30 de outubro: o cadastro por etapas ([#135](https://github.com/fabsreis/Negocio-do-bem/issues/135))
+
+Havia duas portas (`/indicar` e `/participar`), e o formulário de indicação era uma página longa. Quem tinha um negócio já indicado esbarrava em "esse @ já está cadastrado".
+
+- **Uma entrada, o @ primeiro.** Com o @ na primeira etapa, o site já sabe a situação do negócio antes de perguntar, e as opções da segunda etapa mudam conforme o caso (`casoDaProcura`). O `/indicar` redireciona no `next.config.ts`, que passa a busca adiante.
+- **Um formulário só, com todas as etapas montadas.** Só a etapa atual aparece. Voltar não perde nada, e o envio final é o mesmo `indicarEmpresa`, que valida tudo de novo. Os componentes de antes (`CampoMunicipio`, `SeletorCausas`) entram sem mudança.
+- **Sem estado ajustado por efeito.** As regras novas do React no lint reclamam de `setState` dentro de `useEffect`. A etapa e o ramo saem do que a pessoa escolheu ou, sem escolha, do rascunho; o rascunho do navegador é lido com `useSyncExternalStore`; e o erro do servidor é tratado durante a renderização, comparando com o estado anterior.
+- **A prévia sem abrir a política de conteúdo.** A foto do Instagram vem de um CDN da Meta que a política de imagens não libera. Em vez de liberar, o servidor baixa a foto (só dos domínios da Meta, com limite de tamanho e de tipo) e manda como data URL. As respostas de cada @ ficam guardadas por 15 minutos.
+- **Rascunho em dois lugares.** No navegador, para atravessar o login ou o cadastro no mesmo aparelho. Na conta, quando falta confirmar o e-mail, porque o link pode ser aberto em outro aparelho. O formato fica em `src/lib/rascunho-do-cadastro.ts`, sem imports, para o navegador também ler: o `src/lib/instagram.ts` importa `node:crypto`.
+- **Quem indica não publica contatos.** Site, WhatsApp e e-mail ficam com o dono (#105), e o servidor apaga o que vier numa indicação.
+- **O dono já sai com o código pedido.** Cadastrar o próprio negócio cria o pedido do código por DM, e a página seguinte só pede para seguir o @ do projeto e mandar o "Oi".
+
 ---
 
 ## 4. Arquitetura
@@ -623,6 +636,7 @@ npm run typecheck
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
 | `AUTENTICACAO_PROXY_CONFIAVEL` | Não | Defina `1` só se há um proxy seu na frente do site, que escreve o `x-forwarded-for` e é o único caminho até ele. Fora do Vercel, o limite de tentativas de login e cadastro usa então o último valor desse cabeçalho. Vazia, todos os visitantes dividem um limite só. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
+| `META_ACCESS_TOKEN`, `META_IG_USER_ID`, `META_GRAPH_VERSION` | Não | Ligam a prévia do Instagram no cadastro. Os mesmos valores do `.env.fotos`. Configure só em Production. |
 | `INSTAGRAM_PERFIL_OFICIAL` | Não | Troca o @ que manda o código por DM. Vazio, vale o @ do projeto (`ofabsreis`), e o código por DM fica ligado. |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_GRAPH_VERSION` | Não | Ligam o "Entrar com Instagram". |
 | `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | Não | Ligam a confirmação automática da DM. |
@@ -666,7 +680,7 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 4. Acrescente o campo nos formulários:
    - `src/app/painel/[usuario]/FormEmpresa.tsx`;
    - `EdicaoEmpresa.tsx`, que passa os dados ao formulário;
-   - `src/app/indicar/FormIndicar.tsx`, se quem indica também puder preencher.
+   - `src/app/participar/CadastroPorEtapas.tsx`, o cadastro por etapas, se o campo entra no cadastro. Inclua o campo também em `lerRascunho` (`src/lib/rascunho-do-cadastro.ts`), para ele sobreviver ao login e à confirmação do e-mail.
 5. Se o campo deve entrar na busca, inclua em `textoDeBusca` (`src/lib/texto.ts`). Os negócios que já existem só são atualizados quando forem editados.
 6. Mostre o campo no perfil (`src/app/empresas/[usuario]/page.tsx`) e, se fizer sentido, na fila de indicações da moderação.
 7. Atualize os dados de exemplo em `prisma/seed.ts`.

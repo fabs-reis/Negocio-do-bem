@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { lerPreenchimento } from "@/lib/indicacao";
+import { lerPreenchimento, semContatosDeTerceiros } from "@/lib/indicacao";
+import { lerRascunho } from "@/lib/rascunho-do-cadastro";
 
 describe("lerPreenchimento", () => {
   it("abre com o @ e com \"Este negócio é meu\" marcado", () => {
@@ -24,5 +25,40 @@ describe("lerPreenchimento", () => {
       instagram: "um.negocio",
       souDono: true,
     });
+  });
+});
+
+describe("lerRascunho", () => {
+  it("guarda só os campos conhecidos, em texto e no tamanho de cada um", () => {
+    expect(
+      lerRascunho({
+        instagram: "padaria.flor",
+        nome: "x".repeat(200),
+        souDono: "sim",
+        causas: ["sustentavel", "<script>", 3],
+        senha: "não guarda",
+        resumo: 42,
+      }),
+    ).toEqual({ instagram: "padaria.flor", nome: "x".repeat(80), souDono: "sim", causas: ["sustentavel"] });
+  });
+
+  it("sem nenhum campo, não há rascunho", () => {
+    expect(lerRascunho({})).toBeNull();
+    expect(lerRascunho({ nome: "   " })).toBeNull();
+    expect(lerRascunho(null)).toBeNull();
+    expect(lerRascunho("texto")).toBeNull();
+    expect(lerRascunho(["nome"])).toBeNull();
+  });
+});
+
+describe("semContatosDeTerceiros", () => {
+  const campos = { nome: "Padaria", site: "https://padaria.com.br", whatsapp: "5581999990000", emailContato: "ola@padaria.com.br" };
+
+  it("quem indica não publica contatos", () => {
+    expect(semContatosDeTerceiros(campos, false)).toEqual({ nome: "Padaria", site: null, whatsapp: null, emailContato: null });
+  });
+
+  it("o dono publica os contatos que informou", () => {
+    expect(semContatosDeTerceiros(campos, true)).toEqual(campos);
   });
 });

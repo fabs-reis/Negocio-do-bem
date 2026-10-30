@@ -67,6 +67,8 @@ export type EstadoFormulario =
       existente?: string;
       // Valores enviados, para o formulário não perder o que a pessoa digitou.
       valores?: Record<string, string | string[]>;
+      // As respostas ficaram guardadas na conta (cadastro por etapas, sem o e-mail confirmado).
+      rascunhoGuardado?: boolean;
     }
   | undefined;
 

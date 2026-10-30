@@ -75,7 +75,9 @@ As fotos enviadas no seu computador ficam em `public/enviados/` (fora do Git). N
 
 ## Como o dono reivindica o negócio
 
-Quem tem um negócio começa em `/participar`, o link da bio do Instagram do projeto: digita o @ do negócio, e a página leva ao próximo passo (indicar o negócio como seu, confirmar que ele é seu ou pedir revisão). Do perfil, o caminho é o botão "É meu negócio" (`/empresas/<@>/reivindicar`). Lá, a pessoa escolhe:
+O cadastro começa em `/participar`, o "Cadastrar" do menu e o link da bio do Instagram do projeto. É um formulário por etapas: o @ do negócio primeiro, com a prévia do perfil do Instagram, e depois "O que você quer fazer?", com opções que mudam conforme o @ (indicar, cadastrar o próprio negócio, "É meu negócio" ou deixar um depoimento). A conta fica para o fim, e as respostas esperam o login e a confirmação do e-mail. O `/indicar` antigo redireciona para lá. As regras estão na [seção 4 das regras de negócio](docs/regras-de-negocio.md#4-indicação-e-cadastro-por-etapas).
+
+Quem é dono chega à página "É meu negócio" (`/empresas/<@>/reivindicar`) pelo cadastro ou pelo botão do perfil. Lá, a pessoa escolhe:
 
 - **Código por DM**, ligado por padrão e o caminho principal: ela pede o código, segue o @ do projeto (`ofabsreis`) pelo Instagram do negócio e manda um "Oi". A moderação responde com o código nessa conversa, e ela cola o código no site. O código só aparece para a moderação: acertar prova que a pessoa lê as mensagens do Instagram do negócio. A aprovação dá ao perfil o selo **"Perfil oficial"**.
 - **Análise manual**, para quem não tem acesso ao Instagram do negócio ou não recebeu o código depois de dois envios. A pessoa envia os dados do negócio, e o pedido sempre fica com a moderação, que confere por um contato que ela mesma acha.
@@ -134,6 +136,12 @@ O webhook continua aceitando o código quando ele volta por DM, a partir do @ do
 3. Tokens de longa duração do Instagram vencem e precisam ser renovados periodicamente. Se o token vencer, nada quebra: as DMs passam a cair na fila da moderação com uma anotação.
 
 O webhook confere a assinatura `X-Hub-Signature-256` de cada chamada, descobre o @ de quem mandou a DM e só aprova sozinho quando o @ bate e não há conflito.
+
+## Ativando a prévia do Instagram no cadastro (opcional)
+
+Quando alguém digita o @ de um negócio novo, o cadastro mostra a foto, o nome e o site do perfil, e preenche o nome e o site. A consulta usa a mesma conta e o mesmo token da rotina de fotos, abaixo.
+
+**No Vercel:** configure `META_ACCESS_TOKEN` e `META_IG_USER_ID` em Production, com os mesmos valores do `.env.fotos`. `META_GRAPH_VERSION` é opcional (padrão `v26.0`). Sem as variáveis, ou com a Meta fora do ar, o cadastro segue normal, sem a prévia. Só contas profissionais (comerciais ou de criador) têm prévia.
 
 ## Ativando a rotina de fotos do Instagram (opcional)
 

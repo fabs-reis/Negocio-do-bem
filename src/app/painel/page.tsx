@@ -70,7 +70,7 @@ async function Conteudo() {
         {empresas.length === 0 ? (
           <div className="cartao mt-4 p-6 text-suave">
             Você ainda não cuida de nenhum negócio por aqui.{" "}
-            <Link href="/indicar" className="link">
+            <Link href="/participar" className="link">
               Cadastrar meu negócio
             </Link>{" "}
             ou procure por ele no{" "}
@@ -139,7 +139,7 @@ async function Conteudo() {
         {indicacoes.length === 0 ? (
           <p className="mt-4 text-suave">
             Você ainda não indicou nenhum negócio.{" "}
-            <Link href="/indicar" className="link">
+            <Link href="/participar" className="link">
               Indicar agora
             </Link>
           </p>
