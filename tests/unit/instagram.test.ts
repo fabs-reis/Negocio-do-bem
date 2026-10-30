@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { extrairCodigo, gerarCodigo } from "@/lib/codigo";
-import { assinaturaValida, extrairMensagens, normalizarUsername, urlAutorizacao } from "@/lib/instagram";
+import { assinaturaValida, extrairMensagens, normalizarUsername, perfilOficial, urlAutorizacao } from "@/lib/instagram";
 
 describe("normalizarUsername", () => {
   it.each([
@@ -97,5 +97,24 @@ describe("urlAutorizacao", () => {
     expect(url.searchParams.get("scope")).toBe("instagram_business_basic");
     expect(url.searchParams.get("response_type")).toBe("code");
     expect(url.searchParams.get("state")).toBe("estado-1");
+  });
+});
+
+describe("perfilOficial", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("sem a variável, é o perfil do projeto, e o código por DM já vem ligado", () => {
+    vi.stubEnv("INSTAGRAM_PERFIL_OFICIAL", undefined);
+    expect(perfilOficial()).toBe("ofabsreis");
+    // O .env.example traz a variável vazia.
+    vi.stubEnv("INSTAGRAM_PERFIL_OFICIAL", "");
+    expect(perfilOficial()).toBe("ofabsreis");
+  });
+
+  it("a variável troca o perfil", () => {
+    vi.stubEnv("INSTAGRAM_PERFIL_OFICIAL", "@Outro.Perfil");
+    expect(perfilOficial()).toBe("outro.perfil");
   });
 });
