@@ -4,25 +4,28 @@ import Link from "next/link";
 import { Suspense } from "react";
 import {
   aprovarReivindicacao,
-  aprovarReivindicacoesSemDono,
   decidirDenuncia,
   moderarEmpresa,
   publicarIndicacoesPendentes,
   recusarReivindicacao,
+  registrarEnvioDoCodigo,
 } from "@/acoes/moderacao";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CausaBadge } from "@/components/CausaBadge";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { consultarCnpj, formatarCnpj } from "@/lib/cnpj";
-import { extrairCodigo } from "@/lib/codigo";
+import { extrairCodigo, mensagemDoCodigo } from "@/lib/codigo";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
-import { linkPerfil, perfilOficial } from "@/lib/instagram";
+import { linkPerfil, normalizarUsername, perfilOficial } from "@/lib/instagram";
 import { ABAS, lerFiltros, type Aba } from "@/lib/moderacao/filtros";
+import { LIMITE_TENTATIVAS } from "@/lib/reivindicacao";
+import { ENDERECO_DO_SITE } from "@/lib/seo";
 import { formatarDataHora, formatarWhatsapp } from "@/lib/texto";
 import { Auditoria } from "./Auditoria";
 import { Contas } from "./Contas";
+import { CopiarMensagem } from "./CopiarMensagem";
 import { Depoimentos } from "./Depoimentos";
 import { MenuModeracao } from "./MenuModeracao";
 import { Negocios } from "./Negocios";
@@ -47,7 +50,10 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   await exigirModerador();
   const params = await searchParams;
   const filtros = lerFiltros(params);
-  const codigo = typeof params.codigo === "string" ? extrairCodigo(params.codigo) : null;
+  // Chegou um "Oi" ou um código: a fila procura pelo @ do negócio ou pelo código.
+  const procura = typeof params.procura === "string" ? params.procura.trim() : "";
+  const codigo = extrairCodigo(procura);
+  const instagram = codigo ? null : normalizarUsername(procura);
 
   const [reivindicacoes, indicacoes, denuncias] = await Promise.all([
     db.reivindicacao.count({ where: { status: "pendente" } }),
@@ -65,7 +71,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
         <AvisoDaUrl codigo={params.aviso} />
 
         {filtros.aba === "visao-geral" && <VisaoGeral />}
-        {filtros.aba === "reivindicacoes" && <Reivindicacoes codigo={codigo} />}
+        {filtros.aba === "reivindicacoes" && <Reivindicacoes codigo={codigo} instagram={instagram} procura={procura} />}
         {filtros.aba === "indicacoes" && <Indicacoes />}
         {filtros.aba === "denuncias" && <Denuncias />}
         {filtros.aba === "negocios" && <Negocios filtros={filtros} />}
@@ -78,55 +84,48 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   );
 }
 
-async function Reivindicacoes({ codigo }: { codigo: string | null }) {
-  const [pendentes, semDono] = await Promise.all([
-    db.reivindicacao.findMany({
-      where: { status: "pendente", ...(codigo ? { codigo } : {}) },
-      orderBy: { criadoEm: "asc" },
-      take: 50,
-      include: {
-        usuario: { select: { id: true, nome: true, email: true } },
-        empresa: { include: { membros: { include: { usuario: { select: { id: true, nome: true, email: true } } } } } },
-      },
-    }),
-    // Um negócio por vez: se duas pessoas pediram o mesmo, só a primeira é aprovada.
-    db.reivindicacao.findMany({
-      where: {
-        status: "pendente",
-        metodo: "documento",
-        empresa: { moderacao: { not: "rejeitada" }, membros: { none: {} } },
-      },
-      distinct: ["empresaId"],
-      select: { id: true },
-    }),
-  ]);
+async function Reivindicacoes({ codigo, instagram, procura }: { codigo: string | null; instagram: string | null; procura: string }) {
+  const pendentes = await db.reivindicacao.findMany({
+    where: {
+      status: "pendente",
+      ...(codigo ? { codigo } : instagram ? { empresa: { instagramUsername: instagram } } : {}),
+    },
+    orderBy: { criadoEm: "asc" },
+    take: 50,
+    include: {
+      usuario: { select: { id: true, nome: true, email: true } },
+      empresa: { include: { membros: { include: { usuario: { select: { id: true, nome: true, email: true } } } } } },
+    },
+  });
+  // Na análise manual, o que já se tentou pela DM com a mesma pessoa e o mesmo negócio.
+  const analises = pendentes.filter((r) => r.metodo === "documento");
+  const tentativasPelaDm = analises.length
+    ? await db.reivindicacao.findMany({
+        where: { metodo: "codigo_dm", OR: analises.map((r) => ({ empresaId: r.empresaId, usuarioId: r.usuarioId })) },
+        select: { empresaId: true, usuarioId: true, envios: true, codigoConfirmadoEm: true },
+      })
+    : [];
+  const historicoDaDm = (r: { empresaId: string; usuarioId: string }) => {
+    const pedidos = tentativasPelaDm.filter((p) => p.empresaId === r.empresaId && p.usuarioId === r.usuarioId);
+    return { envios: pedidos.reduce((total, p) => total + p.envios, 0), confirmado: pedidos.some((p) => p.codigoConfirmadoEm) };
+  };
   const oficial = perfilOficial();
   const agora = new Date();
+  const filtrada = !!(codigo || instagram);
 
   return (
     <div className="space-y-4">
-      {semDono.length > 0 && (
-        <form action={aprovarReivindicacoesSemDono} className="cartao flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-suave">
-            Pedidos novos de negócios sem dono já são aprovados na hora. Estes chegaram antes dessa regra.
-          </p>
-          <BotaoEnviar className="botao botao-pequeno whitespace-nowrap" enviando="Aprovando…">
-            Aprovar {semDono.length === 1 ? "o pedido" : `os ${semDono.length} pedidos`} sem dono
-          </BotaoEnviar>
-        </form>
-      )}
-
       {oficial && (
         <Form action="/moderacao" className="cartao flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
           <input type="hidden" name="aba" value="reivindicacoes" />
-          <label htmlFor="codigo" className="px-2 text-sm font-medium whitespace-nowrap">
-            Chegou uma DM com código?
+          <label htmlFor="procura" className="px-2 text-sm font-medium whitespace-nowrap">
+            Chegou um &ldquo;Oi&rdquo; no @{oficial}?
           </label>
-          <input id="codigo" name="codigo" defaultValue={codigo ?? ""} placeholder="BEM-XXXXXX" className="campo flex-1 font-mono uppercase" />
+          <input id="procura" name="procura" defaultValue={procura} placeholder="@ do negócio ou BEM-XXXXXX" className="campo flex-1" autoCapitalize="none" />
           <button type="submit" className="botao">
             Localizar
           </button>
-          {codigo && (
+          {filtrada && (
             <Link href="/moderacao?aba=reivindicacoes" className="botao-claro">
               Ver todas
             </Link>
@@ -136,13 +135,19 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
 
       {pendentes.length === 0 && (
         <p className="cartao p-8 text-center text-suave">
-          {codigo ? `Nenhuma solicitação pendente com o código ${codigo}.` : "Nenhuma reivindicação pendente. 🎉"}
+          {codigo
+            ? `Nenhuma solicitação pendente com o código ${codigo}.`
+            : instagram
+              ? `Nenhuma solicitação pendente para @${instagram}.`
+              : "Nenhuma reivindicação pendente. 🎉"}
         </p>
       )}
 
       {pendentes.map((r) => {
         const expirada = r.expiraEm <= agora;
         const temDono = r.empresa.membros.length > 0;
+        // Um pedido de código só é aprovado depois que a pessoa cola o código certo.
+        const aguardaCodigo = r.metodo === "codigo_dm" && !r.codigoConfirmadoEm;
         return (
           <article key={r.id} className="cartao space-y-4 p-6">
             <header className="flex flex-wrap items-start justify-between gap-3">
@@ -174,15 +179,56 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
             </p>
 
             {r.metodo === "codigo_dm" && r.codigo && (
-              <div className="rounded-2xl bg-papel p-4 text-sm leading-relaxed">
-                Confira se <strong>{oficial ? `@${oficial}` : "o perfil oficial"}</strong> recebeu uma DM <strong>de @{r.empresa.instagramUsername}</strong> com o
-                código <code className="rounded bg-superficie px-2 py-0.5 font-mono text-base font-bold text-coral-700">{r.codigo}</code>.
-                Se a DM veio de outra conta, recuse.
+              <div className="space-y-3 rounded-2xl bg-papel p-4 text-sm leading-relaxed">
+                {r.codigoConfirmadoEm ? (
+                  <p className="font-medium text-folha">Código confirmado no site em {formatarDataHora(r.codigoConfirmadoEm)}.</p>
+                ) : (
+                  <>
+                    <p>
+                      {r.envios === 0
+                        ? "Ainda não enviado."
+                        : `Enviado ${r.envios === 1 ? "1 vez" : `${r.envios} vezes`}, a última em ${formatarDataHora(r.enviadoEm!)}.`}
+                      {r.reenvioPedidoEm && (
+                        <strong className="text-coral-700"> Pediu outro envio em {formatarDataHora(r.reenvioPedidoEm)}: o código mudou.</strong>
+                      )}
+                      {r.tentativas >= LIMITE_TENTATIVAS && <strong className="text-coral-700"> Errou o código {r.tentativas} vezes.</strong>}
+                    </p>
+                    <p>
+                      Responda na conversa com <strong>@{r.empresa.instagramUsername}</strong>, do <strong>@{oficial}</strong>. Se o
+                      &ldquo;Oi&rdquo; veio de outra conta, não mande.
+                    </p>
+                    <CopiarMensagem
+                      texto={mensagemDoCodigo({
+                        nome: r.usuario.nome,
+                        codigo: r.codigo,
+                        endereco: `${ENDERECO_DO_SITE}/empresas/${r.empresa.instagramUsername}/reivindicar`,
+                      })}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={`https://ig.me/m/${r.empresa.instagramUsername}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="botao-claro botao-pequeno"
+                      >
+                        Abrir a DM com @{r.empresa.instagramUsername} ↗
+                      </a>
+                      <form action={registrarEnvioDoCodigo}>
+                        <input type="hidden" name="reivindicacaoId" value={r.id} />
+                        <BotaoEnviar className="botao botao-pequeno" enviando="Registrando…">
+                          Marquei como enviado
+                        </BotaoEnviar>
+                      </form>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {r.metodo === "documento" && (
               <dl className="grid grid-cols-1 gap-x-6 gap-y-2 rounded-2xl bg-papel p-4 text-sm sm:grid-cols-[10rem_1fr]">
+                <dt className="text-suave">Pela DM</dt>
+                <dd>{resumoDaDm(historicoDaDm(r))}</dd>
                 <dt className="text-suave">Relação</dt>
                 <dd>{r.relacao}</dd>
                 <dt className="text-suave">Contato</dt>
@@ -239,24 +285,31 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
             )}
 
             <div className="flex flex-col gap-3 border-t border-linha pt-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex flex-wrap gap-2">
-                <form action={aprovarReivindicacao}>
-                  <input type="hidden" name="reivindicacaoId" value={r.id} />
-                  <input type="hidden" name="modo" value="adicionar" />
-                  <BotaoEnviar className="botao botao-pequeno" enviando="Aprovando…">
-                    {temDono ? "Aprovar como co-dono" : "Aprovar"}
-                  </BotaoEnviar>
-                </form>
-                {temDono && (
+              {aguardaCodigo ? (
+                <p className="text-sm text-suave sm:max-w-xs">
+                  A aprovação vem quando a pessoa colar o código. Sem acesso ao Instagram do negócio, ela pede uma análise
+                  manual.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
                   <form action={aprovarReivindicacao}>
                     <input type="hidden" name="reivindicacaoId" value={r.id} />
-                    <input type="hidden" name="modo" value="transferir" />
-                    <BotaoEnviar className="botao-coral botao-pequeno" enviando="Transferindo…">
-                      Aprovar e transferir
+                    <input type="hidden" name="modo" value="adicionar" />
+                    <BotaoEnviar className="botao botao-pequeno" enviando="Aprovando…">
+                      {temDono ? "Aprovar como co-dono" : "Aprovar"}
                     </BotaoEnviar>
                   </form>
-                )}
-              </div>
+                  {temDono && (
+                    <form action={aprovarReivindicacao}>
+                      <input type="hidden" name="reivindicacaoId" value={r.id} />
+                      <input type="hidden" name="modo" value="transferir" />
+                      <BotaoEnviar className="botao-coral botao-pequeno" enviando="Transferindo…">
+                        Aprovar e transferir
+                      </BotaoEnviar>
+                    </form>
+                  )}
+                </div>
+              )}
               <form action={recusarReivindicacao} className="flex flex-1 gap-2 sm:max-w-md">
                 <input type="hidden" name="reivindicacaoId" value={r.id} />
                 <input name="motivo" maxLength={500} placeholder="Motivo da recusa (a pessoa vê)" className="campo py-1.5 sm:text-sm" />
@@ -270,6 +323,14 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
       })}
     </div>
   );
+}
+
+/** Na análise manual: o que já aconteceu pela DM, e o lembrete de conferir por fora. */
+function resumoDaDm({ envios, confirmado }: { envios: number; confirmado: boolean }): string {
+  if (confirmado) return "Colou o código certo antes.";
+  const conferir = "Confira por um contato que você mesmo achar (Google, Instagram do negócio).";
+  if (envios === 0) return `Nenhum código enviado. ${conferir}`;
+  return `${envios === 1 ? "1 envio" : `${envios} envios`}, nenhum confirmado. ${conferir}`;
 }
 
 async function DadosCnpj({ cnpj }: { cnpj: string }) {

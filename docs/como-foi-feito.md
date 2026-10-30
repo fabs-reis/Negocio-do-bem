@@ -357,6 +357,18 @@ Quem tem um negócio e chegava pelo Instagram do projeto não tinha uma porta pr
 - **O código por DM vem ligado**, com o @ do projeto (`ofabsreis`). Quem assumiu pelos dados do negócio pode confirmar pelo Instagram depois, e o painel convida para isso.
 - **Sem a palavra "reivindicar" nos textos para o dono.** O botão virou "É meu negócio". O endereço e os nomes no código continuam.
 
+### 30 de outubro: o código sai do @ do projeto, e os dados do negócio não aprovam sozinhos ([#133](https://github.com/fabsreis/Negocio-do-bem/issues/133))
+
+Depois do #114 o selo dizia a verdade, mas qualquer conta ainda virava dona de um negócio sem dono só enviando relação e contato, em texto livre. Aqui o negócio é o @ do Instagram, então a prova que vale é ter acesso ao Instagram do negócio.
+
+- **O código inverteu de direção.** Antes, o código aparecia na tela e a pessoa mandava por DM para o @ do projeto, e alguém precisava conferir de que conta a DM veio. Agora o código só aparece para a moderação, que manda do @ do projeto para o @ do negócio, e a pessoa cola no site. Acertar prova que ela lê as mensagens do negócio, e a conferência é do site, não de quem modera. O método continua `codigo_dm`, e o webhook ainda aceita o código que volta por DM.
+- **"Siga e mande um Oi".** DM de quem a conta não segue cai em "Solicitações de mensagem", e algumas contas nem recebem pedidos de mensagem. Quando o negócio segue o @ do projeto e escreve primeiro, a resposta cai na conversa. A fila procura pelo @ de quem mandou o "Oi".
+- **A mensagem diz quem pediu.** O golpe óbvio é pedir o código e depois convencer o dono de verdade a repassar. Com o nome de quem pediu e o aviso "não passe o código para ninguém, nem para a gente", o dono reconhece o próprio pedido e avisa quando não foi ele.
+- **Limites pequenos.** 5 tentativas por código, contadas com a linha travada antes da comparação, e um outro envio, que troca o código. Com cerca de 887 milhões de códigos possíveis, ninguém acerta no chute.
+- **Depois de dois envios, análise manual.** O envio de dados virou isso: sempre com a moderação, que confere por um contato que ela mesma acha. O botão de aprovar em lote saiu.
+- **O selo exige o código.** Um pedido `codigo_dm` aprovado pela moderação sem o código colado (`codigoConfirmadoEm`) não liga o `oficial`.
+- **Aprovação simultânea.** O teste de colar o mesmo código duas vezes ao mesmo tempo mostrou que o `aprovar` deixava duas aprovações passarem. A gravação final do status virou condicional ("só se ainda estiver pendente"), no mesmo ponto da ordem de travas da [#131](https://github.com/fabsreis/Negocio-do-bem/pull/131): mover a decisão para o começo trava o pedido antes do negócio e quebra a ordem que evita o deadlock.
+
 ---
 
 ## 4. Arquitetura
@@ -533,11 +545,11 @@ npm run typecheck
 - **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob), Instagram, a procura da `/participar`, o `/indicar` preenchido pela URL e as boas-vindas do painel do dono.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
-  - código por DM;
+  - código por DM, inclusive o código mandado pela moderação: tentativas, outro envio, pedidos ao mesmo tempo e o código colado num perfil com dono;
   - Entrar com Instagram;
   - conflitos;
   - transferência;
-  - dados do negócio;
+  - análise manual (dados do negócio), que nunca aprova sozinha;
   - limite diário;
   - limite de tentativas de login e cadastro: `tests/db/tentativas.test.ts` testa os contadores, e `tests/db/acoes-conta.test.ts` passa pelas ações `entrar` e `cadastrar` de verdade, com espiões no scrypt. Só o Next (cabeçalhos, redirect e cookie) é de mentira. Esses testes falham se alguém tirar o limite do cadastro, mover o limite para depois do scrypt, ou confiar num cabeçalho de IP que o visitante escreve.
   - o selo de perfil oficial e a migração que o preencheu.
@@ -599,7 +611,7 @@ npm run typecheck
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
 | `AUTENTICACAO_PROXY_CONFIAVEL` | Não | Defina `1` só se há um proxy seu na frente do site, que escreve o `x-forwarded-for` e é o único caminho até ele. Fora do Vercel, o limite de tentativas de login e cadastro usa então o último valor desse cabeçalho. Vazia, todos os visitantes dividem um limite só. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
-| `INSTAGRAM_PERFIL_OFICIAL` | Não | Troca o @ que recebe o código por DM. Vazio, vale o @ do projeto (`ofabsreis`), e o código por DM fica ligado. |
+| `INSTAGRAM_PERFIL_OFICIAL` | Não | Troca o @ que manda o código por DM. Vazio, vale o @ do projeto (`ofabsreis`), e o código por DM fica ligado. |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_GRAPH_VERSION` | Não | Ligam o "Entrar com Instagram". |
 | `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | Não | Ligam a confirmação automática da DM. |
 | `RESEND_API_KEY`, `EMAIL_REMETENTE` | Não | Ligam os avisos por e-mail. Configure só em Production. |

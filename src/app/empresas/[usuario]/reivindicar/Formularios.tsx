@@ -1,20 +1,60 @@
 "use client";
 
 import { useActionState } from "react";
-import { enviarDocumento, gerarCodigoDm } from "@/acoes/reivindicacoes";
+import { confirmarCodigoDm, enviarDocumento, pedirCodigoDm, pedirOutroEnvioDm } from "@/acoes/reivindicacoes";
 import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { enviarSemLimpar } from "@/components/envio";
 import { Campo } from "@/components/Campo";
 
-export function FormGerarCodigo({ empresaId }: { empresaId: string }) {
-  const [estado, acao, pendente] = useActionState(gerarCodigoDm, undefined);
+export function FormPedirCodigo({ empresaId }: { empresaId: string }) {
+  const [estado, acao, pendente] = useActionState(pedirCodigoDm, undefined);
   return (
-    <form action={acao} onSubmit={enviarSemLimpar(acao)} className="mt-5 space-y-3">
+    <form action={acao} onSubmit={enviarSemLimpar(acao)} className="mt-3 space-y-3">
       <input type="hidden" name="empresaId" value={empresaId} />
       {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
-      <BotaoEnviar pendente={pendente} className="botao-coral" enviando="Gerando…">
-        Gerar meu código
+      <BotaoEnviar pendente={pendente} className="botao-coral" enviando="Pedindo…">
+        Pedir o código
+      </BotaoEnviar>
+    </form>
+  );
+}
+
+export function FormConfirmarCodigo({ empresaId }: { empresaId: string }) {
+  const [estado, acao, pendente] = useActionState(confirmarCodigoDm, undefined);
+  const codigo = estado?.valores?.codigo;
+  return (
+    <form action={acao} onSubmit={enviarSemLimpar(acao)} className="space-y-3">
+      <input type="hidden" name="empresaId" value={empresaId} />
+      <Campo id="codigo" rotulo="Código que chegou na DM">
+        <input
+          id="codigo"
+          name="codigo"
+          required
+          maxLength={20}
+          placeholder="BEM-7K3F9Q"
+          defaultValue={typeof codigo === "string" ? codigo : ""}
+          className="campo font-mono uppercase"
+          autoCapitalize="characters"
+          autoComplete="one-time-code"
+        />
+      </Campo>
+      {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
+      <BotaoEnviar pendente={pendente} enviando="Conferindo…">
+        Confirmar
+      </BotaoEnviar>
+    </form>
+  );
+}
+
+export function FormOutroEnvio({ empresaId }: { empresaId: string }) {
+  const [estado, acao, pendente] = useActionState(pedirOutroEnvioDm, undefined);
+  return (
+    <form action={acao} className="space-y-3">
+      <input type="hidden" name="empresaId" value={empresaId} />
+      {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
+      <BotaoEnviar pendente={pendente} className="botao-claro" enviando="Pedindo…">
+        Pedir outro envio
       </BotaoEnviar>
     </form>
   );
@@ -45,7 +85,7 @@ export function FormDocumento({ empresaId }: { empresaId: string }) {
         <textarea id="mensagem" name="mensagem" rows={3} maxLength={1000} defaultValue={valor("mensagem")} className="campo" />
       </Campo>
       {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
-      <BotaoEnviar pendente={pendente} enviando="Enviando…">Enviar dados</BotaoEnviar>
+      <BotaoEnviar pendente={pendente} enviando="Enviando…">Pedir análise</BotaoEnviar>
     </form>
   );
 }

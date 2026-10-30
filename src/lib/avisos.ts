@@ -15,13 +15,21 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     tipo: "info",
     texto: "Recebemos sua solicitação. A moderação vai analisar e o resultado aparece no seu painel.",
   },
-  codigo_gerado: {
+  codigo_pedido: {
     tipo: "info",
-    texto: "Seu código está pronto. Agora é só mandar a DM seguindo os passos abaixo.",
+    texto: "Pedido feito. Agora siga o perfil do projeto pelo Instagram do negócio e mande um \"Oi\": a gente responde com o código.",
+  },
+  reenvio_pedido: {
+    tipo: "info",
+    texto: "Pedimos outro envio. O código novo chega na mesma conversa, e o anterior deixa de valer.",
+  },
+  codigo_em_analise: {
+    tipo: "info",
+    texto: "Código confirmado. Como este perfil precisa de uma decisão da moderação, o resultado chega por e-mail e aparece no seu painel.",
   },
   documento_enviado: {
     tipo: "info",
-    texto: "Recebemos seus dados. Como este perfil já tem dono, a moderação decide e pode falar com você pelo contato informado.",
+    texto: "Recebemos seu pedido de análise. A moderação confere e pode falar com você pelo contato informado. O resultado chega por e-mail e aparece no seu painel.",
   },
   ig_conta_diferente: {
     tipo: "erro",
@@ -30,7 +38,7 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   ig_cancelado: { tipo: "erro", texto: "O login no Instagram foi cancelado. Nada foi alterado." },
   ig_erro: {
     tipo: "erro",
-    texto: "Não conseguimos confirmar sua conta com o Instagram agora. Tente de novo ou envie os dados do negócio.",
+    texto: "Não conseguimos confirmar sua conta com o Instagram agora. Tente de novo ou peça o código por DM.",
   },
   ig_indisponivel: {
     tipo: "erro",
@@ -53,6 +61,10 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     texto: "Antes, confirme o seu e-mail: abra o link que mandamos para você ou peça outro no seu painel.",
   },
   feito: { tipo: "sucesso", texto: "Feito." },
+  codigo_enviado: {
+    tipo: "sucesso",
+    texto: "Envio registrado. O código vale por 48 horas a partir de agora.",
+  },
   ja_processada: { tipo: "erro", texto: "Esta solicitação já tinha sido decidida por outra pessoa da moderação." },
   cancelada: { tipo: "info", texto: "Solicitação cancelada." },
 };

@@ -4,12 +4,15 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, type Prisma } from "@/lib/db";
 import {
   aprovar,
-  aprovarPendentesSemDono,
+  confirmarCodigo,
   ErroReivindicacao,
   iniciarPorCodigoDm,
+  LIMITE_TENTATIVAS,
+  pedirOutroEnvio,
   processarDm,
   processarLoginInstagram,
   recusar,
+  registrarEnvio,
   solicitarPorDocumento,
 } from "@/lib/reivindicacao";
 
@@ -158,6 +161,214 @@ describe("código por DM", () => {
 
     expect(await donos(empresa.id)).toEqual([novo.id]);
     expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).instagramIgsid).toBe("igsid-novo");
+  });
+});
+
+describe("código mandado pela DM do projeto", () => {
+  const HORA = 60 * 60 * 1000;
+
+  /** A pessoa pede o código e a moderação registra que mandou a DM. */
+  async function pedidoEnviado(empresaId: string, usuarioId: string) {
+    const moderador = await criarUsuario("Moderação");
+    const pedido = await iniciarPorCodigoDm(empresaId, usuarioId);
+    await registrarEnvio({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+    return { pedido: await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } }), moderador };
+  }
+
+  const confirmar = (empresaId: string, usuarioId: string, texto: string) => confirmarCodigo({ empresaId, usuarioId, texto });
+
+  it("o pedido espera a DM, e o envio dá 48 horas ao código", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+
+    const pedido = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+    expect(pedido).toMatchObject({ envios: 0, enviadoEm: null });
+    expect(pedido.expiraEm.getTime()).toBeGreaterThan(Date.now() + 7 * 24 * HORA);
+
+    const { pedido: enviado, moderador } = await pedidoEnviado(empresa.id, pessoa.id);
+    expect(enviado.id).toBe(pedido.id);
+    expect(enviado.envios).toBe(1);
+    expect(enviado.enviadoEm).not.toBeNull();
+    expect(Math.abs(enviado.expiraEm.getTime() - (Date.now() + 48 * HORA))).toBeLessThan(60_000);
+    expect(await db.registroAuditoria.findFirst({ where: { acao: "reivindicacao.codigo_enviado" } })).toMatchObject({
+      usuarioId: moderador.id,
+      alvoId: empresa.id,
+    });
+  });
+
+  it("o código certo, colado por quem pediu, aprova com o selo de perfil oficial", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const { pedido } = await pedidoEnviado(empresa.id, pessoa.id);
+
+    // Do jeito que a pessoa copia da DM: minúsculas e sem o hífen também valem.
+    expect(await confirmar(empresa.id, pessoa.id, pedido.codigo!.replace("-", " ").toLowerCase())).toBe("aprovada");
+
+    expect(await donos(empresa.id)).toEqual([pessoa.id]);
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ status: "verificada", oficial: true });
+    expect(await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } })).toMatchObject({ status: "aprovada", revisadoPorId: null });
+  });
+
+  it("o código vale mesmo se a moderação esquecer de registrar o envio", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const pedido = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+
+    expect(await confirmar(empresa.id, pessoa.id, pedido.codigo!)).toBe("aprovada");
+  });
+
+  it("o código de outra pessoa não vale", async () => {
+    const [ana, bia] = await Promise.all(["Ana", "Bia"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("padaria.flor");
+    const { pedido: daAna } = await pedidoEnviado(empresa.id, ana.id);
+    await pedidoEnviado(empresa.id, bia.id);
+
+    await expect(confirmar(empresa.id, bia.id, daAna.codigo!)).rejects.toThrow("não confere");
+
+    expect(await donos(empresa.id)).toEqual([]);
+    expect((await db.reivindicacao.findUniqueOrThrow({ where: { id: daAna.id } })).status).toBe("pendente");
+  });
+
+  it("sem pedido ou com um texto sem código, explica o que fazer", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+
+    await expect(confirmar(empresa.id, pessoa.id, "BEM-AAAAAA")).rejects.toThrow("Não encontramos um pedido de código");
+    await pedidoEnviado(empresa.id, pessoa.id);
+    await expect(confirmar(empresa.id, pessoa.id, "oi")).rejects.toThrow("formato BEM-7K3F9Q");
+  });
+
+  it("conta as tentativas erradas e para no limite, até para o código certo", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const { pedido } = await pedidoEnviado(empresa.id, pessoa.id);
+    const errado = pedido.codigo === "BEM-AAAAAA" ? "BEM-BBBBBB" : "BEM-AAAAAA";
+
+    await expect(confirmar(empresa.id, pessoa.id, errado)).rejects.toThrow(`Restam ${LIMITE_TENTATIVAS - 1} tentativas`);
+    for (let i = 2; i < LIMITE_TENTATIVAS; i++) await expect(confirmar(empresa.id, pessoa.id, errado)).rejects.toThrow("não confere");
+    await expect(confirmar(empresa.id, pessoa.id, errado)).rejects.toThrow("as tentativas acabaram");
+    await expect(confirmar(empresa.id, pessoa.id, pedido.codigo!)).rejects.toThrow("errado muitas vezes");
+
+    expect(await donos(empresa.id)).toEqual([]);
+    expect((await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } })).tentativas).toBe(LIMITE_TENTATIVAS);
+  });
+
+  it("tentativas ao mesmo tempo não passam do limite", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const { pedido } = await pedidoEnviado(empresa.id, pessoa.id);
+    const errado = pedido.codigo === "BEM-AAAAAA" ? "BEM-BBBBBB" : "BEM-AAAAAA";
+
+    const resultados = await Promise.allSettled(Array.from({ length: 20 }, () => confirmar(empresa.id, pessoa.id, errado)));
+
+    expect(resultados.every((r) => r.status === "rejected")).toBe(true);
+    expect((await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } })).tentativas).toBe(LIMITE_TENTATIVAS);
+  });
+
+  it("dois envios do código certo ao mesmo tempo aprovam uma vez só", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const { pedido } = await pedidoEnviado(empresa.id, pessoa.id);
+
+    const resultados = await Promise.all([confirmar(empresa.id, pessoa.id, pedido.codigo!), confirmar(empresa.id, pessoa.id, pedido.codigo!)]);
+
+    expect(resultados).toEqual(["aprovada", "aprovada"]);
+    expect(await donos(empresa.id)).toEqual([pessoa.id]);
+    expect(await db.registroAuditoria.count({ where: { acao: "reivindicacao.aprovada" } })).toBe(1);
+  });
+
+  it("depois de 48 horas do envio, o código venceu", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const { pedido } = await pedidoEnviado(empresa.id, pessoa.id);
+    await db.reivindicacao.update({ where: { id: pedido.id }, data: { expiraEm: new Date(Date.now() - 1000) } });
+
+    await expect(confirmar(empresa.id, pessoa.id, pedido.codigo!)).rejects.toThrow("venceu");
+    expect(await donos(empresa.id)).toEqual([]);
+  });
+
+  it("outro envio: só depois do primeiro, uma vez por envio e até dois envios", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const pedido = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+    await expect(pedirOutroEnvio(empresa.id, pessoa.id)).rejects.toThrow("ainda não mandou o primeiro código");
+
+    const { moderador } = await pedidoEnviado(empresa.id, pessoa.id);
+    await db.reivindicacao.update({ where: { id: pedido.id }, data: { tentativas: LIMITE_TENTATIVAS } });
+    await pedirOutroEnvio(empresa.id, pessoa.id);
+
+    const depois = await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } });
+    expect(depois.codigo).not.toBe(pedido.codigo);
+    expect(depois).toMatchObject({ tentativas: 0, envios: 1, status: "pendente" });
+    expect(depois.reenvioPedidoEm).not.toBeNull();
+    await expect(pedirOutroEnvio(empresa.id, pessoa.id)).rejects.toThrow("já pediu outro envio");
+    // O código antigo deixou de valer.
+    await expect(confirmar(empresa.id, pessoa.id, pedido.codigo!)).rejects.toThrow("não confere");
+
+    await registrarEnvio({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+    expect(await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } })).toMatchObject({ envios: 2, reenvioPedidoEm: null });
+    await expect(pedirOutroEnvio(empresa.id, pessoa.id)).rejects.toThrow("análise manual");
+
+    expect(await confirmar(empresa.id, pessoa.id, depois.codigo!)).toBe("aprovada");
+  });
+
+  it("dois pedidos de outro envio ao mesmo tempo viram um só", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+    const { pedido } = await pedidoEnviado(empresa.id, pessoa.id);
+
+    const resultados = await Promise.allSettled([pedirOutroEnvio(empresa.id, pessoa.id), pedirOutroEnvio(empresa.id, pessoa.id)]);
+
+    expect(resultados.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } })).codigo).not.toBe(pedido.codigo);
+  });
+
+  it("com outro dono, o código certo fica com a moderação, que aprova com o selo", async () => {
+    const [antiga, nova, moderador] = await Promise.all(["Antiga", "Nova", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("padaria.flor");
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: antiga.id } });
+    const { pedido } = await pedidoEnviado(empresa.id, nova.id);
+
+    expect(await confirmar(empresa.id, nova.id, pedido.codigo!)).toBe("em_analise");
+    const emAnalise = await db.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } });
+    expect(emAnalise.status).toBe("pendente");
+    expect(emAnalise.codigoConfirmadoEm).not.toBeNull();
+    expect(emAnalise.notas).toContain("Código confirmado no site");
+    expect(await donos(empresa.id)).toEqual([antiga.id]);
+    // Colar de novo não gasta tentativa nem muda nada.
+    expect(await confirmar(empresa.id, nova.id, pedido.codigo!)).toBe("em_analise");
+
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id, modo: "transferir" });
+
+    expect(await donos(empresa.id)).toEqual([nova.id]);
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).oficial).toBe(true);
+  });
+
+  it("um pedido de código aprovado sem o código não dá o selo", async () => {
+    const [pessoa, moderador] = await Promise.all(["Pessoa", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("padaria.flor");
+    const pedido = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+
+    expect(await donos(empresa.id)).toEqual([pessoa.id]);
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).oficial).toBe(false);
+  });
+
+  it("o envio só se registra num pedido de código pendente", async () => {
+    const [pessoa, moderador] = await Promise.all(["Pessoa", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("padaria.flor");
+    const analise = await solicitarPorDocumento({
+      empresaId: empresa.id,
+      usuarioId: pessoa.id,
+      cnpj: null,
+      site: null,
+      relacao: "Dona",
+      contato: "(81) 99999-0000",
+      mensagem: null,
+    });
+
+    await expect(registrarEnvio({ reivindicacaoId: analise.id, revisorId: moderador.id })).rejects.toThrow(ErroReivindicacao);
   });
 });
 
@@ -351,17 +562,28 @@ describe("renovação durante aprovação com troca do ID do Instagram", () => {
 describe("documento e moderação", () => {
   const dadosDoNegocio = { cnpj: null, site: null, relacao: "Dona", contato: "(81) 99999-0000", mensagem: null };
 
-  it("aprova na hora quando o negócio ainda não tem dono", async () => {
+  it("fica com a moderação mesmo quando o negócio ainda não tem dono", async () => {
     const pessoa = await criarUsuario();
     const empresa = await criarEmpresa("sem.dono");
 
     const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
 
-    expect(pedido.status).toBe("aprovada");
-    expect(pedido.revisadoPorId).toBeNull();
+    expect(pedido.status).toBe("pendente");
+    expect(await donos(empresa.id)).toEqual([]);
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ status: "indicada" });
+    expect(await db.registroAuditoria.count({ where: { acao: "reivindicacao.aprovada" } })).toBe(0);
+  });
+
+  it("a moderação aprova o pedido de um negócio sem dono", async () => {
+    const [pessoa, moderador] = await Promise.all(["Pessoa", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("sem.dono");
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
+
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+
     expect(await donos(empresa.id)).toEqual([pessoa.id]);
-    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ status: "verificada", moderacao: "aprovada" });
-    expect(await db.registroAuditoria.findFirst({ where: { acao: "reivindicacao.aprovada" } })).toMatchObject({ usuarioId: null });
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ status: "verificada", oficial: false });
+    expect(await db.registroAuditoria.findFirst({ where: { acao: "reivindicacao.aprovada" } })).toMatchObject({ usuarioId: moderador.id });
   });
 
   it("deixa para a moderação quando o negócio foi tirado do ar", async () => {
@@ -374,46 +596,6 @@ describe("documento e moderação", () => {
     expect(pedido.status).toBe("pendente");
     expect(await donos(empresa.id)).toEqual([]);
     expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).moderacao).toBe("rejeitada");
-  });
-
-  it("aprova a fila antiga por ordem de chegada, só nos negócios sem dono e no ar", async () => {
-    const [primeira, segunda, terceira, quarta, dono, moderador] = await Promise.all(
-      ["Primeira", "Segunda", "Terceira", "Quarta", "Dono", "Moderação"].map((nome) => criarUsuario(nome)),
-    );
-    const semDono = await criarEmpresa("fila.sem.dono");
-    const comDono = await criarEmpresa("fila.com.dono");
-    const foraDoAr = await criarEmpresa("fila.fora.do.ar");
-    await db.empresaMembro.create({ data: { empresaId: comDono.id, usuarioId: dono.id } });
-    await db.empresa.update({ where: { id: foraDoAr.id }, data: { moderacao: "rejeitada" } });
-
-    // Pedidos feitos antes da aprovação automática, que ficaram pendentes.
-    const naFila = (empresaId: string, usuarioId: string, minutosAtras: number) =>
-      db.reivindicacao.create({
-        data: {
-          empresaId,
-          usuarioId,
-          metodo: "documento",
-          relacao: "Dona",
-          contato: "x",
-          criadoEm: new Date(Date.now() - minutosAtras * 60_000),
-          expiraEm: new Date(Date.now() + 86_400_000),
-        },
-      });
-    const pedidoDaSegunda = await naFila(semDono.id, segunda.id, 5);
-    const pedidoDaPrimeira = await naFila(semDono.id, primeira.id, 10);
-    const pedidoDaTerceira = await naFila(comDono.id, terceira.id, 10);
-    const pedidoDaQuarta = await naFila(foraDoAr.id, quarta.id, 10);
-
-    expect(await aprovarPendentesSemDono(moderador.id)).toEqual([pedidoDaPrimeira.id]);
-
-    const status = async (id: string) => (await db.reivindicacao.findUniqueOrThrow({ where: { id } })).status;
-    expect(await status(pedidoDaPrimeira.id)).toBe("aprovada");
-    expect(await status(pedidoDaSegunda.id)).toBe("pendente");
-    expect(await status(pedidoDaTerceira.id)).toBe("pendente");
-    expect(await status(pedidoDaQuarta.id)).toBe("pendente");
-    expect(await donos(semDono.id)).toEqual([primeira.id]);
-    expect(await donos(comDono.id)).toEqual([dono.id]);
-    expect(await db.registroAuditoria.findFirst({ where: { acao: "reivindicacao.aprovada" } })).toMatchObject({ usuarioId: moderador.id });
   });
 
   it("guarda CNPJ e site e não deixa duplicar enquanto está em análise", async () => {
@@ -644,6 +826,13 @@ describe("selo de perfil oficial", () => {
     return (await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).oficial;
   }
 
+  /** Antes da #133, quem enviava os dados de um negócio sem dono virava dono na hora. */
+  async function assumirPelosDados(empresaId: string, usuarioId: string) {
+    const moderador = await criarUsuario("Moderação");
+    const pedido = await solicitarPorDocumento({ empresaId, usuarioId, ...dadosDoNegocio });
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+  }
+
   /** A pessoa gera o código e a DM chega do @ do negócio. */
   async function confirmarPorDm(empresa: { id: string; instagramUsername: string }, usuarioId: string) {
     const { codigo } = await iniciarPorCodigoDm(empresa.id, usuarioId);
@@ -672,9 +861,8 @@ describe("selo de perfil oficial", () => {
     const pessoa = await criarUsuario();
     const empresa = await criarEmpresa("sem.dono");
 
-    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
+    await assumirPelosDados(empresa.id, pessoa.id);
 
-    expect(pedido.status).toBe("aprovada");
     expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ status: "verificada", oficial: false });
   });
 
@@ -716,7 +904,7 @@ describe("selo de perfil oficial", () => {
   it("a transferência pelo código por DM deixa o perfil oficial", async () => {
     const [antiga, nova, moderador] = await Promise.all(["Antiga", "Nova", "Moderação"].map((nome) => criarUsuario(nome)));
     const empresa = await criarEmpresa("padaria.flor");
-    await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: antiga.id, ...dadosDoNegocio });
+    await assumirPelosDados(empresa.id, antiga.id);
     // Já tem dono: a DM certa fica pendente para a moderação.
     expect(await confirmarPorDm(empresa, nova.id)).toBe("em_analise");
     const pedido = await db.reivindicacao.findFirstOrThrow({ where: { empresaId: empresa.id, status: "pendente" } });
@@ -730,7 +918,7 @@ describe("selo de perfil oficial", () => {
   it("quem assumiu pelos dados do negócio confirma pelo código por DM e ganha o selo", async () => {
     const dona = await criarUsuario();
     const empresa = await criarEmpresa("atelie.raiz");
-    await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dona.id, ...dadosDoNegocio });
+    await assumirPelosDados(empresa.id, dona.id);
 
     expect(await confirmarPorDm(empresa, dona.id)).toBe("aprovada");
 
@@ -741,7 +929,7 @@ describe("selo de perfil oficial", () => {
   it("quem assumiu pelos dados do negócio confirma pelo Entrar com Instagram e ganha o selo", async () => {
     const dona = await criarUsuario();
     const empresa = await criarEmpresa("atelie.raiz");
-    await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dona.id, ...dadosDoNegocio });
+    await assumirPelosDados(empresa.id, dona.id);
 
     const resultado = await processarLoginInstagram({
       empresaId: empresa.id,
@@ -761,20 +949,21 @@ describe("selo de perfil oficial", () => {
     await confirmarPorDm(empresa, confirmou.id);
     await db.usuario.delete({ where: { id: confirmou.id } });
 
-    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
+    await assumirPelosDados(empresa.id, pessoa.id);
 
-    expect(pedido.status).toBe("aprovada");
+    expect(await donos(empresa.id)).toEqual([pessoa.id]);
     expect(await oficial(empresa.id)).toBe(false);
   });
 });
 
 describe("negócio tirado do ar", () => {
-  const dadosDoNegocio = { cnpj: null, site: null, relacao: "Dona", contato: "(81) 99999-0000", mensagem: null };
-
-  /** Negócio que a moderação tirou do ar, com ou sem um dono que assumiu pelos dados. */
+  /** Negócio que a moderação tirou do ar, com ou sem um dono que assumiu sem confirmar pelo Instagram. */
   async function tiradoDoAr(username: string, dono?: { id: string }) {
     const empresa = await criarEmpresa(username);
-    if (dono) await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dono.id, ...dadosDoNegocio });
+    if (dono) {
+      await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+      await db.empresa.update({ where: { id: empresa.id }, data: { status: "verificada" } });
+    }
     await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });
     return empresa;
   }
@@ -786,9 +975,7 @@ describe("negócio tirado do ar", () => {
     const pedido = await db.reivindicacao.findFirstOrThrow({ where: { empresaId, usuarioId, metodo: { not: "documento" } } });
     expect(pedido.status).toBe("pendente");
     expect(pedido.notas).toContain("fora do ar");
-    expect(await db.registroAuditoria.count({ where: { alvoId: empresaId, acao: { startsWith: "reivindicacao.aprovada" }, usuarioId: null } })).toBe(
-      donosEsperados.length,
-    );
+    expect(await db.registroAuditoria.count({ where: { alvoId: empresaId, acao: { startsWith: "reivindicacao.aprovada" } } })).toBe(0);
   }
 
   it("a DM certa de quem não é dono fica com a moderação", async () => {

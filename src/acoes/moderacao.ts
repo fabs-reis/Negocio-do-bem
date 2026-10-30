@@ -8,20 +8,22 @@ import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
 import { comAviso, destinoNaModeracao } from "@/lib/moderacao/filtros";
 import { avisarDecisaoDaReivindicacao } from "@/lib/notificacoes";
-import { aprovar, aprovarPendentesSemDono, ErroReivindicacao, recusar, type ModoAprovacao } from "@/lib/reivindicacao";
+import { aprovar, ErroReivindicacao, recusar, registrarEnvio, type ModoAprovacao } from "@/lib/reivindicacao";
 
 function voltar(aba: string, aviso: string): never {
   redirect(`/moderacao?aba=${aba}&aviso=${aviso}`);
 }
 
-/** Esvazia a fila antiga: aprova as reivindicações de negócios que ainda não têm dono. */
-export async function aprovarReivindicacoesSemDono(): Promise<void> {
+/** A moderação mandou a DM com o código: o prazo de 48 horas começa a contar. */
+export async function registrarEnvioDoCodigo(dados: FormData): Promise<void> {
   const moderador = await exigirModerador();
-  const aprovadas = await aprovarPendentesSemDono(moderador.id);
-  after(async () => {
-    for (const id of aprovadas) await avisarDecisaoDaReivindicacao(id);
-  });
-  voltar("reivindicacoes", "feito");
+  try {
+    await registrarEnvio({ reivindicacaoId: texto(dados, "reivindicacaoId"), revisorId: moderador.id });
+  } catch (erro) {
+    if (erro instanceof ErroReivindicacao) voltar("reivindicacoes", "ja_processada");
+    throw erro;
+  }
+  voltar("reivindicacoes", "codigo_enviado");
 }
 
 /** Esvazia a fila antiga: publica todas as indicações que esperavam a moderação. */

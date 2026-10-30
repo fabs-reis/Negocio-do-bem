@@ -77,10 +77,10 @@ As fotos enviadas no seu computador ficam em `public/enviados/` (fora do Git). N
 
 Quem tem um negócio começa em `/participar`, o link da bio do Instagram do projeto: digita o @ do negócio, e a página leva ao próximo passo (indicar o negócio como seu, confirmar que ele é seu ou pedir revisão). Do perfil, o caminho é o botão "É meu negócio" (`/empresas/<@>/reivindicar`). Lá, a pessoa escolhe:
 
-- **Código por DM**, ligado por padrão: ela gera um código e manda por DM, do Instagram do negócio, para o @ do projeto (`ofabsreis`). A moderação confere a DM, ou o webhook confere sozinho. A aprovação dá ao perfil o selo **"Perfil oficial"**.
-- **Dados do negócio**, a opção "Não tenho acesso ao Instagram do negócio". Se o negócio ainda não tem dono, ela vira dona na hora, e o perfil fica com o selo "Perfil assumido". Depois, ela pode confirmar pelo Instagram na mesma página para ganhar o selo de perfil oficial.
+- **Código por DM**, ligado por padrão e o caminho principal: ela pede o código, segue o @ do projeto (`ofabsreis`) pelo Instagram do negócio e manda um "Oi". A moderação responde com o código nessa conversa, e ela cola o código no site. O código só aparece para a moderação: acertar prova que a pessoa lê as mensagens do Instagram do negócio. A aprovação dá ao perfil o selo **"Perfil oficial"**.
+- **Análise manual**, para quem não tem acesso ao Instagram do negócio ou não recebeu o código depois de dois envios. A pessoa envia os dados do negócio, e o pedido sempre fica com a moderação, que confere por um contato que ela mesma acha.
 
-Se o negócio já tem dono, o pedido vira uma disputa, e a moderação decide com estes dados:
+Na análise manual, e quando o negócio já tem dono, a moderação decide com estes dados:
 
 - **CNPJ ou MEI** (opcional): a moderação vê o CNPJ formatado e os dados da Receita ao lado.
 - **Site** (opcional): aparece como link na ficha da moderação.
@@ -91,7 +91,7 @@ Os dois caminhos pelo Instagram dão o selo "Perfil oficial":
 
 | Caminho | Liga quando | Como é aprovado |
 | --- | --- | --- |
-| **Código por DM** | Sempre, com o @ do projeto. `INSTAGRAM_PERFIL_OFICIAL` troca o @ | Pela moderação, ou sozinho se o webhook estiver configurado |
+| **Código por DM** | Sempre, com o @ do projeto. `INSTAGRAM_PERFIL_OFICIAL` troca o @ | Na hora, quando a pessoa cola o código certo e não há conflito |
 | **Entrar com Instagram** | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` preenchidos | Na hora, se o @ conectado for o do negócio (só contas comerciais ou de criador) |
 
 O selo vale enquanto um dono atual confirmou pelo Instagram: uma transferência pelos dados do negócio tira o selo. As regras estão na [seção 6 das regras de negócio](docs/regras-de-negocio.md#o-selo-de-perfil-oficial).
@@ -100,7 +100,8 @@ Regras que protegem os negócios (em `src/lib/reivindicacao.ts`):
 
 - Nos caminhos pelo Instagram, o perfil fica ligado ao **ID da conta**, não só ao @. Se um @ mudar de dono, a verificação nova vai para análise em vez de ser aprovada sozinha.
 - **Não existe aprovação automática quando há conflito**: o negócio já tem dono, o ID da conta é diferente do registrado ou a conta já está ligada a outro perfil. Nesses casos a moderação decide se adiciona a pessoa como co-dona ou transfere o perfil.
-- O código da DM vale 48 horas, fica preso à conta de quem o gerou e só é aceito se vier do @ do negócio. A tela avisa para nunca enviar um código passado por outra pessoa.
+- O código da DM vale 48 horas depois do envio, fica preso à conta de quem pediu e aceita 5 tentativas. A pessoa pode pedir outro envio uma vez, e o código muda. A mensagem diz quem pediu e avisa para não passar o código para ninguém.
+- O envio de dados nunca aprova sozinho: CNPJ e contato não provam que a pessoa cuida do negócio.
 - Cada pessoa pode fazer no máximo 10 solicitações e 10 indicações por dia.
 - Toda aprovação, recusa, edição e decisão de moderação fica registrada na auditoria (`/moderacao?aba=auditoria`).
 - Donos respondem depoimentos, mas não apagam. Uma denúncia não esconde o depoimento: só a moderação remove.
@@ -108,7 +109,9 @@ Regras que protegem os negócios (em `src/lib/reivindicacao.ts`):
 
 ### O código por DM
 
-O código por DM vem ligado: as DMs vão para o @ do projeto, `ofabsreis` (`INSTAGRAM_DO_PROJETO`, em `src/lib/dominio.ts`). Numa cópia do projeto, preencha `INSTAGRAM_PERFIL_OFICIAL` com o @ que vai receber as DMs. A moderação confere cada DM e localiza o pedido pelo código na aba de reivindicações. Para a confirmação ser automática, veja a seção do webhook abaixo.
+O código por DM vem ligado: as DMs saem do @ do projeto, `ofabsreis` (`INSTAGRAM_DO_PROJETO`, em `src/lib/dominio.ts`). Numa cópia do projeto, preencha `INSTAGRAM_PERFIL_OFICIAL` com o @ que vai mandar as DMs.
+
+Na aba de reivindicações, a moderação procura o pedido pelo @ de quem mandou o "Oi", copia a mensagem pronta (com o nome de quem pediu e o código), responde na conversa e clica em "Marquei como enviado". O código vale 48 horas a partir daí. Se a DM não chegar, a pessoa pede outro envio; depois de dois envios, ela pode pedir uma análise manual.
 
 ### Ativando o "Entrar com Instagram" (opcional)
 
@@ -122,6 +125,8 @@ O código por DM vem ligado: as DMs vão para o @ do projeto, `ofabsreis` (`INST
 O site pede só `instagram_business_basic`, lê apenas o `user_id` e o `username` e **não guarda o token**.
 
 ### Ativando a confirmação automática da DM (opcional)
+
+O webhook continua aceitando o código quando ele volta por DM, a partir do @ do negócio, para o @ do projeto.
 
 1. Conecte o perfil que recebe as DMs (o @ do projeto, ou o de `INSTAGRAM_PERFIL_OFICIAL`) ao app e gere um token dele com `instagram_business_basic` e `instagram_business_manage_messages`. Coloque o token em `INSTAGRAM_ACCESS_TOKEN`.
 2. Cadastre o webhook com a URL `https://SEU-DOMINIO/api/webhooks/instagram` e o mesmo texto de `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`. Depois assine o campo `messages`.
@@ -217,7 +222,6 @@ tests/               testes (unit/ sem banco, db/ com banco)
 
 ## Próximos passos sugeridos
 
-- Uma verificação de verdade para o dono: hoje quem pede um negócio sem dono vira dono na hora, sem conferência. Um caminho é comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
 - Trocar a senha pelo painel, para completar a recuperação de senha: o "Entrar por link" já devolve o acesso a quem esqueceu.
 - Renovação automática do token do Instagram usado pelo webhook.
 

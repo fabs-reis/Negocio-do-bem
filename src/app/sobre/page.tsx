@@ -14,7 +14,7 @@ export const metadata: Metadata = metadadosDaPagina({
 });
 
 export default function Sobre() {
-  // O @ que recebe o código por DM (o do projeto, se o INSTAGRAM_PERFIL_OFICIAL não trocar).
+  // O @ que manda o código por DM (o do projeto, se o INSTAGRAM_PERFIL_OFICIAL não trocar).
   const perfil = perfilOficial();
   return (
     <div className="mx-auto max-w-3xl px-4 pt-14 sm:px-6">
@@ -41,8 +41,8 @@ export default function Sobre() {
             ar na hora, e a moderação tira do ar o que for spam ou perfil falso.
           </li>
           <li>
-            <strong>O dono assume o perfil</strong> confirmando pelo Instagram ou enviando os dados do negócio. A partir
-            daí, ele cuida das informações. A moderação também pode corrigir qualquer perfil, e cada mudança fica
+            <strong>O dono assume o perfil</strong> confirmando pelo Instagram do negócio, ou com uma análise manual da
+            moderação. A partir daí, ele cuida das informações. A moderação também pode corrigir qualquer perfil, e cada mudança fica
             registrada.
           </li>
           <li>
@@ -60,20 +60,23 @@ export default function Sobre() {
         </p>
         {perfil && (
           <p>
-            Para confirmar que o negócio é seu, você gera um código em &ldquo;É meu negócio&rdquo; e manda por DM, do
-            Instagram do negócio, para o{" "}
+            Para confirmar que o negócio é seu, peça o código em &ldquo;É meu negócio&rdquo;. Depois, pelo Instagram do
+            negócio, siga o{" "}
             <a href={linkPerfil(perfil)} target="_blank" rel="noopener noreferrer">
               @{perfil}
-            </a>
-            . O perfil confirmado assim ganha o selo <strong>&ldquo;Perfil oficial&rdquo;</strong>, que mostra pra quem
-            visita que foi você mesmo que assumiu o perfil.
+            </a>{" "}
+            e mande um &ldquo;Oi&rdquo;: a gente responde com o código nessa conversa, e você cola no site. Só quem cuida
+            do Instagram do negócio recebe o código. O perfil confirmado assim ganha o selo{" "}
+            <strong>&ldquo;Perfil oficial&rdquo;</strong>, que mostra pra quem visita que foi você mesmo que assumiu o
+            perfil.
           </p>
         )}
         <p>
-          {perfil ? "Sem acesso ao Instagram do negócio? Envie" : "Para assumir o perfil, envie"} os dados do negócio:
-          CNPJ ou MEI (se tiver), site e um contato. Se ninguém assumiu o perfil ainda, ele passa a ser seu na hora, com
-          o selo &ldquo;Perfil assumido&rdquo;, e você já pode editá-lo no painel.
-          {perfil && " Depois, quando quiser, confirme pelo Instagram para ganhar o selo de perfil oficial."}
+          {perfil
+            ? "Sem acesso ao Instagram do negócio, ou o código não chegou? Peça uma análise manual"
+            : "Para assumir o perfil, peça uma análise manual"}
+          : conte qual é a sua relação com o negócio e deixe um contato. A moderação confere por outros meios, como o
+          telefone que aparece no Google ou no Instagram do negócio, e decide. O resultado chega por e-mail.
         </p>
         <p>
           Se outra pessoa já assumiu o seu perfil, use a mesma página para pedir a revisão. Qualquer disputa vai para a

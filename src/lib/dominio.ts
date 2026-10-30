@@ -37,7 +37,7 @@ export const NOMES_UF: Record<Uf, string> = {
 export const METODOS_REIVINDICACAO: Record<string, string> = {
   instagram_login: "Entrar com Instagram",
   codigo_dm: "Código por DM",
-  documento: "Dados do negócio",
+  documento: "Análise manual",
 };
 
 export const STATUS_REIVINDICACAO: Record<string, string> = {
@@ -81,6 +81,7 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "reivindicacao.aprovada": "Aprovou um pedido de reivindicação",
   "reivindicacao.aprovada_com_transferencia": "Aprovou um pedido e transferiu o negócio",
   "reivindicacao.recusada": "Recusou um pedido de reivindicação",
+  "reivindicacao.codigo_enviado": "Mandou o código por DM",
   "depoimento.mantido": "Manteve um depoimento denunciado",
   "depoimento.removido": "Removeu um depoimento denunciado",
   "usuario.moderacao_dada": "Deu a moderação a uma conta",

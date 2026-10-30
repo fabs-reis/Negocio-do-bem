@@ -10,10 +10,10 @@ import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, STATUS_REIVINDICACAO } from "@/lib/dominio";
-import { configLogin, configWebhook, normalizarUsername, perfilOficial } from "@/lib/instagram";
+import { configLogin, linkPerfil, normalizarUsername, perfilOficial } from "@/lib/instagram";
+import { LIMITE_ENVIOS, LIMITE_TENTATIVAS } from "@/lib/reivindicacao";
 import { formatarDataHora } from "@/lib/texto";
-import { CopiarCodigo } from "./CopiarCodigo";
-import { FormDocumento, FormGerarCodigo } from "./Formularios";
+import { FormConfirmarCodigo, FormDocumento, FormOutroEnvio, FormPedirCodigo } from "./Formularios";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 
 export const metadata: Metadata = { title: "Assumir o perfil", robots: FORA_DA_BUSCA };
@@ -66,9 +66,9 @@ async function Reivindicar({
           </>
         ) : (
           <>
-            {peloInstagram ? "Confirme pelo Instagram ou envie os dados do negócio" : "Envie os dados do negócio"} para
-            assumir o perfil de <strong className="font-semibold text-tinta">@{username}</strong>. Depois disso, você
-            conta a sua história, escolhe as causas e responde à comunidade.
+            {peloInstagram ? "Confirme pelo Instagram do negócio" : "Peça uma análise manual"} para assumir o perfil de{" "}
+            <strong className="font-semibold text-tinta">@{username}</strong>. Depois disso, você conta a sua história,
+            escolhe as causas e responde à comunidade.
           </>
         )}
       </p>
@@ -130,12 +130,12 @@ async function Reivindicar({
     take: 5,
   });
   const agora = new Date();
-  const codigoVigente = solicitacoes.find(
-    (r) => r.metodo === "codigo_dm" && r.status === "pendente" && r.expiraEm > agora,
-  );
-  const outrasPendentes = solicitacoes.filter((r) => r.status === "pendente" && r.id !== codigoVigente?.id);
+  const pedido = solicitacoes.find((r) => r.metodo === "codigo_dm" && r.status === "pendente");
+  const outrasPendentes = solicitacoes.filter((r) => r.status === "pendente" && r.id !== pedido?.id);
   const dadosEmAnalise = outrasPendentes.some((r) => r.metodo === "documento");
-  const confirmacaoAutomatica = !!configWebhook();
+  const vencido = !!pedido && pedido.expiraEm <= agora;
+  const bloqueado = !!pedido && pedido.tentativas >= LIMITE_TENTATIVAS;
+  const esgotado = !!pedido && pedido.envios >= LIMITE_ENVIOS;
 
   return (
     <>
@@ -144,8 +144,8 @@ async function Reivindicar({
       {empresa.membros.length > 0 && !dono && (
         <div className="mb-6">
           <Aviso tipo="info">
-            Este perfil já tem um dono. Se você também cuida deste negócio ou se houve troca de responsáveis, envie
-            seus dados abaixo: a solicitação vai para a moderação, que decide com cuidado.
+            Este perfil já tem um dono. Se você também cuida deste negócio ou se houve troca de responsáveis, confirme
+            pela DM ou peça uma análise: a moderação decide com cuidado.
           </Aviso>
         </div>
       )}
@@ -190,87 +190,150 @@ async function Reivindicar({
         {oficial && (
           <section id="codigo" className="cartao scroll-mt-24 p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-semibold">
-              {loginDisponivel ? "Ou mande um código por DM" : "Mande um código por DM"}
+              {loginDisponivel ? "Ou confirme pela DM" : "Confirme pela DM do Instagram"}
             </h2>
-            <p className="mt-2 font-medium">Confirme pelo Instagram e ganhe o selo de perfil oficial.</p>
-            <p className="mt-1 leading-relaxed text-suave">
-              O código vai por DM para <strong className="text-tinta">@{oficial}</strong>. Funciona com qualquer conta do
-              Instagram, inclusive pessoal.
+            <p className="mt-2 font-medium">
+              Só quem cuida do Instagram do negócio recebe o código. Confirme e ganhe o selo de perfil oficial.
             </p>
+            <p className="mt-1 leading-relaxed text-suave">Funciona com qualquer conta do Instagram, inclusive pessoal ou privada.</p>
 
-            {codigoVigente?.codigo ? (
-              <div className="mt-6 space-y-5">
-                <ol className="space-y-4">
-                  <Passo numero={1}>
-                    Abra o Instagram logado como <strong>@{username}</strong>, a conta do negócio.
-                  </Passo>
-                  <Passo numero={2}>
-                    Envie uma DM para <strong>@{oficial}</strong> só com este código:
-                    <CopiarCodigo codigo={codigoVigente.codigo} />
-                    <a
-                      href={`https://ig.me/m/${oficial}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="link mt-3 inline-block text-sm"
-                    >
-                      Abrir conversa com @{oficial} ↗
-                    </a>
-                  </Passo>
-                  <Passo numero={3}>
-                    {confirmacaoAutomatica
-                      ? "Pronto! A confirmação é automática e leva poucos minutos. Atualize esta página para ver."
-                      : "Pronto! A moderação confere a mensagem e aprova, normalmente em até um dia útil. O resultado aparece no seu painel."}
-                  </Passo>
-                </ol>
-                <Aviso tipo="erro">
-                  <strong>Nunca envie um código que outra pessoa te passou.</strong> Quem gerou o código é quem vira dono
-                  do perfil.
+            {pedido?.codigoConfirmadoEm ? (
+              <div className="mt-6">
+                <Aviso tipo="info">
+                  Você já colou o código certo. Como este perfil precisa de uma decisão da moderação, o resultado chega por
+                  e-mail e aparece no{" "}
+                  <Link href="/painel" className="font-semibold underline">
+                    seu painel
+                  </Link>
+                  .
                 </Aviso>
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-suave">
-                  <span>O código vale até {formatarDataHora(codigoVigente.expiraEm)}.</span>
-                  <form action={cancelarReivindicacao}>
-                    <input type="hidden" name="empresaId" value={empresa.id} />
-                    <input type="hidden" name="reivindicacaoId" value={codigoVigente.id} />
-                    <BotaoEnviar className="underline hover:text-coral-700" enviando="Cancelando…">
-                      Cancelar código
-                    </BotaoEnviar>
-                  </form>
-                </div>
               </div>
             ) : (
-              <FormGerarCodigo empresaId={empresa.id} />
+              <>
+                <ol className="mt-6 space-y-5">
+                  <Passo numero={1} feito={!!pedido}>
+                    {pedido ? (
+                      "Código pedido."
+                    ) : (
+                      <>
+                        Peça o código aqui.
+                        <FormPedirCodigo empresaId={empresa.id} />
+                      </>
+                    )}
+                  </Passo>
+                  <Passo numero={2}>
+                    No Instagram do negócio, <strong>@{username}</strong>, siga o{" "}
+                    <a href={linkPerfil(oficial)} target="_blank" rel="noopener noreferrer" className="link">
+                      @{oficial}
+                    </a>{" "}
+                    e mande um &ldquo;Oi&rdquo; na DM.
+                    <a href={`https://ig.me/m/${oficial}`} target="_blank" rel="noopener noreferrer" className="link mt-2 block text-sm">
+                      Abrir a conversa com @{oficial} ↗
+                    </a>
+                    <span className="mt-1 block text-sm text-suave">
+                      Assim a nossa resposta cai na conversa, e não em &ldquo;Solicitações de mensagem&rdquo;.
+                    </span>
+                  </Passo>
+                  <Passo numero={3}>
+                    A gente responde com o seu código nessa conversa. Não passe o código para ninguém.
+                    {pedido ? (
+                      <div className="mt-3 space-y-3">
+                        <p className="text-sm text-suave">
+                          {pedido.envios === 0
+                            ? "Aguardando a DM."
+                            : pedido.reenvioPedidoEm
+                              ? "Você pediu outro envio. Aguardando a DM com o código novo."
+                              : `Código enviado em ${formatarDataHora(pedido.enviadoEm!)}. Vale até ${formatarDataHora(pedido.expiraEm)}.`}
+                        </p>
+                        {vencido || bloqueado ? (
+                          <Aviso tipo="erro">
+                            {vencido ? "Este código venceu." : "O código foi digitado errado muitas vezes."}{" "}
+                            {esgotado ? "Peça uma análise manual logo abaixo." : "Peça outro envio em “Não chegou?”."}
+                          </Aviso>
+                        ) : (
+                          <FormConfirmarCodigo empresaId={empresa.id} />
+                        )}
+                      </div>
+                    ) : (
+                      <span className="mt-1 block text-sm text-suave">O campo para colar o código aparece depois do pedido.</span>
+                    )}
+                  </Passo>
+                </ol>
+
+                {pedido && (
+                  <>
+                    <details className="mt-6 rounded-2xl border border-linha p-4" open={vencido || bloqueado}>
+                      <summary className="cursor-pointer font-semibold">Não chegou?</summary>
+                      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+                        <li>Olhe em &ldquo;Solicitações de mensagem&rdquo;, no Instagram do negócio.</li>
+                        <li>Confira se você seguiu o @{oficial} pelo perfil do negócio, e não pelo seu perfil pessoal.</li>
+                        <li>Mande o &ldquo;Oi&rdquo; de novo para o @{oficial}.</li>
+                      </ul>
+                      <div className="mt-4 text-sm">
+                        {pedido.envios === 0 ? (
+                          <p className="text-suave">A gente ainda não mandou o primeiro código. Ele chega depois do seu &ldquo;Oi&rdquo;.</p>
+                        ) : pedido.reenvioPedidoEm ? (
+                          <p className="text-suave">Você já pediu outro envio. Aguarde a DM.</p>
+                        ) : esgotado ? (
+                          <p className="text-suave">
+                            Já mandamos o código {LIMITE_ENVIOS} vezes. Sem problema: peça uma análise manual logo abaixo.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-suave">
+                              Já mandamos {pedido.envios} de {LIMITE_ENVIOS} vezes. O código novo substitui o anterior.
+                            </p>
+                            <FormOutroEnvio empresaId={empresa.id} />
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                    <form action={cancelarReivindicacao} className="mt-4 text-sm text-suave">
+                      <input type="hidden" name="empresaId" value={empresa.id} />
+                      <input type="hidden" name="reivindicacaoId" value={pedido.id} />
+                      <BotaoEnviar className="underline hover:text-coral-700" enviando="Cancelando…">
+                        Cancelar o pedido de código
+                      </BotaoEnviar>
+                    </form>
+                  </>
+                )}
+              </>
             )}
           </section>
         )}
 
         {dono ? null : dadosEmAnalise ? (
           <Aviso tipo="info">
-            Seus dados estão com a moderação. O resultado aparece no{" "}
+            Seu pedido de análise está com a moderação. O resultado chega por e-mail e aparece no{" "}
             <Link href="/painel" className="font-semibold underline">
               seu painel
             </Link>
             .
           </Aviso>
         ) : peloInstagram ? (
-          <details className="group cartao p-6 sm:p-8">
+          <details className="group cartao p-6 sm:p-8" open={esgotado}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
               <span>
-                <span className="block font-serif text-2xl font-semibold">Não tenho acesso ao Instagram do negócio</span>
-                <span className="mt-1 block text-suave">Envie os dados do negócio para assumir o perfil.</span>
+                <span className="block font-serif text-2xl font-semibold">Pedir uma análise manual</span>
+                <span className="mt-1 block text-suave">
+                  Para quem não tem acesso ao Instagram do negócio ou não recebeu o código.
+                </span>
               </span>
               <span aria-hidden="true" className="text-2xl text-suave transition group-open:rotate-45">
                 +
               </span>
             </summary>
+            <p className="mt-4 leading-relaxed text-suave">
+              A moderação confere por outros meios, como o telefone que aparece no Google ou no Instagram do negócio, e
+              decide. O resultado chega por e-mail.
+            </p>
             <FormDocumento empresaId={empresa.id} />
           </details>
         ) : (
           <section className="cartao p-6 sm:p-8">
-            <h2 className="font-serif text-2xl font-semibold">Envie os dados do negócio</h2>
+            <h2 className="font-serif text-2xl font-semibold">Peça uma análise manual</h2>
             <p className="mt-2 leading-relaxed text-suave">
-              {empresa.membros.length > 0
-                ? "A moderação analisa o pedido e decide. O resultado aparece no seu painel."
-                : "Como ninguém assumiu este perfil ainda, ele passa a ser seu assim que você enviar."}
+              A moderação confere os dados e decide. O resultado chega por e-mail e aparece no seu painel.
             </p>
             <FormDocumento empresaId={empresa.id} />
           </section>
@@ -288,11 +351,13 @@ async function Reivindicar({
   );
 }
 
-function Passo({ numero, children }: { numero: number; children: React.ReactNode }) {
+function Passo({ numero, feito, children }: { numero: number; feito?: boolean; children: React.ReactNode }) {
   return (
     <li className="flex gap-4">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-coral-50 text-sm font-bold text-coral-700">
-        {numero}
+      <span
+        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold ${feito ? "bg-folha-50 text-folha" : "bg-coral-50 text-coral-700"}`}
+      >
+        {feito ? "✓" : numero}
       </span>
       <div className="pt-0.5 leading-relaxed">{children}</div>
     </li>

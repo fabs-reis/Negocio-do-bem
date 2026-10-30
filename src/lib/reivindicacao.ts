@@ -1,16 +1,18 @@
 // Regras para o dono reivindicar o perfil do seu negócio.
 //
 // Há três caminhos (ver README):
-//   - "documento": o caminho principal. A pessoa envia os dados do negócio (CNPJ,
-//     site, contato). Se o negócio ainda não tem dono, ela vira dona na hora; se já
-//     tem (disputa) ou foi tirado do ar, a moderação decide.
+//   - "codigo_dm": o caminho principal. A pessoa pede um código, segue o perfil
+//     oficial (o @ do projeto, ou o INSTAGRAM_PERFIL_OFICIAL) pelo Instagram do
+//     negócio e manda um "Oi". A moderação responde com o código nessa conversa, e
+//     a pessoa cola o código no site. O código só aparece para a moderação: acertar
+//     prova que a pessoa lê as mensagens do Instagram do negócio. O webhook ainda
+//     aceita o código mandado de volta por DM, a partir do @ do negócio.
 //   - "instagram_login": login na conta profissional; aprovação instantânea.
 //     Desligado enquanto as variáveis do app da Meta estiverem vazias.
-//   - "codigo_dm": o dono manda um código por DM, a partir do @ do negócio, para o
-//     perfil oficial (o @ do projeto, ou o INSTAGRAM_PERFIL_OFICIAL). A moderação
-//     confere (ou o webhook confere sozinho).
+//   - "documento": a análise manual, para quem não tem acesso ao Instagram do
+//     negócio ou não recebeu o código. Sempre fica com a moderação.
 //
-// A aprovação automática só acontece quando não há nenhum conflito. Qualquer
+// A aprovação automática só acontece pelo Instagram e sem nenhum conflito. Qualquer
 // situação estranha (negócio que já tem dono, negócio tirado do ar, @ que mudou de
 // conta, mesma conta ligada a outro perfil) vira uma solicitação pendente com
 // anotações para a moderação decidir.
@@ -23,7 +25,12 @@ import { gerarCodigo, extrairCodigo } from "@/lib/codigo";
 import { db, type Prisma } from "@/lib/db";
 import { formatarDataHora } from "@/lib/texto";
 
+/** O código vale por este tempo depois que a moderação manda a DM. */
 export const VALIDADE_CODIGO_HORAS = 48;
+/** A pessoa pode pedir o código de novo até a moderação ter mandado este tanto de vezes. */
+export const LIMITE_ENVIOS = 2;
+/** Tentativas de digitar cada código. Depois, só com outro envio. */
+export const LIMITE_TENTATIVAS = 5;
 const VALIDADE_ANALISE_DIAS = 30;
 const LIMITE_SOLICITACOES_POR_DIA = 10;
 
@@ -90,7 +97,11 @@ async function exigirLimiteDiario(tx: Prisma.TransactionClient, usuarioId: strin
 // Caminho 2: código por DM
 // ---------------------------------------------------------------------------
 
-/** Gera (ou reaproveita, se ainda valer) o código que o dono vai mandar por DM. */
+/**
+ * Gera (ou reaproveita, se ainda valer) o código que a moderação vai mandar por DM.
+ * Até o envio, o pedido espera o prazo de uma análise; o envio dá ao código as
+ * horas de `VALIDADE_CODIGO_HORAS`.
+ */
 export async function iniciarPorCodigoDm(empresaId: string, usuarioId: string) {
   await exigirQueFalteConfirmar(empresaId, usuarioId);
 
@@ -117,7 +128,7 @@ export async function iniciarPorCodigoDm(empresaId: string, usuarioId: string) {
             usuarioId,
             metodo: "codigo_dm",
             codigo: gerarCodigo(),
-            expiraEm: daquiA(VALIDADE_CODIGO_HORAS * HORA),
+            expiraEm: daquiA(VALIDADE_ANALISE_DIAS * DIA),
           },
         });
       });
@@ -126,6 +137,138 @@ export async function iniciarPorCodigoDm(empresaId: string, usuarioId: string) {
     }
   }
   throw new Error("Não foi possível gerar um código único.");
+}
+
+/** O pedido de código por DM em andamento desta pessoa para este negócio. */
+export function pedidoDeCodigo(empresaId: string, usuarioId: string) {
+  return db.reivindicacao.findFirst({
+    where: { empresaId, usuarioId, metodo: "codigo_dm", status: "pendente" },
+    orderBy: { criadoEm: "desc" },
+  });
+}
+
+/** A moderação mandou a DM com o código: a partir de agora ele vale `VALIDADE_CODIGO_HORAS`. */
+export async function registrarEnvio(params: { reivindicacaoId: string; revisorId: string }): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const pedido = await tx.reivindicacao.findUnique({ where: { id: params.reivindicacaoId } });
+    const { count } = await tx.reivindicacao.updateMany({
+      where: { id: params.reivindicacaoId, metodo: "codigo_dm", status: "pendente" },
+      data: {
+        envios: { increment: 1 },
+        enviadoEm: new Date(),
+        expiraEm: daquiA(VALIDADE_CODIGO_HORAS * HORA),
+        reenvioPedidoEm: null,
+      },
+    });
+    if (!pedido || count === 0) throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
+    await registrarAuditoria(tx, {
+      usuarioId: params.revisorId,
+      acao: "reivindicacao.codigo_enviado",
+      alvoTipo: "empresa",
+      alvoId: pedido.empresaId,
+      detalhes: `Reivindicação ${pedido.id}: envio ${pedido.envios + 1}.`,
+    });
+  });
+}
+
+/**
+ * A DM não chegou: a pessoa pede outro envio. O código muda, para um código que
+ * pode ter ido parar em outro lugar não valer mais, e as tentativas recomeçam.
+ */
+export async function pedirOutroEnvio(empresaId: string, usuarioId: string): Promise<void> {
+  const pedido = await pedidoDeCodigo(empresaId, usuarioId);
+  if (!pedido) throw new ErroReivindicacao("Não encontramos um pedido de código. Peça o código de novo.");
+  if (pedido.envios === 0) throw new ErroReivindicacao("A gente ainda não mandou o primeiro código. Siga os passos e aguarde a DM.");
+  if (pedido.envios >= LIMITE_ENVIOS) {
+    throw new ErroReivindicacao("Já mandamos o código duas vezes. Peça uma análise manual logo abaixo.");
+  }
+  if (pedido.reenvioPedidoEm) throw new ErroReivindicacao("Você já pediu outro envio. Aguarde a DM.");
+
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    try {
+      // As condições de novo na escrita: dois pedidos ao mesmo tempo viram um só.
+      const { count } = await db.reivindicacao.updateMany({
+        where: { id: pedido.id, status: "pendente", reenvioPedidoEm: null, envios: { gte: 1, lt: LIMITE_ENVIOS } },
+        data: {
+          codigo: gerarCodigo(),
+          tentativas: 0,
+          reenvioPedidoEm: new Date(),
+          expiraEm: daquiA(VALIDADE_ANALISE_DIAS * DIA),
+        },
+      });
+      if (count === 0) throw new ErroReivindicacao("Você já pediu outro envio. Aguarde a DM.");
+      return;
+    } catch (erro) {
+      if (!violouUnicidade(erro)) throw erro;
+    }
+  }
+  throw new Error("Não foi possível gerar um código único.");
+}
+
+export type ResultadoConfirmacao = "aprovada" | "em_analise";
+
+/**
+ * Confere o código que a pessoa colou no site. Sem conflito, ela vira dona com o
+ * selo de perfil oficial; com conflito, o pedido fica com a moderação, já com o
+ * código confirmado.
+ */
+export async function confirmarCodigo(params: {
+  empresaId: string;
+  usuarioId: string;
+  texto: string;
+}): Promise<ResultadoConfirmacao> {
+  const codigo = extrairCodigo(params.texto);
+  if (!codigo) throw new ErroReivindicacao("Digite o código que chegou na DM, no formato BEM-7K3F9Q.");
+  const pedido = await pedidoDeCodigo(params.empresaId, params.usuarioId);
+  if (!pedido?.codigo) throw new ErroReivindicacao("Não encontramos um pedido de código. Peça o código de novo.");
+  if (pedido.codigoConfirmadoEm) return "em_analise";
+
+  // A tentativa conta antes da comparação, com a linha travada: tentativas ao mesmo
+  // tempo não passam do limite, e um código trocado no meio do caminho não vale.
+  const conferencia = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Reivindicacao" WHERE id = ${pedido.id} FOR UPDATE`;
+    const atual = await tx.reivindicacao.findUniqueOrThrow({ where: { id: pedido.id } });
+    if (atual.status !== "pendente") return { tipo: "decidido" as const, aprovada: atual.status === "aprovada" };
+    if (atual.expiraEm <= new Date()) return { tipo: "vencido" as const };
+    if (atual.tentativas >= LIMITE_TENTATIVAS) return { tipo: "bloqueado" as const };
+    await tx.reivindicacao.update({ where: { id: atual.id }, data: { tentativas: { increment: 1 } } });
+    if (atual.codigo !== codigo) return { tipo: "errado" as const, restam: LIMITE_TENTATIVAS - atual.tentativas - 1 };
+    await tx.reivindicacao.update({ where: { id: atual.id }, data: { codigoConfirmadoEm: new Date() } });
+    return { tipo: "certo" as const };
+  });
+
+  switch (conferencia.tipo) {
+    case "decidido":
+      // Dois envios do mesmo código ao mesmo tempo: o outro já aprovou.
+      if (conferencia.aprovada) return "aprovada";
+      throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
+    case "vencido":
+      throw new ErroReivindicacao("Este código venceu. Peça outro envio.");
+    case "bloqueado":
+      throw new ErroReivindicacao("O código foi digitado errado muitas vezes. Peça outro envio.");
+    case "errado":
+      throw new ErroReivindicacao(
+        conferencia.restam > 0
+          ? `Esse código não confere. ${conferencia.restam === 1 ? "Resta 1 tentativa" : `Restam ${conferencia.restam} tentativas`}.`
+          : "Esse código não confere, e as tentativas acabaram. Peça outro envio.",
+      );
+  }
+
+  const empresa = await db.empresa.findUniqueOrThrow({ where: { id: params.empresaId }, include: { membros: true } });
+  const conflitos = await conflitosDeVerificacao({ empresa, usuarioId: params.usuarioId });
+  if (conflitos.length > 0) {
+    await anotar(pedido.id, `Código confirmado no site. ${conflitos.join(" ")}`);
+    return "em_analise";
+  }
+  try {
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: null });
+  } catch (erro) {
+    // Dois envios do mesmo código ao mesmo tempo: o outro já aprovou, e esta
+    // aprovação voltou (pelo pedido já decidido ou pelo dono já criado).
+    const depois = await db.reivindicacao.findUnique({ where: { id: pedido.id }, select: { status: true } });
+    if (depois?.status !== "aprovada") throw erro;
+  }
+  return "aprovada";
 }
 
 /**
@@ -241,17 +384,13 @@ export async function processarLoginInstagram(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Caminho 3: documento
+// Caminho 3: documento (análise manual)
 // ---------------------------------------------------------------------------
 
-/** Negócio sem dono e no ar: a reivindicação pelos dados do negócio é aprovada sozinha. */
-function aprovaSozinhoPorDocumento(empresa: { moderacao: string; membros: unknown[] }): boolean {
-  return empresa.moderacao !== "rejeitada" && empresa.membros.length === 0;
-}
-
 /**
- * Recebe os dados do negócio. Devolve a solicitação já aprovada quando o negócio
- * não tem dono, ou pendente para a moderação decidir.
+ * Recebe os dados do negócio para a análise manual. O pedido fica sempre com a
+ * moderação: CNPJ e contato não provam que a pessoa cuida do negócio (o CNPJ é
+ * público e o contato é ela quem digita).
  */
 export async function solicitarPorDocumento(params: {
   empresaId: string;
@@ -264,7 +403,7 @@ export async function solicitarPorDocumento(params: {
 }) {
   await exigirQueNaoSejaDono(params.empresaId, params.usuarioId);
 
-  const reivindicacao = await db.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     await bloquearPessoa(tx, params.usuarioId);
     const emAnalise = await tx.reivindicacao.findFirst({
       where: { empresaId: params.empresaId, usuarioId: params.usuarioId, metodo: "documento", status: "pendente" },
@@ -286,38 +425,6 @@ export async function solicitarPorDocumento(params: {
       },
     });
   });
-
-  const empresa = await db.empresa.findUniqueOrThrow({ where: { id: params.empresaId }, include: { membros: true } });
-  if (!aprovaSozinhoPorDocumento(empresa)) return reivindicacao;
-  await aprovar({ reivindicacaoId: reivindicacao.id, revisorId: null });
-  return db.reivindicacao.findUniqueOrThrow({ where: { id: reivindicacao.id } });
-}
-
-/**
- * Aplica a regra acima às solicitações pelos dados do negócio que ficaram na fila.
- * Vale a ordem de chegada: se duas pessoas pediram o mesmo negócio, a primeira vira
- * dona e a segunda continua com a moderação. Devolve as solicitações aprovadas.
- */
-export async function aprovarPendentesSemDono(revisorId: string): Promise<string[]> {
-  const pendentes = await db.reivindicacao.findMany({
-    where: { status: "pendente", metodo: "documento" },
-    orderBy: { criadoEm: "asc" },
-    select: { id: true, empresaId: true },
-  });
-
-  const aprovadas: string[] = [];
-  for (const { id, empresaId } of pendentes) {
-    const empresa = await db.empresa.findUniqueOrThrow({ where: { id: empresaId }, include: { membros: true } });
-    if (!aprovaSozinhoPorDocumento(empresa)) continue;
-    try {
-      await aprovar({ reivindicacaoId: id, revisorId });
-      aprovadas.push(id);
-    } catch (erro) {
-      // Outra pessoa da moderação decidiu esta solicitação no meio do caminho.
-      if (!(erro instanceof ErroReivindicacao)) throw erro;
-    }
-  }
-  return aprovadas;
 }
 
 // ---------------------------------------------------------------------------
@@ -381,7 +488,8 @@ export type ModoAprovacao = "adicionar" | "transferir";
  * `transferir` remove os donos anteriores (usado em disputas).
  *
  * O selo "Perfil oficial" vale enquanto um dono atual confirmou pelo Instagram:
- * - pelo Instagram (login ou código por DM), o negócio fica oficial;
+ * - pelo Instagram (login, ou código por DM confirmado no site ou pelo webhook), o
+ *   negócio fica oficial. Um pedido de código aprovado sem o código não conta;
  * - pelos dados do negócio, o selo fica como estava se continua outro dono (co-dono)
  *   e sai se não continua nenhum (transferência, ou negócio que estava sem dono).
  */
@@ -406,7 +514,9 @@ export async function aprovar(params: {
     if (modo === "transferir") {
       await tx.empresaMembro.deleteMany({ where: { empresaId, usuarioId: { not: usuarioId } } });
     }
-    const peloInstagram = reivindicacao.metodo === "instagram_login" || reivindicacao.metodo === "codigo_dm";
+    const peloInstagram =
+      reivindicacao.metodo === "instagram_login" ||
+      (reivindicacao.metodo === "codigo_dm" && (!!reivindicacao.codigoConfirmadoEm || !!instagramIgsid));
     const outrosDonos = await tx.empresaMembro.count({ where: { empresaId, usuarioId: { not: usuarioId } } });
     await tx.empresaMembro.upsert({
       where: { empresaId_usuarioId: { empresaId, usuarioId } },
@@ -439,8 +549,11 @@ export async function aprovar(params: {
       },
     });
 
-    await tx.reivindicacao.update({
-      where: { id: reivindicacaoId },
+    // Escrita condicional, no mesmo lugar da ordem de travas: duas aprovações do mesmo
+    // pedido ao mesmo tempo (o mesmo código colado duas vezes, um clique duplo) passam
+    // pela leitura acima, mas só uma acha o pedido pendente aqui. A outra volta inteira.
+    const { count } = await tx.reivindicacao.updateMany({
+      where: { id: reivindicacaoId, status: "pendente" },
       data: {
         status: "aprovada",
         revisadoPorId: revisorId,
@@ -449,6 +562,7 @@ export async function aprovar(params: {
         instagramIgsid,
       },
     });
+    if (count === 0) throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
     await tx.reivindicacao.updateMany({
       where: { empresaId, usuarioId, status: "pendente", id: { not: reivindicacaoId } },
       data: { status: "cancelada" },

@@ -10,7 +10,14 @@ import { db } from "@/lib/db";
 import { campoSite, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 import { perfilOficial } from "@/lib/instagram";
 import { avisarNovaReivindicacao } from "@/lib/notificacoes";
-import { cancelar, ErroReivindicacao, iniciarPorCodigoDm, solicitarPorDocumento } from "@/lib/reivindicacao";
+import {
+  cancelar,
+  confirmarCodigo,
+  ErroReivindicacao,
+  iniciarPorCodigoDm,
+  pedirOutroEnvio,
+  solicitarPorDocumento,
+} from "@/lib/reivindicacao";
 
 async function carregar(dados: FormData) {
   const empresa = await db.empresa.findUnique({ where: { id: texto(dados, "empresaId") } });
@@ -20,17 +27,50 @@ async function carregar(dados: FormData) {
   return { empresa, usuario, caminho };
 }
 
-export async function gerarCodigoDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+/** Pede o código: a moderação recebe o aviso e responde pela DM do @ do projeto. */
+export async function pedirCodigoDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const { empresa, usuario, caminho } = await carregar(dados);
   if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto };
-  if (!perfilOficial()) return { erro: "A verificação por DM está desligada. Envie os dados do negócio abaixo." };
+  if (!perfilOficial()) return { erro: "A confirmação por DM está desligada. Peça uma análise manual abaixo." };
+  let aguardaEnvio: boolean;
   try {
-    await iniciarPorCodigoDm(empresa.id, usuario.id);
+    const pedido = await iniciarPorCodigoDm(empresa.id, usuario.id);
+    aguardaEnvio = pedido.envios === 0;
   } catch (erro) {
     if (erro instanceof ErroReivindicacao) return { erro: erro.message };
     throw erro;
   }
-  redirect(`${caminho}?aviso=codigo_gerado#codigo`);
+  if (aguardaEnvio) after(() => avisarNovaReivindicacao(empresa.id));
+  redirect(`${caminho}?aviso=codigo_pedido#codigo`);
+}
+
+export async function confirmarCodigoDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+  const { empresa, usuario, caminho } = await carregar(dados);
+  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto, valores: valoresDoFormulario(dados) };
+  let resultado: Awaited<ReturnType<typeof confirmarCodigo>>;
+  try {
+    resultado = await confirmarCodigo({ empresaId: empresa.id, usuarioId: usuario.id, texto: texto(dados, "codigo") });
+  } catch (erro) {
+    if (erro instanceof ErroReivindicacao) return { erro: erro.message, valores: valoresDoFormulario(dados) };
+    throw erro;
+  }
+  if (resultado === "em_analise") {
+    after(() => avisarNovaReivindicacao(empresa.id));
+    redirect(`${caminho}?aviso=codigo_em_analise#codigo`);
+  }
+  redirect(`/painel/${empresa.instagramUsername}?aviso=verificada`);
+}
+
+export async function pedirOutroEnvioDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+  const { empresa, usuario, caminho } = await carregar(dados);
+  try {
+    await pedirOutroEnvio(empresa.id, usuario.id);
+  } catch (erro) {
+    if (erro instanceof ErroReivindicacao) return { erro: erro.message };
+    throw erro;
+  }
+  after(() => avisarNovaReivindicacao(empresa.id));
+  redirect(`${caminho}?aviso=reenvio_pedido#codigo`);
 }
 
 const esquemaDocumento = z.object({
@@ -63,21 +103,19 @@ export async function enviarDocumento(_estado: EstadoFormulario, dados: FormData
   });
   if (!resultado.success) return { erros: errosPorCampo(resultado.error), valores: valoresDoFormulario(dados) };
 
-  let aprovada: boolean;
   try {
-    const pedido = await solicitarPorDocumento({
+    await solicitarPorDocumento({
       empresaId: empresa.id,
       usuarioId: usuario.id,
       ...resultado.data,
       mensagem: resultado.data.mensagem || null,
     });
-    aprovada = pedido.status === "aprovada";
   } catch (erro) {
     if (erro instanceof ErroReivindicacao) return { erro: erro.message, valores: valoresDoFormulario(dados) };
     throw erro;
   }
-  if (!aprovada) after(() => avisarNovaReivindicacao(empresa.id));
-  redirect(aprovada ? `/painel/${empresa.instagramUsername}?aviso=verificada` : `${caminho}?aviso=documento_enviado`);
+  after(() => avisarNovaReivindicacao(empresa.id));
+  redirect(`${caminho}?aviso=documento_enviado`);
 }
 
 export async function cancelarReivindicacao(dados: FormData): Promise<void> {

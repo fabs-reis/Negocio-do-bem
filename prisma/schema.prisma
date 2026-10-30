@@ -151,8 +151,18 @@ model Reivindicacao {
   usuario         Usuario   @relation("Solicitante", fields: [usuarioId], references: [id], onDelete: Cascade)
   // "instagram_login" | "codigo_dm" | "documento"
   metodo          String
-  // Código que o dono envia por DM (só no método "codigo_dm").
+  // Código que a moderação manda por DM para o @ do negócio (só no método "codigo_dm").
+  // Só a moderação vê: a pessoa recebe pela DM e cola no site.
   codigo          String?   @unique
+  // Quantas vezes a moderação mandou a DM, e quando foi a última.
+  envios          Int       @default(0)
+  enviadoEm       DateTime?
+  // A DM não chegou e a pessoa pediu outro envio (o código muda).
+  reenvioPedidoEm DateTime?
+  // Tentativas de digitar o código atual.
+  tentativas      Int       @default(0)
+  // A pessoa colou o código certo. Com conflito, o pedido fica com a moderação.
+  codigoConfirmadoEm DateTime?
   // "pendente" | "aprovada" | "recusada" | "expirada" | "cancelada"
   status          String    @default("pendente")
   // Método "documento" (dados do negócio conferidos pela moderação)

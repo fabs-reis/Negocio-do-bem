@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extrairCodigo, gerarCodigo } from "@/lib/codigo";
+import { extrairCodigo, gerarCodigo, mensagemDoCodigo } from "@/lib/codigo";
 import { assinaturaValida, extrairMensagens, normalizarUsername, perfilOficial, urlAutorizacao } from "@/lib/instagram";
 
 describe("normalizarUsername", () => {
@@ -39,6 +39,22 @@ describe("código de verificação", () => {
     expect(extrairCodigo("bem 7k3f9q")).toBe("BEM-7K3F9Q");
     expect(extrairCodigo("BEM7K3F9Q obrigado")).toBe("BEM-7K3F9Q");
     expect(extrairCodigo("tudo bem? quero cadastrar")).toBeNull();
+  });
+
+  it("monta a DM com quem pediu, o código, o endereço e o aviso de não repassar", () => {
+    const mensagem = mensagemDoCodigo({
+      nome: "Ana Souza",
+      codigo: "BEM-7K3F9Q",
+      endereco: "https://negociodobem.com/empresas/padaria.flor/reivindicar",
+    });
+
+    expect(mensagem).toContain("Ana Souza pediu para cuidar do perfil do seu negócio");
+    expect(mensagem).toContain("https://negociodobem.com/empresas/padaria.flor/reivindicar");
+    expect(mensagem).toContain("Não passe o código para ninguém");
+    expect(mensagem).toContain("Se não foi você, responda esta mensagem.");
+    // O código numa linha só, para copiar fácil no celular.
+    expect(mensagem.split("\n")).toContain("BEM-7K3F9Q");
+    expect(extrairCodigo(mensagem)).toBe("BEM-7K3F9Q");
   });
 });
 

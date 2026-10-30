@@ -23,9 +23,9 @@ export function integracoes(): Integracao[] {
       nome: "Código por DM",
       ligada: perfilOficial() !== null,
       ligadaTexto: process.env.INSTAGRAM_PERFIL_OFICIAL
-        ? `Quem reivindica pode mandar um código por DM para @${perfilOficial()} (INSTAGRAM_PERFIL_OFICIAL).`
-        : `Quem reivindica pode mandar um código por DM para @${perfilOficial()}, o @ do projeto. O INSTAGRAM_PERFIL_OFICIAL troca o @.`,
-      desligadaTexto: "O INSTAGRAM_PERFIL_OFICIAL não é um @ válido do Instagram: a reivindicação é só pelos dados do negócio.",
+        ? `A moderação manda o código por DM do @${perfilOficial()} (INSTAGRAM_PERFIL_OFICIAL), e quem pediu cola no site.`
+        : `A moderação manda o código por DM do @${perfilOficial()}, o @ do projeto, e quem pediu cola no site. O INSTAGRAM_PERFIL_OFICIAL troca o @.`,
+      desligadaTexto: "O INSTAGRAM_PERFIL_OFICIAL não é um @ válido do Instagram: a reivindicação é só pela análise manual.",
     },
     {
       nome: "Entrar com Instagram",

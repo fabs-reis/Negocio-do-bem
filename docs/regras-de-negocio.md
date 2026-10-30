@@ -34,7 +34,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | --- | --- | --- |
 | Negócio | `Empresa` | Um negócio do diretório. Cada um é identificado pelo @ do Instagram. |
 | Conta | `Usuario` | Quem se cadastrou com e-mail e senha. |
-| Dono | `EmpresaMembro` com `papel = "dono"` | Uma conta responsável por um negócio: aprovada na hora, quando o negócio ainda não tinha dono, ou pela moderação. Um negócio pode ter mais de um dono (co-donos). |
+| Dono | `EmpresaMembro` com `papel = "dono"` | Uma conta responsável por um negócio: aprovada na hora pelo Instagram, ou pela moderação. Um negócio pode ter mais de um dono (co-donos). |
 | Moderação | `Usuario.papel = "moderador"` | Quem tira do ar o que for impróprio, decide disputas de reivindicação e denúncias, e pode editar qualquer perfil. |
 | Indicação | criação de uma `Empresa` | Alguém da comunidade (ou o próprio dono) cadastra um negócio. |
 | Reivindicação | `Reivindicacao` | O pedido de uma pessoa para virar dona de um negócio. |
@@ -307,9 +307,9 @@ Quando a pessoa marca **"Este negócio é meu"** no formulário de indicação:
 
 - o campo "Por que você indica?" some e o motivo não é guardado;
 - o negócio é criado do mesmo jeito, já publicado, com a pessoa como quem indicou;
-- a pessoa vai direto para a página de reivindicação (`/empresas/<@>/reivindicar`) para confirmar pelo Instagram ou enviar os dados do negócio.
+- a pessoa vai direto para a página de reivindicação (`/empresas/<@>/reivindicar`) para confirmar pelo Instagram ou pedir uma análise manual.
 
-Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando a DM com o código é aprovada ou quando envia os dados do negócio. Pelos dados, como o negócio acabou de ser criado e não tem dono, isso acontece na hora ([seção 6](#aprovação-na-hora)).
+Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando cola o código que chegou pela DM ou quando a moderação aprova a análise manual ([seção 6](#nada-é-aprovado-só-com-os-dados-do-negócio)).
 
 ---
 
@@ -383,31 +383,24 @@ A porta passa o @ por `normalizarUsername`. Um @ inválido mostra "Esse @ não p
 - **Qualquer conta logada** que ainda não seja dona daquele negócio.
 - **Quem já é dono:**
   - de um perfil oficial, vê "Você já é dono deste perfil" e o link para o painel;
-  - de um perfil que não é oficial, vê só os caminhos pelo Instagram, para ganhar o selo (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)). Os dados do negócio não aparecem, porque o perfil já é dele.
+  - de um perfil que não é oficial, vê só os caminhos pelo Instagram, para ganhar o selo (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)). A análise manual não aparece, porque o perfil já é dele.
 - A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela:
   - pelo botão **"É meu negócio"** do perfil e do cartão da `/participar`;
   - pelo "Este negócio é meu" da indicação;
   - pelo "Pedir revisão" da `/participar` e pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis com dono;
   - pelo convite do selo no painel do dono.
 - **Negócio tirado do ar:** a página responde 404.
-- **Negócio que já tem dono:** o pedido é aceito, com um aviso de que vai para a moderação. Serve para co-donos e para troca de responsáveis.
+- **Negócio que já tem dono:** o pedido é aceito, com um aviso de que a moderação decide. Serve para co-donos e para troca de responsáveis.
 
-### Aprovação na hora
+### Nada é aprovado só com os dados do negócio
 
-Desde a [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), **o pedido pelos dados do negócio é aprovado assim que é enviado** quando:
+Desde a [issue #133](https://github.com/fabsreis/Negocio-do-bem/issues/133), **só o Instagram aprova sozinho**: o código por DM colado no site ou o "Entrar com Instagram", sem conflito. O pedido pelos dados do negócio sempre fica com a moderação, porque CNPJ e contato não provam que a pessoa cuida do negócio: o CNPJ é público, e o contato é ela quem digita. Antes, um pedido pelos dados de um negócio sem dono virava dono na hora, sem conferência ([issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20)).
 
-- o negócio **não tem dono**; e
-- o negócio **não foi tirado do ar**.
+Quem já virou dono assim continua dono, com o selo "Perfil assumido".
 
-Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Que bom ter você aqui! 💛 Seu perfil já é seu. Complete com a sua cara quando puder.".
+### Análise manual (`documento`)
 
-Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono) ou um negócio que a moderação tirou do ar.
-
-**Risco aceito:** não há conferência do CNPJ, do site nem do contato antes de aprovar. Qualquer conta consegue assumir um perfil que ainda não tem dono. Os dados enviados ficam guardados e aparecem para a moderação se houver disputa. A regra está em `solicitarPorDocumento` (`src/lib/reivindicacao.ts`).
-
-### Dados do negócio (`documento`)
-
-É o caminho de quem não tem acesso ao Instagram do negócio, e não dá o selo de perfil oficial. A pessoa envia:
+É o caminho de quem não tem acesso ao Instagram do negócio ou não recebeu o código depois de dois envios. Na página, é o bloco "Pedir uma análise manual", que já aparece aberto quando os dois envios acabaram. Não dá o selo de perfil oficial. A pessoa envia:
 
 | Campo | Obrigatório | Regra |
 | --- | --- | --- |
@@ -422,8 +415,9 @@ O @ do Instagram não é pedido: é o do próprio perfil.
 **Regras do pedido:**
 
 - **Um pedido em análise por vez:**
-  - cada pessoa só pode ter **um** pedido por dados do negócio pendente para o mesmo negócio;
-  - enquanto ele está em análise, o formulário dá lugar ao aviso "Seus dados estão com a moderação".
+  - cada pessoa só pode ter **um** pedido de análise pendente para o mesmo negócio;
+  - enquanto ele está em análise, o formulário dá lugar ao aviso "Seu pedido de análise está com a moderação".
+- **Aviso:** a moderação recebe um e-mail a cada pedido ([seção 14](#14-avisos-por-e-mail)).
 - **Limite:**
   - no máximo **10 pedidos de reivindicação em 24 horas** por conta, somando todos os caminhos e todos os negócios;
   - pedidos cancelados também contam;
@@ -435,28 +429,34 @@ O @ do Instagram não é pedido: é o do próprio perfil.
 
 ### A decisão da moderação
 
-Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
+Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos pendentes: códigos por DM para mandar, análises manuais, disputas e negócios tirados do ar. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
 
-**Fila antiga:** quando há pedidos pendentes de negócios sem dono e no ar, o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
+**Procura:** "Chegou um "Oi" no @ do projeto?" acha os pedidos pelo @ do negócio ou pelo código (`BEM-XXXXXX`).
 
 Cada pedido mostra:
 
 - o negócio, o @ (com link para o Instagram), se já é verificado ou está sem dono e, em destaque, se está fora do ar;
 - o caminho usado, a data do pedido e, se for o caso, a data em que expirou;
 - quem pediu: nome e e-mail;
-- no pedido por dados do negócio:
+- no pedido de código por DM:
+  - se o código já foi mandado, quantas vezes e quando; se a pessoa pediu outro envio; se ela errou o código até o limite; ou, em verde, que ela já colou o código certo;
+  - a mensagem pronta para copiar, com o nome de quem pediu e o código (`mensagemDoCodigo`, em `src/lib/codigo.ts`), e o lembrete de responder só na conversa com o @ do negócio;
+  - os botões "Abrir a DM com @…", que abre a conversa com o @ gravado no banco (`https://ig.me/m/<@>`), e "Marquei como enviado";
+- na análise manual:
+  - o que já aconteceu pela DM com a mesma pessoa e o mesmo negócio ("2 envios, nenhum confirmado"), com o lembrete de conferir por um contato que a moderação mesma acha;
   - relação, contato, CNPJ formatado e site;
   - a mensagem;
   - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI na hora. A consulta manda um User-Agent próprio, porque sem ele a BrasilAPI responde 403. Ela é só um apoio: se falhar, aparece "Não foi possível consultar a Receita agora" e a análise segue;
 - as anotações automáticas do sistema, quando houver;
 - os donos atuais (nome e e-mail), quando houver.
 
-O que a moderação confere: se o CNPJ, o site e o contato batem com o @ do Instagram. Em caso de dúvida, fala com a pessoa pelo contato informado.
+O que a moderação confere na análise manual: se o CNPJ, o site e o contato batem com o @ do Instagram, por um contato que ela mesma acha (o telefone no Google ou no Instagram do negócio), e não só pelo que a pessoa digitou.
 
 **Botões:**
 
 | Situação | Botões | Efeito |
 | --- | --- | --- |
+| Pedido de código ainda sem o código colado | nenhum de aprovar | Aparece "A aprovação vem quando a pessoa colar o código". Sem acesso ao Instagram, ela pede uma análise manual. |
 | Negócio sem dono | **Aprovar** | A pessoa vira dona. |
 | Negócio com dono | **Aprovar como co-dono** | A pessoa vira dona junto com os atuais. |
 | Negócio com dono | **Aprovar e transferir** | A pessoa vira dona e **os outros donos deixam de ser**. |
@@ -469,7 +469,7 @@ O que a moderação confere: se o CNPJ, o site e o contato batem com o @ do Inst
 3. Marca o negócio como `verificada`. Na aprovação pela moderação, também como `aprovada`, o que o publica.
 4. Liga ou desliga o selo de perfil oficial (ver [O selo de perfil oficial](#o-selo-de-perfil-oficial)).
 5. Liga os IDs do Instagram ao negócio, se o pedido trouxe algum. Se a mesma conta do Instagram estava ligada a outro perfil, a ligação sai de lá.
-6. Marca o pedido como `aprovada`, com quem aprovou e quando.
+6. Marca o pedido como `aprovada`, com quem aprovou e quando. A escrita só vale se o pedido ainda estiver pendente: duas aprovações ao mesmo tempo (o mesmo código colado duas vezes, um clique duplo) passam pela leitura do começo, mas só uma acha o pedido pendente aqui, e a outra volta inteira.
 7. Cancela os **outros pedidos pendentes da mesma pessoa** para o mesmo negócio. Pedidos de **outras pessoas** para o mesmo negócio continuam pendentes, e a moderação decide cada um.
 8. Registra na auditoria `reivindicacao.aprovada` ou `reivindicacao.aprovada_com_transferencia`.
 
@@ -486,27 +486,27 @@ stateDiagram-v2
     pendente --> recusada: moderação recusa
     pendente --> cancelada: a pessoa cancela
     pendente --> cancelada: outro pedido dela foi aprovado
-    pendente --> expirada: código por DM venceu e foi trocado
+    pendente --> expirada: código por DM venceu e outro foi pedido
 ```
 
 | Status | Rótulo na tela | Quando |
 | --- | --- | --- |
 | `pendente` | Em análise | Pedido criado e ainda não decidido. |
-| `aprovada` | Aprovada | Pela moderação. Ou sozinho: no pedido por dados do negócio, quando o negócio não tem dono e está no ar; nos caminhos pelo Instagram, quando não há conflito. |
+| `aprovada` | Aprovada | Pela moderação. Ou sozinho, nos caminhos pelo Instagram, quando não há conflito. |
 | `recusada` | Recusada | Pela moderação, com motivo. |
 | `cancelada` | Cancelada | A pessoa cancelou, outro pedido dela para o mesmo negócio foi aprovado, ou ela refez o "Entrar com Instagram". |
-| `expirada` | Expirada | Só no código por DM: quando a pessoa gera um código novo depois que o anterior venceu. |
+| `expirada` | Expirada | Só no código por DM: quando a pessoa pede o código de novo, num pedido novo, depois que o anterior venceu. |
 
 ### Caminhos pelo Instagram
 
-O código por DM vem ligado, com o @ do projeto: `ofabsreis` (`INSTAGRAM_DO_PROJETO`, em `src/lib/dominio.ts`). O "Entrar com Instagram" fica desligado enquanto as variáveis do app da Meta estiverem vazias. Com algum dos dois ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Como configurar está no [README](../README.md#o-código-por-dm).
+O código por DM vem ligado, com o @ do projeto: `ofabsreis` (`INSTAGRAM_DO_PROJETO`, em `src/lib/dominio.ts`). O "Entrar com Instagram" fica desligado enquanto as variáveis do app da Meta estiverem vazias. Com algum dos dois ligado, a análise manual vira o bloco "Pedir uma análise manual". Como configurar está no [README](../README.md#o-código-por-dm).
 
 | Caminho | Liga quando | Aprovação |
 | --- | --- | --- |
-| **Código por DM** (`codigo_dm`) | Sempre, com o @ do projeto. `INSTAGRAM_PERFIL_OFICIAL` troca o @. Ele só desliga se a variável não for um @ válido | Pela moderação, ou sozinho se o webhook estiver configurado e não houver conflito |
+| **Código por DM** (`codigo_dm`) | Sempre, com o @ do projeto. `INSTAGRAM_PERFIL_OFICIAL` troca o @. Ele só desliga se a variável não for um @ válido | Na hora, quando a pessoa cola o código certo e não há conflito |
 | **Entrar com Instagram** (`instagram_login`) | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` preenchidos | Na hora, se a conta conectada é a do negócio e não há conflito |
 
-Os dois caminhos dão o selo de perfil oficial. Na página de reivindicação, a opção do código diz isso: "Confirme pelo Instagram e ganhe o selo de perfil oficial." Quem já é dono de um perfil que não é oficial também pode usar os dois caminhos.
+Os dois caminhos dão o selo de perfil oficial. Na página de reivindicação, a opção do código diz isso: "Só quem cuida do Instagram do negócio recebe o código. Confirme e ganhe o selo de perfil oficial." Quem já é dono de um perfil que não é oficial também pode usar os dois caminhos.
 
 **A regra de ouro: não existe aprovação automática quando há conflito.** Em `conflitosDeVerificacao`, um conflito é qualquer uma destas situações:
 
@@ -534,17 +534,31 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
 
 **Código por DM:**
 
+Código: `iniciarPorCodigoDm`, `registrarEnvio`, `pedirOutroEnvio` e `confirmarCodigo` em `src/lib/reivindicacao.ts`.
+
+- **Os passos na página:**
+  1. a pessoa pede o código ("Pedir o código"), e a moderação recebe um e-mail;
+  2. pelo Instagram do negócio, ela segue o @ do projeto (ou o de `INSTAGRAM_PERFIL_OFICIAL`) e manda um "Oi". Assim a resposta cai na conversa, e não em "Solicitações de mensagem", e chega até para conta que não recebe pedidos de mensagem;
+  3. a moderação responde com a mensagem pronta e marca "Marquei como enviado";
+  4. ela cola o código no site, na mesma conta que pediu.
 - **O código:**
   - tem o formato `BEM-XXXXXX`, com 6 caracteres de um alfabeto sem os parecidos (`0/O`, `1/I/L`);
-  - vale **48 horas**;
-  - enquanto vale, a mesma pessoa recebe o mesmo código para o mesmo negócio;
-  - vencido, ele vira `expirada` e outro é gerado.
-- **Quem vira dono é quem gerou o código.** A tela avisa: "Nunca envie um código que outra pessoa te passou".
-- **A DM precisa vir do @ do negócio** e ir para o @ do projeto (ou o de `INSTAGRAM_PERFIL_OFICIAL`).
-  - O sistema reconhece o código mesmo escrito como `bem 7k3f9q` ou `BEM7K3F9Q`.
-- **Sem webhook:** a moderação confere a DM. Na fila, há uma busca pelo código.
-- **Com webhook:**
-  - o sistema confere a assinatura `X-Hub-Signature-256` de cada chamada da Meta e descobre o @ de quem mandou;
+  - **só aparece para a moderação.** A pessoa recebe pela DM. Acertar prova que ela lê as mensagens do Instagram do negócio;
+  - fica preso à conta que pediu e ao negócio: o código de outra pessoa não vale;
+  - o sistema reconhece o código mesmo escrito como `bem 7k3f9q` ou `BEM7K3F9Q`.
+- **Prazo:** até o envio, o pedido espera 30 dias. O envio dá ao código **48 horas** (`VALIDADE_CODIGO_HORAS`). Se a moderação esquecer de marcar o envio, o código vale do mesmo jeito.
+- **Tentativas:** **5 por código** (`LIMITE_TENTATIVAS`). A tentativa conta antes da comparação, com a linha do pedido travada, então tentativas ao mesmo tempo não passam do limite. Depois da quinta, nem o código certo vale: só com outro envio.
+- **"Não chegou?":** lembra de olhar em "Solicitações de mensagem", de seguir pelo perfil do negócio (e não pelo pessoal) e de mandar o "Oi" de novo. Depois do primeiro envio, a pessoa pode pedir **outro envio, uma vez** (`LIMITE_ENVIOS` = 2 envios no total):
+  - o código muda, e o anterior deixa de valer; as tentativas recomeçam;
+  - a moderação recebe um e-mail, e a fila mostra "Pediu outro envio";
+  - dois pedidos de outro envio ao mesmo tempo viram um só.
+- **Depois de dois envios:** a página abre o bloco "Pedir uma análise manual".
+- **Código certo:**
+  - sem conflito: a pessoa vira dona com o selo de perfil oficial e vai para o painel com o aviso de boas-vindas;
+  - com conflito: o pedido fica com a moderação, já com o código confirmado (`codigoConfirmadoEm`) e uma anotação. A página mostra "Você já colou o código certo", e a moderação aprova ou recusa.
+- **A mensagem pronta** diz quem pediu e avisa para não passar o código para ninguém, nem para o projeto. Assim o dono reconhece o próprio pedido, e quem tenta pedir o código e depois convencer o dono a repassar fica exposto.
+- **Com webhook,** o sistema ainda aceita o código quando ele volta por DM, a partir do @ do negócio:
+  - confere a assinatura `X-Hub-Signature-256` de cada chamada da Meta e descobre o @ de quem mandou;
   - aprova sozinho só se o @ bater e não houver conflito;
   - código vencido, @ diferente ou @ que não deu para descobrir viram anotações para a moderação;
   - se der erro, a rota responde 500 e a Meta tenta de novo;
@@ -564,7 +578,7 @@ O selo do perfil diz como ele foi assumido:
 
 **A regra:** o negócio é oficial enquanto um dono atual confirmou pelo Instagram. O campo `oficial` só muda na aprovação de uma reivindicação, na mesma transação:
 
-- aprovação pelo Instagram (`instagram_login` ou `codigo_dm`), como dono novo, co-dono ou com transferência: o negócio fica oficial;
+- aprovação pelo Instagram, como dono novo, co-dono ou com transferência: o negócio fica oficial. Vale o `instagram_login` e o `codigo_dm` com o código confirmado no site ou pelo webhook. Um pedido de código aprovado pela moderação sem o código não conta;
 - aprovação pelos dados do negócio (`documento`) com transferência: o selo sai, porque os donos que confirmaram saem;
 - aprovação pelos dados do negócio como co-dono: o selo fica como estava;
 - aprovação pelos dados do negócio num negócio sem dono: o negócio não fica oficial, mesmo que o campo tenha ficado ligado.
@@ -956,16 +970,16 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 | Quando | Quem recebe | O que vai no e-mail |
 | --- | --- | --- |
-| A moderação aprova um pedido de reivindicação: como co-dono, com transferência ou pelo botão "Aprovar os N pedidos sem dono" | Quem pediu | O negócio e o link do painel dele. |
+| A moderação aprova um pedido de reivindicação, como dono, co-dono ou com transferência | Quem pediu | O negócio e o link do painel dele. |
 | A moderação recusa um pedido | Quem pediu | O negócio, o motivo da recusa e o link do painel. |
-| Um pedido pelos dados do negócio fica na fila (o negócio tem dono ou está fora do ar), ou um "Entrar com Instagram" fica em análise | Cada pessoa da moderação | O negócio e o link da fila de reivindicações. |
+| Alguém pede o código por DM ou outro envio dele, cola o código certo num perfil que precisa de decisão, pede uma análise manual, ou um "Entrar com Instagram" fica em análise | Cada pessoa da moderação | O negócio e o link da fila de reivindicações. |
 | Um depoimento é denunciado | Cada pessoa da moderação | O negócio e o link da fila de denúncias. |
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
 | Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail" | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |
 | Alguém pede para entrar por link | O e-mail digitado, se tiver conta | O link para entrar, que vale por 15 minutos. |
 
 - **Os links de confirmar e de entrar** seguem as regras de [e-mail confirmado e links por e-mail](#e-mail-confirmado-e-links-por-e-mail).
-- **A aprovação na hora não manda e-mail.** Quem vira dono pelos dados do negócio ou pelo Instagram já vê o resultado na tela.
+- **A aprovação na hora não manda e-mail.** Quem vira dono pelo Instagram já vê o resultado na tela.
 - **Cada pessoa recebe o próprio e-mail.** Ninguém vê o endereço de outra, nem entre a moderação nem entre co-donos.
 - **Os avisos para a moderação não levam dados pessoais:** nada de nome, e-mail ou contato de quem pediu ou denunciou. Isso fica só nas filas.
 - **O e-mail sai depois da resposta,** pelo `after()` do Next. A pessoa não espera o envio, e uma falha fica só no log, sem desfazer a ação.
@@ -1074,7 +1088,8 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 **Negócios e moderação**
 
-- **Tudo entra no ar sem conferência:** indicações são publicadas na hora, e quem pede um negócio sem dono vira dono na hora. A moderação só age depois, e ninguém da moderação é avisado quando chega algo novo.
+- **Indicações entram no ar sem conferência:** a moderação só age depois. Para virar dono, é preciso confirmar pelo Instagram ou passar pela moderação ([seção 6](#nada-é-aprovado-só-com-os-dados-do-negócio)).
+- **Quem virou dono pelos dados do negócio antes da [issue #133](https://github.com/fabsreis/Negocio-do-bem/issues/133)** continua dono, com o selo "Perfil assumido" e a edição liberada.
 - **Um @ tirado do ar fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404 até a moderação publicar de novo.
 - **O @ de um negócio não muda.** Se o negócio trocar de @ no Instagram, hoje só dá para ajustar direto no banco.
 - **Cidades cadastradas antes da lista do IBGE** continuam como foram digitadas até o negócio ser editado. Se a grafia não bate com a lista, a edição pede para escolher a cidade de novo.
@@ -1083,9 +1098,9 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 **Reivindicações**
 
-- A validade de 30 dias dos pedidos por dados do negócio é só informativa.
+- A validade de 30 dias das análises manuais é só informativa.
 - Quando um pedido é aprovado, os pedidos pendentes de outras pessoas para o mesmo negócio continuam na fila.
-- **Duas pessoas pedindo o mesmo negócio sem dono ao mesmo tempo** podem virar donas juntas: a aprovação na hora não trava o negócio entre a conferência e a aprovação.
+- **Duas pessoas confirmando o mesmo negócio sem dono pelo Instagram ao mesmo tempo** podem virar donas juntas: a aprovação na hora não trava o negócio entre a conferência e a aprovação. Com os dados do negócio, isso não acontece mais, porque nada é aprovado sem a moderação.
 
 **Depoimentos**
 
