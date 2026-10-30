@@ -73,9 +73,11 @@ const esquemaIndicacao = z.object({
 export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const usuario = await exigirUsuario("/participar");
   const valores = valoresDoFormulario(dados, ["causas"]);
-  // Indicar pede o e-mail confirmado. As respostas esperam na conta, e o cadastro
-  // por etapas as traz de volta depois da confirmação, em qualquer aparelho.
-  if (!usuario.emailConfirmado) {
+  const souDono = dados.get("souDono") === "sim";
+  // Indicar um negócio de outra pessoa pede o e-mail confirmado. As respostas esperam
+  // na conta, e o cadastro por etapas as traz de volta depois, em qualquer aparelho.
+  // Quem cadastra o próprio negócio confirma pela DM primeiro: o e-mail fica para depois.
+  if (!usuario.emailConfirmado && !souDono) {
     return { erro: AVISOS.confirmar_email.texto, valores, rascunhoGuardado: await guardarRascunho(usuario.id, valores) };
   }
 
@@ -89,7 +91,6 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
     ...lerContato(dados),
   });
   if (!resultado.success) return { erros: errosPorCampo(resultado.error), valores };
-  const souDono = dados.get("souDono") === "sim";
   const { instagram, motivo, ...todos } = comCidade(resultado.data);
   const campos = semContatosDeTerceiros(todos, souDono);
 

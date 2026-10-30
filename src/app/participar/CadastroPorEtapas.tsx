@@ -257,7 +257,8 @@ export function CadastroPorEtapas({ conta, rascunho, instagramInicial, donoInici
   const arroba = procura?.instagram ?? inicial?.instagram ?? instagramInicial;
   const semPrevia = procura?.caso === "indicar" && !procura.previa;
   const visto = resumo ?? inicial ?? {};
-  const confirmarEmail = conta.logado && !conta.emailConfirmado && (estado?.rascunhoGuardado || !!rascunho);
+  // Quem indica precisa do e-mail confirmado. O dono confirma pela DM primeiro, e o e-mail fica para depois.
+  const confirmarEmail = !dono && conta.logado && !conta.emailConfirmado && (estado?.rascunhoGuardado || !!rascunho);
 
   return (
     <div id="cadastro" className="cartao scroll-mt-24 p-6 sm:p-8">
@@ -453,11 +454,12 @@ export function CadastroPorEtapas({ conta, rascunho, instagramInicial, donoInici
                 <p className="leading-relaxed text-suave">
                   Depois de publicar, você confirma que o negócio é seu pela DM do @{projeto}: segue o perfil pelo Instagram
                   do negócio, manda um &ldquo;Oi&rdquo; e cola o código que chegar. Até lá, ele aparece como indicado.
+                  {!conta.emailConfirmado && " O e-mail você confirma depois, pelo link que mandamos."}
                 </p>
               )}
               {estado?.erro && !estado.rascunhoGuardado && <Aviso tipo="erro">{estado.erro}</Aviso>}
               <BotaoEnviar pendente={pendente} className="botao-coral w-full py-3 text-base sm:w-auto" enviando="Enviando…">
-                {!conta.emailConfirmado ? "Guardar e confirmar meu e-mail" : dono ? "Cadastrar meu negócio" : "Publicar indicação"}
+                {dono ? "Cadastrar meu negócio" : conta.emailConfirmado ? "Publicar indicação" : "Guardar e confirmar meu e-mail"}
               </BotaoEnviar>
             </div>
           )}

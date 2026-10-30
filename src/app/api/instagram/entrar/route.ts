@@ -17,8 +17,7 @@ export async function GET(request: NextRequest) {
 
   const usuario = await usuarioAtual();
   if (!usuario) return NextResponse.redirect(new URL(`/entrar?voltar=${encodeURIComponent(voltar)}`, origem));
-  // A página de reivindicar mostra o pedido para confirmar o e-mail no lugar das opções.
-  if (!usuario.emailConfirmado) return NextResponse.redirect(new URL(voltar, origem));
+  // Sem exigir o e-mail confirmado: o login no Instagram do negócio prova mais do que o e-mail.
 
   // O "state" volta do Instagram e precisa bater com o cookie: impede que alguém
   // force o retorno do login de outra pessoa para dentro da sua conta.

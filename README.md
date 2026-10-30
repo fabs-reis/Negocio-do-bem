@@ -60,7 +60,7 @@ O seed cria negócios fictícios e estas contas, todas com a senha `senha-demo-1
 | `ana@exemplo.com`, `joao@exemplo.com`, `bia@exemplo.com` | donos de negócios de exemplo. A Bia ainda não confirmou o Studio Semente, para mostrar a edição pausada |
 | `carla@exemplo.com` | enviou os dados do Café Arco-Íris e espera a moderação |
 
-Uma conta criada no site precisa confirmar o e-mail para indicar, escrever depoimentos e reivindicar. Sem o envio de e-mail configurado, o link de confirmação (e o de "Entrar por link") aparece no terminal do `npm run dev`.
+Uma conta criada no site precisa confirmar o e-mail para indicar negócios de outras pessoas, escrever depoimentos e pedir a análise manual de um perfil. Quem cadastra o próprio negócio confirma pela DM primeiro e o e-mail depois. Sem o envio de e-mail configurado, o link de confirmação (e o de "Entrar por link") aparece no terminal do `npm run dev`.
 
 Para a sua própria conta virar moderação, cadastre-se no site e rode `npm run moderacao -- dar seu@email.com`. O `npm run moderacao -- listar` mostra quem é moderação.
 
@@ -175,7 +175,7 @@ O site manda por e-mail o link para confirmar o e-mail e o link para entrar sem 
 
 Nos previews o envio fica desligado mesmo com as variáveis, porque o banco dos previews só tem contas de teste. Lá, os links de confirmar e de entrar aparecem no log da função no Vercel.
 
-Sem o envio ligado em produção, ninguém consegue confirmar o e-mail, e as contas novas não indicam, não escrevem depoimentos e não reivindicam.
+Sem o envio ligado em produção, ninguém consegue confirmar o e-mail, e as contas novas não indicam, não escrevem depoimentos e não pedem análise manual. Confirmar o próprio negócio pela DM continua funcionando.
 
 ## Testes e verificações
 

@@ -90,7 +90,8 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.ts` e `src/app/link/page.tsx`.
 
 - **O cadastro manda um link de confirmação** para o e-mail digitado. A conta já entra no site na hora.
-- **Sem o e-mail confirmado, a conta não** indica negócios, não escreve nem denuncia depoimentos e não reivindica negócios, por nenhum dos caminhos.
+- **Sem o e-mail confirmado, a conta não** indica negócios de outras pessoas, não escreve nem denuncia depoimentos e não pede a análise manual de um perfil.
+- **Confirmar pelo Instagram não espera o e-mail.** Cadastrar o próprio negócio, pedir e colar o código por DM e o "Entrar com Instagram" funcionam antes, porque a prova pelo Instagram do negócio vale mais que a do e-mail. O e-mail fica para depois: o painel do negócio pede a confirmação, para os avisos chegarem.
   - Nesses lugares, e no topo do `/painel`, aparece "Confirme seu e-mail", com um botão para mandar o link de novo.
   - As Server Actions conferem de novo no servidor e respondem "Antes, confirme o seu e-mail".
 - **O resto funciona sem confirmar:** entrar, sair, o painel, editar o próprio negócio, responder depoimentos e cancelar pedidos.
@@ -334,8 +335,9 @@ A API só enxerga contas profissionais (comerciais ou de criador), e conta profi
 ### Conta no fim, com rascunho
 
 - **Sem login,** a última etapa pede "Criar conta e continuar" ou "Já tenho conta". Antes de sair, as respostas ficam guardadas no navegador, e o login ou o cadastro voltam para `/participar?continuar=1`, que abre a revisão com elas.
-- **Sem o e-mail confirmado,** o envio guarda as respostas na conta (`RascunhoCadastro`, uma por conta) e mostra "Confirme seu e-mail para publicar". Depois de confirmar, em qualquer aparelho, a pessoa entra e volta para "Revise e publique". O rascunho só guarda os campos do cadastro, em texto e no tamanho de cada um (`lerRascunho`), sai ao publicar e some depois de 30 dias.
-- **Com o e-mail confirmado,** a última etapa mostra o resumo e "Publicar indicação" (ou "Cadastrar meu negócio").
+- **Quem indica, sem o e-mail confirmado:** o envio guarda as respostas na conta (`RascunhoCadastro`, uma por conta) e mostra "Confirme seu e-mail para publicar". Depois de confirmar, em qualquer aparelho, a pessoa entra e volta para "Revise e publique". O rascunho só guarda os campos do cadastro, em texto e no tamanho de cada um (`lerRascunho`), sai ao publicar e some depois de 30 dias.
+- **Com o e-mail confirmado,** a última etapa mostra o resumo e "Publicar indicação".
+- **O dono não espera o e-mail:** com ou sem a confirmação, a última etapa mostra o resumo e "Cadastrar meu negócio". A confirmação do negócio vem pela DM, e a do e-mail, depois.
 
 ### O que é gravado
 
@@ -353,7 +355,7 @@ A API só enxerga contas profissionais (comerciais ou de criador), e conta profi
 Quando a pessoa escolhe "Sou dono deste negócio":
 
 - o "Por que você indica?" não aparece e o motivo não é guardado;
-- o negócio é criado do mesmo jeito, já publicado e como indicado, com a pessoa como quem indicou;
+- o negócio é criado do mesmo jeito, já publicado e como indicado, com a pessoa como quem indicou, mesmo sem o e-mail confirmado;
 - o código por DM já sai pedido (`iniciarPorCodigoDm`, e a moderação recebe o aviso), e a pessoa vai para a página de reivindicação com "Pedido feito. Agora siga o perfil do projeto...". Com o código por DM desligado, ou sem cota no dia, ela vai para a página sem o pedido.
 
 Cadastrar não faz ninguém virar dono. A pessoa vira dona quando cola o código que chegou pela DM ou quando a moderação aprova a análise manual ([seção 6](#nada-é-aprovado-só-com-os-dados-do-negócio)). Até lá, não há painel.

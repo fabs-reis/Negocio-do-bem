@@ -16,6 +16,8 @@ vi.mock("next/navigation", () => ({
     throw new Redirecionou(destino);
   },
 }));
+// O aviso para a moderação sai depois da resposta: aqui ele não sai.
+vi.mock("next/server", () => ({ after: () => {} }));
 
 const { indicarEmpresa } = await import("@/acoes/empresas");
 
@@ -66,13 +68,13 @@ function formulario(instagram: string) {
   return dados;
 }
 
-/** Envia uma indicação e diz como ela terminou: publicada (redirect) ou o estado devolvido. */
-async function indicar(instagram: string) {
+/** Envia uma indicação e diz como ela terminou: publicada (redirect, com o destino) ou o estado devolvido. */
+async function indicar(instagram: string, dados = formulario(instagram)) {
   try {
-    const estado = await indicarEmpresa({}, formulario(instagram));
+    const estado = await indicarEmpresa({}, dados);
     return { publicada: false as const, estado: estado ?? {} };
   } catch (erro) {
-    if (erro instanceof Redirecionou) return { publicada: true as const };
+    if (erro instanceof Redirecionou) return { publicada: true as const, destino: erro.message };
     throw erro;
   }
 }
@@ -192,5 +194,39 @@ describe("indicação do mesmo username ao mesmo tempo", () => {
       if (!r.publicada) expect(r.estado.erros?.instagram).toMatch(/já está no Negócio do Bem/);
     }
     expect(await db.empresa.count({ where: { instagramUsername: "mesmo.username" } })).toBe(1);
+  });
+});
+
+describe("sem o e-mail confirmado", () => {
+  async function semEmailConfirmado() {
+    const usuario = await criarUsuarioLogado();
+    sessao.usuario = { ...sessao.usuario!, emailConfirmado: false };
+    return usuario;
+  }
+
+  it("quem indica guarda as respostas na conta e não publica", async () => {
+    const usuario = await semEmailConfirmado();
+
+    const resultado = await indicar("padaria.flor");
+
+    expect(resultado).toMatchObject({ publicada: false, estado: { rascunhoGuardado: true } });
+    expect(await db.empresa.count({ where: { instagramUsername: "padaria.flor" } })).toBe(0);
+    expect(await db.rascunhoCadastro.findUnique({ where: { usuarioId: usuario.id } })).not.toBeNull();
+  });
+
+  it("o dono cadastra o próprio negócio e já sai com o código por DM pedido", async () => {
+    const usuario = await semEmailConfirmado();
+    const dados = formulario("padaria.flor");
+    dados.set("souDono", "sim");
+    dados.set("whatsapp", "(81) 99999-0000");
+
+    const resultado = await indicar("padaria.flor", dados);
+
+    expect(resultado).toMatchObject({ publicada: true, destino: "/empresas/padaria.flor/reivindicar?aviso=codigo_pedido#codigo" });
+    const empresa = await db.empresa.findUniqueOrThrow({ where: { instagramUsername: "padaria.flor" } });
+    expect(empresa).toMatchObject({ status: "indicada", whatsapp: "5581999990000" });
+    expect(await db.reivindicacao.count({ where: { empresaId: empresa.id, usuarioId: usuario.id, metodo: "codigo_dm", status: "pendente" } })).toBe(1);
+    // Cadastrar não faz ninguém virar dono: isso só vem com o código certo.
+    expect(await db.empresaMembro.count({ where: { empresaId: empresa.id } })).toBe(0);
   });
 });

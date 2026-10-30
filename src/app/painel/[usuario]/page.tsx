@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { alternarVisibilidade } from "@/acoes/empresas";
 import { responderDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
+import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { checklistDoPerfil } from "@/lib/boas-vindas";
@@ -70,6 +71,11 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         </div>
         <AvisoDaUrl codigo={aviso} />
       </div>
+
+      {/* Quem confirmou pela DM antes do e-mail confirma o e-mail aqui, para receber os avisos. */}
+      {!usuario.emailConfirmado && (
+        <ConfirmarEmail email={usuario.email} para="receber os avisos do seu negócio" voltar={`/painel/${empresa.instagramUsername}`} />
+      )}
 
       {!confirmado ? (
         <ConfirmarDono username={empresa.instagramUsername} pedidaEm={membro.confirmacaoPedidaEm} />

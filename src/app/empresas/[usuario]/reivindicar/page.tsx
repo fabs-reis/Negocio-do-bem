@@ -124,15 +124,6 @@ async function Reivindicar({
     );
   }
 
-  if (!usuario.emailConfirmado) {
-    return (
-      <>
-        {cabecalho}
-        <ConfirmarEmail email={usuario.email} para="assumir o perfil" voltar={caminho} />
-      </>
-    );
-  }
-
   const solicitacoes = await db.reivindicacao.findMany({
     where: { empresaId: empresa.id, usuarioId: usuario.id },
     orderBy: { criadoEm: "desc" },
@@ -336,7 +327,13 @@ async function Reivindicar({
               A moderação confere por outros meios, como o telefone que aparece no Google ou no Instagram do negócio, e
               decide. O resultado chega por e-mail.
             </p>
-            <FormDocumento empresaId={empresa.id} />
+            {usuario.emailConfirmado ? (
+              <FormDocumento empresaId={empresa.id} />
+            ) : (
+              <div className="mt-6">
+                <ConfirmarEmail email={usuario.email} para="pedir a análise manual" voltar={caminho} />
+              </div>
+            )}
           </details>
         ) : (
           <section className="cartao p-6 sm:p-8">
@@ -344,7 +341,13 @@ async function Reivindicar({
             <p className="mt-2 leading-relaxed text-suave">
               A moderação confere os dados e decide. O resultado chega por e-mail e aparece no seu painel.
             </p>
-            <FormDocumento empresaId={empresa.id} />
+            {usuario.emailConfirmado ? (
+              <FormDocumento empresaId={empresa.id} />
+            ) : (
+              <div className="mt-6">
+                <ConfirmarEmail email={usuario.email} para="pedir a análise manual" voltar={caminho} />
+              </div>
+            )}
           </section>
         )}
       </div>

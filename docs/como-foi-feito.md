@@ -393,6 +393,7 @@ Havia duas portas (`/indicar` e `/participar`), e o formulário de indicação e
 - **Rascunho em dois lugares.** No navegador, para atravessar o login ou o cadastro no mesmo aparelho. Na conta, quando falta confirmar o e-mail, porque o link pode ser aberto em outro aparelho. O formato fica em `src/lib/rascunho-do-cadastro.ts`, sem imports, para o navegador também ler: o `src/lib/instagram.ts` importa `node:crypto`.
 - **Quem indica não publica contatos.** Site, WhatsApp e e-mail ficam com o dono (#105), e o servidor apaga o que vier numa indicação.
 - **O dono já sai com o código pedido.** Cadastrar o próprio negócio cria o pedido do código por DM, e a página seguinte só pede para seguir o @ do projeto e mandar o "Oi".
+- **A DM antes do e-mail.** O e-mail confirmado entrou para que ninguém indicasse ou reivindicasse em nome de um endereço alheio. Para quem cadastra o próprio negócio, a DM prova mais: só quem cuida do Instagram do negócio recebe o código. Então o dono publica e confirma pela DM sem esperar o e-mail, que fica para depois, no painel. Indicar um negócio de outra pessoa, os depoimentos e a análise manual continuam pedindo o e-mail.
 
 ---
 

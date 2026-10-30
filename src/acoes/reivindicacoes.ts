@@ -29,8 +29,8 @@ async function carregar(dados: FormData) {
 
 /** Pede o código: a moderação recebe o aviso e responde pela DM do @ do projeto. */
 export async function pedirCodigoDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+  // Sem exigir o e-mail confirmado: a DM prova mais do que o e-mail, que fica para depois.
   const { empresa, usuario, caminho } = await carregar(dados);
-  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto };
   if (!perfilOficial()) return { erro: "A confirmação por DM está desligada. Peça uma análise manual abaixo." };
   let aguardaEnvio: boolean;
   try {
@@ -46,7 +46,6 @@ export async function pedirCodigoDm(_estado: EstadoFormulario, dados: FormData):
 
 export async function confirmarCodigoDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const { empresa, usuario, caminho } = await carregar(dados);
-  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto, valores: valoresDoFormulario(dados) };
   let resultado: Awaited<ReturnType<typeof confirmarCodigo>>;
   try {
     resultado = await confirmarCodigo({ empresaId: empresa.id, usuarioId: usuario.id, texto: texto(dados, "codigo") });
