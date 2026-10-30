@@ -589,9 +589,31 @@ npm run typecheck
 - **Um PR que muda o banco já funciona no preview.** O build do preview aplica as migrações do PR no banco dos previews.
 - **Cada deployment usa um esquema próprio.** `src/lib/banco.ts` deriva o nome de `VERCEL_DEPLOYMENT_ID`, inclusive para a `stage`. Duas versões da mesma branch também ficam separadas. O identificador precisa estar disponível no build e no runtime. Sem uma identidade válida ou uma conexão PostgreSQL válida, o preview falha antes de acessar o banco, sem recorrer a `public`.
 - **CLI, aplicação, seed, moderação e correção de cidades selecionam o mesmo esquema.** A CLI recebe o parâmetro `schema` na URL. Os clientes também passam o esquema explicitamente ao `PrismaPg`, porque apenas alterar a URL não basta para o adaptador. Fora de preview, a URL permanece intacta e seu esquema explícito também é respeitado.
-- **SQL bruto precisa qualificar a tabela.** `src/lib/db.ts` exporta `esquemaSql`, um identificador delimitado e escapado da mesma seleção usada pelo ORM. Use, por exemplo, `FROM ${esquemaSql}."Empresa"` dentro de uma consulta marcada com `$queryRaw`. O fragmento não vem da requisição e não é um parâmetro de valor SQL. Não dependa de `search_path`, cujo estado pode mudar em pools transacionais. Uma tabela ausente no preview deve falhar, nunca recorrer à de `public`. A aba Sistema da moderação (`_prisma_migrations`) e o `npm run cidades:corrigir` já seguem essa regra. Os scripts, que não importam `src/lib/db.ts`, montam o fragmento com `identificadorSql` de `src/lib/banco.ts`.
+- **SQL bruto precisa qualificar a tabela.** `src/lib/db.ts` exporta `esquemaSql`, um identificador delimitado e escapado da mesma seleção usada pelo ORM. Use, por exemplo, `FROM ${esquemaSql}."Empresa"` dentro de uma consulta marcada com `$queryRaw`. O fragmento não vem da requisição e não é um parâmetro de valor SQL. Não dependa de `search_path`, cujo estado pode mudar em pools transacionais. Uma tabela ausente no preview deve falhar, nunca recorrer à de `public`. A aba Sistema da moderação (`_prisma_migrations`) e o `npm run cidades:corrigir` já seguem essa regra. Os scripts, que não importam `src/lib/db.ts`, montam o fragmento com `identificadorSql` de `src/lib/banco.ts`. O teste `tests/unit/esquema-explicito.test.ts` falha se algum arquivo de `src`, `scripts` ou `prisma` usar `$queryRaw` ou `$executeRaw` sem `esquemaSql`, ou criar um `PrismaPg` sem `schema`.
 - **Uma migração normal de A não muda as tabelas de B.** Cada esquema tem seu próprio histórico `_prisma_migrations`. Isso evita interferência entre deployments, mas não restringe SQL hostil: a credencial compartilhada ainda pode acessar outros esquemas. O lock do Prisma continua ativo, e uma falha de migração interrompe o build.
 - **Cada deployment começa com dados fictícios novos.** O seed só preenche um esquema vazio. Alterações manuais na homologação não acompanham o próximo deployment. O esquema compartilhado antigo e os deployments anteriores permanecem intactos, sem cópia ou limpeza automática. Não apague tabelas compartilhadas para corrigir um PR abandonado.
+- **A migração do preview roda num esquema vazio.** Antes, a migração de um PR rodava no banco compartilhado, que já tinha linhas. Agora ela nunca vê dados. Uma migração que falha com linhas existentes, como `ADD COLUMN ... NOT NULL` sem valor padrão, passa no preview e na `stage` e falha só no `prisma migrate deploy` de produção. Esse erro bloqueia os deploys seguintes (P3009) até alguém rodar `prisma migrate resolve`. Antes de abrir o PR, rode `npm run db:migrate` num banco local com o seed aplicado.
+- **Os esquemas antigos ocupam a cota do projeto Neon dos previews.** Cada deployment cria 9 tabelas, 27 índices e as linhas do seed. Medido no PostgreSQL local, isso dá cerca de 520 kB por esquema. Com a cota de armazenamento cheia, o `prisma migrate deploy` falha em todo build de preview, inclusive o da `stage`. O nome do esquema é um hash, e por isso ele não diz a qual deployment pertence. Para limpar, use a idade: a primeira migração de cada esquema (`_prisma_migrations.started_at`) marca quando o deployment foi criado. Conecte-se ao projeto `negocio-do-bem-preview` (confira o nome antes), no console SQL do Neon, e rode o bloco abaixo. Ele apaga os esquemas `preview_*` criados há mais de 30 dias e ignora os que não têm `_prisma_migrations`. Depois, faça um novo deploy da `stage`, porque a homologação pode ter perdido o esquema.
+
+  ```sql
+  DO $$
+  DECLARE
+    esquema text;
+    primeira timestamptz;
+  BEGIN
+    FOR esquema IN SELECT nspname FROM pg_namespace WHERE nspname LIKE 'preview\_%' LOOP
+      IF to_regclass(format('%I._prisma_migrations', esquema)) IS NULL THEN
+        RAISE NOTICE 'sem _prisma_migrations, ignorado: %', esquema;
+        CONTINUE;
+      END IF;
+      EXECUTE format('SELECT min(started_at) FROM %I._prisma_migrations', esquema) INTO primeira;
+      IF primeira < now() - interval '30 days' THEN
+        RAISE NOTICE 'apagando % (primeira migração em %)', esquema, primeira;
+        EXECUTE format('DROP SCHEMA %I CASCADE', esquema);
+      END IF;
+    END LOOP;
+  END $$;
+  ```
 - **As contas de exemplo continuam restritas aos previews.** O seed se recusa a rodar em produção. As contas são as do [README](../README.md#rodando-localmente), e os previews exigem login no Vercel. Desenvolvimento, produção e testes mantêm suas conexões anteriores.
 - **A prova local usa dados descartáveis.** `tests/db/preview-isolado.test.ts` aplica migrações e seed em namespaces separados e altera a estrutura apenas em A. B, homologação e o legado precisam permanecer iguais. Ela verifica também SQL bruto com `FOR UPDATE`, o histórico de migrações da aba Sistema, o `cidades:corrigir` (que altera só o esquema de quem o executa), um esquema de desenvolvimento explícito, escape de aspas em identificadores e a recusa de uma tabela ausente sem fallback para `public`. Com `NDB_TESTAR_PREVIEW=1`, a prova verifica B por HTTP em um Next com build de produção, antes e depois da migração de A.
 - **Limite da dependência instalada:** o ORM do Prisma 7.10.1 falhou na prova local com nomes de esquema contendo aspas. O fragmento de SQL bruto escapa essas aspas corretamente, mas não corrige esse limite do ORM. Use nomes simples para os esquemas configurados. Os nomes de preview são gerados só com prefixo, letras e dígitos hexadecimais.
