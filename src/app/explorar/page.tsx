@@ -145,7 +145,7 @@ async function Diretorio({ searchParams }: Pick<PageProps<"/explorar">, "searchP
                 ))}
               </div>
             ) : (
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {resultado.itens.map((empresa) => (
                   <EmpresaCard key={empresa.instagramUsername} empresa={empresa} />
                 ))}
@@ -365,7 +365,7 @@ function DiretorioCarregando() {
       <div className="mt-5 h-[4.5rem] animate-pulse rounded-3xl bg-superficie" />
       <div className="mt-8 flex gap-8">
         <div className="hidden h-[36rem] w-64 shrink-0 animate-pulse rounded-3xl bg-superficie lg:block" />
-        <div className="grid flex-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 flex-1 gap-4 sm:grid-cols-2">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="h-60 animate-pulse rounded-3xl bg-superficie" />
           ))}

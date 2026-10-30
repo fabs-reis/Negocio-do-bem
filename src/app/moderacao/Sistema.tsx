@@ -12,7 +12,7 @@ export async function Sistema() {
     <div className="space-y-10">
       <section>
         <TituloDoBloco titulo="Ambiente" />
-        <dl className="cartao grid gap-x-6 gap-y-3 p-5 text-sm sm:grid-cols-[10rem_1fr]">
+        <dl className="cartao grid grid-cols-1 gap-x-6 gap-y-3 p-5 text-sm sm:grid-cols-[10rem_1fr]">
           <dt className="text-suave">Ambiente</dt>
           <dd className="font-semibold">{local.nome}</dd>
           <dt className="text-suave">Endereço público</dt>
@@ -55,7 +55,7 @@ export async function Sistema() {
         </ul>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <TituloDoBloco titulo="Banco" descricao="Quantas linhas cada tabela tem." />
           <div className="cartao">

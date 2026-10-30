@@ -72,7 +72,8 @@ export default function Sobre() {
         </p>
         <p>
           <strong>Que dados vocês guardam?</strong> Da sua conta, nome e e-mail. O e-mail nunca aparece no site: só a
-          moderação vê. Dos negócios, só o que aparece no perfil:
+          moderação vê. Ele serve para você entrar e para receber avisos sobre os seus pedidos e o seu negócio, como
+          a decisão da moderação ou um depoimento novo. Dos negócios, só o que aparece no perfil:
           textos, fotos e contatos públicos.
           Não fazemos raspagem do Instagram e não guardamos tokens de acesso.
         </p>
@@ -108,7 +109,7 @@ export default function Sobre() {
         {(Object.keys(GRUPOS) as GrupoCausa[]).map((grupo) => (
           <section key={grupo}>
             <h3 className="font-serif text-xl font-semibold">{GRUPOS[grupo]}</h3>
-            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {CAUSAS.filter((c) => c.grupo === grupo).map((causa) => (
                 <li key={causa.slug} className="cartao p-4">
                   <Link href={hrefCausa(causa.slug)} className="transition hover:opacity-80">

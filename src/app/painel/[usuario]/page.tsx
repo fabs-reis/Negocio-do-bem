@@ -93,7 +93,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
                   maxLength={1000}
                   defaultValue={d.resposta ?? ""}
                   placeholder="Escreva uma resposta (opcional)…"
-                  className="campo text-sm"
+                  className="campo sm:text-sm"
                 />
                 <BotaoEnviar className="botao-claro botao-pequeno" enviando="Salvando…">
                   {d.resposta ? "Atualizar resposta" : "Responder"}

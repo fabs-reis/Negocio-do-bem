@@ -182,7 +182,8 @@ function Contatos({ empresa }: { empresa: Perfil }) {
         </a>
       )}
       {empresa.emailContato && (
-        <a href={`mailto:${empresa.emailContato}`} className="botao-claro botao-pequeno">
+        // break-all: um e-mail comprido quebra em vez de passar da largura do celular.
+        <a href={`mailto:${empresa.emailContato}`} className="botao-claro botao-pequeno max-w-full break-all">
           {empresa.emailContato}
         </a>
       )}
@@ -286,7 +287,7 @@ function Depoimentos({
                   </summary>
                   <form action={denunciarDepoimento} className="mt-2 flex gap-2">
                     <input type="hidden" name="depoimentoId" value={depoimento.id} />
-                    <input name="motivo" placeholder="O que há de errado?" className="campo py-1.5 text-xs" maxLength={300} />
+                    <input name="motivo" placeholder="O que há de errado?" className="campo py-1.5 sm:text-xs" maxLength={300} />
                     <button type="submit" className="botao-claro botao-pequeno">
                       Enviar
                     </button>

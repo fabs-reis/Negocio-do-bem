@@ -84,7 +84,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main className="flex-1">{children}</main>
 
         <footer className="mt-24 border-t border-linha">
-          <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm text-suave sm:grid-cols-[2fr_1fr_1fr] sm:px-6">
+          <div className="mx-auto grid grid-cols-1 max-w-6xl gap-8 px-4 py-12 text-sm text-suave sm:grid-cols-[2fr_1fr_1fr] sm:px-6">
             <div className="space-y-3">
               <Logo className="h-12" />
               <p className="max-w-sm leading-relaxed">

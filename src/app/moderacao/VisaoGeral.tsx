@@ -40,7 +40,7 @@ export async function VisaoGeral() {
             Nenhuma fila esperando a moderação.
           </p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {filas.map((f) => (
               <Link key={f.href} href={f.href} className="cartao flex items-center gap-4 border-coral/30 bg-coral-50 p-5 transition hover:border-coral">
                 <span className="text-3xl font-semibold text-coral-700">{numero(f.total)}</span>
@@ -53,7 +53,7 @@ export async function VisaoGeral() {
 
       <section>
         <TituloDoBloco titulo="Números do projeto" descricao="Tudo o que está no banco, inclusive o que não aparece para o público." />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="cartao p-5">
             <Numero valor={negocios.noDiretorio} rotulo={`negócios no diretório, de ${contar(negocios.total, "cadastrado", "cadastrados")}`} href={negociosEm("diretorio")} />
             <Detalhes
@@ -106,7 +106,7 @@ export async function VisaoGeral() {
 
       <section>
         <TituloDoBloco titulo="Atividade" descricao="O que entrou em cada semana. Cada semana são 7 dias corridos, até hoje." />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Colunas titulo="Negócios indicados" semanas={atividade.negocios} />
           <Colunas titulo="Contas criadas" semanas={atividade.contas} />
           <Colunas titulo="Depoimentos" semanas={atividade.depoimentos} />
@@ -117,7 +117,7 @@ export async function VisaoGeral() {
 
       <section>
         <TituloDoBloco titulo="O diretório" descricao="Só os negócios que o público vê. Os links abrem as páginas públicas." />
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Distribuicao titulo="Por estado" lista={distribuicao.porUf} vazio="Nenhum negócio no diretório.">
             {(c) => ({
               rotulo: (UFS as readonly string[]).includes(c.chave) ? NOMES_UF[c.chave as Uf] : c.chave,
