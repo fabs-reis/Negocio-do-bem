@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { CONFIRMACAO_DE_EMAIL_LIGADA, COOKIE_LINK, criarLink, enviarLink, usarLink } from "@/lib/auth/links";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
-import { caminhoSeguro, criarSessao, encerrarSessao, exigirUsuario } from "@/lib/auth/sessao";
+import { caminhoSeguro, criarSessao, encerrarOutrasSessoes, encerrarSessao, exigirUsuario } from "@/lib/auth/sessao";
 import { ipDoCabecalho, reservarTentativaDoEmail, tentativaDoIpLiberada, zerarTentativasDoEmail } from "@/lib/auth/tentativas";
 import { db } from "@/lib/db";
 import { errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
@@ -146,6 +146,11 @@ const esquemaTrocarSenha = z
     path: ["confirmarSenha"],
   });
 
+/**
+ * Troca a senha de quem está logado. A senha atual passa pelos mesmos limites do
+ * login (por IP e por e-mail, antes do scrypt), e as outras sessões da conta são
+ * encerradas: quem troca a senha por desconfiar de um acesso tira o intruso.
+ */
 export async function trocarSenha(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const usuario = await exigirUsuario("/painel");
   const resultado = esquemaTrocarSenha.safeParse({
@@ -158,11 +163,17 @@ export async function trocarSenha(_estado: EstadoFormulario, dados: FormData): P
   }
   const { senhaAtual, novaSenha } = resultado.data;
 
-  const conta = await db.usuario.findUnique({ where: { id: usuario.id }, select: { senhaHash: true } });
-  if (!conta?.senhaHash || !(await verificarSenha(senhaAtual, conta.senhaHash))) {
-    return { erros: { senhaAtual: "Senha atual incorreta." } };
+  const ip = await ipDaRequisicao();
+  if (!(await tentativaDoIpLiberada(ip)) || !(await reservarTentativaDoEmail(usuario.email, ip))) {
+    return { erro: "Muitas tentativas seguidas. Espere alguns minutos e tente de novo." };
   }
 
+  const conta = await db.usuario.findUnique({ where: { id: usuario.id }, select: { senhaHash: true } });
+  if (!conta || !(await verificarSenha(senhaAtual, conta.senhaHash))) {
+    return { erros: { senhaAtual: "Senha atual incorreta." } };
+  }
+  await zerarTentativasDoEmail(usuario.email, ip);
   await db.usuario.update({ where: { id: usuario.id }, data: { senhaHash: await gerarHashSenha(novaSenha) } });
+  await encerrarOutrasSessoes(usuario.id);
   redirect("/painel?aviso=senha-alterada");
 }

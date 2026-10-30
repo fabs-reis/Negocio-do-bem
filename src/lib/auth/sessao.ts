@@ -53,6 +53,14 @@ export async function encerrarSessao(): Promise<void> {
   loja.delete(COOKIE);
 }
 
+/** Apaga as outras sessões da conta e mantém a desta requisição. Usada depois de trocar a senha. */
+export async function encerrarOutrasSessoes(usuarioId: string): Promise<void> {
+  const token = (await cookies()).get(COOKIE)?.value;
+  await db.sessao.deleteMany({
+    where: { usuarioId, ...(token ? { id: { not: hashToken(token) } } : {}) },
+  });
+}
+
 /** Usuário logado nesta requisição, ou null. Lido uma vez por requisição. */
 export const usuarioAtual = cache(async (): Promise<UsuarioSessao | null> => {
   const token = (await cookies()).get(COOKIE)?.value;

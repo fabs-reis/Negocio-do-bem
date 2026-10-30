@@ -8,7 +8,7 @@ Um diretório de negócios com consciência social e conexão com a comunidade. 
 - **Causas** como Pet friendly, Antirracista, Escala 5x2, Escala 4x3 e outras (lista em `src/lib/causas.ts`).
 - **Indicação** pela comunidade, publicada na hora. A moderação tira do ar o que for impróprio.
 - **Reivindicação de propriedade** pelo dono, explicada abaixo.
-- **Painel do dono** para editar o perfil, responder depoimentos e ocultar o negócio.
+- **Painel do dono** para editar o perfil, responder depoimentos, ocultar o negócio e trocar a senha.
 - **Moderação** com um painel próprio: os números do projeto, a atividade das últimas semanas e a saúde dos dados; filas de disputas de reivindicação e de denúncias; todos os negócios, contas e depoimentos, com a ficha de cada conta; botão para tirar um negócio do ar; edição de qualquer perfil (foto, contatos, textos e causas); e o registro de auditoria, com filtros.
 
 Vai colaborar? Comece por estes dois guias:
@@ -213,7 +213,7 @@ tests/               testes (unit/ sem banco, db/ com banco)
 ## Próximos passos sugeridos
 
 - Uma verificação de verdade para o dono: hoje quem pede um negócio sem dono vira dono na hora, sem conferência. Um caminho é comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
-- Trocar a senha pelo painel, para completar a recuperação de senha: o "Entrar por link" já devolve o acesso a quem esqueceu.
+- Completar a recuperação de senha: quem entra pelo link ainda não consegue criar uma senha nova, porque a troca no painel pede a senha atual.
 - Renovação automática do token do Instagram usado pelo webhook.
 
 ## Como contribuir

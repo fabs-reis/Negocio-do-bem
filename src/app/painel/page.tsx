@@ -167,7 +167,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
         <div className="cartao mt-4 p-6">
           <h3 className="font-medium">Trocar senha</h3>
           <p className="mt-1 mb-4 text-sm text-suave">
-            Caso tenha entrado pelo link, você também pode criar uma senha agora.
+            Ao salvar, as suas sessões em outros aparelhos são encerradas.
           </p>
           <FormTrocarSenha />
         </div>
