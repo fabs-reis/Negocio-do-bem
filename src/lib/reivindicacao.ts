@@ -7,13 +7,16 @@
 //   - "instagram_login": login na conta profissional; aprovação instantânea.
 //     Desligado enquanto as variáveis do app da Meta estiverem vazias.
 //   - "codigo_dm": o dono manda um código por DM, a partir do @ do negócio, para o
-//     perfil oficial. A moderação confere (ou o webhook confere sozinho).
-//     Desligado enquanto INSTAGRAM_PERFIL_OFICIAL estiver vazio.
+//     perfil oficial (o @ do projeto, ou o INSTAGRAM_PERFIL_OFICIAL). A moderação
+//     confere (ou o webhook confere sozinho).
 //
 // A aprovação automática só acontece quando não há nenhum conflito. Qualquer
-// situação estranha (negócio que já tem dono, @ que mudou de conta, mesma conta
-// ligada a outro perfil) vira uma solicitação pendente com anotações para a
-// moderação decidir.
+// situação estranha (negócio que já tem dono, negócio tirado do ar, @ que mudou de
+// conta, mesma conta ligada a outro perfil) vira uma solicitação pendente com
+// anotações para a moderação decidir.
+//
+// Os dois caminhos pelo Instagram dão o selo "Perfil oficial" (Empresa.oficial).
+// Quem assumiu pelos dados do negócio também pode usá-los depois, para ganhar o selo.
 
 import { registrarAuditoria } from "@/lib/auditoria";
 import { gerarCodigo, extrairCodigo } from "@/lib/codigo";
@@ -42,6 +45,15 @@ async function exigirQueNaoSejaDono(empresaId: string, usuarioId: string) {
     where: { empresaId_usuarioId: { empresaId, usuarioId } },
   });
   if (membro) throw new ErroReivindicacao("Você já é dono deste negócio.");
+}
+
+/** Quem já é dono só confirma pelo Instagram enquanto o perfil não é oficial. */
+async function exigirQueFalteConfirmar(empresaId: string, usuarioId: string) {
+  const membro = await db.empresaMembro.findUnique({
+    where: { empresaId_usuarioId: { empresaId, usuarioId } },
+    select: { empresa: { select: { oficial: true } } },
+  });
+  if (membro?.empresa.oficial) throw new ErroReivindicacao("Você já é dono deste negócio.");
 }
 
 /**
@@ -80,7 +92,7 @@ async function exigirLimiteDiario(tx: Prisma.TransactionClient, usuarioId: strin
 
 /** Gera (ou reaproveita, se ainda valer) o código que o dono vai mandar por DM. */
 export async function iniciarPorCodigoDm(empresaId: string, usuarioId: string) {
-  await exigirQueNaoSejaDono(empresaId, usuarioId);
+  await exigirQueFalteConfirmar(empresaId, usuarioId);
 
   for (let tentativa = 0; tentativa < 5; tentativa++) {
     try {
@@ -195,7 +207,8 @@ export async function processarLoginInstagram(params: {
   if (conta.username !== empresa.instagramUsername) {
     return { tipo: "conta_diferente", conectada: conta.username };
   }
-  if (empresa.membros.some((m) => m.usuarioId === usuarioId)) {
+  // Quem já é dono de um perfil que não é oficial segue: o login dá o selo.
+  if (empresa.oficial && empresa.membros.some((m) => m.usuarioId === usuarioId)) {
     return { tipo: "verificada" };
   }
 
@@ -316,7 +329,13 @@ export async function aprovarPendentesSemDono(revisorId: string): Promise<string
  * "pode aprovar sozinho".
  */
 async function conflitosDeVerificacao(params: {
-  empresa: { id: string; instagramUserId: string | null; instagramIgsid: string | null; membros: { usuarioId: string }[] };
+  empresa: {
+    id: string;
+    moderacao: string;
+    instagramUserId: string | null;
+    instagramIgsid: string | null;
+    membros: { usuarioId: string }[];
+  };
   usuarioId: string;
   instagramUserId?: string;
   instagramIgsid?: string;
@@ -324,6 +343,10 @@ async function conflitosDeVerificacao(params: {
   const { empresa, usuarioId, instagramUserId, instagramIgsid } = params;
   const conflitos: string[] = [];
 
+  // Só a moderação publica de novo um negócio que ela tirou do ar.
+  if (empresa.moderacao === "rejeitada") {
+    conflitos.push("O negócio está fora do ar: a moderação tirou do ar e decide se publica de novo.");
+  }
   if (empresa.membros.some((m) => m.usuarioId !== usuarioId)) {
     conflitos.push("O negócio já tem dono verificado: decida entre adicionar como co-dono ou transferir.");
   }
@@ -353,8 +376,14 @@ export type ModoAprovacao = "adicionar" | "transferir";
 
 /**
  * Aprova a reivindicação: a pessoa vira dona e o negócio fica verificado.
- * `revisorId` null significa aprovação automática.
+ * `revisorId` null significa aprovação automática, que não muda a moderação do
+ * negócio: só a decisão de alguém da moderação publica o negócio.
  * `transferir` remove os donos anteriores (usado em disputas).
+ *
+ * O selo "Perfil oficial" vale enquanto um dono atual confirmou pelo Instagram:
+ * - pelo Instagram (login ou código por DM), o negócio fica oficial;
+ * - pelos dados do negócio, o selo fica como estava se continua outro dono (co-dono)
+ *   e sai se não continua nenhum (transferência, ou negócio que estava sem dono).
  */
 export async function aprovar(params: {
   reivindicacaoId: string;
@@ -377,6 +406,8 @@ export async function aprovar(params: {
     if (modo === "transferir") {
       await tx.empresaMembro.deleteMany({ where: { empresaId, usuarioId: { not: usuarioId } } });
     }
+    const peloInstagram = reivindicacao.metodo === "instagram_login" || reivindicacao.metodo === "codigo_dm";
+    const outrosDonos = await tx.empresaMembro.count({ where: { empresaId, usuarioId: { not: usuarioId } } });
     await tx.empresaMembro.upsert({
       where: { empresaId_usuarioId: { empresaId, usuarioId } },
       create: { empresaId, usuarioId, papel: "dono" },
@@ -401,7 +432,8 @@ export async function aprovar(params: {
       where: { id: empresaId },
       data: {
         status: "verificada",
-        moderacao: "aprovada",
+        ...(revisorId ? { moderacao: "aprovada" } : {}),
+        ...(peloInstagram ? { oficial: true } : outrosDonos === 0 ? { oficial: false } : {}),
         ...(instagramUserId ? { instagramUserId } : {}),
         ...(instagramIgsid ? { instagramIgsid } : {}),
       },

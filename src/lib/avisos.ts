@@ -9,7 +9,7 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   },
   verificada: {
     tipo: "sucesso",
-    texto: "Pronto! Você agora é dono deste perfil e pode contar a história do seu negócio no painel.",
+    texto: "Que bom ter você aqui! 💛 Seu perfil já é seu. Complete com a sua cara quando puder.",
   },
   em_analise: {
     tipo: "info",

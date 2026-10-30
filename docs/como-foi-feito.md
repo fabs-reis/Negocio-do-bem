@@ -38,7 +38,7 @@ Quase toda regra do sistema sai de um destes princípios. Diante de uma decisão
 O diretório cresce sem precisar que os donos se cadastrem primeiro: qualquer pessoa indica. Isso traz um risco, que é alguém se passar pelo dono ou cadastrar um perfil falso. A resposta tem três partes:
 
 - **A moderação corrige depois.** Indicações entram no ar na hora, e a moderação tira do ar o que for spam ou perfil falso. Até a [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), cada indicação esperava a revisão, mas a fila cresceu mais rápido do que dava para revisar.
-- **O selo diz quem falou.** "Indicado pela comunidade" e "Verificado pelo dono" são selos diferentes, então quem visita sabe se o perfil foi confirmado.
+- **O selo diz quem falou, sem prometer o que não aconteceu.** "Indicado pela comunidade", "Perfil assumido" e "Perfil oficial" são selos diferentes. Quem visita sabe se uma conta assumiu o perfil e se essa pessoa confirmou pelo Instagram do negócio. O selo não certifica a identidade nem as causas do negócio.
 - **Quem chega primeiro num negócio sem dono vira dono.** O pedido pelos dados do negócio é aprovado na hora quando ninguém assumiu o perfil. Disputas, quando o negócio já tem dono, continuam com a moderação.
 
 ### O @ do Instagram é a identidade do negócio
@@ -348,6 +348,15 @@ O cadastro aceitava qualquer e-mail. Uma conta com o e-mail de outra pessoa, ou 
 - **A senha continua.** O link por e-mail não é mais seguro que a senha: quem abre a caixa de e-mail entra na conta, o que a recuperação de senha também vai permitir. Ele tira a senha repetida e a força bruta do caminho de quem prefere não usar senha. O segundo fator para a moderação fica para a [#103](https://github.com/fabsreis/Negocio-do-bem/issues/103).
 - **Limite por conta, não por IP.** Cinco links por conta a cada hora impedem lotar a caixa de alguém e gastar a cota de 100 e-mails por dia do Resend com uma conta só. O limite por IP do login fica com a [#36](https://github.com/fabsreis/Negocio-do-bem/issues/36).
 
+### 30 de outubro: a página `/participar` e o selo de perfil oficial ([#91](https://github.com/fabsreis/Negocio-do-bem/issues/91))
+
+Quem tem um negócio e chegava pelo Instagram do projeto não tinha uma porta própria. E o selo "Verificado pelo dono" prometia uma conferência que não acontecia: pelos dados do negócio, quem chega primeiro vira dono sem conferência.
+
+- **Uma porta com um campo só.** `/participar` pede o @ do negócio e leva ao próximo passo. A decisão (`decidirProcura`) é uma função pura, com teste. Um negócio tirado do ar e um oculto pelo dono recebem a mesma resposta, para a procura não revelar o motivo.
+- **O selo conta a verdade.** "Perfil assumido" é o perfil que uma conta assumiu sem confirmar pelo Instagram. "Perfil oficial" é quem confirmou pelo login ou pelo código por DM. O `oficial` é um campo guardado no negócio, e só a aprovação de uma reivindicação muda, na mesma transação que muda os donos.
+- **O código por DM vem ligado**, com o @ do projeto (`ofabsreis`). Quem assumiu pelos dados do negócio pode confirmar pelo Instagram depois, e o painel convida para isso.
+- **Sem a palavra "reivindicar" nos textos para o dono.** O botão virou "É meu negócio". O endereço e os nomes no código continuam.
+
 ---
 
 ## 4. Arquitetura
@@ -448,7 +457,7 @@ Decisões do esquema:
   - um depoimento por pessoa por negócio;
   - um código de DM único.
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
-  - **uma conta:** apaga as sessões, os vínculos de dono, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
+  - **uma conta:** apaga as sessões, os vínculos de dono, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor. Se ela era a última dona que confirmou pelo Instagram, desligue o `oficial` do negócio no mesmo passo ([regras, seção 6](regras-de-negocio.md#o-selo-de-perfil-oficial));
   - **um negócio:** apaga as causas, os donos, os depoimentos e os pedidos ligados a ele.
 
 ---
@@ -521,7 +530,7 @@ npm run lint
 npm run typecheck
 ```
 
-- **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob) e Instagram.
+- **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob), Instagram, a procura da `/participar`, o `/indicar` preenchido pela URL e as boas-vindas do painel do dono.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
   - código por DM;
@@ -531,6 +540,7 @@ npm run typecheck
   - dados do negócio;
   - limite diário;
   - limite de tentativas de login e cadastro: `tests/db/tentativas.test.ts` testa os contadores, e `tests/db/acoes-conta.test.ts` passa pelas ações `entrar` e `cadastrar` de verdade, com espiões no scrypt. Só o Next (cabeçalhos, redirect e cookie) é de mentira. Esses testes falham se alguém tirar o limite do cadastro, mover o limite para depois do scrypt, ou confiar num cabeçalho de IP que o visitante escreve.
+  - o selo de perfil oficial e a migração que o preencheu.
 - **O banco de teste é separado** (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`).
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
@@ -589,7 +599,7 @@ npm run typecheck
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
 | `AUTENTICACAO_PROXY_CONFIAVEL` | Não | Defina `1` só se há um proxy seu na frente do site, que escreve o `x-forwarded-for` e é o único caminho até ele. Fora do Vercel, o limite de tentativas de login e cadastro usa então o último valor desse cabeçalho. Vazia, todos os visitantes dividem um limite só. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
-| `INSTAGRAM_PERFIL_OFICIAL` | Não | Liga o código por DM. |
+| `INSTAGRAM_PERFIL_OFICIAL` | Não | Troca o @ que recebe o código por DM. Vazio, vale o @ do projeto (`ofabsreis`), e o código por DM fica ligado. |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_GRAPH_VERSION` | Não | Ligam o "Entrar com Instagram". |
 | `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | Não | Ligam a confirmação automática da DM. |
 | `RESEND_API_KEY`, `EMAIL_REMETENTE` | Não | Ligam os avisos por e-mail. Configure só em Production. |
@@ -708,7 +718,7 @@ Siga a seção "Ativando a rotina de fotos do Instagram" do [README](../README.m
 
 ### Ligar a verificação pelo Instagram
 
-Siga as seções "Ativando…" do [README](../README.md#ativando-o-código-por-dm-opcional). Depois de ligar, atualize "Como funciona" (`src/app/sobre/page.tsx`), que hoje só descreve o envio de dados do negócio.
+O código por DM já vem ligado, com o @ do projeto. Para trocar o @, ligar o "Entrar com Instagram" ou a confirmação automática da DM, siga o [README](../README.md#o-código-por-dm). "Como funciona" (`src/app/sobre/page.tsx`) já descreve o código por DM e o selo de perfil oficial.
 
 ### Publicar em produção
 

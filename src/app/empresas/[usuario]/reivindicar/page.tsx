@@ -16,7 +16,7 @@ import { CopiarCodigo } from "./CopiarCodigo";
 import { FormDocumento, FormGerarCodigo } from "./Formularios";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Reivindicar perfil", robots: FORA_DA_BUSCA };
+export const metadata: Metadata = { title: "Assumir o perfil", robots: FORA_DA_BUSCA };
 
 export default function PaginaReivindicar(props: PageProps<"/empresas/[usuario]/reivindicar">) {
   return (
@@ -43,6 +43,12 @@ async function Reivindicar({
 
   const caminho = `/empresas/${username}/reivindicar`;
   const conectada = normalizarUsername(busca.conectada);
+  const loginDisponivel = !!configLogin();
+  const oficial = perfilOficial();
+  const peloInstagram = loginDisponivel || !!oficial;
+  const dono = !!usuario && empresa.membros.some((m) => m.usuarioId === usuario.id);
+  // Quem já é dono e ainda não tem o selo confirma pelo Instagram nesta mesma página.
+  const pedirSelo = dono && !empresa.oficial && peloInstagram;
 
   const cabecalho = (
     <div className="mb-8 space-y-4">
@@ -50,12 +56,21 @@ async function Reivindicar({
         ← Voltar para o perfil
       </Link>
       <h1 className="font-serif text-4xl leading-tight font-semibold tracking-tight">
-        Este negócio é seu?
+        {pedirSelo ? "Confirme pelo Instagram" : "Este negócio é seu?"}
       </h1>
       <p className="text-lg leading-relaxed text-suave">
-        Envie os dados do negócio para assumir o perfil de{" "}
-        <strong className="font-semibold text-tinta">@{username}</strong>. Depois disso, você conta a sua história,
-        escolhe as causas e responde à comunidade.
+        {pedirSelo ? (
+          <>
+            Você já cuida do perfil de <strong className="font-semibold text-tinta">@{username}</strong>. Confirme pelo
+            Instagram do negócio e ganhe o selo de perfil oficial.
+          </>
+        ) : (
+          <>
+            {peloInstagram ? "Confirme pelo Instagram ou envie os dados do negócio" : "Envie os dados do negócio"} para
+            assumir o perfil de <strong className="font-semibold text-tinta">@{username}</strong>. Depois disso, você
+            conta a sua história, escolhe as causas e responde à comunidade.
+          </>
+        )}
       </p>
       <AvisoDaUrl codigo={busca.aviso} />
       {busca.aviso === "ig_conta_diferente" && conectada && (
@@ -86,7 +101,7 @@ async function Reivindicar({
     );
   }
 
-  if (empresa.membros.some((m) => m.usuarioId === usuario.id)) {
+  if (dono && !pedirSelo) {
     return (
       <>
         {cabecalho}
@@ -120,16 +135,13 @@ async function Reivindicar({
   );
   const outrasPendentes = solicitacoes.filter((r) => r.status === "pendente" && r.id !== codigoVigente?.id);
   const dadosEmAnalise = outrasPendentes.some((r) => r.metodo === "documento");
-  const loginDisponivel = !!configLogin();
   const confirmacaoAutomatica = !!configWebhook();
-  const oficial = perfilOficial();
-  const outrosCaminhos = loginDisponivel || !!oficial;
 
   return (
     <>
       {cabecalho}
 
-      {empresa.membros.length > 0 && (
+      {empresa.membros.length > 0 && !dono && (
         <div className="mb-6">
           <Aviso tipo="info">
             Este perfil já tem um dono. Se você também cuida deste negócio ou se houve troca de responsáveis, envie
@@ -180,8 +192,10 @@ async function Reivindicar({
             <h2 className="font-serif text-2xl font-semibold">
               {loginDisponivel ? "Ou mande um código por DM" : "Mande um código por DM"}
             </h2>
-            <p className="mt-2 leading-relaxed text-suave">
-              Funciona com qualquer conta do Instagram, inclusive pessoal.
+            <p className="mt-2 font-medium">Confirme pelo Instagram e ganhe o selo de perfil oficial.</p>
+            <p className="mt-1 leading-relaxed text-suave">
+              O código vai por DM para <strong className="text-tinta">@{oficial}</strong>. Funciona com qualquer conta do
+              Instagram, inclusive pessoal.
             </p>
 
             {codigoVigente?.codigo ? (
@@ -229,7 +243,7 @@ async function Reivindicar({
           </section>
         )}
 
-        {dadosEmAnalise ? (
+        {dono ? null : dadosEmAnalise ? (
           <Aviso tipo="info">
             Seus dados estão com a moderação. O resultado aparece no{" "}
             <Link href="/painel" className="font-semibold underline">
@@ -237,7 +251,7 @@ async function Reivindicar({
             </Link>
             .
           </Aviso>
-        ) : outrosCaminhos ? (
+        ) : peloInstagram ? (
           <details className="group cartao p-6 sm:p-8">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
               <span>

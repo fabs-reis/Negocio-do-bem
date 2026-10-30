@@ -69,7 +69,7 @@ async function Conteudo() {
         <h2 className="font-serif text-2xl font-semibold">Meus negócios</h2>
         {empresas.length === 0 ? (
           <div className="cartao mt-4 p-6 text-suave">
-            Você ainda não tem um negócio verificado.{" "}
+            Você ainda não cuida de nenhum negócio por aqui.{" "}
             <Link href="/indicar" className="link">
               Cadastrar meu negócio
             </Link>{" "}
@@ -77,7 +77,7 @@ async function Conteudo() {
             <Link href="/explorar" className="link">
               diretório
             </Link>{" "}
-            e clique em &ldquo;Sou o dono&rdquo;.
+            e clique em &ldquo;É meu negócio&rdquo;.
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -91,7 +91,7 @@ async function Conteudo() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <SeloStatus status={empresa.status} />
+                  <SeloStatus status={empresa.status} oficial={empresa.oficial} />
                   {empresa.oculta && <Etiqueta status="expirada" texto="Oculto do diretório" />}
                   {!empresa.historia.trim() && <Etiqueta status="pendente" texto="Falta contar a história" />}
                 </div>
@@ -111,7 +111,7 @@ async function Conteudo() {
 
       {reivindicacoes.length > 0 && (
         <section>
-          <h2 className="font-serif text-2xl font-semibold">Minhas solicitações de reivindicação</h2>
+          <h2 className="font-serif text-2xl font-semibold">Meus pedidos para assumir um perfil</h2>
           <ul className="cartao mt-4 divide-y divide-linha">
             {reivindicacoes.map((r) => (
               <li key={r.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">

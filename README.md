@@ -7,7 +7,7 @@ Um diretório de negócios com consciência social e conexão com a comunidade. 
 - **Perfis** com foto, botões de contato (WhatsApp, site e e-mail), a história do negócio no estilo Substack (Markdown, tipografia serifada, fotos com legenda), badges de causas e depoimentos.
 - **Causas** como Pet friendly, Antirracista, Escala 5x2, Escala 4x3 e outras (lista em `src/lib/causas.ts`).
 - **Indicação** pela comunidade, publicada na hora. A moderação tira do ar o que for impróprio.
-- **Reivindicação de propriedade** pelo dono, explicada abaixo.
+- **Página `/participar`** para quem tem um negócio, e a **reivindicação do perfil** pelo dono, com o selo "Perfil oficial" para quem confirma pelo Instagram. Tudo explicado abaixo.
 - **Painel do dono** para editar o perfil, responder depoimentos e ocultar o negócio.
 - **Moderação** com um painel próprio: os números do projeto, a atividade das últimas semanas e a saúde dos dados; filas de disputas de reivindicação e de denúncias; todos os negócios, contas e depoimentos, com a ficha de cada conta; botão para tirar um negócio do ar; edição de qualquer perfil (foto, contatos, textos e causas); e o registro de auditoria, com filtros.
 
@@ -75,35 +75,40 @@ As fotos enviadas no seu computador ficam em `public/enviados/` (fora do Git). N
 
 ## Como o dono reivindica o negócio
 
-Tudo começa no botão "Sou o dono" do perfil (`/empresas/<@>/reivindicar`). Por enquanto, o caminho é um só: a pessoa envia os **dados do negócio**. Se o negócio ainda não tem dono, ela vira dona na hora. Se já tem, o pedido vira uma disputa, e a moderação decide com estes dados:
+Quem tem um negócio começa em `/participar`, o link da bio do Instagram do projeto: digita o @ do negócio, e a página leva ao próximo passo (indicar o negócio como seu, confirmar que ele é seu ou pedir revisão). Do perfil, o caminho é o botão "É meu negócio" (`/empresas/<@>/reivindicar`). Lá, a pessoa escolhe:
+
+- **Código por DM**, ligado por padrão: ela gera um código e manda por DM, do Instagram do negócio, para o @ do projeto (`ofabsreis`). A moderação confere a DM, ou o webhook confere sozinho. A aprovação dá ao perfil o selo **"Perfil oficial"**.
+- **Dados do negócio**, a opção "Não tenho acesso ao Instagram do negócio". Se o negócio ainda não tem dono, ela vira dona na hora, e o perfil fica com o selo "Perfil assumido". Depois, ela pode confirmar pelo Instagram na mesma página para ganhar o selo de perfil oficial.
+
+Se o negócio já tem dono, o pedido vira uma disputa, e a moderação decide com estes dados:
 
 - **CNPJ ou MEI** (opcional): a moderação vê o CNPJ formatado e os dados da Receita ao lado.
 - **Site** (opcional): aparece como link na ficha da moderação.
 - **Instagram**: é o @ do próprio perfil, que a moderação abre para comparar com o CNPJ e o site.
 - **Relação com o negócio** e **contato** (obrigatórios), para a moderação tirar dúvidas.
 
-Duas formas automáticas de verificação já estão no código, mas ficam **desligadas** até você preencher as variáveis no `.env`:
+Os dois caminhos pelo Instagram dão o selo "Perfil oficial":
 
 | Caminho | Liga quando | Como é aprovado |
 | --- | --- | --- |
-| **Entrar com Instagram** | `INSTAGRAM_APP_ID` e `INSTAGRAM_APP_SECRET` preenchidos | Na hora, se o @ conectado for o do negócio (só contas comerciais ou de criador) |
-| **Código por DM** | `INSTAGRAM_PERFIL_OFICIAL` preenchido | Pela moderação, ou sozinho se o webhook estiver configurado |
+| **Código por DM** | Sempre, com o @ do projeto. `INSTAGRAM_PERFIL_OFICIAL` troca o @ | Pela moderação, ou sozinho se o webhook estiver configurado |
+| **Entrar com Instagram** | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` preenchidos | Na hora, se o @ conectado for o do negócio (só contas comerciais ou de criador) |
 
-Com algum deles ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Se ligar um deles, atualize também o texto de `src/app/sobre/page.tsx`, que hoje só descreve o envio de dados.
+O selo vale enquanto um dono atual confirmou pelo Instagram: uma transferência pelos dados do negócio tira o selo. As regras estão na [seção 6 das regras de negócio](docs/regras-de-negocio.md#o-selo-de-perfil-oficial).
 
 Regras que protegem os negócios (em `src/lib/reivindicacao.ts`):
 
 - Nos caminhos pelo Instagram, o perfil fica ligado ao **ID da conta**, não só ao @. Se um @ mudar de dono, a verificação nova vai para análise em vez de ser aprovada sozinha.
 - **Não existe aprovação automática quando há conflito**: o negócio já tem dono, o ID da conta é diferente do registrado ou a conta já está ligada a outro perfil. Nesses casos a moderação decide se adiciona a pessoa como co-dona ou transfere o perfil.
-- Quando ligado, o código da DM vale 48 horas, fica preso à conta de quem o gerou e só é aceito se vier do @ do negócio. A tela avisa para nunca enviar um código passado por outra pessoa.
+- O código da DM vale 48 horas, fica preso à conta de quem o gerou e só é aceito se vier do @ do negócio. A tela avisa para nunca enviar um código passado por outra pessoa.
 - Cada pessoa pode fazer no máximo 10 solicitações e 10 indicações por dia.
 - Toda aprovação, recusa, edição e decisão de moderação fica registrada na auditoria (`/moderacao?aba=auditoria`).
 - Donos respondem depoimentos, mas não apagam. Uma denúncia não esconde o depoimento: só a moderação remove.
 - O dono pode **ocultar** o negócio do diretório a qualquer momento, por exemplo se foi indicado e não quer aparecer.
 
-### Ativando o código por DM (opcional)
+### O código por DM
 
-Preencha `INSTAGRAM_PERFIL_OFICIAL` com o @ do perfil oficial do Negócio do Bem, que recebe as DMs. A moderação confere cada DM e localiza o pedido pelo código na aba de reivindicações. Para a confirmação ser automática, veja a seção do webhook abaixo.
+O código por DM vem ligado: as DMs vão para o @ do projeto, `ofabsreis` (`INSTAGRAM_DO_PROJETO`, em `src/lib/dominio.ts`). Numa cópia do projeto, preencha `INSTAGRAM_PERFIL_OFICIAL` com o @ que vai receber as DMs. A moderação confere cada DM e localiza o pedido pelo código na aba de reivindicações. Para a confirmação ser automática, veja a seção do webhook abaixo.
 
 ### Ativando o "Entrar com Instagram" (opcional)
 
@@ -118,7 +123,7 @@ O site pede só `instagram_business_basic`, lê apenas o `user_id` e o `username
 
 ### Ativando a confirmação automática da DM (opcional)
 
-1. Conecte o perfil oficial (`INSTAGRAM_PERFIL_OFICIAL`) ao app e gere um token dele com `instagram_business_basic` e `instagram_business_manage_messages`. Coloque o token em `INSTAGRAM_ACCESS_TOKEN`.
+1. Conecte o perfil que recebe as DMs (o @ do projeto, ou o de `INSTAGRAM_PERFIL_OFICIAL`) ao app e gere um token dele com `instagram_business_basic` e `instagram_business_manage_messages`. Coloque o token em `INSTAGRAM_ACCESS_TOKEN`.
 2. Cadastre o webhook com a URL `https://SEU-DOMINIO/api/webhooks/instagram` e o mesmo texto de `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`. Depois assine o campo `messages`.
 3. Tokens de longa duração do Instagram vencem e precisam ser renovados periodicamente. Se o token vencer, nada quebra: as DMs passam a cair na fila da moderação com uma anotação.
 

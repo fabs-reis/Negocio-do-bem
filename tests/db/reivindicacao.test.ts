@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, type Prisma } from "@/lib/db";
 import {
@@ -628,6 +630,270 @@ describe("documento e moderação", () => {
     const dono = await criarUsuario();
     const empresa = await criarEmpresa("loja.y");
     await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+    await expect(solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dono.id, cnpj: null, site: null, relacao: "Dona", contato: "x", mensagem: null })).rejects.toThrow(/já é dono/);
+    // O código por DM fica aberto a quem já é dono só enquanto o perfil não é oficial.
+    await db.empresa.update({ where: { id: empresa.id }, data: { oficial: true } });
     await expect(iniciarPorCodigoDm(empresa.id, dono.id)).rejects.toThrow(/já é dono/);
+  });
+});
+
+describe("selo de perfil oficial", () => {
+  const dadosDoNegocio = { cnpj: null, site: null, relacao: "Dona", contato: "(81) 99999-0000", mensagem: null };
+
+  async function oficial(empresaId: string) {
+    return (await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).oficial;
+  }
+
+  /** A pessoa gera o código e a DM chega do @ do negócio. */
+  async function confirmarPorDm(empresa: { id: string; instagramUsername: string }, usuarioId: string) {
+    const { codigo } = await iniciarPorCodigoDm(empresa.id, usuarioId);
+    return processarDm({ remetenteId: `igsid-${usuarioId}`, texto: codigo!, buscarUsername: responde(empresa.instagramUsername) });
+  }
+
+  it("a aprovação pelo código por DM deixa o perfil oficial", async () => {
+    const dono = await criarUsuario();
+    const empresa = await criarEmpresa("padaria.flor");
+
+    expect(await confirmarPorDm(empresa, dono.id)).toBe("aprovada");
+
+    expect(await oficial(empresa.id)).toBe(true);
+  });
+
+  it("a aprovação pelo Entrar com Instagram deixa o perfil oficial", async () => {
+    const dono = await criarUsuario();
+    const empresa = await criarEmpresa("casa.do_bem");
+
+    await processarLoginInstagram({ empresaId: empresa.id, usuarioId: dono.id, conta: { userId: "id-1", username: "casa.do_bem" } });
+
+    expect(await oficial(empresa.id)).toBe(true);
+  });
+
+  it("a aprovação pelos dados do negócio, num negócio sem dono, não deixa oficial", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("sem.dono");
+
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
+
+    expect(pedido.status).toBe("aprovada");
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ status: "verificada", oficial: false });
+  });
+
+  it("a transferência pelos dados do negócio tira o selo, porque quem confirmou sai", async () => {
+    const [confirmou, novo, moderador] = await Promise.all(["Confirmou", "Novo", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("loja.oficial");
+    await confirmarPorDm(empresa, confirmou.id);
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: novo.id, ...dadosDoNegocio });
+
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id, modo: "transferir" });
+
+    expect(await donos(empresa.id)).toEqual([novo.id]);
+    expect(await oficial(empresa.id)).toBe(false);
+  });
+
+  it("o co-dono pelos dados do negócio mantém o selo, porque quem confirmou continua", async () => {
+    const [confirmou, socia, moderador] = await Promise.all(["Confirmou", "Sócia", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("loja.oficial");
+    await confirmarPorDm(empresa, confirmou.id);
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: socia.id, ...dadosDoNegocio });
+
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id, modo: "adicionar" });
+
+    expect(await donos(empresa.id)).toEqual([confirmou.id, socia.id].sort());
+    expect(await oficial(empresa.id)).toBe(true);
+  });
+
+  it("o co-dono pelos dados do negócio não dá o selo a um perfil que não era oficial", async () => {
+    const [primeira, socia, moderador] = await Promise.all(["Primeira", "Sócia", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("loja.comum");
+    await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: primeira.id, ...dadosDoNegocio });
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: socia.id, ...dadosDoNegocio });
+
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id, modo: "adicionar" });
+
+    expect(await oficial(empresa.id)).toBe(false);
+  });
+
+  it("a transferência pelo código por DM deixa o perfil oficial", async () => {
+    const [antiga, nova, moderador] = await Promise.all(["Antiga", "Nova", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("padaria.flor");
+    await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: antiga.id, ...dadosDoNegocio });
+    // Já tem dono: a DM certa fica pendente para a moderação.
+    expect(await confirmarPorDm(empresa, nova.id)).toBe("em_analise");
+    const pedido = await db.reivindicacao.findFirstOrThrow({ where: { empresaId: empresa.id, status: "pendente" } });
+
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id, modo: "transferir" });
+
+    expect(await donos(empresa.id)).toEqual([nova.id]);
+    expect(await oficial(empresa.id)).toBe(true);
+  });
+
+  it("quem assumiu pelos dados do negócio confirma pelo código por DM e ganha o selo", async () => {
+    const dona = await criarUsuario();
+    const empresa = await criarEmpresa("atelie.raiz");
+    await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dona.id, ...dadosDoNegocio });
+
+    expect(await confirmarPorDm(empresa, dona.id)).toBe("aprovada");
+
+    expect(await donos(empresa.id)).toEqual([dona.id]);
+    expect(await oficial(empresa.id)).toBe(true);
+  });
+
+  it("quem assumiu pelos dados do negócio confirma pelo Entrar com Instagram e ganha o selo", async () => {
+    const dona = await criarUsuario();
+    const empresa = await criarEmpresa("atelie.raiz");
+    await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dona.id, ...dadosDoNegocio });
+
+    const resultado = await processarLoginInstagram({
+      empresaId: empresa.id,
+      usuarioId: dona.id,
+      conta: { userId: "id-atelie", username: "atelie.raiz" },
+    });
+
+    expect(resultado).toEqual({ tipo: "verificada" });
+    expect(await donos(empresa.id)).toEqual([dona.id]);
+    expect(await oficial(empresa.id)).toBe(true);
+  });
+
+  it("um perfil oficial que ficou sem dono não passa o selo para quem envia os dados", async () => {
+    // Apagar uma conta direto no banco leva junto o vínculo de dono dela.
+    const [confirmou, pessoa] = await Promise.all(["Confirmou", "Pessoa"].map((nome) => criarUsuario(nome)));
+    const empresa = await criarEmpresa("loja.orfa");
+    await confirmarPorDm(empresa, confirmou.id);
+    await db.usuario.delete({ where: { id: confirmou.id } });
+
+    const pedido = await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio });
+
+    expect(pedido.status).toBe("aprovada");
+    expect(await oficial(empresa.id)).toBe(false);
+  });
+});
+
+describe("negócio tirado do ar", () => {
+  const dadosDoNegocio = { cnpj: null, site: null, relacao: "Dona", contato: "(81) 99999-0000", mensagem: null };
+
+  /** Negócio que a moderação tirou do ar, com ou sem um dono que assumiu pelos dados. */
+  async function tiradoDoAr(username: string, dono?: { id: string }) {
+    const empresa = await criarEmpresa(username);
+    if (dono) await solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dono.id, ...dadosDoNegocio });
+    await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });
+    return empresa;
+  }
+
+  /** Continua fora do ar, sem selo, com o pedido pendente e a anotação para a moderação. */
+  async function esperaAModeracao(empresaId: string, usuarioId: string, donosEsperados: string[]) {
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).toMatchObject({ moderacao: "rejeitada", oficial: false });
+    expect(await donos(empresaId)).toEqual(donosEsperados);
+    const pedido = await db.reivindicacao.findFirstOrThrow({ where: { empresaId, usuarioId, metodo: { not: "documento" } } });
+    expect(pedido.status).toBe("pendente");
+    expect(pedido.notas).toContain("fora do ar");
+    expect(await db.registroAuditoria.count({ where: { alvoId: empresaId, acao: { startsWith: "reivindicacao.aprovada" }, usuarioId: null } })).toBe(
+      donosEsperados.length,
+    );
+  }
+
+  it("a DM certa de quem não é dono fica com a moderação", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.dm");
+    const { codigo } = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+
+    const resultado = await processarDm({ remetenteId: "igsid-pessoa", texto: codigo!, buscarUsername: responde("fora.do.ar.dm") });
+
+    expect(resultado).toBe("em_analise");
+    await esperaAModeracao(empresa.id, pessoa.id, []);
+  });
+
+  it("a DM certa de quem já é dono fica com a moderação", async () => {
+    const dona = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.dm.dono", dona);
+    const { codigo } = await iniciarPorCodigoDm(empresa.id, dona.id);
+
+    const resultado = await processarDm({ remetenteId: "igsid-dona", texto: codigo!, buscarUsername: responde("fora.do.ar.dm.dono") });
+
+    expect(resultado).toBe("em_analise");
+    await esperaAModeracao(empresa.id, dona.id, [dona.id]);
+  });
+
+  it("o login certo de quem não é dono fica com a moderação", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.login");
+
+    const resultado = await processarLoginInstagram({
+      empresaId: empresa.id,
+      usuarioId: pessoa.id,
+      conta: { userId: "id-pessoa", username: "fora.do.ar.login" },
+    });
+
+    expect(resultado).toEqual({ tipo: "em_analise" });
+    await esperaAModeracao(empresa.id, pessoa.id, []);
+  });
+
+  it("o login certo de quem já é dono fica com a moderação", async () => {
+    const dona = await criarUsuario();
+    const empresa = await tiradoDoAr("fora.do.ar.login.dono", dona);
+
+    const resultado = await processarLoginInstagram({
+      empresaId: empresa.id,
+      usuarioId: dona.id,
+      conta: { userId: "id-dona", username: "fora.do.ar.login.dono" },
+    });
+
+    expect(resultado).toEqual({ tipo: "em_analise" });
+    await esperaAModeracao(empresa.id, dona.id, [dona.id]);
+  });
+
+  it("a aprovação sem moderação não publica de novo; a da moderação publica", async () => {
+    const [pessoa, moderador] = await Promise.all(["Pessoa", "Moderação"].map((nome) => criarUsuario(nome)));
+    const empresa = await tiradoDoAr("fora.do.ar.aprovar");
+    const { id } = await iniciarPorCodigoDm(empresa.id, pessoa.id);
+
+    await aprovar({ reivindicacaoId: id, revisorId: null });
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).moderacao).toBe("rejeitada");
+
+    const outra = await criarEmpresa("fora.do.ar.moderacao");
+    await db.empresa.update({ where: { id: outra.id }, data: { moderacao: "rejeitada" } });
+    const pedido = await iniciarPorCodigoDm(outra.id, pessoa.id);
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: outra.id } })).moderacao).toBe("aprovada");
+  });
+});
+
+describe("migração do perfil oficial", () => {
+  /** O UPDATE da migração que liga o selo nos negócios que já existiam. */
+  function sqlDoPreenchimento(): string {
+    const pasta = join("prisma", "migrations");
+    const migracao = readdirSync(pasta).find((nome) => nome.endsWith("_perfil_oficial"));
+    if (!migracao) throw new Error("A migração do perfil oficial não existe.");
+    const sql = readFileSync(join(pasta, migracao, "migration.sql"), "utf8");
+    const inicio = sql.indexOf('UPDATE "Empresa"');
+    if (inicio < 0) throw new Error("A migração do perfil oficial não preenche os negócios que já existem.");
+    return sql.slice(inicio, sql.indexOf(";", inicio) + 1);
+  }
+
+  it("liga o selo só onde quem confirmou pelo Instagram continua dono", async () => {
+    const [dm, login, documento, saiu, ficou] = await Promise.all(
+      ["Dm", "Login", "Documento", "Saiu", "Ficou"].map((nome) => criarUsuario(nome)),
+    );
+    const porDm = await criarEmpresa("migra.dm");
+    const porLogin = await criarEmpresa("migra.login");
+    const porDocumento = await criarEmpresa("migra.documento");
+    const transferida = await criarEmpresa("migra.transferida");
+    const aprovada = (empresaId: string, usuarioId: string, metodo: string) =>
+      db.reivindicacao.create({ data: { empresaId, usuarioId, metodo, status: "aprovada", expiraEm: new Date() } });
+    const dono = (empresaId: string, usuarioId: string) => db.empresaMembro.create({ data: { empresaId, usuarioId } });
+    await aprovada(porDm.id, dm.id, "codigo_dm");
+    await dono(porDm.id, dm.id);
+    await aprovada(porLogin.id, login.id, "instagram_login");
+    await dono(porLogin.id, login.id);
+    await aprovada(porDocumento.id, documento.id, "documento");
+    await dono(porDocumento.id, documento.id);
+    // Quem confirmou pelo Instagram saiu numa transferência para quem enviou os dados.
+    await aprovada(transferida.id, saiu.id, "codigo_dm");
+    await aprovada(transferida.id, ficou.id, "documento");
+    await dono(transferida.id, ficou.id);
+
+    await db.$executeRawUnsafe(sqlDoPreenchimento());
+
+    const oficiais = await db.empresa.findMany({ where: { oficial: true }, select: { instagramUsername: true } });
+    expect(oficiais.map((e) => e.instagramUsername).sort()).toEqual(["migra.dm", "migra.login"]);
   });
 });

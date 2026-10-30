@@ -23,7 +23,7 @@ type Empresa = {
 export function EdicaoEmpresa({ empresa, voltar }: { empresa: Empresa; voltar: string }) {
   return (
     <>
-      <section className="cartao space-y-4 p-6 sm:p-8">
+      <section id="foto" className="cartao scroll-mt-24 space-y-4 p-6 sm:p-8">
         <h2 className="font-serif text-2xl font-semibold">Foto do perfil</h2>
         <FormFoto empresa={fotoDe(empresa)} voltar={voltar} />
       </section>

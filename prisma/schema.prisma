@@ -94,8 +94,11 @@ model Empresa {
   // Só dígitos, com o 55 do Brasil (ex.: 5511991488052).
   whatsapp          String?
   emailContato      String?
-  // "indicada" (sem dono) | "verificada" (tem dono que provou controlar o @)
+  // "indicada" (sem dono) | "verificada" (tem dono aprovado)
   status            String   @default("indicada")
+  // Selo "Perfil oficial": um dono atual confirmou pelo Instagram (login ou código
+  // por DM). Só a aprovação de uma reivindicação muda (ver src/lib/reivindicacao.ts).
+  oficial           Boolean  @default(false)
   // "pendente" | "aprovada" | "rejeitada" — só "aprovada" aparece no diretório
   moderacao         String   @default("pendente")
   // O dono pode tirar o negócio do diretório a qualquer momento.

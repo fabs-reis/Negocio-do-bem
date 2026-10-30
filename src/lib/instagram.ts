@@ -9,6 +9,7 @@
 // Documentação: https://developers.facebook.com/docs/instagram-platform
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { INSTAGRAM_DO_PROJETO } from "@/lib/dominio";
 
 const HOST_GRAPH = "https://graph.instagram.com";
 
@@ -35,9 +36,12 @@ export function linkPerfil(username: string): string {
   return `https://www.instagram.com/${username}/`;
 }
 
-/** @ que recebe as DMs com código. Sem ele, o código por DM fica desligado. */
+/**
+ * @ que recebe as DMs com código: o INSTAGRAM_PERFIL_OFICIAL ou, vazio, o do projeto.
+ * Null só quando a variável não é um @ válido, e aí o código por DM fica desligado.
+ */
 export function perfilOficial(): string | null {
-  return normalizarUsername(process.env.INSTAGRAM_PERFIL_OFICIAL);
+  return normalizarUsername(process.env.INSTAGRAM_PERFIL_OFICIAL || INSTAGRAM_DO_PROJETO);
 }
 
 function versaoGraph(): string {
