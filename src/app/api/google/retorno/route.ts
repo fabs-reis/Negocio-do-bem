@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
     await criarSessao(resultado.usuarioId);
     return ir(new URL(voltar, origem));
   } catch (erro) {
-    console.error("Falha no retorno do login com o Google:", erro);
+    // A mensagem vai como texto: com o objeto do erro, o log do Worker guarda só a pilha.
+    console.error(`Falha no retorno do login com o Google: ${erro instanceof Error ? erro.message : String(erro)}`);
     return avisar("google_erro");
   }
 }

@@ -295,11 +295,21 @@ describe("/api/google/retorno", () => {
     expect(sessao.criarSessao).not.toHaveBeenCalled();
   });
 
-  it("quando o Google recusa o código, mostra o aviso de erro", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "invalid_grant" }, { status: 400 })));
-    vi.spyOn(console, "error").mockImplementation(() => {});
+  it("quando o Google recusa o código, mostra o aviso de erro e registra o motivo do Google como texto", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "invalid_client", error_description: "Unauthorized" }, { status: 401 })));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(avisoDe(await retorno({ code: "codigo", state: "estado-certo" }))).toBe("google_erro");
     expect(sessao.criarSessao).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      "Falha no retorno do login com o Google: O Google não aceitou o código de autorização (HTTP 401, invalid_client: Unauthorized).",
+    );
+  });
+
+  it("sem motivo na resposta do Google, registra só o status", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("erro", { status: 502 })));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(avisoDe(await retorno({ code: "codigo", state: "estado-certo" }))).toBe("google_erro");
+    expect(log).toHaveBeenCalledWith("Falha no retorno do login com o Google: O Google não aceitou o código de autorização (HTTP 502).");
   });
 
   it("recusa o id_token feito para outro app", async () => {
