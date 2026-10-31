@@ -44,9 +44,7 @@ function configuracaoAtual() {
     }
   }
   const transporte = (contexto?.ctx && contexto.env?.HYPERDRIVE?.connectionString) || process.env.DATABASE_URL;
-  const logica = configuracaoDoBanco(process.env.DATABASE_URL || transporte, ambienteBanco, process.env.BANCO_PREVIEW_ID, provedor);
-  const conexao = configuracaoDoBanco(transporte, ambienteBanco, process.env.BANCO_PREVIEW_ID, provedor);
-  return { url: conexao.url, esquema: logica.esquema };
+  return configuracaoDoBanco(transporte, ambienteBanco, process.env.BANCO_PREVIEW_ID, provedor);
 }
 
 function clienteDaRequisicao(): PrismaClient | undefined {

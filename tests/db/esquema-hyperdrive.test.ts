@@ -30,12 +30,12 @@ it("usa o mesmo esquema no ORM e na trava SQL com URLs diferentes", async () => 
   try {
     const usuario = await db.usuario.findUnique({ where: { id }, select: { id: true } });
     const travados = await db.$transaction((tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM ${esquemaSql()}."Usuario" WHERE id = ${id} FOR NO KEY UPDATE`);
-    expect(usuario).toBeNull();
-    expect(travados).toEqual([]);
+    expect(usuario).toEqual({ id });
+    expect(travados).toEqual([{ id }]);
     const privado = `${id}-privado`;
-    expect(await db.usuario.findUnique({ where: { id: privado }, select: { id: true } })).toEqual({ id: privado });
+    expect(await db.usuario.findUnique({ where: { id: privado }, select: { id: true } })).toBeNull();
     const travaPrivada = await db.$transaction((tx) => tx.$queryRaw<{ id: string }[]>`SELECT id FROM ${esquemaSql()}."Usuario" WHERE id = ${privado} FOR NO KEY UPDATE`);
-    expect(travaPrivada).toEqual([{ id: privado }]);
+    expect(travaPrivada).toEqual([]);
   } finally {
     await db.$disconnect();
     await cliente.query('DELETE FROM public."Usuario" WHERE id = $1', [id]);

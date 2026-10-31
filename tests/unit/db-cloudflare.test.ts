@@ -78,6 +78,28 @@ it("usa Hyperdrive sem DATABASE_URL", async () => {
   expect(esquemaSql()).toBe('"privado"');
 });
 
+it("usa o esquema explícito do cliente direto", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("DEPLOY_ENV", "production");
+  vi.stubEnv("DATABASE_URL", "postgresql://origem/negocio_do_bem_teste?schema=privado");
+  globais[contexto] = undefined;
+  const { db, esquemaSql } = await import("@/lib/db");
+  expect(db.usuario).toBeDefined();
+  expect(adaptadores[0].opcoes.schema).toBe("privado");
+  expect(esquemaSql()).toBe('"privado"');
+});
+
+it("usa o esquema explícito correspondente no Hyperdrive", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("DEPLOY_ENV", "production");
+  vi.stubEnv("DATABASE_URL", "postgresql://origem/negocio_do_bem_teste?schema=privado");
+  globais[contexto] = { ctx: {}, env: { HYPERDRIVE: { connectionString: "postgresql://hyperdrive/negocio_do_bem_teste?schema=privado" } } };
+  const { db, esquemaSql } = await import("@/lib/db");
+  expect(db.usuario).toBeDefined();
+  expect(adaptadores[0].opcoes.schema).toBe("privado");
+  expect(esquemaSql()).toBe('"privado"');
+});
+
 it("isola o cliente por requisição e aplica o esquema ao Hyperdrive", async () => {
   const id = "11111111-1111-4111-8111-111111111111";
   const esquema = `preview_${createHash("sha256").update(id).digest("hex").slice(0, 55)}`;
