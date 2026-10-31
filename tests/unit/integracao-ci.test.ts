@@ -16,6 +16,14 @@ describe("verificação do Next no CI", () => {
     expect(pacote.scripts.test).toBe("vitest run");
   });
 
+  it("mantém o check obrigatório e uma prova Cloudflare separada", () => {
+    expect(ci).toContain("name: Lint, tipos e testes");
+    expect(ci).toMatch(/^\s+- run: npm run test:cloudflare\s*$/m);
+    expect(pacote.scripts["test:cloudflare"]).toBe("tsx scripts/testar-cloudflare.ts");
+    expect(pacote.scripts.test).toBe("vitest run");
+    expect(ci).toContain("TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/negocio_do_bem_teste");
+  });
+
   it("usa no build o mesmo banco descartável migrado pelos testes", () => {
     const url = ci.match(/^\s+DATABASE_URL:\s*(\S+)\s*$/m)?.[1];
     expect(url).toBeTruthy();

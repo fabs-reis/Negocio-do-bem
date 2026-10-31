@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { del, put } from "@vercel/blob";
 
-vi.mock("@vercel/blob", () => ({
-  put: vi.fn(async () => ({ url: "https://sintetico.public.blob.vercel-storage.com/perfis/prova.jpg" })),
-  del: vi.fn(async () => {}),
+const { put, apagar } = vi.hoisted(() => ({ put: vi.fn(async () => ({})), apagar: vi.fn(async () => {}) }));
+vi.mock("@opennextjs/cloudflare", () => ({
+  getCloudflareContext: vi.fn(() => ({ env: { UPLOADS: { put, delete: apagar } } })),
 }));
 vi.mock("node:fs/promises", () => ({ mkdir: vi.fn(), unlink: vi.fn(), writeFile: vi.fn() }));
 
@@ -13,10 +12,8 @@ afterEach(() => {
 });
 
 describe("isolamento do armazenamento dos testes", () => {
-  it.each(["BLOB_STORE_ID", "BLOB_READ_WRITE_TOKEN"])("remove o seletor herdado %s antes da prova", async (variavel) => {
-    vi.stubEnv("BLOB_STORE_ID", "");
-    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
-    vi.stubEnv(variavel, "seletor-sintetico");
+  it.each(["BLOB_STORE_ID", "BLOB_READ_WRITE_TOKEN", "NEXT_PUBLIC_R2_PUBLIC_URL"])("remove o seletor herdado %s antes da prova", async (variavel) => {
+    vi.stubEnv(variavel, "https://fotos.exemplo.test");
     vi.stubEnv("NODE_ENV", "test");
     vi.resetModules();
     await import("../setup");
@@ -27,7 +24,7 @@ describe("isolamento do armazenamento dos testes", () => {
     await apagarFoto(url);
 
     expect(put).not.toHaveBeenCalled();
-    expect(del).not.toHaveBeenCalled();
+    expect(apagar).not.toHaveBeenCalled();
     expect(url).toMatch(/^\/enviados\/perfis\//);
   });
 });

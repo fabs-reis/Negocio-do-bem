@@ -56,4 +56,4 @@ sed 's|^\( *output *= .*\)$|\1\n  runtime  = "cloudflare"|' prisma/schema.prisma
 trap 'rm -f prisma/schema.cloudflare.prisma; npx prisma generate > /dev/null' EXIT
 npx prisma generate --schema prisma/schema.cloudflare.prisma
 
-npx opennextjs-cloudflare build
+npx opennextjs-cloudflare build "$@"

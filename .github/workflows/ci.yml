@@ -50,3 +50,6 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run test:integracao
+      - run: npm run test:cloudflare
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/negocio_do_bem_teste
