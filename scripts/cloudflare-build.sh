@@ -11,6 +11,8 @@
 # o DEPLOY_ENV.
 set -e
 
+node scripts/corrigir-opennext.mjs
+
 if [ -n "$WORKERS_CI_BRANCH" ]; then
   if [ "$WORKERS_CI_BRANCH" = "main" ]; then
     DEPLOY_ENV=production
