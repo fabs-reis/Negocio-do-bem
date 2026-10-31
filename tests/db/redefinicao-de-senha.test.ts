@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { criarSenhaComLink, entrar, mandarLinkDeSenhaNova, pedirRedefinicaoDeSenha, usarLinkDoEmail } from "@/acoes/conta";
+import { criarSenhaComLink, entrar, mandarLinkDeSenhaNova, pedirRedefinicaoDeSenha, trocarSenha, usarLinkDoEmail } from "@/acoes/conta";
 import { COOKIE_LINK, criarLink, enviarLink, LIMITE_LINKS_POR_HORA, lerLink, redefinirSenhaComLink } from "@/lib/auth/links";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { LIMITE_POR_EMAIL, LIMITE_POR_IP, reservarTentativaDoEmail } from "@/lib/auth/tentativas";
@@ -102,6 +102,32 @@ beforeEach(async () => {
 afterAll(async () => {
   await limparBanco();
   await db.$disconnect();
+});
+
+describe("IP Cloudflare nas ações de senha", () => {
+  it.each(["ausente", "inválido"])("recusa as três ações com IP %s sem consumir cota", async (tipo) => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CLOUDFLARE_DEPLOY", "1");
+    vi.stubEnv("AUTENTICACAO_PROXY_CONFIAVEL", "1");
+    contexto.cabecalhos = { "x-vercel-forwarded-for": "203.0.113.7", "x-forwarded-for": "203.0.113.7", ...(tipo === "inválido" ? { "cf-connecting-ip": "inválido" } : {}) };
+    const ana = await criarConta();
+    contexto.usuario = ana;
+    const dados = dadosSenha("senha-nova-456");
+    dados.set("senhaAtual", "senha-antiga-123");
+    try {
+      const respostas = await Promise.all([
+        pedirRedefinicaoDeSenha({}, dadosEmail(ana.email)),
+        criarSenhaComLink({}, dados),
+        trocarSenha({}, dados),
+      ]);
+      for (const resposta of respostas) expect(resposta?.erro).toBe("Não foi possível continuar agora. Tente de novo mais tarde.");
+      expect(await db.tentativaAcesso.count()).toBe(0);
+      expect(contexto.depois).toHaveLength(0);
+      expect(await senhaConfere(ana.id, "senha-antiga-123")).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe("redefinirSenhaComLink", () => {
