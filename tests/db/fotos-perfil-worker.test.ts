@@ -1,9 +1,12 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 
-const contexto = vi.hoisted(() => ({ usuarioId: "", apagar: vi.fn(async () => {}), enviar: vi.fn(async () => ({})) }));
+const contexto = vi.hoisted(() => ({ usuarioId: "", disponivel: true, apagar: vi.fn(async () => {}), enviar: vi.fn(async () => ({})) }));
 vi.mock("@opennextjs/cloudflare", () => ({
-  getCloudflareContext: () => ({ env: { UPLOADS: { put: contexto.enviar, delete: contexto.apagar } } }),
+  getCloudflareContext: () => {
+    if (!contexto.disponivel) throw new Error("Contexto ausente");
+    return { env: { UPLOADS: { put: contexto.enviar, delete: contexto.apagar } } };
+  },
 }));
 vi.mock("@/lib/auth/sessao", () => ({
   exigirUsuario: async () => ({ id: contexto.usuarioId, moderador: false }),
@@ -21,6 +24,7 @@ async function limpar() {
 
 beforeEach(async () => {
   vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://fotos.exemplo.com");
+  contexto.disponivel = true;
   await limpar();
   const usuario = await db.usuario.create({ data: { nome: "Pessoa", email: "pessoa@exemplo.com", senhaHash: "x" } });
   contexto.usuarioId = usuario.id;
@@ -45,6 +49,18 @@ describe("edição de foto no Worker", () => {
     expect(contexto.enviar).toHaveBeenCalledOnce();
     expect(contexto.apagar).not.toHaveBeenCalled();
     expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).fotoUrl).toMatch(/^https:\/\/fotos\.exemplo\.com\/perfis\//);
+    expect(await db.registroAuditoria.count({ where: { acao: "foto.descarte_iniciado" } })).toBe(0);
+  });
+
+  it.each(["ausente", "conflitante"])("remove a referência com contexto %s sem tocar no R2", async (estado) => {
+    if (estado === "ausente") contexto.disponivel = false;
+    else vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://outras-fotos.exemplo.com");
+    const empresa = await empresaComFoto();
+    const dados = new FormData();
+    dados.set("empresaId", empresa.id);
+    await expect(removerFoto(dados)).rejects.toThrow("REDIRECT");
+    expect(contexto.apagar).not.toHaveBeenCalled();
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).fotoUrl).toBeNull();
     expect(await db.registroAuditoria.count({ where: { acao: "foto.descarte_iniciado" } })).toBe(0);
   });
 

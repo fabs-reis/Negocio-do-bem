@@ -23,6 +23,7 @@
     "fotos:instagram": "tsx scripts/fotos-instagram.ts",
     "fotos:agendar": "sh scripts/agendar-fotos.sh",
     "fotos:para-r2": "tsx scripts/fotos-para-r2.ts",
+    "fotos:limpar": "node --conditions=react-server --import tsx scripts/limpar-fotos-historias.ts",
     "municipios:atualizar": "tsx scripts/municipios-ibge.ts",
     "cidades:corrigir": "tsx scripts/corrigir-cidades.ts",
     "moderacao": "tsx scripts/moderacao.ts",

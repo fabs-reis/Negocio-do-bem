@@ -189,6 +189,8 @@ O site roda em Cloudflare Workers pelo adaptador OpenNext, com PostgreSQL gerenc
 6. Opcional: configure `NEXT_PUBLIC_GA_ID`, `GOOGLE_SITE_VERIFICATION` e `BING_SITE_VERIFICATION` em produção. Envie o `sitemap.xml` aos painéis do Google e Bing conforme [Como o projeto foi feito](docs/como-foi-feito.md#cadastrar-o-site-no-google-e-no-bing).
 7. Depois do primeiro deploy, cadastre sua conta e dê a moderação com a conexão direta ao banco de produção: `DATABASE_URL="<conexão de produção>" npm run moderacao -- dar voce@exemplo.com`.
 
+As fotos antigas de perfil permanecem no R2 quando são trocadas ou removidas. Isso aumenta o custo de armazenamento. O comando de histórias não limpa essas fotos.
+
 As fotos enviadas antes da migração estavam no Vercel Blob e foram copiadas para o R2 em 31 de outubro. O Blob continua no ar como reserva. Se aparecer alguma foto com endereço do Blob, rode `npm run fotos:para-r2` com a conexão de produção na frente: sem `--aplicar`, ele só mostra o que faria; com `--aplicar`, copia cada foto para o bucket `negocio-do-bem-fotos` e troca o endereço no banco. Precisa do `npx wrangler login`. Não apague o Blob antes de conferir os perfis. Enquanto isso, trocar ou remover uma foto antiga não a apaga do Blob: o arquivo continua público no endereço antigo até a cópia e a limpeza.
 
 Para copiar o banco do Neon para outro Postgres, como o PlanetScale, use `npm run banco:copiar`, com `ORIGEM_URL` e `DESTINO_URL` no ambiente ou no `.env.migracao`. O cabeçalho do `scripts/copiar-banco.sh` explica as opções, inclusive como deixar a origem só para leitura durante a troca ([#177](https://github.com/fabs-reis/Negocio-do-bem/issues/177)).

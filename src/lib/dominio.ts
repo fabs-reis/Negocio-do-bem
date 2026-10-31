@@ -86,6 +86,7 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "depoimento.removido": "Removeu um depoimento denunciado",
   "usuario.senha_trocada": "Trocou a própria senha no painel",
   "usuario.senha_redefinida": "Trocou a senha pelo link do e-mail",
+  "foto.descarte_iniciado": "Iniciou o descarte de uma foto sem uso",
   "usuario.moderacao_dada": "Deu a moderação a uma conta",
   "usuario.moderacao_tirada": "Tirou a moderação de uma conta",
 };

@@ -8,6 +8,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { caminhoSeguro, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { filtrarCausas } from "@/lib/causas";
+import { ErroFotoDescartada, validarFotosDaHistoria } from "@/lib/ciclo-fotos";
 import { db } from "@/lib/db";
 import { CATEGORIAS } from "@/lib/dominio";
 import {
@@ -239,14 +240,20 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
   const campos = comCidade(resultado.data);
   const causas = filtrarCausas(dados.getAll("causas").map(String));
 
-  await db.$transaction([
-    db.empresa.update({
-      where: { id: empresa.id },
-      data: { ...campos, busca: textoDeBusca({ ...campos, instagramUsername: empresa.instagramUsername }) },
-    }),
-    db.empresaCausa.deleteMany({ where: { empresaId: empresa.id } }),
-    db.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) }),
-  ]);
+  try {
+    await db.$transaction(async (tx) => {
+      await validarFotosDaHistoria(tx, campos.historia);
+      await tx.empresa.update({
+        where: { id: empresa.id },
+        data: { ...campos, busca: textoDeBusca({ ...campos, instagramUsername: empresa.instagramUsername }) },
+      });
+      await tx.empresaCausa.deleteMany({ where: { empresaId: empresa.id } });
+      await tx.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) });
+    });
+  } catch (erro) {
+    if (erro instanceof ErroFotoDescartada) return { erros: { historia: erro.message }, valores };
+    throw erro;
+  }
   await auditarEdicao(usuario.id, empresa, "empresa.editada", pelaModeracao);
 
   redirect(`${voltarDe(dados, empresa)}?aviso=salvo`);
