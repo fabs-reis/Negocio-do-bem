@@ -932,6 +932,8 @@ Nas Server Actions de indicação, edição do perfil, visibilidade, foto do per
 
 O armazenamento das fotos não participa da transação do banco. A foto antiga só é apagada depois de confirmar a alteração e a auditoria. Se o envio da foto nova funcionar e a transação falhar, o perfil mantém a foto antiga, mas o arquivo novo pode ficar sem referência no armazenamento. Se o resultado da confirmação for incerto, nenhum arquivo é apagado. A foto importada só é apagada quando a transação confirma que o dono já tinha uma foto.
 
+Os testes dessa garantia usam PostgreSQL real e simulam o armazenamento externo. Eles não comprovam o comportamento de um bucket R2 ativo. A reconciliação segura de arquivos sem referência pertence à [issue #82](https://github.com/fabs-reis/Negocio-do-bem/issues/82) e ao [PR #94](https://github.com/fabs-reis/Negocio-do-bem/pull/94). Ela não faz parte da garantia transacional da auditoria.
+
 | Ação registrada | Quando |
 | --- | --- |
 | `empresa.indicada` | Alguém indicou um negócio. |

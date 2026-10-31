@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { apagarFoto } from "@/lib/armazenamento";
-import { decidirDenuncia, moderarEmpresa } from "@/acoes/moderacao";
+import { aprovarReivindicacao, decidirDenuncia, moderarEmpresa, publicarIndicacoesPendentes, recusarReivindicacao } from "@/acoes/moderacao";
 import { alternarVisibilidade, indicarEmpresa, removerFoto, salvarEmpresa, trocarFoto } from "@/acoes/empresas";
 
 const identidade = vi.hoisted(() => ({ id: "", nome: "Pessoa de teste", email: "pessoa@exemplo.com", moderador: true, emailConfirmado: true }));
@@ -18,6 +18,9 @@ vi.mock("next/navigation", () => ({
   redirect: (destino: string) => { throw new Error(`REDIRECIONAR:${destino}`); },
 }));
 
+// A foto da prévia roda após a resposta. Este teste não chama a Meta.
+vi.mock("next/server", () => ({ after: vi.fn() }));
+
 vi.mock("@/lib/armazenamento", async (importarOriginal) => ({
   ...await importarOriginal<typeof import("@/lib/armazenamento")>(),
   guardarFoto: vi.fn(async () => FOTO_NOVA),
@@ -26,6 +29,8 @@ vi.mock("@/lib/armazenamento", async (importarOriginal) => ({
 
 let empresaId: string;
 let depoimentoId: string;
+let reivindicacaoId: string;
+let solicitanteId: string;
 
 function formulario(campos: Record<string, string> = {}) {
   const dados = new FormData();
@@ -83,6 +88,11 @@ beforeEach(async () => {
     },
   });
   empresaId = empresa.id;
+  solicitanteId = autor.id;
+  const pedido = await db.reivindicacao.create({
+    data: { empresaId, usuarioId: solicitanteId, metodo: "documento", expiraEm: new Date(Date.now() + 86_400_000) },
+  });
+  reivindicacaoId = pedido.id;
   const depoimento = await db.depoimento.create({
     data: { empresaId, autorId: autor.id, texto: "Um depoimento sobre o negócio.", denunciado: true, motivoDenuncia: "Motivo original", denunciadoPorId: pessoa.id },
   });
@@ -100,8 +110,41 @@ afterAll(async () => {
 
 const casos = [
   {
+    nome: "aprovação com transferência da reivindicação",
+    acao: () => aprovarReivindicacao(formulario({ reivindicacaoId, modo: "transferir" })),
+    registro: "reivindicacao.aprovada_com_transferencia",
+    conferir: async (alterada: boolean) => {
+      const pedido = await db.reivindicacao.findUniqueOrThrow({ where: { id: reivindicacaoId } });
+      expect(pedido.status).toBe(alterada ? "aprovada" : "pendente");
+      expect(pedido.revisadoPorId).toBe(alterada ? identidade.id : null);
+      const empresa = await db.empresa.findUniqueOrThrow({ where: { id: empresaId }, include: { membros: true } });
+      expect(empresa.status).toBe(alterada ? "verificada" : "indicada");
+      expect(empresa.membros.map(({ usuarioId }) => usuarioId)).toEqual([alterada ? solicitanteId : identidade.id]);
+    },
+  },
+  {
+    nome: "recusa da reivindicação",
+    acao: () => recusarReivindicacao(formulario({ reivindicacaoId, motivo: "Dados insuficientes" })),
+    registro: "reivindicacao.recusada",
+    conferir: async (alterada: boolean) => {
+      const pedido = await db.reivindicacao.findUniqueOrThrow({ where: { id: reivindicacaoId } });
+      expect(pedido.status).toBe(alterada ? "recusada" : "pendente");
+      expect(pedido.motivoRecusa).toBe(alterada ? "Dados insuficientes" : null);
+      expect(pedido.revisadoPorId).toBe(alterada ? identidade.id : null);
+    },
+  },
+  {
+    nome: "publicação da fila antiga",
+    antes: () => db.empresa.update({ where: { id: empresaId }, data: { moderacao: "pendente" } }),
+    acao: () => publicarIndicacoesPendentes(),
+    registro: "empresa.aprovada",
+    conferir: async (alterada: boolean) => {
+      expect((await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).moderacao).toBe(alterada ? "aprovada" : "pendente");
+    },
+  },
+  {
     nome: "moderação do negócio",
-    acao: () => moderarEmpresa(formulario({ decisao: "rejeitar" })),
+    acao: () => moderarEmpresa(formulario({ decisao: "rejeitar", de: "aprovada" })),
     registro: "empresa.rejeitada",
     conferir: async (alterada: boolean) => {
       expect((await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).moderacao).toBe(alterada ? "rejeitada" : "aprovada");
@@ -110,7 +153,7 @@ const casos = [
   {
     nome: "publicação do negócio",
     antes: () => db.empresa.update({ where: { id: empresaId }, data: { moderacao: "pendente" } }),
-    acao: () => moderarEmpresa(formulario({ decisao: "aprovar" })),
+    acao: () => moderarEmpresa(formulario({ decisao: "aprovar", de: "pendente" })),
     registro: "empresa.aprovada",
     conferir: async (alterada: boolean) => {
       expect((await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).moderacao).toBe(alterada ? "aprovada" : "pendente");
@@ -194,7 +237,9 @@ describe("alteração e auditoria na mesma transação", () => {
     await antes?.();
     await db.$executeRawUnsafe('ALTER TABLE "RegistroAuditoria" ADD CONSTRAINT "falha_auditoria_teste" CHECK (false)');
 
-    await expect(acao()).rejects.toThrow();
+    const resultado = acao();
+    await expect(resultado).rejects.toThrow();
+    await expect(resultado).rejects.not.toThrow(/^REDIRECIONAR:/);
 
     await conferir(false);
     expect(await db.registroAuditoria.count()).toBe(0);
