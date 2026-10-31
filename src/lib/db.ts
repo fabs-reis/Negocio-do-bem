@@ -1,15 +1,25 @@
 import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
+import { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { configuracaoDoBanco, identificadorSql } from "@/lib/banco";
+import { ambienteDeDeploy } from "@/lib/ambiente";
 
 export type { Prisma } from "@/generated/prisma/client";
+
+const ambienteBanco = process.env.BANCO_PREVIEW_AMBIENTE === "preview" || ambienteDeDeploy() === "preview"
+  ? "preview" : process.env.BANCO_PREVIEW_AMBIENTE;
+const banco = configuracaoDoBanco(process.env.DATABASE_URL, ambienteBanco, process.env.BANCO_PREVIEW_ID, process.env.BANCO_PREVIEW_PROVEDOR);
+
+// SQL bruto precisa de qualificação explícita: pools transacionais não garantem search_path.
+export const esquemaSql = Prisma.raw(identificadorSql(banco.esquema));
 
 // Em desenvolvimento o Next recarrega os módulos a cada mudança; guardar o
 // cliente no globalThis evita abrir um pool de conexões novo a cada recarga.
 const cache = globalThis as unknown as { prisma?: PrismaClient };
 
 function criarCliente(connectionString = process.env.DATABASE_URL) {
-  const adapter = new PrismaPg({ connectionString });
+  const conexao = configuracaoDoBanco(connectionString, ambienteBanco, process.env.BANCO_PREVIEW_ID, process.env.BANCO_PREVIEW_PROVEDOR);
+  const adapter = new PrismaPg({ connectionString: conexao.url }, { schema: conexao.esquema });
   return new PrismaClient({ adapter });
 }
 

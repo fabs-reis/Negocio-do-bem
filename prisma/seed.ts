@@ -7,6 +7,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { ambienteDeDeploy } from "../src/lib/ambiente";
 import { gerarHashSenha } from "../src/lib/auth/senha";
 import { textoDeBusca } from "../src/lib/texto";
+import { configuracaoDoBanco } from "../src/lib/banco";
 
 // O build dos previews também roda o seed, nunca o de produção.
 const emProducao = ambienteDeDeploy()
@@ -16,7 +17,8 @@ if (emProducao) {
   throw new Error("O seed cria contas com senha conhecida e não pode rodar em produção.");
 }
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const banco = configuracaoDoBanco(process.env.DATABASE_URL, process.env.DEPLOY_ENV || process.env.VERCEL_ENV, process.env.DEPLOY_ENV ? process.env.BANCO_PREVIEW_ID : process.env.VERCEL_DEPLOYMENT_ID, process.env.DEPLOY_ENV ? "cloudflare" : "vercel");
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: banco.url }, { schema: banco.esquema }) });
 const SENHA_DEMO = "senha-demo-123";
 
 type NegocioExemplo = {

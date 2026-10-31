@@ -31,6 +31,13 @@ if [ -n "$WORKERS_CI_BRANCH" ]; then
   export DEPLOY_ENV DATABASE_URL DATABASE_URL_UNPOOLED APP_URL NEXT_PUBLIC_R2_PUBLIC_URL
 fi
 
+# A identidade pertence ao artefato, não à branch nem ao ambiente de runtime.
+if [ "$DEPLOY_ENV" = "preview" ]; then
+  BANCO_PREVIEW_ID="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
+  export BANCO_PREVIEW_ID
+fi
+node -e 'require("node:fs").writeFileSync("public/banco-preview.json", JSON.stringify(process.env.DEPLOY_ENV === "preview" ? { id: process.env.BANCO_PREVIEW_ID } : {}) + "\n")'
+
 case "$DEPLOY_ENV" in
   production | preview)
     # Migrações precisam de conexão direta. O Neon fornece DATABASE_URL_UNPOOLED;

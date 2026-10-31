@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
-import { db } from "@/lib/db";
+import { db, esquemaSql } from "@/lib/db";
 
 // Cada login, cadastro e troca de senha calcula o scrypt (~32 MB de memória), então o limite é
 // conferido antes dele. A contagem fica no banco porque o site roda em várias
@@ -31,7 +31,7 @@ async function contar(chaveTentativa: string, email: string | null = null): Prom
   const agora = new Date();
   const inicio = new Date(agora.getTime() - JANELA_MS);
   const [tentativa] = await db.$queryRaw<{ contagem: number }[]>`
-    INSERT INTO "TentativaAcesso" ("chave", "contagem", "janelaIniciadaEm", "email")
+    INSERT INTO ${esquemaSql}."TentativaAcesso" ("chave", "contagem", "janelaIniciadaEm", "email")
     VALUES (${chaveTentativa}, 1, ${agora}, ${email})
     ON CONFLICT ("chave") DO UPDATE SET
       "contagem" = CASE WHEN "TentativaAcesso"."janelaIniciadaEm" >= ${inicio}
