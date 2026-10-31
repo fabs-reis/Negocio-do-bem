@@ -10,7 +10,7 @@ export const LIMITE_POR_IP = 10;
 export const LIMITE_POR_EMAIL = 5;
 export const JANELA_MS = 15 * 60 * 1000;
 
-function chave(tipo: "ip" | "ip-desconhecido" | "email", valor: string): string {
+function chave(tipo: "ip" | "email", valor: string): string {
   return createHash("sha256").update(`${tipo}:${valor}`).digest("hex");
 }
 
@@ -88,19 +88,33 @@ export function normalizarIp(ip: string): string {
 }
 
 /**
- * Conta uma tentativa de login, de cadastro ou de senha nova vinda deste IP e diz se ela pode seguir.
- * Sem IP conhecido, todas as tentativas dividem um contador só: o cadastro não tem
- * limite por e-mail, e sem este contador o scrypt ficaria sem freio.
+ * Conta uma tentativa de login, cadastro ou senha nova vinda deste IP e diz se ela pode seguir.
+ * Sem IP confiável (`ip` null) não há contador: um contador dividido por todos
+ * deixaria um visitante gastar a cota dos outros.
+ * - Em produção, a tentativa é recusada, e o aviso para quem cuida do site vai para o log.
+ *   O cadastro não tem limite por e-mail, e sem o limite por IP o scrypt ficaria sem freio.
+ * - Em desenvolvimento e nos testes, a tentativa segue sem limite por IP.
+ *   O limite por e-mail do login continua valendo.
  */
 export async function tentativaDoIpLiberada(ip: string | null): Promise<boolean> {
+  if (!ip) {
+    if (process.env.NODE_ENV !== "production") return true;
+    console.error(
+      "Operação recusada: não há IP confiável nesta requisição. No Vercel, confira o x-vercel-forwarded-for. " +
+        "No Cloudflare, confira CLOUDFLARE_DEPLOY=1 e o cf-connecting-ip. " +
+        "Em outra hospedagem, defina AUTENTICACAO_PROXY_CONFIAVEL=1 só se há um proxy seu que escreve o x-forwarded-for " +
+        "e é o único caminho até o site. Veja a seção \"Publicando\" do README.",
+    );
+    return false;
+  }
   await db.tentativaAcesso.deleteMany({ where: { janelaIniciadaEm: { lt: inicioDaJanela() } } });
-  return (await contar(ip ? chave("ip", ip) : chave("ip-desconhecido", ""))) <= LIMITE_POR_IP;
+  return (await contar(chave("ip", ip))) <= LIMITE_POR_IP;
 }
 
 /**
  * O contador do e-mail é separado por origem (o IP, ou o /64 no IPv6): quem erra a senha
- * de outra pessoa de outro lugar não bloqueia a dona da conta. Sem IP confiável, as
- * tentativas sem IP dividem um contador só por e-mail.
+ * de outra pessoa de outro lugar não bloqueia a dona da conta. Sem IP confiável, em
+ * desenvolvimento e nos testes, as tentativas dividem um contador só por e-mail.
  */
 function chaveDoEmail(email: string, ip: string | null): string {
   return chave("email", `${email} ${ip ?? "ip-desconhecido"}`);
