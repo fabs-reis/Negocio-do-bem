@@ -39,7 +39,7 @@ Next.js 16 (App Router, Cache Components), React 19, Tailwind CSS 4, Prisma 7 + 
 
 ## Rodando localmente
 
-Requisitos: Node 22.12+ e Docker (ou um PostgreSQL seu).
+Requisitos: Node 24+ e Docker (ou um PostgreSQL seu).
 
 ```bash
 docker compose up -d          # sobe o Postgres em localhost:5433

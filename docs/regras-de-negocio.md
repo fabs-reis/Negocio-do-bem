@@ -1021,7 +1021,20 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
   - rolagem;
   - cliques para outros sites;
   - buscas no diretório (o parâmetro `q` da URL).
-- O Analytics usa cookies e não recebe nome nem e-mail.
+- O site manda também estes eventos (`src/lib/medicao.ts`):
+
+  | Evento | Quando | Parâmetros |
+  | --- | --- | --- |
+  | `sign_up` | Conta criada | `method`: `senha` ou `google` |
+  | `login` | Entrou numa conta que já existia | `method`: `senha`, `google` ou `link` |
+  | `negocio_cadastrado` | Negócio publicado no diretório | `tipo` (`indicacao` ou `dono`), `categoria`, `uf`, `cidade`, `com_instagram` (`sim` ou `nao`) |
+  | `perfil_reivindicado` | Pedido de dono enviado | `method` (`documento` ou `instagram`), `resultado` (`verificada` ou `em_analise`) |
+  | `depoimento_publicado` | Depoimento publicado | `categoria` |
+  | `contato_negocio` | Clique em Ligar, WhatsApp, Instagram, site ou e-mail no perfil de um negócio público, menos do próprio dono | `canal` (`telefone`, `whatsapp`, `instagram`, `site` ou `email`), `categoria`, `uf` |
+  | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
+
+- Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
+- O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
 - Por decisão do projeto, o site não mostra aviso de cookies. A página "Como funciona" explica a medição na seção de privacidade.
 
 ### Proteções da interface

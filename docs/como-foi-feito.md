@@ -447,6 +447,16 @@ Quem esquecia a senha só voltava pelo "Entrar por link" e continuava sem senha,
 - **A conta sem senha cria a primeira pelo link.** A conta criada pelo Google não tem senha atual para digitar, e criar uma só com a sessão aberta daria a senha a quem roubou o cookie. O painel manda o mesmo link de "Esqueci minha senha" para o e-mail da conta, que serve também para quem esqueceu a senha atual.
 - **Um e-mail avisa de toda troca** (`avisarSenhaTrocada`), porque é o que permite notar uma invasão. Gasta a cota do Resend, mas trocas de senha são raras.
 
+### 31 de outubro: cadastros, indicações e contatos no Analytics ([#203](https://github.com/fabs-reis/Negocio-do-bem/issues/203))
+
+O Analytics contava visitas, mas não dizia quantas pessoas criavam conta, quantos negócios eram indicados nem de onde vinham as pessoas que faziam isso. A lista dos eventos está na [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas).
+
+- **O servidor decide, o navegador manda.** As ações terminam num `redirect`, e só o servidor sabe que salvaram. `medir` (`src/lib/medicao-servidor.ts`) deixa o evento no cookie `ndb_eventos`, e `EventosAnalytics` (no layout) o manda pelo `gtag` na página seguinte. O evento entra na mesma visita, com a origem dela. O Measurement Protocol, que manda direto do servidor, foi descartado: precisa de mais um segredo e, sem a sessão do navegador, o evento perde a origem da visita.
+- **O cookie é conferido a cada segundo,** e não a cada mudança de URL. O depoimento e o pedido por documento voltam para a mesma página, só com `?aviso=`, e seguir a URL pedia `usePathname` e `useSearchParams` num Suspense, que nunca se resolvia nas páginas com parâmetro dinâmico (o perfil do negócio): o componente nem montava ali. A conferência também espera o script do Analytics, que carrega depois da página, e apaga o cookie antes de mandar, para não repetir.
+- **Cliques medidos por atributo.** Os contatos do perfil levam `data-medir` (`medirContato`), e um único ouvinte de cliques no `EventosAnalytics` manda o evento. Assim o perfil continua um Server Component.
+- **Sem dado que identifique alguém.** Os eventos levam o método, o tipo, a categoria e o lugar do negócio, nunca nome, e-mail, telefone, @ ou `user_id`. A adequação do Analytics à LGPD continua em aberto na [#109](https://github.com/fabs-reis/Negocio-do-bem/issues/109).
+- **O GA4 foi configurado junto.** A retenção dos eventos passou de 2 para 14 meses, o máximo da versão gratuita, para as explorações compararem o ano inteiro. `sign_up`, `negocio_cadastrado`, `contato_negocio`, `perfil_reivindicado` e `depoimento_publicado` são eventos principais, sem valor em dinheiro. Como ainda não tinham chegado, foram criados em Administrador > Eventos > Criar evento > "Criar com código". Cada parâmetro virou uma dimensão personalizada de evento, e a "Cidade do negócio" (`cidade`) não se confunde com a cidade de quem visita, que o GA4 já mede.
+
 ---
 
 ## 4. Arquitetura
@@ -642,6 +652,8 @@ npm run typecheck
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
 - **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
+  - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
+  - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
 
@@ -794,6 +806,13 @@ Nunca crie uma regra que dê permissão pelo e-mail ou por outro dado que a pró
 ### Ligar os avisos por e-mail
 
 Siga a seção "Ativando os avisos por e-mail" do [README](../README.md#ativando-os-avisos-por-e-mail-opcional). As regras estão na [seção 14 das regras de negócio](regras-de-negocio.md#14-avisos-por-e-mail).
+
+### Medir uma ação nova no Analytics
+
+1. Acrescente o evento ao tipo `Evento`, em `src/lib/medicao.ts`, só com parâmetros que não identifiquem ninguém.
+2. Na Server Action ou no Route Handler, chame `await medir({ nome, params })` depois de salvar e antes do `redirect`.
+3. Para um clique, use atributos `data-medir` e `data-<parametro>` no elemento, como `medirContato`.
+4. Acrescente o evento à tabela da [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas) e registre os parâmetros novos como dimensões personalizadas no GA4 (Administrador > Definições personalizadas). Se a ação for uma conversão, marque o evento como principal: pela estrela, em Administrador > Eventos, ou, antes de ele chegar, em Criar evento > "Criar com código".
 
 ### Mostrar uma mensagem depois de uma ação
 

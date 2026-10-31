@@ -6,6 +6,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AlternarTema } from "@/components/AlternarTema";
+import { EventosAnalytics } from "@/components/EventosAnalytics";
 import { Logo } from "@/components/Logo";
 import { MenuUsuario } from "@/components/MenuUsuario";
 import { ProtecaoDoMenu } from "@/components/ProtecaoDoMenu";
@@ -111,6 +112,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </div>
           </div>
         </footer>
+        {ID_ANALYTICS && <EventosAnalytics />}
       </body>
       {ID_ANALYTICS && <GoogleAnalytics gaId={ID_ANALYTICS} />}
     </html>
