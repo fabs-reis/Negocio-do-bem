@@ -56,17 +56,20 @@ model TentativaAcesso {
   chave            String   @id
   contagem         Int
   janelaIniciadaEm DateTime
+  // sha256 do e-mail, nas linhas do limite por e-mail: trocar a senha zera as de todas as origens de uma vez
+  email            String?
 
   @@index([janelaIniciadaEm])
+  @@index([email])
 }
 
-// Link mandado por e-mail para confirmar o endereço ou entrar sem senha (src/lib/auth/links.ts).
+// Link mandado por e-mail para confirmar o endereço, entrar sem senha ou criar uma senha nova (src/lib/auth/links.ts).
 model LinkEmail {
   // sha256 do token que vai no link, como na Sessao
   id         String    @id
   usuarioId  String
   usuario    Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  // "confirmar" | "entrar"
+  // "confirmar" | "entrar" | "redefinir"
   finalidade String
   // Endereço para onde o link foi: ele só vale enquanto a conta tiver este e-mail.
   email      String

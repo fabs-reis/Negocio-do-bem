@@ -49,6 +49,11 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     tipo: "erro",
     texto: "Este e-mail já está ligado a outra conta do Google. Entre com ela, com a senha ou com um link por e-mail.",
   },
+  redefinicao_pedida: {
+    tipo: "info",
+    texto: "Se existe uma conta com esse e-mail, mandamos um link para criar uma senha nova. Ele vale por 1 hora.",
+  },
+  senha_trocada: { tipo: "sucesso", texto: "Senha trocada. Os outros aparelhos saíram da sua conta." },
   limite: {
     tipo: "erro",
     texto: "Você fez muitas solicitações nas últimas 24 horas. Tente de novo amanhã.",
