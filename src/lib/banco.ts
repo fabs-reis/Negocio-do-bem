@@ -13,7 +13,7 @@ export function configuracaoDoBanco(url: string | undefined, ambiente: string | 
   }
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const vercel = /^dpl_[A-Za-z0-9]+$/;
-  if (!identificador || !(provedor === "cloudflare" ? uuid.test(identificador) : provedor === "vercel" ? vercel.test(identificador) : uuid.test(identificador) || vercel.test(identificador))) {
+  if (!identificador || !(provedor === "cloudflare" ? uuid.test(identificador) : provedor === "vercel" ? vercel.test(identificador) : false)) {
     throw new Error("Falta uma identidade válida para isolar o banco do preview (BANCO_PREVIEW_ID ou VERCEL_DEPLOYMENT_ID).");
   }
 

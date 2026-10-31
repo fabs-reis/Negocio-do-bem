@@ -196,10 +196,9 @@ const DEPOIMENTOS: { negocio: string; autor: string; texto: string; resposta?: s
 ];
 
 async function main() {
-  // Em deploy, só preenche banco vazio. Um preview ligado por engano à produção
-  // encontra usuários reais e não cria as contas de senha conhecida.
+  // Em deploy, a contagem cobre apenas o esquema selecionado, não o banco físico.
   if ((ambienteDeDeploy() || process.env.VERCEL) && (await db.usuario.count()) > 0) {
-    console.log("O banco já tem usuários. Em deploy, o seed só preenche banco vazio.");
+    console.log("O esquema selecionado já tem usuários. Em deploy, o seed só preenche um esquema vazio.");
     return;
   }
 

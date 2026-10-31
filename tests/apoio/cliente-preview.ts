@@ -16,13 +16,13 @@ async function main() {
     });
     process.stdout.write(JSON.stringify(usuario));
   } else if (comando === "consultar-bruto") {
-    const tabela = "esquemaSql" in banco ? Prisma.sql`${banco.esquemaSql}."Usuario"` : Prisma.raw('"Usuario"');
+    const tabela = "esquemaSql" in banco ? Prisma.sql`${banco.esquemaSql()}."Usuario"` : Prisma.raw('"Usuario"');
     const usuarios = await db.$transaction((tx) =>
       tx.$queryRaw`SELECT "nome", "papel" FROM ${tabela} WHERE "email" = ${`${identificador}@exemplo.test`} FOR UPDATE`,
     );
     process.stdout.write(JSON.stringify(usuarios));
   } else if (comando === "tabela-ausente") {
-    const tabela = "esquemaSql" in banco ? Prisma.sql`${banco.esquemaSql}."Sessao"` : Prisma.raw('"Sessao"');
+    const tabela = "esquemaSql" in banco ? Prisma.sql`${banco.esquemaSql()}."Sessao"` : Prisma.raw('"Sessao"');
     try {
       await db.$queryRaw`SELECT "id" FROM ${tabela} FOR UPDATE`;
       process.stdout.write("encontrada");
@@ -31,7 +31,7 @@ async function main() {
       process.stdout.write("ausente");
     }
   } else if (comando === "esquema-sql") {
-    const esquema = "esquemaSql" in banco ? (banco.esquemaSql as Prisma.Sql) : Prisma.raw('"public"');
+    const esquema = "esquemaSql" in banco ? (banco.esquemaSql() as Prisma.Sql) : Prisma.raw('"public"');
     process.stdout.write(JSON.stringify({ texto: esquema.text, valores: esquema.values }));
   } else if (comando === "migracoes") {
     const { migracoesAplicadas } = await import("../../src/lib/moderacao/sistema");

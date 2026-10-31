@@ -51,7 +51,7 @@ case "$DEPLOY_ENV" in
 esac
 
 if [ "$DEPLOY_ENV" = "preview" ]; then
-  # Dados de exemplo para homologar. Em deploy, o seed só preenche um banco vazio.
+  # Dados de exemplo para homologar. O seed conta usuários apenas no esquema selecionado.
   npx prisma db seed
 fi
 

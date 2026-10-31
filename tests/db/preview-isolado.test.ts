@@ -30,6 +30,7 @@ function ambiente(id: string, pasta: string): NodeJS.ProcessEnv {
     TEST_DATABASE_URL: URL_BANCO_TESTE,
     DEPLOY_ENV: "preview",
     BANCO_PREVIEW_AMBIENTE: "preview",
+    BANCO_PREVIEW_PROVEDOR: "cloudflare",
     BANCO_PREVIEW_ID: id,
   };
 }

@@ -50,12 +50,12 @@ async function exigirQueNaoSejaDono(empresaId: string, usuarioId: string) {
  * a aprovação não espera pela trava da cota enquanto segura a empresa.
  */
 async function bloquearPessoa(tx: Prisma.TransactionClient, usuarioId: string) {
-  await tx.$queryRaw`SELECT id FROM ${esquemaSql}."Usuario" WHERE id = ${usuarioId} FOR NO KEY UPDATE`;
+  await tx.$queryRaw`SELECT id FROM ${esquemaSql()}."Usuario" WHERE id = ${usuarioId} FOR NO KEY UPDATE`;
 }
 
 // Antecipa a trava da chave estrangeira: empresa antes de pedidos, como em aprovar.
 async function bloquearEmpresa(tx: Prisma.TransactionClient, empresaId: string) {
-  await tx.$queryRaw`SELECT id FROM ${esquemaSql}."Empresa" WHERE id = ${empresaId} FOR KEY SHARE`;
+  await tx.$queryRaw`SELECT id FROM ${esquemaSql()}."Empresa" WHERE id = ${empresaId} FOR KEY SHARE`;
 }
 
 /** Só vale depois de `bloquearPessoa`, na mesma transação que cria o pedido. */

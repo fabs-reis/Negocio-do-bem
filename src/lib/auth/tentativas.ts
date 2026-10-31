@@ -31,7 +31,7 @@ async function contar(chaveTentativa: string, email: string | null = null): Prom
   const agora = new Date();
   const inicio = new Date(agora.getTime() - JANELA_MS);
   const [tentativa] = await db.$queryRaw<{ contagem: number }[]>`
-    INSERT INTO ${esquemaSql}."TentativaAcesso" ("chave", "contagem", "janelaIniciadaEm", "email")
+    INSERT INTO ${esquemaSql()}."TentativaAcesso" ("chave", "contagem", "janelaIniciadaEm", "email")
     VALUES (${chaveTentativa}, 1, ${agora}, ${email})
     ON CONFLICT ("chave") DO UPDATE SET
       "contagem" = CASE WHEN "TentativaAcesso"."janelaIniciadaEm" >= ${inicio}

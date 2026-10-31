@@ -84,7 +84,7 @@ type Migracao = { nome: string; terminadaEm: Date | null; desfeitaEm: Date | nul
 export async function migracoesAplicadas(): Promise<Migracao[]> {
   return db.$queryRaw<Migracao[]>`
     SELECT migration_name AS nome, finished_at AS "terminadaEm", rolled_back_at AS "desfeitaEm"
-    FROM ${esquemaSql}."_prisma_migrations"
+    FROM ${esquemaSql()}."_prisma_migrations"
     ORDER BY started_at DESC`;
 }
 

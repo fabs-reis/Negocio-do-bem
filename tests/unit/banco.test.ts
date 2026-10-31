@@ -5,9 +5,9 @@ const url = "postgresql://localhost/negocio_do_bem_test?schema=public&connection
 
 describe("configuração do banco de preview", () => {
   it("seleciona um esquema estável por deployment", () => {
-    const primeiro = configuracaoDoBanco(url, "preview", "dpl_Primeiro123");
-    const repetido = configuracaoDoBanco(url, "preview", "dpl_Primeiro123");
-    const outro = configuracaoDoBanco(url, "preview", "dpl_Segundo456");
+    const primeiro = configuracaoDoBanco(url, "preview", "dpl_Primeiro123", "vercel");
+    const repetido = configuracaoDoBanco(url, "preview", "dpl_Primeiro123", "vercel");
+    const outro = configuracaoDoBanco(url, "preview", "dpl_Segundo456", "vercel");
 
     expect(primeiro).toEqual(repetido);
     expect(primeiro.esquema).toMatch(/^preview_[a-f0-9]{55}$/);
@@ -18,8 +18,8 @@ describe("configuração do banco de preview", () => {
   });
 
   it("seleciona o mesmo esquema nas conexões direta e normal", () => {
-    const normal = configuracaoDoBanco(url, "preview", "dpl_Primeiro123");
-    const direta = configuracaoDoBanco("postgresql://direto/negocio_do_bem_test", "preview", "dpl_Primeiro123");
+    const normal = configuracaoDoBanco(url, "preview", "dpl_Primeiro123", "vercel");
+    const direta = configuracaoDoBanco("postgresql://direto/negocio_do_bem_test", "preview", "dpl_Primeiro123", "vercel");
     expect(normal.esquema).toBe(direta.esquema);
     expect(new URL(direta.url!).hostname).toBe("direto");
   });
@@ -29,7 +29,7 @@ describe("configuração do banco de preview", () => {
   });
 
   it.each([undefined, "", "não é uma URL", "https://banco.example.test/"])("recusa preview sem conexão PostgreSQL válida", (conexao) => {
-    expect(() => configuracaoDoBanco(conexao, "preview", "dpl_Primeiro123")).toThrow("DATABASE_URL");
+    expect(() => configuracaoDoBanco(conexao, "preview", "dpl_Primeiro123", "vercel")).toThrow("DATABASE_URL");
   });
 
   it.each([undefined, "development", "production"])("preserva a URL fora de preview: %s", (ambiente) => {
@@ -48,7 +48,7 @@ describe("configuração do banco de preview", () => {
 
   it("não expõe uma conexão inválida na mensagem", () => {
     try {
-      configuracaoDoBanco("conexao-invalida-da-fixture", "preview", "dpl_Primeiro123");
+      configuracaoDoBanco("conexao-invalida-da-fixture", "preview", "dpl_Primeiro123", "vercel");
       expect.fail("A conexão inválida deveria ser recusada.");
     } catch (erro) {
       expect(String(erro)).not.toContain("conexao-invalida-da-fixture");

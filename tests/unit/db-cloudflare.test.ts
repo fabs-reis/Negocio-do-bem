@@ -30,7 +30,52 @@ it("recusa preview sem identidade em vez de usar public", async () => {
   vi.stubEnv("BANCO_PREVIEW_AMBIENTE", "");
   vi.stubEnv("BANCO_PREVIEW_ID", "");
   vi.stubEnv("DATABASE_URL", "postgresql://origem/negocio_do_bem_teste");
-  await expect(import("@/lib/db")).rejects.toThrow("Falta uma identidade válida");
+  const { db } = await import("@/lib/db");
+  expect(() => db.usuario).toThrow();
+});
+
+it("recusa identidade Vercel em contexto Cloudflare", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("BANCO_PREVIEW_AMBIENTE", "preview");
+  vi.stubEnv("BANCO_PREVIEW_PROVEDOR", "vercel");
+  vi.stubEnv("BANCO_PREVIEW_ID", "dpl_Anterior123");
+  globais[contexto] = { ctx: {}, env: { HYPERDRIVE: { connectionString: "postgresql://hyperdrive/negocio_do_bem_teste" } } };
+  const { db } = await import("@/lib/db");
+  expect(() => db.usuario).toThrow();
+});
+
+it("recusa identidade Cloudflare no runtime Vercel", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("DEPLOY_ENV", "");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("BANCO_PREVIEW_AMBIENTE", "preview");
+  vi.stubEnv("BANCO_PREVIEW_PROVEDOR", "cloudflare");
+  vi.stubEnv("BANCO_PREVIEW_ID", "11111111-1111-4111-8111-111111111111");
+  const { db } = await import("@/lib/db");
+  expect(() => db.usuario).toThrow();
+});
+
+it("aceita identidade Vercel no runtime Vercel", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("DEPLOY_ENV", "");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("BANCO_PREVIEW_AMBIENTE", "preview");
+  vi.stubEnv("BANCO_PREVIEW_PROVEDOR", "vercel");
+  vi.stubEnv("BANCO_PREVIEW_ID", "dpl_Anterior123");
+  vi.stubEnv("DATABASE_URL", "postgresql://origem/negocio_do_bem_teste");
+  const { db } = await import("@/lib/db");
+  expect(db.usuario).toBeDefined();
+});
+
+it("usa Hyperdrive sem DATABASE_URL", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("DATABASE_URL", "");
+  vi.stubEnv("DEPLOY_ENV", "production");
+  globais[contexto] = { ctx: {}, env: { HYPERDRIVE: { connectionString: "postgresql://hyperdrive/negocio_do_bem_teste?schema=privado" } } };
+  const { db, esquemaSql } = await import("@/lib/db");
+  expect(db.usuario).toBeDefined();
+  expect(adaptadores[0].opcoes.schema).toBe("privado");
+  expect(esquemaSql()).toBe('"privado"');
 });
 
 it("isola o cliente por requisição e aplica o esquema ao Hyperdrive", async () => {
