@@ -32,7 +32,6 @@
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",
     "@fontsource-variable/newsreader": "5.3.0",
-    "@next/third-parties": "16.4.3",
     "@opennextjs/cloudflare": "1.20.14",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
