@@ -53,9 +53,9 @@ export function integracoes(): Integracao[] {
     },
     {
       nome: "Google Analytics",
-      ligada: Boolean(process.env.NEXT_PUBLIC_GA_ID),
-      ligadaTexto: "As visitas são medidas pelo Google Analytics.",
-      desligadaTexto: "Só a produção mede visitas.",
+      ligada: false,
+      ligadaTexto: "A medição está desativada no aplicativo.",
+      desligadaTexto: "A medição está desativada no aplicativo.",
     },
     {
       nome: "Verificação no Google e no Bing",

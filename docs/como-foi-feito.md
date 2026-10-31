@@ -84,7 +84,6 @@ O site precisa funcionar mesmo quando um serviço de fora falha ou ainda não fo
 | --- | --- |
 | Integração com o Instagram | Funciona: a reivindicação pelos dados do negócio continua disponível. |
 | Consulta de CNPJ (BrasilAPI) | Funciona: a consulta é só um apoio para a moderação, nunca bloqueia a análise. |
-| Google Analytics | Funciona: sem o ID, ele simplesmente não carrega. |
 | Login com o Google | Funciona: sem a configuração, o botão não aparece. Se o Google falhar, quem entra por ele usa o link por e-mail. |
 | Cloudflare R2 | Funciona. No computador de quem desenvolve, as fotos ficam numa pasta local. Em produção, o binding R2 e o domínio público precisam estar configurados para aceitar uploads. |
 | Envio de e-mails (Resend) | Funciona, com uma exceção: ninguém recebe os avisos nem os links. Quem tem senha continua entrando. Com a confirmação de e-mail ligada, uma conta nova não consegue confirmar o e-mail e, até o envio voltar, não indica, não escreve depoimentos e não reivindica. |
@@ -195,8 +194,16 @@ O switch no cabeçalho alterna entre claro e escuro.
 
 O objetivo era medir o tráfego do site.
 
-- **Só em produção:** o Analytics carrega apenas quando `NEXT_PUBLIC_GA_ID` existe, e ela só está configurada em Production. Cópias do projeto e previews não mandam dados.
-- **Sem aviso de cookies:** foi uma decisão do projeto. A seção de privacidade de "Como funciona" explica a medição.
+- **Na implementação inicial,** o Analytics carregava quando `NEXT_PUBLIC_GA_ID` existia, configurado apenas em Production.
+- **Naquele momento,** o projeto decidiu não mostrar aviso de cookies. Essa decisão descreve a versão anterior, não a regra atual.
+
+### 30 de outubro: retirada da medição de visitas ([#109](https://github.com/fabsreis/Negocio-do-bem/issues/109))
+
+A integração foi retirada enquanto sua adequação e as configurações efetivas do provedor não estão validadas. O aplicativo não carrega Google Analytics, mesmo com um ID antigo no ambiente. A página de privacidade e a aba Sistema descrevem essa desativação.
+
+O componente global, suas permissões específicas na CSP e a dependência sem consumidor foram removidos. Sessão, tema, OAuth e formulários permanecem independentes da medição. Não foi criado banner nem coletor alternativo.
+
+A retirada não exclui cookies ou dados históricos, não encerra código de abas antigas e não representa conclusão jurídica. Reintroduzir medição exige uma decisão e provas próprias.
 
 ### 29 de outubro: aprovação automática ([#20](https://github.com/fabs-reis/Negocio-do-bem/issues/20))
 
@@ -345,7 +352,7 @@ O cadastro aceitava qualquer e-mail. Uma conta com o e-mail de outra pessoa, ou 
 - **Uma estrutura só para os links.** A tabela `LinkEmail` guarda o sha256 do token, a finalidade (`confirmar` ou `entrar`), o e-mail, o destino, o prazo e o uso. A confirmação e o "Entrar por link" usam a mesma tabela, e a recuperação de senha ([#65](https://github.com/fabs-reis/Negocio-do-bem/issues/65)) pode usar também.
 - **Entrar primeiro, confirmar depois.** A conta entra no site logo no cadastro e só precisa do e-mail confirmado para o que fala em nome dela para a comunidade: indicar, escrever e denunciar depoimentos e reivindicar. Bloquear o login até a confirmação faria perder quem só queria olhar o painel.
 - **Um clique, não só abrir.** Antivírus e filtros como o do Outlook abrem os links dos e-mails sozinhos. Se abrir o link bastasse, esses filtros gastariam o link de entrar e confirmariam o e-mail de uma conta que outra pessoa criou com aquele endereço. Por isso `/api/link` só guarda o token num cookie e `/link` pede o clique.
-- **O token fora do endereço da página.** O Google Analytics registra o endereço de cada página. Com o token no cookie, `/link` não tem nada de secreto no endereço.
+- **O token fora do endereço da página.** Com o token no cookie, `/link` não tem nada de secreto no endereço, evitando sua exposição em compartilhamentos ou registros de URLs.
 - **A senha continua.** O link por e-mail não é mais seguro que a senha: quem abre a caixa de e-mail entra na conta, o que a recuperação de senha também vai permitir. Ele tira a senha repetida e a força bruta do caminho de quem prefere não usar senha. O segundo fator para a moderação fica para a [#103](https://github.com/fabs-reis/Negocio-do-bem/issues/103).
 - **Limite por conta, não por IP.** Cinco links por conta a cada hora impedem lotar a caixa de alguém e gastar a cota de 100 e-mails por dia do Resend com uma conta só. O limite por IP do login fica com a [#36](https://github.com/fabs-reis/Negocio-do-bem/issues/36).
 
@@ -481,7 +488,7 @@ O e-mail nunca dá permissão, nem depois de confirmado: as contas antigas não 
 
 Toda resposta leva cabeçalhos de segurança (`headers()` no `next.config.ts`):
 
-- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site, do Vercel Blob (`*.public.blob.vercel-storage.com`) e do Google Analytics. Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
+- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões restritos ao próprio site e aos recursos necessários, como as imagens do R2 configurado e as antigas do Vercel Blob (`*.public.blob.vercel-storage.com`). As permissões específicas de Google Analytics foram retiradas. Nos previews, permanecem os recursos do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
 - **Sem nonce:** a CSP aceita scripts inline (`'unsafe-inline'`), como o script do tema no `layout.tsx` e os do próprio Next. Uma CSP com nonce obriga toda página a ser renderizada a cada acesso e é incompatível com o Partial Prerendering, que o projeto usa com o Cache Components. Ficaríamos sem pré-render e sem cache na CDN.
 - **`Strict-Transport-Security`** (2 anos), **`X-Frame-Options: DENY`** (para navegadores antigos), **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: strict-origin-when-cross-origin`** (sites abertos a partir do perfil não recebem o endereço completo) e **`Permissions-Policy`** (sem câmera, microfone, localização, pagamento, USB nem `browsing-topics`).
 
@@ -502,7 +509,6 @@ flowchart LR
     L -.-> BR[BrasilAPI<br>CNPJ]
     L -.-> IG[API do Instagram]
     L -.-> RS[Resend<br>e-mails]
-    N -.-> GA[Google Analytics]
 ```
 
 As linhas tracejadas são serviços opcionais. O site funciona sem eles.
@@ -656,7 +662,7 @@ npm run typecheck
 | Banco dos previews | Projeto Neon separado (da integração do Vercel) | Não compartilha credenciais de produção. Configure em Worker Previews. |
 | Domínio | `www.negociodobem.com` como domínio personalizado do Worker | O domínio sem `www` passa pelo proxy do Cloudflare e uma regra de redirecionamento da zona manda para o `www` (301, com caminho e consulta). |
 | Fotos | Cloudflare R2 | Bucket privado para cache; bucket de uploads servido por domínio próprio em produção. Em POC, pode usar a Public Development URL (`r2.dev`), que expõe os objetos publicamente e tem limite de requisições. Configure buckets separados para produção e previews. |
-| Medição | Google Analytics 4 | `NEXT_PUBLIC_GA_ID` só em Production. |
+| Medição de visitas | Desativada no aplicativo | Google Analytics foi retirado, inclusive quando há um ID antigo configurado. |
 | Fotos do Instagram | Script local (launchd) + app "Negócio do Bem" na Meta | `FOTOS_TOKEN` no Worker de produção; o resto fica no `.env.fotos` do computador que roda a rotina. |
 | Avisos por e-mail | Resend, com o domínio `negociodobem.com` | `RESEND_API_KEY` e `EMAIL_REMETENTE` só em Production. O DNS do domínio fica na Hostinger, e a caixa `ola@negociodobem.com`, que recebe as respostas, no Zoho Mail. |
 
@@ -686,7 +692,6 @@ npm run typecheck
 | `PREVIEW_DATABASE_URL`, `PREVIEW_DATABASE_URL_UNPOOLED`, `PREVIEW_APP_URL`, `PREVIEW_R2_PUBLIC_URL` | No build dos previews | Variáveis de build que o `cloudflare-build.sh` usa nas branches que não são a `main`, no lugar das de produção. |
 | `NEXT_PUBLIC_R2_PUBLIC_URL` | Sim em deploy | Origem HTTPS pública do bucket de uploads R2 (domínio próprio em produção; `r2.dev` pode ser usado em POC/previews). Configure também durante o build. |
 | `CLOUDFLARE_DEPLOY` | No `wrangler.jsonc` | Com `1`, permite usar o cabeçalho `cf-connecting-ip`, inserido pelo Cloudflare, para limitar tentativas por IP. |
-| `NEXT_PUBLIC_GA_ID` | Não | Google Analytics. Configure só em Production. |
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
 | `INSTAGRAM_PERFIL_OFICIAL` | Não | O @ do projeto no Instagram, que vai nos dados estruturados da página inicial. |

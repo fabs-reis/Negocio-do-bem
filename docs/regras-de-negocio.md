@@ -159,7 +159,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
 - **Abrir o link não usa o link.** `/api/link` guarda o token num cookie (`ndb_link`, `httpOnly`, só no caminho `/link`) e leva a `/link`, que mostra a conta e pede um clique em "Entrar" ou em "Confirmar meu e-mail", ou mostra os campos da senha nova.
   - Chegar a `/api/link` sem token apaga o cookie: num computador dividido, a próxima pessoa não herda um link que ainda vale. Um token novo substitui o anterior.
   - Filtros de e-mail que abrem links sozinhos (Outlook, antivírus) não gastam o link nem confirmam um e-mail sem a pessoa.
-  - O token sai do endereço antes de a página carregar o Google Analytics.
+  - O token sai do endereço antes de a página ser exibida, evitando sua permanência na URL.
 - **Depois do clique,** o link de entrar leva ao `voltar` de quando foi pedido. O de confirmar mostra "E-mail confirmado" e um botão para continuar de onde a pessoa estava.
 - **O banco guarda só o SHA-256 do token,** como na sessão.
 - **Limite:** no máximo **5 links por conta a cada hora**, somando os três tipos.
@@ -247,7 +247,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 **Sistema:**
 
 - **Ambiente:** o nome (`production`, `preview` ou `development`), o endereço público e se os buscadores podem indexar; quando informados pelo host, também o branch e o commit.
-- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, Instagram do projeto, Entrar com o Google, Entrar com Instagram, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
+- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, Instagram do projeto, Entrar com o Google, Entrar com Instagram, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. O Google Analytics aparece como desativado no aplicativo. Os valores das variáveis nunca aparecem.
 - **Banco:** quantas linhas cada tabela tem e as migrações aplicadas, da mais nova para a mais antiga. Uma migração que começou e não terminou aparece em destaque, porque trava o próximo deploy.
 
 ---
@@ -1015,14 +1015,11 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 ### Medição de visitas
 
-- O site usa o **Google Analytics 4**, só em produção: ele só carrega quando `NEXT_PUBLIC_GA_ID` está configurado, e essa variável só existe no ambiente de produção do Cloudflare.
-- A "medição otimizada" está ligada. Ela conta:
-  - páginas vistas;
-  - rolagem;
-  - cliques para outros sites;
-  - buscas no diretório (o parâmetro `q` da URL).
-- O Analytics usa cookies e não recebe nome nem e-mail.
-- Por decisão do projeto, o site não mostra aviso de cookies. A página "Como funciona" explica a medição na seção de privacidade.
+- Esta versão **não carrega nem inicializa Google Analytics**, em páginas públicas ou áreas de conta, reivindicação, painel e moderação. Um `NEXT_PUBLIC_GA_ID` antigo no ambiente não ativa a medição.
+- O aplicativo não envia ao Analytics páginas, buscas, cliques ou formulários. Isso não significa ausência de logs da hospedagem ou dos dados necessários ao funcionamento do site.
+- Não há preferência ou aviso de consentimento para Analytics, pois a integração foi retirada. A sessão da conta e a preferência de tema continuam funcionando sem medição.
+- A retirada não apaga cookies ou dados coletados por versões anteriores nem encerra scripts que já estejam executando em abas antigas.
+- A eventual reintrodução de medição exige uma decisão própria sobre finalidade, necessidade, base legal, configurações do provedor e controles verificáveis. Esta mudança não certifica conformidade jurídica nem altera a conta Google.
 
 ### Proteções da interface
 

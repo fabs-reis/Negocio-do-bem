@@ -1,7 +1,6 @@
 import "@fontsource-variable/inter";
 import "@fontsource-variable/newsreader";
 import "./globals.css";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -45,10 +44,6 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: dark)", color: "#17120e" },
   ],
 };
-
-// Só a produção do Vercel define o ID; no seu computador e em cópias do projeto
-// o Analytics não carrega.
-const ID_ANALYTICS = process.env.NEXT_PUBLIC_GA_ID;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -112,7 +107,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </div>
         </footer>
       </body>
-      {ID_ANALYTICS && <GoogleAnalytics gaId={ID_ANALYTICS} />}
     </html>
   );
 }
