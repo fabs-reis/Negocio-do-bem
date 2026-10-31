@@ -50,6 +50,7 @@ describe("Analytics retirado do aplicativo", () => {
     "headers() retira permissões Google em %s / %s",
     async (ambiente, vercel) => {
       vi.stubEnv("NODE_ENV", ambiente);
+      vi.stubEnv("DEPLOY_ENV", undefined);
       vi.stubEnv("VERCEL_ENV", vercel);
       vi.stubEnv("NEXT_PUBLIC_GA_ID", ID_SINTETICO);
       vi.resetModules();
@@ -95,6 +96,31 @@ describe("Analytics retirado do aplicativo", () => {
         expect(diretivas.get("script-src")).toContain("https://vercel.live");
         expect(diretivas.get("connect-src")).toContain("wss://ws-us3.pusher.com");
       }
+    },
+  );
+
+  it.each([
+    ["production", "preview", false],
+    ["preview", "production", true],
+    ["", "preview", true],
+    [undefined, "production", false],
+  ] as const)(
+    "a CSP usa DEPLOY_ENV %s antes de VERCEL_ENV %s",
+    async (deploy, vercel, preview) => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("DEPLOY_ENV", deploy);
+      vi.stubEnv("VERCEL_ENV", vercel);
+      vi.resetModules();
+
+      const { default: config } = await import("../../next.config");
+      const regras = await config.headers!();
+      const politica = regras
+        .find((regra) => regra.source === "/:caminho*")
+        ?.headers.find((header) => header.key.toLowerCase() === "content-security-policy")?.value;
+
+      expect(politica).toBeDefined();
+      expect(politica!.includes("https://vercel.live")).toBe(preview);
+      expect(politica!.includes("wss://ws-us3.pusher.com")).toBe(preview);
     },
   );
 });
