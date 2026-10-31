@@ -1,20 +1,18 @@
 import type { NextConfig } from "next";
-import { ambienteDeDeploy } from "./src/lib/ambiente";
 
 const desenvolvimento = process.env.NODE_ENV === "development";
-const preview = ambienteDeDeploy() === "preview";
 const ANALYTICS = "https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com";
-const VERCEL_LIVE = "https://vercel.live";
 const dominioFotos = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ? ` ${new URL(process.env.NEXT_PUBLIC_R2_PUBLIC_URL).origin}` : "";
 
 const politicaDeConteudo = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://*.googletagmanager.com${desenvolvimento ? " 'unsafe-eval'" : ""}${preview ? ` ${VERCEL_LIVE}` : ""}`,
-  `style-src 'self' 'unsafe-inline'${preview ? ` ${VERCEL_LIVE}` : ""}`,
-  `img-src 'self' data: blob: https://*.public.blob.vercel-storage.com${dominioFotos} ${ANALYTICS}${preview ? ` ${VERCEL_LIVE} https://vercel.com` : ""}`,
-  `font-src 'self' data:${preview ? ` ${VERCEL_LIVE} https://assets.vercel.com` : ""}`,
-  `connect-src 'self' ${ANALYTICS}${desenvolvimento ? " ws:" : ""}${preview ? ` ${VERCEL_LIVE} wss://ws-us3.pusher.com` : ""}`,
-  `frame-src 'self'${preview ? ` ${VERCEL_LIVE}` : ""}`,
+  `script-src 'self' 'unsafe-inline' https://*.googletagmanager.com${desenvolvimento ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  // O Vercel Blob fica até as fotos antigas saírem de vez do banco (ehFotoDoSite, src/lib/fotos.ts).
+  `img-src 'self' data: blob: https://*.public.blob.vercel-storage.com${dominioFotos} ${ANALYTICS}`,
+  "font-src 'self' data:",
+  `connect-src 'self' ${ANALYTICS}${desenvolvimento ? " ws:" : ""}`,
+  "frame-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -48,7 +46,6 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   experimental: {
     // Fotos chegam reduzidas pelo navegador, mas o padrão de 1 MB é apertado.
-    // O Vercel aceita até 4,5 MB por requisição.
     serverActions: { bodySizeLimit: "4mb" },
   },
   partialPrefetching: true,

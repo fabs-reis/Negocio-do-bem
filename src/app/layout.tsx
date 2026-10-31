@@ -46,7 +46,7 @@ export const viewport: Viewport = {
   ],
 };
 
-// Só a produção do Vercel define o ID; no seu computador e em cópias do projeto
+// Só a produção define o ID; no seu computador e em cópias do projeto
 // o Analytics não carrega.
 const ID_ANALYTICS = process.env.NEXT_PUBLIC_GA_ID;
 
