@@ -41,6 +41,7 @@ function formulario(email: string, senhaDigitada = SENHA_ERRADA) {
   const dados = new FormData();
   dados.set("nome", "Pessoa de teste");
   dados.set("email", email);
+  dados.set("telefone", "(11) 99148-8052");
   dados.set("senha", senhaDigitada);
   return dados;
 }
@@ -326,5 +327,28 @@ describe("conta sem senha", () => {
     // Conferida contra o hash falso, como um e-mail sem conta, para levar o mesmo tempo.
     expect(senha.verificarSenha).toHaveBeenCalledTimes(2);
     expect(criarSessao).not.toHaveBeenCalled();
+  });
+});
+
+describe("telefone no cadastro", () => {
+  it("guarda o telefone com o 55 do Brasil", async () => {
+    contexto.cabecalhos = { "x-vercel-forwarded-for": "203.0.113.7" };
+    await expect(cadastrar({}, formulario("nova@exemplo.com", SENHA_CERTA))).rejects.toThrow("redirecionado");
+    expect((await db.usuario.findUniqueOrThrow({ where: { email: "nova@exemplo.com" } })).telefone).toBe("5511991488052");
+  });
+
+  it.each([
+    ["sem telefone", "", "Informe seu telefone com DDD."],
+    ["com telefone sem DDD", "99148-8052", "Digite o telefone com DDD (ex.: 11 99148-8052)."],
+  ])("%s, não cria a conta e mostra o erro no campo", async (_caso, telefone, mensagem) => {
+    contexto.cabecalhos = { "x-vercel-forwarded-for": "203.0.113.7" };
+    const dados = formulario("nova@exemplo.com", SENHA_CERTA);
+    dados.set("telefone", telefone);
+
+    const resposta = await cadastrar({}, dados);
+    expect(resposta?.erros?.telefone).toBe(mensagem);
+    expect(resposta?.valores?.telefone).toBe(telefone);
+    expect(await db.usuario.count()).toBe(0);
+    expect(senha.gerarHashSenha).not.toHaveBeenCalled();
   });
 });

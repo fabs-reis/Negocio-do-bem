@@ -4,20 +4,25 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
+import { apagarCadastroGoogle, contaDoGoogle, COOKIE_CADASTRO_GOOGLE, lerCadastroGoogle } from "@/lib/auth/google";
 import { CONFIRMACAO_DE_EMAIL_LIGADA, COOKIE_LINK, criarLink, enviarLink, usarLink } from "@/lib/auth/links";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { caminhoSeguro, criarSessao, encerrarSessao, exigirUsuario } from "@/lib/auth/sessao";
 import { ipDoCabecalho, reservarTentativaDoEmail, tentativaDoIpLiberada, zerarTentativasDoEmail } from "@/lib/auth/tentativas";
+import { AVISOS } from "@/lib/avisos";
 import { db } from "@/lib/db";
-import { errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
+import { campoTelefone, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 
 const campoEmail = z.email("Digite um e-mail válido.").max(200, "E-mail muito longo.");
 
 const esquemaCadastro = z.object({
   nome: z.string().trim().min(2, "Conte como podemos te chamar.").max(80, "Nome muito longo."),
   email: campoEmail,
+  telefone: campoTelefone,
   senha: z.string().min(8, "Use pelo menos 8 caracteres.").max(200, "Senha muito longa."),
 });
+
+const esquemaTelefone = z.object({ telefone: campoTelefone });
 
 /** IP de quem fez a requisição, ou null se não der para confiar em nenhum cabeçalho (veja `ipDoCabecalho`). */
 async function ipDaRequisicao(): Promise<string | null> {
@@ -28,12 +33,13 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
   const resultado = esquemaCadastro.safeParse({
     nome: texto(dados, "nome"),
     email: texto(dados, "email").trim().toLowerCase(),
+    telefone: texto(dados, "telefone"),
     senha: texto(dados, "senha"),
   });
   if (!resultado.success) {
     return { erros: errosPorCampo(resultado.error), valores: valoresDoFormulario(dados) };
   }
-  const { nome, email, senha } = resultado.data;
+  const { nome, email, telefone, senha } = resultado.data;
 
   if (!(await tentativaDoIpLiberada(await ipDaRequisicao()))) {
     return { erro: "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.", valores: valoresDoFormulario(dados) };
@@ -44,7 +50,7 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
     return { erros: { email: "Já existe uma conta com este e-mail. Que tal entrar?" }, valores: valoresDoFormulario(dados) };
   }
 
-  const usuario = await db.usuario.create({ data: { nome, email, senhaHash: await gerarHashSenha(senha) } });
+  const usuario = await db.usuario.create({ data: { nome, email, telefone, senhaHash: await gerarHashSenha(senha) } });
   await criarSessao(usuario.id);
   const voltar = caminhoSeguro(texto(dados, "voltar"));
   if (CONFIRMACAO_DE_EMAIL_LIGADA) {
@@ -54,6 +60,28 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
     });
   }
   redirect(voltar);
+}
+
+/** O último passo de quem cria conta pelo Google: informa o telefone, e só então a conta é criada. */
+export async function concluirCadastroGoogle(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+  const resultadoTelefone = esquemaTelefone.safeParse({ telefone: texto(dados, "telefone") });
+  if (!resultadoTelefone.success) {
+    return { erros: errosPorCampo(resultadoTelefone.error), valores: valoresDoFormulario(dados) };
+  }
+  const loja = await cookies();
+  const token = loja.get(COOKIE_CADASTRO_GOOGLE)?.value ?? "";
+  const cadastro = await lerCadastroGoogle(token);
+  // Sem cadastro, a página mostra que o prazo acabou.
+  if (!cadastro) redirect("/cadastrar/google");
+
+  const resultado = await contaDoGoogle(cadastro.perfil, resultadoTelefone.data.telefone);
+  if (resultado.tipo !== "entrou") {
+    return { erro: AVISOS.google_outra_conta.texto, valores: valoresDoFormulario(dados) };
+  }
+  await apagarCadastroGoogle(token);
+  loja.delete({ name: COOKIE_CADASTRO_GOOGLE, path: "/cadastrar/google" });
+  await criarSessao(resultado.usuarioId);
+  redirect(caminhoSeguro(cadastro.destino));
 }
 
 // Hash de uma senha qualquer: quando o e-mail não existe, conferimos contra ele

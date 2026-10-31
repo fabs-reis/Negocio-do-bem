@@ -1,18 +1,45 @@
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { concluirCadastroGoogle } from "@/acoes/conta";
 import { GET as entrarComGoogle } from "@/app/api/google/entrar/route";
 import { GET as retornoDoGoogle } from "@/app/api/google/retorno/route";
-import { contaDoGoogle, type PerfilGoogle } from "@/lib/auth/google";
+import {
+  apagarCadastroGoogle,
+  contaDoGoogle,
+  guardarCadastroGoogle,
+  lerCadastroGoogle,
+  VALIDADE_CADASTRO_GOOGLE_MS,
+  type PerfilGoogle,
+} from "@/lib/auth/google";
 import { db } from "@/lib/db";
 
-// As rotas passam de verdade pelo banco. Só a sessão fica de mentira (o cookie
-// dela precisa de uma requisição do Next) e o Google responde por um fetch falso.
+// As rotas e a ação passam de verdade pelo banco. Só fica de mentira o que precisa
+// de uma requisição do Next (a sessão, os cookies da ação e o redirect), e o Google
+// responde por um fetch falso.
 const sessao = vi.hoisted(() => ({ criarSessao: vi.fn(), usuarioAtual: vi.fn(async () => null) }));
 vi.mock("@/lib/auth/sessao", async (importarOriginal) => ({
   ...(await importarOriginal<typeof import("@/lib/auth/sessao")>()),
   ...sessao,
 }));
+const requisicao = vi.hoisted(() => ({ cookies: new Map<string, string>() }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({
+    get: (nome: string) => (requisicao.cookies.has(nome) ? { name: nome, value: requisicao.cookies.get(nome)! } : undefined),
+    delete: (opcoes: string | { name: string }) => requisicao.cookies.delete(typeof opcoes === "string" ? opcoes : opcoes.name),
+  }),
+}));
+vi.mock("next/navigation", () => ({
+  redirect: (destino: string) => {
+    throw new Error(`redirecionado para ${destino}`);
+  },
+  notFound: () => {
+    throw new Error("não encontrado");
+  },
+}));
+
+const TELEFONE = "5511991488052";
 
 const CLIENTE = "cliente.apps.googleusercontent.com";
 const SITE = "http://localhost:3000";
@@ -33,12 +60,13 @@ const conta = (id: string) => db.usuario.findUniqueOrThrow({ where: { id } });
 const sessoesDe = (usuarioId: string) => db.sessao.count({ where: { usuarioId } });
 
 async function limparBanco() {
-  await db.$executeRawUnsafe(`TRUNCATE "Sessao", "Usuario" CASCADE`);
+  await db.$executeRawUnsafe(`TRUNCATE "Sessao", "CadastroGoogle", "Usuario" CASCADE`);
 }
 
 beforeEach(async () => {
   await limparBanco();
   vi.clearAllMocks();
+  requisicao.cookies.clear();
   vi.stubEnv("GOOGLE_CLIENT_ID", CLIENTE);
   vi.stubEnv("GOOGLE_CLIENT_SECRET", "segredo");
   vi.stubEnv("APP_URL", SITE);
@@ -56,13 +84,22 @@ afterAll(async () => {
 });
 
 describe("contaDoGoogle", () => {
-  it("sem conta com o e-mail, cria uma já confirmada e sem senha", async () => {
-    const resultado = await contaDoGoogle(perfil());
-    expect(resultado.tipo).toBe("entrou");
+  it("sem conta com o e-mail e sem o telefone, pede o telefone e não cria nada", async () => {
+    expect(await contaDoGoogle(perfil())).toEqual({ tipo: "precisa_telefone" });
+    expect(await db.usuario.count()).toBe(0);
+  });
+
+  it("sem conta com o e-mail, cria uma com o telefone, já confirmada e sem senha", async () => {
+    const resultado = await contaDoGoogle(perfil(), TELEFONE);
     const nova = await db.usuario.findUniqueOrThrow({ where: { email: "ana@gmail.com" } });
     expect(resultado).toEqual({ tipo: "entrou", usuarioId: nova.id });
-    expect(nova).toMatchObject({ nome: "Ana Lúcia Santos", googleId: "google-ana", senhaHash: null, papel: "membro" });
+    expect(nova).toMatchObject({ nome: "Ana Lúcia Santos", googleId: "google-ana", telefone: TELEFONE, senhaHash: null, papel: "membro" });
     expect(nova.emailConfirmadoEm).not.toBeNull();
+  });
+
+  it("ligar a uma conta que já existe não pede telefone", async () => {
+    const existente = await criarConta();
+    expect(await contaDoGoogle(perfil())).toEqual({ tipo: "entrou", usuarioId: existente.id });
   });
 
   it("a conta já ligada entra pelo Google mesmo depois de o e-mail mudar no Google", async () => {
@@ -117,7 +154,7 @@ describe("contaDoGoogle", () => {
   });
 
   it("dois retornos ao mesmo tempo criam uma conta só", async () => {
-    const [primeiro, segundo] = await Promise.all([contaDoGoogle(perfil()), contaDoGoogle(perfil())]);
+    const [primeiro, segundo] = await Promise.all([contaDoGoogle(perfil(), TELEFONE), contaDoGoogle(perfil(), TELEFONE)]);
     expect(primeiro).toEqual(segundo);
     expect(await db.usuario.count()).toBe(1);
   });
@@ -192,6 +229,7 @@ describe("/api/google/entrar", () => {
 
 describe("/api/google/retorno", () => {
   it("troca o código com o verificador, abre a sessão e volta para onde a pessoa estava", async () => {
+    const ligada = await criarConta({ googleId: "google-ana" });
     const fetch = googleResponde();
     const resposta = await retorno({ code: "codigo", state: "estado-certo" });
 
@@ -202,10 +240,25 @@ describe("/api/google/retorno", () => {
     expect(corpo.get("code_verifier")).toBe("verificador-certo");
     expect(corpo.get("redirect_uri")).toBe(`${SITE}/api/google/retorno`);
 
-    const nova = await db.usuario.findUniqueOrThrow({ where: { email: "ana@gmail.com" } });
-    expect(sessao.criarSessao).toHaveBeenCalledWith(nova.id);
+    expect(sessao.criarSessao).toHaveBeenCalledWith(ligada.id);
     // O cookie do login é apagado.
     expect(resposta.cookies.get("ndb_google")?.value).toBe("");
+  });
+
+  it("conta nova: guarda o cadastro e manda para a tela do telefone, sem criar conta nem sessão", async () => {
+    googleResponde();
+    const resposta = await retorno({ code: "codigo", state: "estado-certo" });
+
+    expect(resposta.headers.get("location")).toBe(`${SITE}/cadastrar/google`);
+    const cookie = resposta.cookies.get("ndb_google_cadastro")!;
+    expect(cookie).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/cadastrar/google", maxAge: 30 * 60 });
+    expect(resposta.cookies.get("ndb_google")?.value).toBe("");
+    expect(await lerCadastroGoogle(cookie.value)).toEqual({
+      perfil: { sub: "google-ana", email: "ana@gmail.com", emailVerificado: true, nome: "Ana Lúcia Santos" },
+      destino: "/indicar",
+    });
+    expect(await db.usuario.count()).toBe(0);
+    expect(sessao.criarSessao).not.toHaveBeenCalled();
   });
 
   it("com o state diferente do cookie, não fala com o Google nem abre sessão", async () => {
@@ -254,5 +307,75 @@ describe("/api/google/retorno", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(avisoDe(await retorno({ code: "codigo", state: "estado-certo" }))).toBe("google_erro");
     expect(await db.usuario.count()).toBe(0);
+  });
+});
+
+describe("cadastro pelo Google esperando o telefone", () => {
+  it("guarda só o sha256 do token e vale por 30 minutos", async () => {
+    const token = await guardarCadastroGoogle(perfil(), "/indicar");
+    const [guardado] = await db.cadastroGoogle.findMany();
+    expect(guardado!.id).toBe(createHash("sha256").update(token).digest("hex"));
+    expect(guardado!.expiraEm.getTime() - guardado!.criadoEm.getTime()).toBeCloseTo(VALIDADE_CADASTRO_GOOGLE_MS, -3);
+
+    await db.cadastroGoogle.updateMany({ data: { expiraEm: new Date(Date.now() - 1000) } });
+    expect(await lerCadastroGoogle(token)).toBeNull();
+  });
+
+  it("os vencidos são apagados quando outro é guardado", async () => {
+    await guardarCadastroGoogle(perfil(), "/");
+    await db.cadastroGoogle.updateMany({ data: { expiraEm: new Date(Date.now() - 1000) } });
+    await guardarCadastroGoogle(perfil({ sub: "google-bia", email: "bia@gmail.com" }), "/");
+    expect((await db.cadastroGoogle.findMany()).map((c) => c.email)).toEqual(["bia@gmail.com"]);
+  });
+
+  it("token vazio ou desconhecido não acha nada", async () => {
+    await guardarCadastroGoogle(perfil(), "/");
+    expect(await lerCadastroGoogle("")).toBeNull();
+    expect(await lerCadastroGoogle("token-que-nao-existe")).toBeNull();
+    await apagarCadastroGoogle("");
+    expect(await db.cadastroGoogle.count()).toBe(1);
+  });
+});
+
+describe("concluirCadastroGoogle", () => {
+  function comTelefone(telefone: string) {
+    const dados = new FormData();
+    dados.set("telefone", telefone);
+    return dados;
+  }
+
+  it("com o telefone, cria a conta, abre a sessão, apaga o cadastro e vai ao destino", async () => {
+    requisicao.cookies.set("ndb_google_cadastro", await guardarCadastroGoogle(perfil(), "/indicar"));
+
+    await expect(concluirCadastroGoogle({}, comTelefone("(11) 99148-8052"))).rejects.toThrow("redirecionado para /indicar");
+    const nova = await db.usuario.findUniqueOrThrow({ where: { email: "ana@gmail.com" } });
+    expect(nova).toMatchObject({ googleId: "google-ana", telefone: TELEFONE, senhaHash: null });
+    expect(sessao.criarSessao).toHaveBeenCalledWith(nova.id);
+    expect(await db.cadastroGoogle.count()).toBe(0);
+    expect(requisicao.cookies.has("ndb_google_cadastro")).toBe(false);
+  });
+
+  it("com o telefone inválido, mostra o erro e mantém o cadastro", async () => {
+    requisicao.cookies.set("ndb_google_cadastro", await guardarCadastroGoogle(perfil(), "/indicar"));
+
+    const resposta = await concluirCadastroGoogle({}, comTelefone("99148-8052"));
+    expect(resposta?.erros?.telefone).toBe("Digite o telefone com DDD (ex.: 11 99148-8052).");
+    expect(await db.usuario.count()).toBe(0);
+    expect(await db.cadastroGoogle.count()).toBe(1);
+  });
+
+  it("sem cadastro guardado, volta para a página, que avisa que o prazo acabou", async () => {
+    await expect(concluirCadastroGoogle({}, comTelefone("(11) 99148-8052"))).rejects.toThrow("redirecionado para /cadastrar/google");
+    expect(await db.usuario.count()).toBe(0);
+    expect(sessao.criarSessao).not.toHaveBeenCalled();
+  });
+
+  it("se o e-mail foi ligado a outro Google enquanto isso, mostra o aviso e não cria conta", async () => {
+    requisicao.cookies.set("ndb_google_cadastro", await guardarCadastroGoogle(perfil(), "/"));
+    await criarConta({ googleId: "google-outro" });
+
+    const resposta = await concluirCadastroGoogle({}, comTelefone("(11) 99148-8052"));
+    expect(resposta?.erro).toBe("Este e-mail já está ligado a outra conta do Google. Entre com ela, com a senha ou com um link por e-mail.");
+    expect(sessao.criarSessao).not.toHaveBeenCalled();
   });
 });

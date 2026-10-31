@@ -17,7 +17,7 @@ import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { linkPerfil, normalizarUsername } from "@/lib/instagram";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
-import { formatarData, formatarWhatsapp, tempoDeLeitura } from "@/lib/texto";
+import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
@@ -174,7 +174,7 @@ function Contatos({ empresa }: { empresa: Perfil }) {
     <div className="mt-6 flex flex-wrap gap-2">
       {empresa.whatsapp && (
         <a href={`https://wa.me/${empresa.whatsapp}`} target="_blank" rel="noopener noreferrer" className="botao botao-pequeno">
-          WhatsApp {formatarWhatsapp(empresa.whatsapp)}
+          WhatsApp {formatarTelefone(empresa.whatsapp)}
         </a>
       )}
       {empresa.site && (

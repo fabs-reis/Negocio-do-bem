@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { cadastrar, entrar, pedirLinkDeAcesso } from "@/acoes/conta";
+import { cadastrar, concluirCadastroGoogle, entrar, pedirLinkDeAcesso } from "@/acoes/conta";
 import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { enviarSemLimpar } from "@/components/envio";
@@ -10,6 +10,18 @@ import { enviarSemLimpar } from "@/components/envio";
 function valorTexto(valores: Record<string, string | string[]> | undefined, campo: string): string {
   const v = valores?.[campo];
   return typeof v === "string" ? v : "";
+}
+
+function CampoTelefone({ valor, erro }: { valor: string; erro?: string }) {
+  return (
+    <div>
+      <label htmlFor="telefone" className="rotulo">
+        Telefone
+      </label>
+      <input id="telefone" name="telefone" type="tel" inputMode="tel" autoComplete="tel" required maxLength={30} placeholder="(11) 99148-8052" defaultValue={valor} className="campo" aria-invalid={!!erro} />
+      {erro ? <p className="erro-campo">{erro}</p> : <p className="ajuda">Com DDD. Só para avisos sobre a sua conta e o seu negócio.</p>}
+    </div>
+  );
 }
 
 export function FormEntrar({ voltar }: { voltar: string }) {
@@ -95,6 +107,7 @@ export function FormCadastro({ voltar }: { voltar: string }) {
         <input id="email" name="email" type="email" autoComplete="email" required defaultValue={valorTexto(estado?.valores, "email")} className="campo" aria-invalid={!!erros.email} />
         {erros.email && <p className="erro-campo">{erros.email}</p>}
       </div>
+      <CampoTelefone valor={valorTexto(estado?.valores, "telefone")} erro={erros.telefone} />
       <div>
         <label htmlFor="senha" className="rotulo">
           Senha
@@ -110,6 +123,30 @@ export function FormCadastro({ voltar }: { voltar: string }) {
         Já tem conta?{" "}
         <Link href={`/entrar?voltar=${encodeURIComponent(voltar)}`} className="link">
           Entrar
+        </Link>
+      </p>
+    </form>
+  );
+}
+
+/** O passo que falta para quem cria conta pelo Google: o telefone. */
+export function FormTelefoneGoogle({ email }: { email: string }) {
+  const [estado, acao, pendente] = useActionState(concluirCadastroGoogle, undefined);
+  const erros = estado?.erros ?? {};
+  return (
+    <form action={acao} onSubmit={enviarSemLimpar(acao)} className="space-y-4">
+      <p className="text-sm text-suave">
+        Conta do Google: <strong className="font-semibold break-all text-tinta">{email}</strong>
+      </p>
+      <CampoTelefone valor={valorTexto(estado?.valores, "telefone")} erro={erros.telefone} />
+      {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
+      <BotaoEnviar pendente={pendente} className="botao-coral w-full" enviando="Criando conta…">
+        Criar conta
+      </BotaoEnviar>
+      <p className="text-center text-sm text-suave">
+        Não é você?{" "}
+        <Link href="/cadastrar" className="link">
+          Voltar ao cadastro
         </Link>
       </p>
     </form>
