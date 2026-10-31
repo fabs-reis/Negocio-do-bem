@@ -116,6 +116,9 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - o cookie `ndb_sessao` é `httpOnly`, `sameSite=lax` e `secure` em produção, e guarda um token aleatório;
   - o banco guarda só o SHA-256 do token, então quem lê o banco não consegue se passar pela pessoa;
   - "Sair" apaga a sessão do banco e o cookie.
+  - sessões vencidas não autorizam acesso. A manutenção manual `npm run sessoes:limpar` conta essas sessões sem gravar. Com `-- --aplicar`, remove somente um lote de até 100 sessões por padrão. `--lote` aceita de 1 a 1000, sem repetir lotes automaticamente.
+  - cada execução fixa a referência UTC no menor instante entre o início local e a leitura do relógio do PostgreSQL. Assim, um computador de manutenção adiantado não antecipa a exclusão. Só entra no lote quem tem `expiraEm <= referência`. A exclusão confere esse vencimento novamente, preservando sessões renovadas depois da seleção.
+  - a limpeza não altera contas, links por e-mail, tentativas de acesso, negócios, pedidos, depoimentos ou auditoria. Não é executada no login, no build ou por agendamento. Não define retenção para outros dados nem apaga backups.
 - **Volta para onde a pessoa estava:**
   - páginas que exigem login mandam para `/entrar?voltar=<caminho>`;
   - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site;
@@ -950,6 +953,7 @@ O que **não** vai para a auditoria hoje:
 - criação e cancelamento de pedidos de reivindicação (eles ficam na própria tabela de reivindicações);
 - depoimentos, respostas e denúncias;
 - envio de fotos da história.
+- limpeza manual de sessões vencidas. O comando mostra somente totais e a referência, sem guardar identificadores de sessão.
 
 Para uma ação nova de moderação, registre sempre na auditoria e dê a ela uma descrição em `ACOES_AUDITORIA`.
 
@@ -1112,7 +1116,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 - Não há troca de nome ou e-mail, nem exclusão da conta. A confirmação de e-mail existe, mas está desligada (veja [E-mail confirmado e links por e-mail](#e-mail-confirmado-e-links-por-e-mail)).
 - Um link de senha nova aberto e não usado fica no cookie de `/link` até vencer (1 hora) ou até outro link substituí-lo. Quem usar o mesmo navegador nesse meio-tempo pode abrir `/link` e criar a senha. O mesmo vale para o link de entrar, por 15 minutos.
 - Não há registro do último acesso: "Sair" apaga a sessão, então o painel só sabe das sessões que continuam abertas.
-- Sessões vencidas deixam de valer, mas não são apagadas do banco.
+- Sessões vencidas deixam de valer e permanecem no banco até uma aplicação explícita do comando de limpeza. Não há descarte automático.
 - O e-mail da conta não é confirmado. Um aviso pode ir para um endereço digitado errado, e ninguém fica sabendo.
 
 **Fotos**
