@@ -77,7 +77,7 @@ export function Vitrine({
         <div className="cartao mt-5 px-6 py-14 text-center">
           <p className="font-serif text-2xl">Ainda não há negócios aqui no diretório.</p>
           <p className="mx-auto mt-2 max-w-md text-suave">Conhece algum? Indique e ajude a comunidade a encontrá-lo.</p>
-          <Link href="/indicar" className="botao-coral mt-6">
+          <Link href="/participar" className="botao-coral mt-6">
             Indicar um negócio
           </Link>
         </div>

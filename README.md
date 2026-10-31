@@ -127,6 +127,10 @@ Um script no seu computador preenche, todo dia, a foto de perfil dos negócios q
 
 Contas pessoais ou privadas não aparecem na API. Para esses negócios, salve a foto em `fotos-manuais/<@>.jpg` (ou `.png`, `.webp`): ela tem prioridade sobre a da API.
 
+### A prévia do Instagram no cadastro
+
+A mesma API mostra a foto, o nome e o site do perfil assim que a pessoa digita o @ em `/participar`, e a foto vira a foto do negócio ao cadastrar. Para ligar, configure no Worker de produção (Variables & Secrets) `META_ACCESS_TOKEN` (como secret) e `META_IG_USER_ID`, com os mesmos valores do `.env.fotos`. Sem elas, o cadastro funciona sem a prévia. As regras estão na [seção 4 das regras de negócio](docs/regras-de-negocio.md#o-cadastro-por-etapas).
+
 ## Ativando o login com o Google (opcional)
 
 O botão "Continuar com o Google" aparece em `/entrar` e `/cadastrar` quando `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `APP_URL` estão configurados. As regras estão na [seção 2 das regras de negócio](docs/regras-de-negocio.md#cadastro-e-login).

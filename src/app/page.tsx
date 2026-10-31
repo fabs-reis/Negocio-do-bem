@@ -107,6 +107,9 @@ async function Numeros() {
         <Numero valor={resumo.estados} rotulo={resumo.estados === 1 ? "estado" : "estados"} />
         <Numero valor={resumo.verificados} rotulo="verificados pelo dono" />
       </dl>
+      <Link href="/participar" className="botao-coral w-full py-3 text-base">
+        Cadastrar empresa
+      </Link>
     </div>
   );
 }
@@ -121,7 +124,7 @@ function Numero({ valor, rotulo }: { valor: number; rotulo: string }) {
 }
 
 function NumerosCarregando() {
-  return <div className="min-h-72 flex-[1_1_20rem] animate-pulse rounded-[2rem] bg-superficie" aria-busy="true" />;
+  return <div className="min-h-90 flex-[1_1_20rem] animate-pulse rounded-[2rem] bg-superficie" aria-busy="true" />;
 }
 
 async function BuscaComCidades() {

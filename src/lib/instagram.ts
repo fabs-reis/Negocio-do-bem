@@ -6,6 +6,8 @@
 //
 // Documentação: https://developers.facebook.com/docs/instagram-platform
 
+import { ehEnderecoSemInstagram } from "@/lib/endereco";
+
 const HOST_GRAPH = "https://graph.instagram.com";
 
 // Caminhos de instagram.com que não são perfis.
@@ -29,6 +31,11 @@ export function normalizarUsername(entrada: unknown): string | null {
 
 export function linkPerfil(username: string): string {
   return `https://www.instagram.com/${username}/`;
+}
+
+/** Lê o endereço da URL: um @ do Instagram ou o endereço de um negócio sem Instagram (src/lib/endereco.ts). */
+export function normalizarEndereco(entrada: unknown): string | null {
+  return ehEnderecoSemInstagram(entrada) ? entrada : normalizarUsername(entrada);
 }
 
 /** @ do Negócio do Bem no Instagram, mostrado como contato do projeto. */

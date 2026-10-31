@@ -55,6 +55,9 @@ export const campoWhatsapp = z
     return digitos;
   });
 
+/** Telefone opcional, como o comercial do negócio: a mesma regra do WhatsApp. */
+export const campoTelefoneOpcional = campoWhatsapp;
+
 /** Telefone obrigatório da conta, guardado como o WhatsApp: só os dígitos, com o 55. */
 export const campoTelefone = z
   .string()
