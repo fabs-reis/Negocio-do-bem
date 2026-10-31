@@ -145,6 +145,10 @@ Um script no seu computador preenche, todo dia, a foto de perfil dos negócios q
 
 Contas pessoais ou privadas não aparecem na API. Para esses negócios, salve a foto em `fotos-manuais/<@>.jpg` (ou `.png`, `.webp`): ela tem prioridade sobre a da API.
 
+### A prévia do Instagram no cadastro
+
+A mesma API mostra a foto, o nome e o site do perfil assim que a pessoa digita o @ em `/participar`, e a foto vira a foto do negócio ao cadastrar. Para ligar, configure no Worker de produção (Variables & Secrets) `META_ACCESS_TOKEN` (como secret) e `META_IG_USER_ID`, com os mesmos valores do `.env.fotos`. Sem elas, o cadastro funciona sem a prévia. As regras estão na [seção 4 das regras de negócio](docs/regras-de-negocio.md#o-cadastro-por-etapas).
+
 ## Ativando os avisos por e-mail (opcional)
 
 O site manda por e-mail o link para confirmar o e-mail e o link para entrar sem senha. Também avisa quem pediu uma reivindicação quando a moderação decide, a moderação quando chega um pedido ou uma denúncia na fila, e os donos quando chega um depoimento. O envio é pelo [Resend](https://resend.com). As regras estão na [seção 14 das regras de negócio](docs/regras-de-negocio.md#14-avisos-por-e-mail).

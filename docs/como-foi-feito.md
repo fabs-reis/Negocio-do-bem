@@ -43,7 +43,7 @@ O diretório cresce sem precisar que os donos se cadastrem primeiro: qualquer pe
 
 ### O @ do Instagram é a identidade do negócio
 
-Cada negócio é o seu @: ele é único, é o endereço da página (`/empresas/<@>`) e é o que a moderação abre para comparar com os dados enviados.
+Cada negócio é o seu @: ele é único, é o endereço da página (`/empresas/<@>`) e é o que a moderação abre para comparar com os dados enviados. O negócio sem Instagram ganha um endereço feito do nome e da cidade, com hífen, que o Instagram não aceita no @: assim os dois cabem na mesma coluna sem se confundir.
 
 - **Por que o @:** é público, fácil de achar e de digitar, e quem indica normalmente já sabe qual é.
 - **Por que só o @ não basta:** um @ pode ser abandonado e registrado por outra pessoa. Por isso, nos caminhos de verificação pelo Instagram, o perfil fica ligado ao **ID fixo da conta**, e uma conta diferente da registrada nunca é aprovada sozinha.
@@ -397,6 +397,17 @@ O que deu errado e ficou de lição:
 - **O `node-postgres` não entende `sslrootcert=system`**, que vem na conexão do PlanetScale: ele tenta abrir um arquivo chamado `system`. Para o app e o build, use só `?sslmode=verify-full`. O `psql` e o Prisma Migrate aceitam as duas.
 - **Quem ainda tinha o DNS antigo em cache caiu no Vercel** por um tempo, inclusive o Chrome de quem fazia a troca. Lá, as fotos novas aparecem como iniciais e nada grava, porque o Neon está só para leitura. Para testar o Cloudflare sem depender do DNS, use o `workers.dev` ou `curl --resolve`.
 
+
+### 31 de outubro: cadastro por etapas, sem Instagram e com o contato do dono ([#190](https://github.com/fabs-reis/Negocio-do-bem/issues/190))
+
+A tela de cadastro por etapas veio do [#145](https://github.com/fabs-reis/Negocio-do-bem/pull/145), mas sem a verificação pela DM do [#136](https://github.com/fabs-reis/Negocio-do-bem/pull/136) e do [#137](https://github.com/fabs-reis/Negocio-do-bem/pull/137), que deixou de ser o caminho.
+
+- **Uma pergunta por vez, num formulário só.** As etapas ficam montadas e só a atual aparece: voltar não perde nada, e o envio continua sendo o `indicarEmpresa`, que valida tudo de novo. A validação de cada etapa no navegador só serve para a pessoa não chegar ao fim com um erro lá atrás.
+- **A prévia do Instagram roda no servidor**, com a mesma API e o mesmo token da rotina de fotos. A foto vai como data URL para a política de conteúdo continuar fechada, e a mesma foto é gravada no perfil logo depois do cadastro, num `after()`, para não atrasar a resposta.
+- **Sem Instagram, o endereço é feito do nome e da cidade**, na mesma coluna do @. Uma coluna nova para o endereço mudaria uns 200 lugares que usam o `instagramUsername`. Com o hífen separando os dois tipos, só os lugares que mostram o @ ou levam ao Instagram precisaram saber a diferença (`temInstagram`, `rotuloDoInstagram` e o componente `LinkInstagram`).
+- **O contato do dono fica no negócio, e não na conta.** É o contato de quem cuida daquele negócio, e o dono pode corrigir no painel. Ele não aparece no perfil.
+- **O rascunho do cadastro fica só no navegador.** O #145 também guardava na conta, para quem ainda não tinha confirmado o e-mail. Com a confirmação desligada ([#148](https://github.com/fabs-reis/Negocio-do-bem/issues/148)), ficou só o do navegador, que cobre o login e o cadastro no meio do caminho.
+
 ---
 
 ## 4. Arquitetura
@@ -680,7 +691,7 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 4. Acrescente o campo nos formulários:
    - `src/app/painel/[usuario]/FormEmpresa.tsx`;
    - `EdicaoEmpresa.tsx`, que passa os dados ao formulário;
-   - `src/app/indicar/FormIndicar.tsx`, se quem indica também puder preencher.
+   - `src/app/participar/CadastroPorEtapas.tsx`, na etapa certa, com a validação da etapa em `validar()`, a etapa em `ETAPA_DO_CAMPO` e o tamanho em `src/lib/rascunho-do-cadastro.ts`. Se quem indica não deve preencher, inclua o campo em `semContatosDeTerceiros` (`src/lib/indicacao.ts`).
 5. Se o campo deve entrar na busca, inclua em `textoDeBusca` (`src/lib/texto.ts`). Os negócios que já existem só são atualizados quando forem editados.
 6. Mostre o campo no perfil (`src/app/empresas/[usuario]/page.tsx`) e, se fizer sentido, na fila de indicações da moderação.
 7. Atualize os dados de exemplo em `prisma/seed.ts`.

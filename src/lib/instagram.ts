@@ -9,6 +9,7 @@
 // Documentação: https://developers.facebook.com/docs/instagram-platform
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { ehEnderecoSemInstagram } from "@/lib/endereco";
 
 const HOST_GRAPH = "https://graph.instagram.com";
 
@@ -33,6 +34,11 @@ export function normalizarUsername(entrada: unknown): string | null {
 
 export function linkPerfil(username: string): string {
   return `https://www.instagram.com/${username}/`;
+}
+
+/** Lê o endereço da URL: um @ do Instagram ou o endereço de um negócio sem Instagram (src/lib/endereco.ts). */
+export function normalizarEndereco(entrada: unknown): string | null {
+  return ehEnderecoSemInstagram(entrada) ? entrada : normalizarUsername(entrada);
 }
 
 /** @ que recebe as DMs com código. Sem ele, o código por DM fica desligado. */

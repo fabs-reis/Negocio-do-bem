@@ -34,7 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: urlAbsoluta("/explorar"), lastModified: ultimaMudanca },
     { url: urlAbsoluta("/cidades"), lastModified: ultimaMudanca },
     { url: urlAbsoluta("/sobre") },
-    { url: urlAbsoluta("/indicar") },
+    { url: urlAbsoluta("/participar") },
     ...[...mudancas].map(([caminho, quando]) => ({ url: urlAbsoluta(caminho), lastModified: quando })),
     ...negocios.map((negocio) => ({
       url: urlAbsoluta(`/empresas/${negocio.instagramUsername}`),

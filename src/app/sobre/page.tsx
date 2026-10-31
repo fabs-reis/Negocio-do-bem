@@ -52,7 +52,8 @@ export default function Sobre() {
         <p>
           Procure seu negócio no{" "}
           <Link href="/explorar">diretório</Link> e clique em <strong>&ldquo;Sou o dono&rdquo;</strong>. Se ele ainda não
-          estiver lá, <Link href="/indicar">cadastre</Link> marcando &ldquo;Este negócio é meu&rdquo;.
+          estiver lá, <Link href="/participar?dono=sim">cadastre</Link> pelo @ do Instagram e escolha &ldquo;Sou dono
+          deste negócio&rdquo;. Sem Instagram também dá.
         </p>
         <p>
           Depois, envie os dados do negócio: CNPJ ou MEI (se tiver), site e um contato. Se ninguém assumiu o perfil

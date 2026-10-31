@@ -7,6 +7,7 @@ import { SeloStatus } from "@/components/SeloStatus";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, MODERACAO_EMPRESA, STATUS_REIVINDICACAO } from "@/lib/dominio";
+import { rotuloDoInstagram } from "@/lib/endereco";
 import { formatarData } from "@/lib/texto";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 
@@ -70,7 +71,7 @@ async function Conteudo() {
         {empresas.length === 0 ? (
           <div className="cartao mt-4 p-6 text-suave">
             Você ainda não tem um negócio verificado.{" "}
-            <Link href="/indicar" className="link">
+            <Link href="/participar?dono=sim" className="link">
               Cadastrar meu negócio
             </Link>{" "}
             ou procure por ele no{" "}
@@ -87,7 +88,7 @@ async function Conteudo() {
                   <Monograma nome={empresa.nome} chave={empresa.instagramUsername} />
                   <div className="min-w-0">
                     <p className="truncate font-serif text-xl font-semibold">{empresa.nome}</p>
-                    <p className="text-sm text-suave">@{empresa.instagramUsername}</p>
+                    <p className="text-sm text-suave">{rotuloDoInstagram(empresa.instagramUsername)}</p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -138,7 +139,7 @@ async function Conteudo() {
         {indicacoes.length === 0 ? (
           <p className="mt-4 text-suave">
             Você ainda não indicou nenhum negócio.{" "}
-            <Link href="/indicar" className="link">
+            <Link href="/participar" className="link">
               Indicar agora
             </Link>
           </p>
@@ -147,7 +148,7 @@ async function Conteudo() {
             {indicacoes.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-3 p-4">
                 <Link href={`/empresas/${e.instagramUsername}`} className="min-w-0 truncate font-medium hover:text-coral-700">
-                  {e.nome} <span className="font-normal text-suave">@{e.instagramUsername}</span>
+                  {e.nome} <span className="font-normal text-suave">{rotuloDoInstagram(e.instagramUsername)}</span>
                 </Link>
                 <Etiqueta status={e.moderacao} texto={MODERACAO_EMPRESA[e.moderacao] ?? e.moderacao} />
               </li>

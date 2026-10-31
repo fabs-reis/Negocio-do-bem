@@ -10,7 +10,8 @@ import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, STATUS_REIVINDICACAO } from "@/lib/dominio";
-import { configLogin, configWebhook, normalizarUsername, perfilOficial } from "@/lib/instagram";
+import { temInstagram } from "@/lib/endereco";
+import { configLogin, configWebhook, normalizarEndereco, normalizarUsername, perfilOficial } from "@/lib/instagram";
 import { formatarDataHora } from "@/lib/texto";
 import { CopiarCodigo } from "./CopiarCodigo";
 import { FormDocumento, FormGerarCodigo } from "./Formularios";
@@ -32,7 +33,7 @@ async function Reivindicar({
   params,
   searchParams,
 }: Pick<PageProps<"/empresas/[usuario]/reivindicar">, "params" | "searchParams">) {
-  const username = normalizarUsername((await params).usuario);
+  const username = normalizarEndereco((await params).usuario);
   if (!username) notFound();
   const [empresa, usuario, busca] = await Promise.all([
     db.empresa.findUnique({ where: { instagramUsername: username }, include: { membros: true } }),
@@ -54,7 +55,7 @@ async function Reivindicar({
       </h1>
       <p className="text-lg leading-relaxed text-suave">
         Envie os dados do negócio para assumir o perfil de{" "}
-        <strong className="font-semibold text-tinta">@{username}</strong>. Depois disso, você conta a sua história,
+        <strong className="font-semibold text-tinta">{temInstagram(username) ? `@${username}` : empresa.nome}</strong>. Depois disso, você conta a sua história,
         escolhe as causas e responde à comunidade.
       </p>
       <AvisoDaUrl codigo={busca.aviso} />
@@ -120,9 +121,11 @@ async function Reivindicar({
   );
   const outrasPendentes = solicitacoes.filter((r) => r.status === "pendente" && r.id !== codigoVigente?.id);
   const dadosEmAnalise = outrasPendentes.some((r) => r.metodo === "documento");
-  const loginDisponivel = !!configLogin();
+  // Sem Instagram, o único caminho é enviar os dados do negócio.
+  const comInstagram = temInstagram(username);
+  const loginDisponivel = comInstagram && !!configLogin();
   const confirmacaoAutomatica = !!configWebhook();
-  const oficial = perfilOficial();
+  const oficial = comInstagram ? perfilOficial() : null;
   const outrosCaminhos = loginDisponivel || !!oficial;
 
   return (

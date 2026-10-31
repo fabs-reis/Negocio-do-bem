@@ -3,7 +3,7 @@ import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { campoEmail, campoSite, campoWhatsapp } from "@/lib/formulario";
-import { formatarWhatsapp, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
+import { formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
 
 describe("cnpjValido", () => {
   it("aceita CNPJ numérico válido, com ou sem pontuação", () => {
@@ -92,8 +92,8 @@ describe("campoWhatsapp", () => {
   });
 
   it("formata para exibir", () => {
-    expect(formatarWhatsapp("5511991488052")).toBe("(11) 99148-8052");
-    expect(formatarWhatsapp("552134567890")).toBe("(21) 3456-7890");
+    expect(formatarTelefone("5511991488052")).toBe("(11) 99148-8052");
+    expect(formatarTelefone("552134567890")).toBe("(21) 3456-7890");
   });
 });
 

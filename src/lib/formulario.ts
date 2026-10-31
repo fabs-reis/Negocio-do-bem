@@ -32,8 +32,8 @@ export const campoSite = z
     }
   });
 
-/** WhatsApp opcional: aceita "(11) 99148-8052" ou "+55 11 99148-8052" e guarda só os dígitos, com o 55. */
-export const campoWhatsapp = z
+/** Telefone opcional: aceita "(11) 99148-8052" ou "+55 11 99148-8052" e guarda só os dígitos, com o 55. */
+export const campoTelefone = z
   .string()
   .trim()
   .max(30)
@@ -48,6 +48,9 @@ export const campoWhatsapp = z
     }
     return digitos;
   });
+
+/** O WhatsApp segue a regra do telefone. */
+export const campoWhatsapp = campoTelefone;
 
 /** E-mail de contato opcional, em minúsculas, ou null se vazio. */
 export const campoEmail = z
