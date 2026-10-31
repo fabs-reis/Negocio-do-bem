@@ -12,6 +12,10 @@
   // (APP_URL, NEXT_PUBLIC_R2_PUBLIC_URL...). As fixas ficam aqui; os secrets
   // nunca são apagados pelo deploy.
   "keep_vars": true,
+  // O www é domínio personalizado do Worker (#177): o Cloudflare cuida do DNS e
+  // do certificado. O domínio sem www não passa pelo Worker: uma regra de
+  // redirecionamento da zona manda para o www.
+  "routes": [{ "pattern": "www.negociodobem.com", "custom_domain": true }],
   "vars": {
     "DEPLOY_ENV": "production",
     "CLOUDFLARE_DEPLOY": "1"
