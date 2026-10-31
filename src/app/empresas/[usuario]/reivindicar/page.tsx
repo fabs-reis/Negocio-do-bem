@@ -6,6 +6,7 @@ import { cancelarReivindicacao } from "@/acoes/reivindicacoes";
 import { Aviso } from "@/components/Aviso";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { InstagramIcone } from "@/components/Icones";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
@@ -285,15 +286,5 @@ function Passo({ numero, children }: { numero: number; children: React.ReactNode
       </span>
       <div className="pt-0.5 leading-relaxed">{children}</div>
     </li>
-  );
-}
-
-function InstagramIcone() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-    </svg>
   );
 }

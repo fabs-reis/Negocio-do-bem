@@ -9,6 +9,7 @@ import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { Historia } from "@/components/Historia";
 import { JsonLd } from "@/components/JsonLd";
 import { FotoEmpresa } from "@/components/FotoEmpresa";
+import { InstagramIcone, WhatsAppIcone } from "@/components/Icones";
 import { LinkInstagram } from "@/components/LinkInstagram";
 import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
@@ -16,7 +17,8 @@ import { buscarCausa, filtrarCausas } from "@/lib/causas";
 import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
 import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
-import { normalizarEndereco } from "@/lib/instagram";
+import { temInstagram } from "@/lib/endereco";
+import { linkPerfil, normalizarEndereco } from "@/lib/instagram";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
@@ -78,7 +80,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
                 {empresa.nome}
               </h1>
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-suave">
-                <LinkInstagram endereco={empresa.instagramUsername} />
+                <LinkInstagram endereco={empresa.instagramUsername} icone />
                 <span aria-hidden="true">·</span>
                 {publico && temPaginaDeTipo(empresa.categoria) ? (
                   <Link href={hrefTipo(empresa.categoria)} className="hover:text-tinta hover:underline">
@@ -167,8 +169,10 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   );
 }
 
+/** Os botões de contato. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site. */
 function Contatos({ empresa }: { empresa: Perfil }) {
-  if (!empresa.telefoneComercial && !empresa.whatsapp && !empresa.site && !empresa.emailContato) return null;
+  const instagram = temInstagram(empresa.instagramUsername);
+  if (!empresa.telefoneComercial && !empresa.whatsapp && !instagram && !empresa.site && !empresa.emailContato) return null;
   return (
     <div className="mt-6 flex flex-wrap gap-2">
       {empresa.telefoneComercial && (
@@ -178,7 +182,14 @@ function Contatos({ empresa }: { empresa: Perfil }) {
       )}
       {empresa.whatsapp && (
         <a href={`https://wa.me/${empresa.whatsapp}`} target="_blank" rel="noopener noreferrer" className="botao botao-pequeno">
+          <WhatsAppIcone />
           WhatsApp {formatarTelefone(empresa.whatsapp)}
+        </a>
+      )}
+      {instagram && (
+        <a href={linkPerfil(empresa.instagramUsername)} target="_blank" rel="noopener noreferrer" className="botao-claro botao-pequeno">
+          <InstagramIcone />
+          Instagram
         </a>
       )}
       {empresa.site && (
