@@ -80,7 +80,7 @@ export async function denunciarDepoimento(dados: FormData): Promise<void> {
   // A condição `denunciado: false` fica no próprio UPDATE: com dois envios ao
   // mesmo tempo, só o primeiro grava e só ele avisa a moderação.
   const { count } = await db.depoimento.updateMany({
-    where: { id: depoimento.id, denunciado: false },
+    where: { id: depoimento.id, denunciado: false, status: "publicado" },
     data: {
       denunciado: true,
       motivoDenuncia: texto(dados, "motivo").trim().slice(0, 300) || "Sem motivo informado",

@@ -102,6 +102,40 @@ describe("denunciarDepoimento", () => {
     expect(after).not.toHaveBeenCalled();
   });
 
+  it("não denuncia um depoimento removido", async () => {
+    const { primeiraPessoa, depoimento } = await criarCenario();
+    await db.depoimento.update({ where: { id: depoimento.id }, data: { status: "removido" } });
+    autenticar(primeiraPessoa);
+
+    await expect(denunciarDepoimento(dadosDaDenuncia(depoimento.id, "Motivo"))).rejects.toThrow("redirecionamento:");
+
+    expect(await db.depoimento.findUniqueOrThrow({ where: { id: depoimento.id } })).toMatchObject({
+      status: "removido",
+      denunciado: false,
+      motivoDenuncia: null,
+      denunciadoPorId: null,
+    });
+    expect(after).not.toHaveBeenCalled();
+  });
+
+  it("não denuncia um depoimento removido depois da leitura", async () => {
+    const { primeiraPessoa, depoimento } = await criarCenario();
+    vi.mocked(exigirUsuario).mockImplementationOnce(async () => {
+      await db.depoimento.update({ where: { id: depoimento.id }, data: { status: "removido" } });
+      return { ...primeiraPessoa, moderador: false, emailConfirmado: true };
+    });
+
+    await expect(denunciarDepoimento(dadosDaDenuncia(depoimento.id, "Motivo"))).rejects.toThrow("redirecionamento:");
+
+    expect(await db.depoimento.findUniqueOrThrow({ where: { id: depoimento.id } })).toMatchObject({
+      status: "removido",
+      denunciado: false,
+      motivoDenuncia: null,
+      denunciadoPorId: null,
+    });
+    expect(after).not.toHaveBeenCalled();
+  });
+
   it("não deixa uma leitura concorrente antiga substituir a primeira denúncia", async () => {
     const { primeiraPessoa, segundaPessoa, depoimento } = await criarCenario();
     // Este teste depende da ordem dentro da ação: ela lê o depoimento ANTES de chamar `exigirUsuario` e grava DEPOIS.
