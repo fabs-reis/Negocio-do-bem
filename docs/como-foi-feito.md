@@ -417,6 +417,14 @@ O cadastro passou a pedir o telefone, para os avisos sobre a conta e o negócio 
 - **Pelo Google, a conta só nasce com o telefone.** O Google não dá o telefone, e o código que ele manda vale uma vez só. Por isso o retorno guarda quem é a pessoa na tabela `CadastroGoogle`, por 30 minutos, com o token num cookie (só o hash no banco, como na sessão), e `/cadastrar/google` pede o telefone. Criar a conta antes e pedir o telefone depois deixaria contas sem telefone de quem fechasse a página no meio.
 - **Só para avisos, e o texto diz isso.** Usar o telefone para divulgação pediria um consentimento separado (LGPD), com uma caixa desmarcada. Fica para quando houver essa necessidade.
 
+### 31 de outubro: o código por DM sai ([#193](https://github.com/fabs-reis/Negocio-do-bem/issues/193))
+
+Dos dois caminhos pelo Instagram guardados em [#2](https://github.com/fabs-reis/Negocio-do-bem/pull/2), o dono do projeto decidiu não usar mais o código por DM. Pela mesma decisão, os PRs [#136](https://github.com/fabs-reis/Negocio-do-bem/pull/136) e [#137](https://github.com/fabs-reis/Negocio-do-bem/pull/137), que tentaram inverter o fluxo da DM, foram abandonados. Ficam o envio dos dados do negócio e o "Entrar com Instagram".
+
+- **Saiu:** a seção da DM na página de reivindicação, a geração do código, o webhook `/api/webhooks/instagram`, a busca por código na fila da moderação, `src/lib/codigo.ts` e as variáveis `INSTAGRAM_ACCESS_TOKEN` e `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`.
+- **O banco não mudou.** As colunas `codigo` e `instagramIgsid` ficam, sem migração. Os pedidos antigos aparecem como "Código por DM", e a moderação ainda decide os que estiverem pendentes.
+- **`INSTAGRAM_PERFIL_OFICIAL` continua,** agora só como o @ do projeto no Instagram, que vai nos dados estruturados da página inicial.
+
 ---
 
 ## 4. Arquitetura
@@ -463,7 +471,7 @@ Se uma página nova precisar de um script, imagem ou iframe de outro endereço, 
 flowchart LR
     N[Navegador] -->|abre páginas| P[Páginas<br>src/app]
     N -->|envia formulários| A[Server Actions<br>src/acoes]
-    N -->|login e webhook do Instagram| R[Rotas de API<br>src/app/api]
+    N -->|login do Instagram e do Google| R[Rotas de API<br>src/app/api]
     P --> L[Regras e consultas<br>src/lib]
     A --> L
     R --> L
@@ -516,7 +524,7 @@ Decisões do esquema:
   - uma conta do Google por conta do site (`googleId`);
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;
-  - um código de DM único.
+  - um código de DM único (só nos pedidos antigos).
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
   - **uma conta:** apaga as sessões, os vínculos de dono, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
   - **um negócio:** apaga as causas, os donos, os depoimentos e os pedidos ligados a ele.
@@ -600,8 +608,8 @@ npm run typecheck
 - **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob) e Instagram.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
-  - código por DM;
   - Entrar com Instagram;
+  - pedidos antigos por código de DM;
   - conflitos;
   - transferência;
   - dados do negócio;
@@ -658,9 +666,8 @@ npm run typecheck
 | `NEXT_PUBLIC_GA_ID` | Não | Google Analytics. Configure só em Production. |
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
-| `INSTAGRAM_PERFIL_OFICIAL` | Não | Liga o código por DM. |
+| `INSTAGRAM_PERFIL_OFICIAL` | Não | O @ do projeto no Instagram, que vai nos dados estruturados da página inicial. |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_GRAPH_VERSION` | Não | Ligam o "Entrar com Instagram". |
-| `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | Não | Ligam a confirmação automática da DM. |
 | `RESEND_API_KEY`, `EMAIL_REMETENTE` | Não | Ligam os avisos por e-mail. Configure só em Production. |
 | `EMAIL_RESPOSTA` | Não | Para onde vão as respostas aos avisos. Vazia, elas vão para o remetente. |
 
@@ -781,7 +788,7 @@ Siga a seção "Ativando a rotina de fotos do Instagram" do [README](../README.m
 
 ### Ligar a verificação pelo Instagram
 
-Siga as seções "Ativando…" do [README](../README.md#ativando-o-código-por-dm-opcional). Depois de ligar, atualize "Como funciona" (`src/app/sobre/page.tsx`), que hoje só descreve o envio de dados do negócio.
+Siga a seção "Ativando o 'Entrar com Instagram'" do [README](../README.md#ativando-o-entrar-com-instagram-opcional). Depois de ligar, atualize "Como funciona" (`src/app/sobre/page.tsx`), que hoje só descreve o envio de dados do negócio.
 
 ### Publicar em produção
 

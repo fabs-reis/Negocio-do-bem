@@ -8,9 +8,8 @@ import { AVISOS } from "@/lib/avisos";
 import { cnpjValido, limparCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
 import { campoSite, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
-import { perfilOficial } from "@/lib/instagram";
 import { avisarNovaReivindicacao } from "@/lib/notificacoes";
-import { cancelar, ErroReivindicacao, iniciarPorCodigoDm, solicitarPorDocumento } from "@/lib/reivindicacao";
+import { cancelar, ErroReivindicacao, solicitarPorDocumento } from "@/lib/reivindicacao";
 
 async function carregar(dados: FormData) {
   const empresa = await db.empresa.findUnique({ where: { id: texto(dados, "empresaId") } });
@@ -18,19 +17,6 @@ async function carregar(dados: FormData) {
   const caminho = `/empresas/${empresa.instagramUsername}/reivindicar`;
   const usuario = await exigirUsuario(caminho);
   return { empresa, usuario, caminho };
-}
-
-export async function gerarCodigoDm(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
-  const { empresa, usuario, caminho } = await carregar(dados);
-  if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto };
-  if (!perfilOficial()) return { erro: "A verificação por DM está desligada. Envie os dados do negócio abaixo." };
-  try {
-    await iniciarPorCodigoDm(empresa.id, usuario.id);
-  } catch (erro) {
-    if (erro instanceof ErroReivindicacao) return { erro: erro.message };
-    throw erro;
-  }
-  redirect(`${caminho}?aviso=codigo_gerado#codigo`);
 }
 
 const esquemaDocumento = z.object({

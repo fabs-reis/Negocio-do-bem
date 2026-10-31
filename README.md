@@ -82,28 +82,18 @@ Tudo começa no botão "Sou o dono" do perfil (`/empresas/<@>/reivindicar`). Por
 - **Instagram**: é o @ do próprio perfil, que a moderação abre para comparar com o CNPJ e o site.
 - **Relação com o negócio** e **contato** (obrigatórios), para a moderação tirar dúvidas.
 
-Duas formas automáticas de verificação já estão no código, mas ficam **desligadas** até você preencher as variáveis no `.env`:
+O **Entrar com Instagram** já está no código, mas fica **desligado** até você preencher `INSTAGRAM_APP_ID` e `INSTAGRAM_APP_SECRET` no `.env`. Ligado, ele aprova na hora quando o @ conectado é o do negócio (só contas comerciais ou de criador), e o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Se ligar, atualize também o texto de `src/app/sobre/page.tsx`, que hoje só descreve o envio de dados.
 
-| Caminho | Liga quando | Como é aprovado |
-| --- | --- | --- |
-| **Entrar com Instagram** | `INSTAGRAM_APP_ID` e `INSTAGRAM_APP_SECRET` preenchidos | Na hora, se o @ conectado for o do negócio (só contas comerciais ou de criador) |
-| **Código por DM** | `INSTAGRAM_PERFIL_OFICIAL` preenchido | Pela moderação, ou sozinho se o webhook estiver configurado |
-
-Com algum deles ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Se ligar um deles, atualize também o texto de `src/app/sobre/page.tsx`, que hoje só descreve o envio de dados.
+O código por DM, um terceiro caminho, saiu do site ([#193](https://github.com/fabs-reis/Negocio-do-bem/issues/193)). Os pedidos antigos por ele continuam no banco e aparecem como "Código por DM".
 
 Regras que protegem os negócios (em `src/lib/reivindicacao.ts`):
 
-- Nos caminhos pelo Instagram, o perfil fica ligado ao **ID da conta**, não só ao @. Se um @ mudar de dono, a verificação nova vai para análise em vez de ser aprovada sozinha.
+- No Entrar com Instagram, o perfil fica ligado ao **ID da conta**, não só ao @. Se um @ mudar de dono, a verificação nova vai para análise em vez de ser aprovada sozinha.
 - **Não existe aprovação automática quando há conflito**: o negócio já tem dono, o ID da conta é diferente do registrado ou a conta já está ligada a outro perfil. Nesses casos a moderação decide se adiciona a pessoa como co-dona ou transfere o perfil.
-- Quando ligado, o código da DM vale 48 horas, fica preso à conta de quem o gerou e só é aceito se vier do @ do negócio. A tela avisa para nunca enviar um código passado por outra pessoa.
 - Cada pessoa pode fazer no máximo 10 solicitações e 10 indicações por dia.
 - Toda aprovação, recusa, edição e decisão de moderação fica registrada na auditoria (`/moderacao?aba=auditoria`).
 - Donos respondem depoimentos, mas não apagam. Uma denúncia não esconde o depoimento: só a moderação remove.
 - O dono pode **ocultar** o negócio do diretório a qualquer momento, por exemplo se foi indicado e não quer aparecer.
-
-### Ativando o código por DM (opcional)
-
-Preencha `INSTAGRAM_PERFIL_OFICIAL` com o @ do perfil oficial do Negócio do Bem, que recebe as DMs. A moderação confere cada DM e localiza o pedido pelo código na aba de reivindicações. Para a confirmação ser automática, veja a seção do webhook abaixo.
 
 ### Ativando o "Entrar com Instagram" (opcional)
 
@@ -115,14 +105,6 @@ Preencha `INSTAGRAM_PERFIL_OFICIAL` com o @ do perfil oficial do Negócio do Bem
 4. Enquanto o app estiver em desenvolvimento, só as contas cadastradas como testadoras conseguem entrar. Para liberar para todo mundo, peça a revisão do app (acesso avançado à permissão `instagram_business_basic`) e faça a verificação do negócio na Meta.
 
 O site pede só `instagram_business_basic`, lê apenas o `user_id` e o `username` e **não guarda o token**.
-
-### Ativando a confirmação automática da DM (opcional)
-
-1. Conecte o perfil oficial (`INSTAGRAM_PERFIL_OFICIAL`) ao app e gere um token dele com `instagram_business_basic` e `instagram_business_manage_messages`. Coloque o token em `INSTAGRAM_ACCESS_TOKEN`.
-2. Cadastre o webhook com a URL `https://SEU-DOMINIO/api/webhooks/instagram` e o mesmo texto de `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`. Depois assine o campo `messages`.
-3. Tokens de longa duração do Instagram vencem e precisam ser renovados periodicamente. Se o token vencer, nada quebra: as DMs passam a cair na fila da moderação com uma anotação.
-
-O webhook confere a assinatura `X-Hub-Signature-256` de cada chamada, descobre o @ de quem mandou a DM e só aprova sozinho quando o @ bate e não há conflito.
 
 ## Ativando a rotina de fotos do Instagram (opcional)
 
@@ -217,7 +199,7 @@ docs/                regras de negócio, como o projeto foi feito e prints
 prisma/              esquema, migrações e dados de exemplo
 src/acoes/           Server Actions (formulários), sempre conferindo permissão no servidor
 scripts/             build do Cloudflare, ícones da marca e a rotina de fotos do Instagram (roda no seu computador)
-src/app/             páginas e rotas (api/link, api/instagram, api/webhooks/instagram e api/fotos-instagram)
+src/app/             páginas e rotas (api/link, api/instagram e api/fotos-instagram)
 src/components/      componentes de interface
 src/lib/             regras de negócio: reivindicacao.ts, instagram.ts, auth/, causas.ts, cnpj.ts…
 tests/               testes (unit/ sem banco, db/ com banco)
@@ -227,7 +209,6 @@ tests/               testes (unit/ sem banco, db/ com banco)
 
 - Uma verificação de verdade para o dono: hoje quem pede um negócio sem dono vira dono na hora, sem conferência. Um caminho é comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
 - Trocar a senha pelo painel, para completar a recuperação de senha: o "Entrar por link" já devolve o acesso a quem esqueceu.
-- Renovação automática do token do Instagram usado pelo webhook.
 
 ## Como contribuir
 

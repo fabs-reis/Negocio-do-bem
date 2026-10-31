@@ -228,7 +228,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 **Sistema:**
 
 - **Ambiente:** o nome (`production`, `preview` ou `development`), o endereço público e se os buscadores podem indexar; quando informados pelo host, também o branch e o commit.
-- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, código por DM, Entrar com o Google, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
+- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, Instagram do projeto, Entrar com o Google, Entrar com Instagram, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
 - **Banco:** quantas linhas cada tabela tem e as migrações aplicadas, da mais nova para a mais antiga. Uma migração que começou e não terminou aparece em destaque, porque trava o próximo deploy.
 
 ---
@@ -248,7 +248,9 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
   - não pode começar nem terminar com `.`, nem ter `..`;
   - recusa caminhos do Instagram que não são perfis (`p`, `reel`, `reels`, `explore`, `stories`, `accounts`, `direct`, `tv`).
 - **Ninguém muda o @ depois** (nem o dono, nem a moderação). Não existe tela para isso.
-- Além do @, o negócio pode guardar dois IDs fixos do Instagram (`instagramUserId` e `instagramIgsid`). Eles só são preenchidos pelos caminhos de verificação pelo Instagram, hoje desligados (ver [seção 6](#caminhos-pelo-instagram-desligados-por-padrão)).
+- Além do @, o negócio pode guardar dois IDs fixos do Instagram:
+  - `instagramUserId`, preenchido pelo Entrar com Instagram, hoje desligado (ver [seção 6](#entrar-com-instagram-desligado-por-padrão));
+  - `instagramIgsid`, que só vem de pedidos antigos por código de DM (ver [seção 6](#pedidos-antigos-por-código-de-dm)).
 
 ### Dados do negócio
 
@@ -443,6 +445,7 @@ Cada pedido mostra:
   - relação, contato, CNPJ formatado e site;
   - a mensagem;
   - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI na hora. A consulta manda um User-Agent próprio, porque sem ele a BrasilAPI responde 403. Ela é só um apoio: se falhar, aparece "Não foi possível consultar a Receita agora" e a análise segue;
+- num pedido antigo por código de DM, o código e o lembrete de conferir se a DM veio do @ do negócio;
 - as anotações automáticas do sistema, quando houver;
 - os donos atuais (nome e e-mail), quando houver.
 
@@ -480,25 +483,22 @@ stateDiagram-v2
     pendente --> recusada: moderação recusa
     pendente --> cancelada: a pessoa cancela
     pendente --> cancelada: outro pedido dela foi aprovado
-    pendente --> expirada: código por DM venceu e foi trocado
+    pendente --> expirada: código por DM venceu e foi trocado (só pedidos antigos)
 ```
 
 | Status | Rótulo na tela | Quando |
 | --- | --- | --- |
 | `pendente` | Em análise | Pedido criado e ainda não decidido. |
-| `aprovada` | Aprovada | Pela moderação. Ou sozinho: no pedido por dados do negócio, quando o negócio não tem dono e está no ar; nos caminhos pelo Instagram, quando não há conflito. |
+| `aprovada` | Aprovada | Pela moderação. Ou sozinho: no pedido por dados do negócio, quando o negócio não tem dono e está no ar; no Entrar com Instagram, quando não há conflito. |
 | `recusada` | Recusada | Pela moderação, com motivo. |
 | `cancelada` | Cancelada | A pessoa cancelou, outro pedido dela para o mesmo negócio foi aprovado, ou ela refez o "Entrar com Instagram". |
-| `expirada` | Expirada | Só no código por DM: quando a pessoa gera um código novo depois que o anterior venceu. |
+| `expirada` | Expirada | Só em pedidos antigos por código de DM: quando a pessoa gerava um código novo depois que o anterior venceu. |
 
-### Caminhos pelo Instagram (desligados por padrão)
+### Entrar com Instagram (desligado por padrão)
 
-Os dois caminhos abaixo estão prontos no código e testados, mas ficam **desligados** enquanto as variáveis de ambiente estiverem vazias. Quando algum está ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Como ligar está no [README](../README.md#ativando-o-código-por-dm-opcional).
+Este caminho está pronto no código e testado, mas fica **desligado** enquanto `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` estiverem vazias. Quando ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Como ligar está no [README](../README.md#ativando-o-entrar-com-instagram-opcional).
 
-| Caminho | Liga quando | Aprovação |
-| --- | --- | --- |
-| **Entrar com Instagram** (`instagram_login`) | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` preenchidos | Na hora, se a conta conectada é a do negócio e não há conflito |
-| **Código por DM** (`codigo_dm`) | `INSTAGRAM_PERFIL_OFICIAL` preenchido | Pela moderação, ou sozinho se o webhook estiver configurado e não houver conflito |
+Ele aprova na hora quando a conta conectada é a do negócio e não há conflito.
 
 **A regra de ouro: não existe aprovação automática quando há conflito.** Em `conflitosDeVerificacao`, um conflito é qualquer uma destas situações:
 
@@ -509,8 +509,6 @@ Os dois caminhos abaixo estão prontos no código e testados, mas ficam **deslig
 Com conflito, o pedido fica pendente com uma anotação explicando o que aconteceu, e a moderação decide.
 
 O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque um @ pode ser abandonado e registrado por outra pessoa.
-
-**Entrar com Instagram:**
 
 - **Pedido de login:**
   - pede só a permissão `instagram_business_basic`, que dá o ID e o @ da conta, e nada de publicar ou ler mensagens;
@@ -523,23 +521,14 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
   - a pessoa já é dona: tudo certo;
   - caso contrário: aplica o limite diário, cancela tentativas anteriores pelo mesmo caminho, cria o pedido e aprova na hora se não houver conflito.
 
-**Código por DM:**
+### Pedidos antigos por código de DM
 
-- **O código:**
-  - tem o formato `BEM-XXXXXX`, com 6 caracteres de um alfabeto sem os parecidos (`0/O`, `1/I/L`);
-  - vale **48 horas**;
-  - enquanto vale, a mesma pessoa recebe o mesmo código para o mesmo negócio;
-  - vencido, ele vira `expirada` e outro é gerado.
-- **Quem vira dono é quem gerou o código.** A tela avisa: "Nunca envie um código que outra pessoa te passou".
-- **A DM precisa vir do @ do negócio** e ir para o perfil oficial.
-  - O sistema reconhece o código mesmo escrito como `bem 7k3f9q` ou `BEM7K3F9Q`.
-- **Sem webhook:** a moderação confere a DM. Na fila, há uma busca pelo código.
-- **Com webhook:**
-  - o sistema confere a assinatura `X-Hub-Signature-256` de cada chamada da Meta e descobre o @ de quem mandou;
-  - aprova sozinho só se o @ bater e não houver conflito;
-  - código vencido, @ diferente ou @ que não deu para descobrir viram anotações para a moderação;
-  - se der erro, a rota responde 500 e a Meta tenta de novo;
-  - aprovações automáticas aparecem na auditoria como "sistema".
+Até a [issue #193](https://github.com/fabs-reis/Negocio-do-bem/issues/193), havia um terceiro caminho, o **código por DM** (`codigo_dm`): a pessoa gerava um código `BEM-XXXXXX` e o mandava por DM, a partir do @ do negócio, para o perfil oficial do projeto. Ele saiu do site. A página de reivindicação não oferece mais o código, a rota do webhook da Meta (`/api/webhooks/instagram`) não existe mais e a fila da moderação não tem mais a busca por código.
+
+- **Nenhum pedido novo** é criado por esse caminho.
+- **Os pedidos antigos continuam no banco,** com o código e, quando houver, o IGSID de quem mandou a DM. As colunas `codigo` e `instagramIgsid` não saíram.
+- **Eles aparecem como "Código por DM"** na página de reivindicação, no painel da pessoa e na moderação.
+- **Um pedido antigo pendente** pode ser cancelado pela pessoa ou decidido pela moderação, que vê o código e o @ de onde a DM deveria ter vindo. Ao aprovar, o IGSID guardado é ligado ao negócio, como antes.
 
 ---
 
@@ -874,7 +863,7 @@ A cidade vem da lista de municípios do IBGE, gravada no projeto em `src/lib/mun
 
 Código: `src/lib/auditoria.ts`.
 
-Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quando. "Sistema" aparece quando a ação foi automática, por exemplo uma aprovação pelo webhook.
+Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quando. "Sistema" aparece quando a ação foi automática, por exemplo a aprovação na hora de um pedido pelos dados do negócio.
 
 A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 por página:
 
@@ -930,9 +919,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 - **O e-mail sai depois da resposta,** pelo `after()` do Next. A pessoa não espera o envio, e uma falha fica só no log, sem desfazer a ação.
 - **Remetente e resposta:** o e-mail sai de `EMAIL_REMETENTE`, um endereço de domínio verificado no Resend, e as respostas vão para `EMAIL_RESPOSTA`.
 - **Ligado só com `RESEND_API_KEY` e `EMAIL_REMETENTE`.** Sem elas, ninguém recebe e-mail, e o resto funciona igual. Nos previews do Cloudflare o envio fica desligado mesmo com as variáveis, porque o banco dos previews só tem contas de teste. A aba "Sistema" da moderação mostra se o envio está ligado.
-- **Fica de fora:**
-  - o código por DM, desligado por padrão, não avisa a moderação;
-  - quem indica um negócio, tem o negócio tirado do ar ou deixa de ser dono numa transferência não recebe e-mail.
+- **Fica de fora:** quem indica um negócio, tem o negócio tirado do ar ou deixa de ser dono numa transferência não recebe e-mail.
 
 ---
 
@@ -1001,8 +988,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Tentativas de senha por e-mail, em cada origem (IP ou /64) | 5 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |
 | Pedidos de reivindicação por conta | 10 a cada 24 horas | `src/lib/reivindicacao.ts` |
-| Validade do código por DM | 48 horas | `src/lib/reivindicacao.ts` |
-| Validade dos outros pedidos | 30 dias (informativa) | `src/lib/reivindicacao.ts` |
+| Validade dos pedidos | 30 dias (informativa) | `src/lib/reivindicacao.ts` |
 | Nome do negócio | 2 a 80 caracteres | `src/acoes/empresas.ts` |
 | Resumo | 10 a 160 caracteres | `src/acoes/empresas.ts` |
 | Sugestões do campo de cidade | até 8, a partir de 2 letras | `src/lib/municipios.ts` |

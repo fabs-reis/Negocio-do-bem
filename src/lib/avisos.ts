@@ -15,10 +15,6 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     tipo: "info",
     texto: "Recebemos sua solicitação. A moderação vai analisar e o resultado aparece no seu painel.",
   },
-  codigo_gerado: {
-    tipo: "info",
-    texto: "Seu código está pronto. Agora é só mandar a DM seguindo os passos abaixo.",
-  },
   documento_enviado: {
     tipo: "info",
     texto: "Recebemos seus dados. Como este perfil já tem dono, a moderação decide e pode falar com você pelo contato informado.",
@@ -34,7 +30,7 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   },
   ig_indisponivel: {
     tipo: "erro",
-    texto: "O login com Instagram ainda não está disponível. Use o código por DM.",
+    texto: "O login com Instagram ainda não está disponível. Envie os dados do negócio.",
   },
   google_cancelado: { tipo: "erro", texto: "O login com o Google foi cancelado." },
   google_erro: {

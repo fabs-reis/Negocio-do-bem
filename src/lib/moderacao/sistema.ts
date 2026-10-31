@@ -5,7 +5,7 @@ import { configGoogle } from "@/lib/auth/google";
 import { db } from "@/lib/db";
 import { envioLigado } from "@/lib/email";
 import { tokenDasFotos } from "@/lib/fotos-instagram";
-import { configLogin, configWebhook, perfilOficial } from "@/lib/instagram";
+import { configLogin, perfilOficial } from "@/lib/instagram";
 import { ENDERECO_DO_SITE, INDEXAVEL } from "@/lib/seo";
 
 // A aba "Sistema" do painel da moderação. Diz só se cada integração está ligada:
@@ -22,10 +22,10 @@ export function integracoes(): Integracao[] {
       desligadaTexto: "As fotos ficam em public/enviados, o que só serve no computador de quem desenvolve.",
     },
     {
-      nome: "Código por DM",
+      nome: "Instagram do projeto",
       ligada: perfilOficial() !== null,
-      ligadaTexto: `Quem reivindica pode mandar um código por DM para @${perfilOficial()}.`,
-      desligadaTexto: "Sem INSTAGRAM_PERFIL_OFICIAL, a reivindicação é só pelos dados do negócio.",
+      ligadaTexto: `Os dados estruturados do site apontam para @${perfilOficial()}.`,
+      desligadaTexto: "Sem INSTAGRAM_PERFIL_OFICIAL, o site não indica o Instagram do projeto.",
     },
     {
       nome: "Entrar com o Google",
@@ -38,12 +38,6 @@ export function integracoes(): Integracao[] {
       ligada: configLogin() !== null,
       ligadaTexto: "O dono pode provar que controla o @ entrando com o Instagram.",
       desligadaTexto: "Faltam INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET ou APP_URL.",
-    },
-    {
-      nome: "Confirmação automática da DM",
-      ligada: configWebhook() !== null,
-      ligadaTexto: "O webhook da Meta aprova sozinho o pedido quando a DM chega da conta certa.",
-      desligadaTexto: "Faltam INSTAGRAM_APP_SECRET, INSTAGRAM_ACCESS_TOKEN ou INSTAGRAM_WEBHOOK_VERIFY_TOKEN.",
     },
     {
       nome: "Rotina de fotos do Instagram",

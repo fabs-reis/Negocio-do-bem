@@ -102,7 +102,8 @@ model Empresa {
   instagramUsername String   @unique
   // ID fixo da conta profissional, obtido no "Entrar com Instagram".
   instagramUserId   String?  @unique
-  // ID da conta no escopo do nosso perfil (IGSID), obtido quando o dono manda DM.
+  // ID da conta no escopo do nosso perfil (IGSID). Só vem de pedidos antigos por
+  // código de DM, caminho que não é mais oferecido.
   instagramIgsid    String?  @unique
   nome              String
   resumo            String
@@ -168,9 +169,9 @@ model Reivindicacao {
   empresa         Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   usuarioId       String
   usuario         Usuario   @relation("Solicitante", fields: [usuarioId], references: [id], onDelete: Cascade)
-  // "instagram_login" | "codigo_dm" | "documento"
+  // "instagram_login" | "documento" | "codigo_dm" (este só em pedidos antigos)
   metodo          String
-  // Código que o dono envia por DM (só no método "codigo_dm").
+  // Código que o dono enviava por DM (só nos pedidos antigos com "codigo_dm").
   codigo          String?   @unique
   // "pendente" | "aprovada" | "recusada" | "expirada" | "cancelada"
   status          String    @default("pendente")
@@ -180,7 +181,7 @@ model Reivindicacao {
   relacao         String?
   contato         String?
   mensagem        String?
-  // Anotações do sistema para a moderação (ex.: "DM recebida de @outra_conta").
+  // Anotações do sistema para a moderação (ex.: "Login confirmado como @conta").
   notas           String    @default("")
   // Motivo informado pela moderação ao recusar.
   motivoRecusa    String?
@@ -223,7 +224,7 @@ model Depoimento {
 
 model RegistroAuditoria {
   id        String   @id @default(cuid())
-  // null quando a ação foi automática (ex.: webhook do Instagram)
+  // null quando a ação foi automática (ex.: aprovação na hora pelos dados do negócio)
   usuarioId String?
   usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
   acao      String
