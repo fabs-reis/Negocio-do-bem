@@ -330,7 +330,7 @@ function Vazio({ filtros, resultado }: { filtros: FiltrosDiretorio; resultado: R
         <Link href="/explorar" className="botao-claro">
           Limpar a busca
         </Link>
-        <Link href="/indicar" className="botao-coral">
+        <Link href="/participar" className="botao-coral">
           Indicar um negócio
         </Link>
       </div>
