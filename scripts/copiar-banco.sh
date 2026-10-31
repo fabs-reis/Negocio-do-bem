@@ -4,7 +4,9 @@
 # Lê ORIGEM_URL (o Neon) e DESTINO_URL (o PlanetScale) do ambiente ou do arquivo
 # .env.migracao, fora do Git, com os valores entre aspas. Use as conexões
 # diretas: no Neon, a DATABASE_URL_UNPOOLED (sem "-pooler" no host); no
-# PlanetScale, a da porta 5432.
+# PlanetScale, a da porta 5432. O pg_dump precisa ser da versão do Postgres da
+# origem ou mais novo: o Neon e o PlanetScale estão no 18, e o libpq do Homebrew
+# traz os programas do 18 (PATH="$(brew --prefix libpq)/bin:$PATH").
 #
 #   npm run banco:copiar                    copia e confere as contagens
 #   npm run banco:copiar -- --conferir      só confere as contagens
@@ -28,7 +30,7 @@ fi
 
 for programa in pg_dump pg_restore psql; do
   if ! command -v "$programa" > /dev/null; then
-    echo "Falta o $programa. No Mac: brew install postgresql@17 (ou a versão do servidor)." >&2
+    echo "Falta o $programa. No Mac: brew install libpq e PATH=\"\$(brew --prefix libpq)/bin:\$PATH\"." >&2
     exit 1
   fi
 done
