@@ -634,12 +634,13 @@ Para todo o resto, a página responde 404. Quem pode ver encontra um aviso no to
 
 ### Buscadores e prévia do link
 
-Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts` e `src/app/empresas/[usuario]/opengraph-image.tsx`.
+Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/opengraph-image.tsx`, `src/app/empresas/[usuario]/opengraph-image.tsx` e `src/app/cidades/[cidade]/opengraph-image.tsx`.
 
 - **Só perfis do diretório vão para os buscadores.** O sitemap lista os negócios aprovados e não ocultos, lido do banco a cada pedido: um negócio aprovado entra na hora, e um oculto sai na hora. Ele também lista as páginas de cidade, causa e tipo que têm negócios (ver [seção 11](#páginas-de-cidade-causa-e-tipo)).
 - **Título do perfil na busca:** "Nome — Categoria em Cidade, UF". Na categoria "Outros", só "Nome em Cidade, UF". A descrição é o resumo.
 - **Dados estruturados:** o perfil público leva a ficha do negócio (`LocalBusiness`) com nome, resumo, foto, cidade, UF, WhatsApp, e-mail, Instagram, site, categoria e causas. São os mesmos dados que a página já mostra. O caminho até o perfil passa pela página da cidade: "Início › Recife, PE › Padaria Florescer".
 - **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Verificado pelo dono". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
+- **Prévia das outras páginas:** a página de cada cidade tem a sua (ver [seção 11](#páginas-de-cidade-causa-e-tipo)). As outras páginas públicas (início, `/sobre`, `/explorar`, `/cidades`, `/participar`, causas e tipos) levam a imagem geral do site, com o logo e o lema.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
 - **Fora da busca:** login, cadastro, painel, reivindicação e moderação levam `noindex`. `/painel`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
 - **Previews** (`DEPLOY_ENV=preview`) bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
@@ -830,7 +831,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 ### Páginas de cidade, causa e tipo
 
-Código: `src/app/cidades/`, `src/app/causas/[causa]/`, `src/app/tipos/[tipo]/`, o componente `src/components/Vitrine.tsx`, os endereços em `src/lib/diretorio.ts` e as consultas `cidadeDoSlug` e `cidadesCom` em `src/lib/consultas.ts`.
+Código: `src/app/cidades/`, `src/app/causas/[causa]/`, `src/app/tipos/[tipo]/`, os componentes `src/components/Vitrine.tsx` e `src/components/CapaDaCidade.tsx`, os endereços em `src/lib/diretorio.ts`, as consultas `cidadeDoSlug` e `cidadesCom` em `src/lib/consultas.ts` e as fotos em `src/lib/fotos-das-cidades.ts`.
 
 São as páginas que respondem às buscas mais comuns, como "negócios do bem em Salvador" ou "negócios liderados por mulheres".
 
@@ -847,6 +848,13 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
   - na causa: as cidades e os tipos que têm a causa, que abrem o diretório com os dois filtros, e as outras causas do mesmo grupo;
   - no tipo: as cidades e as causas desse tipo, que abrem o diretório com os dois filtros, e os outros tipos.
 - **A cidade vai pelo nome oficial do IBGE,** como no "Onde?". O endereço não tem acento nem maiúscula, e a UF vai no final. Grafias diferentes da mesma cidade ("Sao Paulo", "São Paulo", "Tubarão-SC") levam à mesma página, inclusive pelos links do perfil e do sitemap. Nas listas de cidades de uma causa ou de um tipo, elas contam juntas. Uma cidade fora da lista do IBGE fica com a grafia mais usada.
+- **Foto da cidade:** as cidades de `src/lib/fotos-das-cidades.json` mostram uma foto de cartão-postal do Wikimedia Commons ao lado do título (em cima dele, no celular). A lista começou com as capitais, os 100 municípios mais populosos do Censo 2022 e as cidades com 3 ou mais negócios no diretório.
+  - **Crédito:** embaixo da foto vão o autor, a licença (com link para ela) e o link para a página da foto no Commons.
+  - **Só fotos que pedem apenas o crédito:** domínio público, CC0, CC BY e CC BY-SA. O `npm run cidades:fotos` e os testes recusam as outras.
+  - **A foto não cria página:** uma cidade da lista sem negócios no diretório continua sem página. Quando entra o primeiro negócio, a página já aparece com a foto.
+  - **Cidade fora da lista:** a página fica como era, sem foto.
+- **Prévia do link da cidade:** a foto, "Negócios do bem em Salvador, BA" e quantos negócios há no diretório. Sem foto, o mesmo texto no creme da marca.
+- **Foto para os buscadores:** a foto vai no sitemap e nos dados estruturados como imagem principal da página (`primaryImageOfPage`), com o autor e a licença, que o Google Imagens mostra.
 - **Cidade sem negócios no diretório** mostra "Não encontramos esta página", com `noindex`. Isso inclui cidades que só têm negócios pendentes, rejeitados ou ocultos. Endereço de causa ou tipo que não existe, e o `/tipos/outros`, também.
   - Como no perfil, o status HTTP é 200: o Next já mandou o começo da página quando descobre que ela não existe. Para os buscadores, o `noindex` basta.
 - **Causa ou tipo sem negócios:** a página existe, com um convite para indicar, mas leva `noindex` e fica fora do sitemap.

@@ -16,7 +16,8 @@ import { DESCRICAO_DO_SITE, ENDERECO_DO_SITE, NOME_DO_SITE, TITULO_DO_SITE } fro
 import { SCRIPT_TEMA } from "@/lib/tema";
 
 // A imagem de compartilhamento vem de opengraph-image.tsx (o perfil de cada
-// negócio tem a sua), e os ícones de icon.svg, favicon.ico e apple-icon.png.
+// negócio e cada cidade têm a sua; ver metadadosDaPagina, em src/lib/seo.ts),
+// e os ícones de icon.svg, favicon.ico e apple-icon.png.
 export const metadata: Metadata = {
   metadataBase: new URL(ENDERECO_DO_SITE),
   title: {

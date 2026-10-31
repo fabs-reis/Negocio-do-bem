@@ -7,6 +7,7 @@ import { hrefCidade } from "@/lib/diretorio";
 import { REPOSITORIO } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { ehFotoDoSite } from "@/lib/fotos";
+import type { FotoDaCidade } from "@/lib/fotos-das-cidades";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
 import { nomeOficial } from "@/lib/municipios";
 
@@ -37,12 +38,32 @@ export function urlAbsoluta(caminho: string): string {
 /** Para páginas como login e painel, que não devem aparecer na busca. */
 export const FORA_DA_BUSCA = { index: false, follow: true } as const;
 
+/** Texto alternativo da imagem geral de compartilhamento (src/app/opengraph-image.tsx). */
+export const ALT_DA_IMAGEM_DO_SITE = "Negócio do Bem: compre de quem faz o bem";
+
+const IMAGEM_DO_SITE = { url: "/opengraph-image", width: 1200, height: 630, type: "image/png", alt: ALT_DA_IMAGEM_DO_SITE };
+
 /**
  * Título, descrição, endereço canônico e prévia de compartilhamento de uma página
  * pública. O openGraph de uma página substitui o do layout inteiro, por isso o
- * nome do site e o idioma vêm de novo aqui. A imagem vem do opengraph-image.tsx.
+ * nome do site e o idioma vêm de novo aqui.
+ *
+ * A imagem também se perde com o openGraph do layout, então vai a geral do site.
+ * `imagemPropria` é para a página cuja pasta tem o seu opengraph-image.tsx (a
+ * inicial, o perfil e a cidade): o Next só usa a imagem do arquivo quando o
+ * openGraph da página não traz imagem.
  */
-export function metadadosDaPagina({ titulo, descricao, caminho }: { titulo?: string; descricao: string; caminho: string }): Metadata {
+export function metadadosDaPagina({
+  titulo,
+  descricao,
+  caminho,
+  imagemPropria = false,
+}: {
+  titulo?: string;
+  descricao: string;
+  caminho: string;
+  imagemPropria?: boolean;
+}): Metadata {
   return {
     ...(titulo ? { title: titulo } : {}),
     description: descricao,
@@ -54,6 +75,7 @@ export function metadadosDaPagina({ titulo, descricao, caminho }: { titulo?: str
       title: titulo ?? TITULO_DO_SITE,
       description: descricao,
       url: caminho,
+      ...(imagemPropria ? {} : { images: [IMAGEM_DO_SITE] }),
     },
   };
 }
@@ -159,10 +181,24 @@ function jsonLdDoCaminho(migalhas: Migalha[]) {
   };
 }
 
+/** A foto de uma página com autor e licença, que o Google Imagens mostra junto da foto. */
+function jsonLdDaFoto(foto: FotoDaCidade) {
+  return {
+    "@type": "ImageObject",
+    contentUrl: urlAbsoluta(foto.src),
+    width: foto.largura,
+    height: foto.altura,
+    caption: foto.alt,
+    creditText: foto.autor,
+    ...(foto.licencaUrl ? { license: foto.licencaUrl } : {}),
+    acquireLicensePage: foto.pagina,
+  };
+}
+
 /**
  * Página de cidade, causa ou tipo: a coleção (CollectionPage) com os negócios que
  * ela mostra (ItemList) e o caminho até ela. `sobre` diz do que a página trata,
- * como a cidade.
+ * como a cidade, e `foto` é a foto do topo, quando há.
  */
 export function jsonLdDaVitrine({
   titulo,
@@ -170,12 +206,14 @@ export function jsonLdDaVitrine({
   migalhas,
   negocios,
   sobre,
+  foto,
 }: {
   titulo: string;
   descricao: string;
   migalhas: Migalha[];
   negocios: { instagramUsername: string; nome: string }[];
   sobre?: object;
+  foto?: FotoDaCidade | null;
 }) {
   const pagina = urlAbsoluta(migalhas[migalhas.length - 1]!.caminho);
   return {
@@ -190,6 +228,7 @@ export function jsonLdDaVitrine({
         inLanguage: "pt-BR",
         isPartOf: { "@id": ID_SITE },
         ...(sobre ? { about: sobre } : {}),
+        ...(foto ? { primaryImageOfPage: jsonLdDaFoto(foto) } : {}),
         mainEntity: {
           "@type": "ItemList",
           numberOfItems: negocios.length,

@@ -34,6 +34,7 @@ export async function generateMetadata(props: PageProps<"/empresas/[usuario]">):
     titulo: empresa.categoria === "Outros" ? `${empresa.nome} em ${onde}` : `${empresa.nome} — ${empresa.categoria} em ${onde}`,
     descricao: empresa.resumo,
     caminho: `/empresas/${empresa.instagramUsername}`,
+    imagemPropria: true,
   });
 }
 

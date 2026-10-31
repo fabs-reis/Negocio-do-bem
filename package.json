@@ -25,6 +25,7 @@
     "fotos:para-r2": "tsx scripts/fotos-para-r2.ts",
     "municipios:atualizar": "tsx scripts/municipios-ibge.ts",
     "cidades:corrigir": "tsx scripts/corrigir-cidades.ts",
+    "cidades:fotos": "tsx scripts/fotos-das-cidades.ts",
     "moderacao": "tsx scripts/moderacao.ts",
     "marca:icones": "tsx scripts/gerar-icones.ts",
     "marca:fontes": "tsx scripts/gerar-fontes.ts"

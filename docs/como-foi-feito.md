@@ -457,6 +457,16 @@ O Analytics contava visitas, mas não dizia quantas pessoas criavam conta, quant
 - **Sem dado que identifique alguém.** Os eventos levam o método, o tipo, a categoria e o lugar do negócio, nunca nome, e-mail, telefone, @ ou `user_id`. A adequação do Analytics à LGPD continua em aberto na [#109](https://github.com/fabs-reis/Negocio-do-bem/issues/109).
 - **O GA4 foi configurado junto.** A retenção dos eventos passou de 2 para 14 meses, o máximo da versão gratuita, para as explorações compararem o ano inteiro. `sign_up`, `negocio_cadastrado`, `contato_negocio`, `perfil_reivindicado` e `depoimento_publicado` são eventos principais, sem valor em dinheiro. Como ainda não tinham chegado, foram criados em Administrador > Eventos > Criar evento > "Criar com código". Cada parâmetro virou uma dimensão personalizada de evento, e a "Cidade do negócio" (`cidade`) não se confunde com a cidade de quem visita, que o GA4 já mede.
 
+### 31 de outubro: foto das cidades e prévia em todas as páginas ([#220](https://github.com/fabs-reis/Negocio-do-bem/issues/220))
+
+A ideia era ter páginas de cidade para o Google, com uma foto de cartão-postal de cada uma. As 243 cidades com negócios já tinham página desde a [#71](https://github.com/fabs-reis/Negocio-do-bem/issues/71), mas sem foto e sem prévia do link: no WhatsApp, a página de Salvador aparecia só com o texto.
+
+- **A prévia tinha sumido de quase todas as páginas.** O `openGraph` de uma página substitui o do layout inteiro, e a imagem do `opengraph-image.tsx` da raiz ia junto. Só a página inicial e o perfil, que têm o arquivo na própria pasta, mostravam imagem. Agora o `metadadosDaPagina` põe a imagem geral do site, e a página com o próprio arquivo passa `imagemPropria: true`, porque o Next só usa a imagem do arquivo quando o `openGraph` não traz nenhuma.
+- **Nada de página para cidade sem negócios.** Cem páginas vazias, feitas para pegar a busca de cada cidade, são o que o Google chama de *doorway pages*. Elas tendem a ficar fora do índice, e a avaliação de qualidade vale para o site inteiro. A lista das cidades mais populosas serviu para as fotos: quando entrar o primeiro negócio de uma delas, a página já nasce com foto.
+- **Fotos do Wikimedia Commons,** com o crédito na página. Quase toda cidade brasileira tem boas fotos lá, e o autor e a licença vêm junto no Commons, então o crédito sai sem trabalho manual. As fotos foram escolhidas uma a uma e aprovadas antes de entrar. Recusamos montagens, mapas, fotos com pessoas em destaque e licenças que pedem mais do que o crédito.
+- **Guardadas no site, não buscadas no Commons.** Ligar a foto direto ao Commons avisaria a Wikimedia a cada visita, como diz a regra de `ehFotoDoSite`. O `npm run cidades:fotos` baixa cada foto em 1600 e 800 px, e a página manda a pequena para o celular. O nome do arquivo leva um pedaço do hash do arquivo do Commons, então a foto pode ficar em cache por um ano (`public/_headers`) e uma troca de foto nunca mostra a antiga.
+- **A prévia da cidade lê a foto pelo binding `ASSETS`.** No Worker, os arquivos de `public/` não estão no disco. Ela usa a foto de 800 px, que basta para a prévia e pesa menos para o gerador.
+
 ---
 
 ## 4. Arquitetura
@@ -761,6 +771,13 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 2. Confira a lista e rode de novo com `-- --aplicar` para gravar o nome oficial. Para a produção, passe a conexão do banco de produção na frente: `DATABASE_URL="postgresql://..." npm run cidades:corrigir -- --aplicar`.
 3. As cidades fora da lista do IBGE se corrigem uma a uma, editando o negócio pelo painel da moderação.
 
+### Pôr ou trocar a foto de uma cidade
+
+1. Ache a foto no [Wikimedia Commons](https://commons.wikimedia.org): horizontal, com pelo menos 1600 px de largura, sem pessoa em destaque e com licença de domínio público, CC0, CC BY ou CC BY-SA.
+2. Em `src/lib/fotos-das-cidades.json`, escreva ou mude a entrada da cidade, pelo endereço da página dela: `"salvador-ba": { "cidade": "Salvador", "uf": "BA", "arquivo": "File:Nome no Commons.jpg", "descricao": "O que a foto mostra" }`. A descrição vira o texto alternativo.
+3. Rode `npm run cidades:fotos`. Ele baixa a foto para `public/fotos/cidades`, preenche o autor, a licença e o tamanho, e apaga a foto antiga. Se algo estiver errado (nome fora do IBGE, licença recusada, foto vertical), ele avisa e não grava aquela cidade.
+4. Rode `npm test` e faça commit do JSON e das fotos.
+
 ### Mudar uma regra da reivindicação
 
 1. Mude a regra em `src/lib/reivindicacao.ts`, não na tela.
@@ -866,7 +883,8 @@ O PR só conflita se a `main` recebeu algo que não passou pela `stage`. Nesse c
 - **Fotos no computador de quem desenvolve** ficam em `public/enviados/`, que está fora do Git. Os links delas não funcionam em outro computador.
 - **Imagens de compartilhamento (`ImageResponse`):**
   - toda `div` com mais de um filho precisa de `display: "flex"`. Texto com variáveis como `{a} · {b}` vira vários filhos: use uma template string;
-  - o gerador não lê WebP, woff2 nem fonte variável. Por isso as fotos em WebP viram monograma na prévia, e as fontes ficam em TTF em `assets/fontes`.
+  - o gerador não lê WebP, woff2 nem fonte variável. Por isso as fotos em WebP viram monograma na prévia, e as fontes ficam em TTF em `assets/fontes`;
+  - uma página que define o `openGraph` apaga a imagem herdada do layout. Use o `metadadosDaPagina`, que põe a imagem geral do site, e passe `imagemPropria: true` só quando a pasta da página tem o seu `opengraph-image.tsx` ([#220](https://github.com/fabs-reis/Negocio-do-bem/issues/220)).
 - **O Worker não lê arquivos do projeto.** Um `readFile` de algo fora de `public/` funciona no `npm run dev` e falha no Cloudflare com ENOENT. Se o arquivo é lido ao carregar o módulo, como as fontes eram, todas as páginas que importam o módulo respondem 500. Embuta o arquivo num módulo, como em `npm run marca:fontes`.
 - **Conexão com o banco no Worker.** Uma conexão aberta numa requisição não pode ser usada em outra. Por isso, o `db` (`src/lib/db.ts`) cria um cliente por requisição no Worker, e um só no Node.
 - **Senha (scrypt) no Worker.** Cada cálculo usa ~32 MB e ~100 ms de CPU. No Worker, o `scrypt` roda um de cada vez no isolate, mesmo com vários logins ao mesmo tempo, então a memória não soma: os logins esperam na fila. Medido no workerd local: 8 logins simultâneos terminam em ~0,8 s.
