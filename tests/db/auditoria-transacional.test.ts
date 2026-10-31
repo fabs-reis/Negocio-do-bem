@@ -18,7 +18,7 @@ vi.mock("next/navigation", () => ({
   redirect: (destino: string) => { throw new Error(`REDIRECIONAR:${destino}`); },
 }));
 
-// A foto da prévia roda após a resposta. Este teste não chama a Meta.
+// Mock the preview task that runs after the response to prevent requests to Meta.
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
 vi.mock("@/lib/armazenamento", async (importarOriginal) => ({
