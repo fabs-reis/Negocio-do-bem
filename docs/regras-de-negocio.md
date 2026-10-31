@@ -88,7 +88,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 
 Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.ts` e `src/app/link/page.tsx`.
 
-> **A exigência está desligada por enquanto** ([#148](https://github.com/fabsreis/Negocio-do-bem/issues/148)). `CONFIRMACAO_DE_EMAIL_LIGADA`, em `src/lib/auth/links.ts`, está `false` porque o plano grátis do Resend manda só 100 e-mails por dia, e quem se cadastrava depois disso ficava sem o link e travado. Enquanto ela estiver desligada:
+> **A exigência está desligada por enquanto** ([#148](https://github.com/fabs-reis/Negocio-do-bem/issues/148)). `CONFIRMACAO_DE_EMAIL_LIGADA`, em `src/lib/auth/links.ts`, está `false` porque o plano grátis do Resend manda só 100 e-mails por dia, e quem se cadastrava depois disso ficava sem o link e travado. Enquanto ela estiver desligada:
 >
 > - toda conta, nova ou antiga, vale como confirmada: indica, escreve e denuncia depoimentos e reivindica sem confirmar nada, e "Confirme seu e-mail" não aparece em lugar nenhum;
 > - o cadastro não manda o link de confirmação;
@@ -318,7 +318,7 @@ Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando envia o
 
 Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderacao.ts`, abas "Indicações" e "Negócios" em `src/app/moderacao/page.tsx`.
 
-**Toda indicação entra publicada.** A moderação não aprova antes: ela age depois, tirando do ar o que for spam, perfil falso ou impróprio. A decisão foi tomada na [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), quando a fila ficou grande demais para aprovar à mão.
+**Toda indicação entra publicada.** A moderação não aprova antes: ela age depois, tirando do ar o que for spam, perfil falso ou impróprio. A decisão foi tomada na [issue #20](https://github.com/fabs-reis/Negocio-do-bem/issues/20), quando a fila ficou grande demais para aprovar à mão.
 
 - **Tirar do ar:** na aba "Negócios", todo negócio publicado tem o botão **"Tirar do ar"** → `moderacao = "rejeitada"`, e o negócio some para o público.
 - **Publicar de novo:** o negócio tirado do ar ganha o botão **"Publicar de novo"** → `moderacao = "aprovada"`.
@@ -366,7 +366,7 @@ Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindic
 
 ### Aprovação na hora
 
-Desde a [issue #20](https://github.com/fabsreis/Negocio-do-bem/issues/20), **o pedido pelos dados do negócio é aprovado assim que é enviado** quando:
+Desde a [issue #20](https://github.com/fabs-reis/Negocio-do-bem/issues/20), **o pedido pelos dados do negócio é aprovado assim que é enviado** quando:
 
 - o negócio **não tem dono**; e
 - o negócio **não foi tirado do ar**.
@@ -640,7 +640,7 @@ Código: `src/lib/fotos.ts`, `src/lib/armazenamento.ts`, `src/components/reduzir
 
 ### Rotina de fotos do Instagram
 
-Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do projeto), `src/app/api/fotos-instagram/route.ts` e `src/lib/fotos-instagram.ts`, com testes em `tests/db/fotos-instagram.test.ts`. Decidida na [issue #31](https://github.com/fabsreis/Negocio-do-bem/issues/31).
+Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do projeto), `src/app/api/fotos-instagram/route.ts` e `src/lib/fotos-instagram.ts`, com testes em `tests/db/fotos-instagram.test.ts`. Decidida na [issue #31](https://github.com/fabs-reis/Negocio-do-bem/issues/31).
 
 - **Quais negócios:** os que estão **sem foto** e **não foram tirados do ar**, inclusive os pendentes. Os mais antigos primeiro, até 100 por rodada.
 - **De onde vem a foto:**
