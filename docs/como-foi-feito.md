@@ -382,6 +382,21 @@ Com o site no Cloudflare, ainda sobravam no Vercel o banco (um Neon criado pela 
 - **A troca sem perder dados.** O `npm run banco:copiar` copia o Neon para o destino com `pg_dump` e `pg_restore`, numa transação só, e confere a contagem de linhas de cada tabela. Na troca, ele deixa o Neon só para leitura antes da cópia final, para nada ser gravado lá depois dela. O Neon fica assim, como reserva, até o banco novo estar conferido.
 - **As fotos do Blob vão para o R2 pelo `npm run fotos:para-r2`.** Ele procura os endereços do Blob no `fotoUrl` e no Markdown da `historia`, copia cada foto para o bucket com o mesmo nome e só troca o endereço no banco depois de abrir a foto no domínio público. Roda depois que o `www` passa para o Cloudflare: o deploy antigo do Vercel não aceita fotos de `fotos.negociodobem.com`.
 
+A troca foi feita na noite de 30 para 31 de outubro, nesta ordem:
+
+1. **Hyperdrive apontando para o Neon** e publicado na produção. O site passou a usar o Hyperdrive sem mudar nenhum dado, e o login e uma gravação com transação foram testados assim.
+2. **`www` no Worker.** O CNAME para o Vercel saiu, e o `www.negociodobem.com` virou domínio personalizado do Worker (agora também no `wrangler.jsonc`). Para voltar atrás, bastava recriar o CNAME.
+3. **Fotos.** O `fotos:para-r2` copiou 503 fotos e trocou o endereço em 479 negócios.
+4. **Banco**, numa janela de 17 segundos: Neon só para leitura, cópia final, contagens iguais, e a origem do Hyperdrive trocada para o PlanetScale pelo `wrangler hyperdrive update`, sem deploy.
+5. **Domínio sem `www`.** O registro A passou a usar o proxy do Cloudflare, e uma regra de redirecionamento da zona manda `http*://negociodobem.com/*` para o `www`, com o caminho e a consulta.
+
+O que deu errado e ficou de lição:
+
+- **O PS-5 tem 25 conexões, e 3 são reservadas a superusuário.** O Hyperdrive veio com limite de 60 e, com 15, ainda lotou o banco: as páginas davam erro, e nem o `psql` entrava ("remaining connection slots are reserved"). O limite ficou em 8, o que sobra para as migrações do build e os scripts.
+- **Trocar a origem ou reiniciar o pool do Hyperdrive não fecha as conexões antigas.** Elas ficam paradas no banco, ocupando vagas. Depois de mexer no Hyperdrive, confira na página Connections do PlanetScale e encerre as paradas da mesma role: `select pg_terminate_backend(pid) from pg_stat_activity where application_name = 'Cloudflare Hyperdrive' and state = 'idle' and state_change < now() - interval '2 minutes' and usename = current_user`.
+- **O `node-postgres` não entende `sslrootcert=system`**, que vem na conexão do PlanetScale: ele tenta abrir um arquivo chamado `system`. Para o app e o build, use só `?sslmode=verify-full`. O `psql` e o Prisma Migrate aceitam as duas.
+- **Quem ainda tinha o DNS antigo em cache caiu no Vercel** por um tempo, inclusive o Chrome de quem fazia a troca. Lá, as fotos novas aparecem como iniciais e nada grava, porque o Neon está só para leitura. Para testar o Cloudflare sem depender do DNS, use o `workers.dev` ou `curl --resolve`.
+
 ---
 
 ## 4. Arquitetura
@@ -585,8 +600,9 @@ npm run typecheck
 | Peça | Onde | Observação |
 | --- | --- | --- |
 | Site | Cloudflare Workers, adaptador OpenNext | Produção na branch `main`; previews para `stage` e PRs. |
-| Banco de produção | Neon (PostgreSQL), São Paulo | `DATABASE_URL` para a aplicação e `DATABASE_URL_UNPOOLED` para migrações. |
-| Banco dos previews | Projeto Neon separado | Não compartilha credenciais de produção. Configure em Worker Previews. |
+| Banco de produção | PlanetScale Postgres (PS-5, nó único), São Paulo, criado e cobrado pelo Cloudflare | O Worker conecta pelo Hyperdrive `negocio-do-bem` (cache desligado, até 8 conexões; o PS-5 tem 25). O build usa a `DATABASE_URL`, direta e com `?sslmode=verify-full`. O Neon antigo ficou só para leitura, como reserva. |
+| Banco dos previews | Projeto Neon separado (da integração do Vercel) | Não compartilha credenciais de produção. Configure em Worker Previews. |
+| Domínio | `www.negociodobem.com` como domínio personalizado do Worker | O domínio sem `www` passa pelo proxy do Cloudflare e uma regra de redirecionamento da zona manda para o `www` (301, com caminho e consulta). |
 | Fotos | Cloudflare R2 | Bucket privado para cache; bucket de uploads servido por domínio próprio em produção. Em POC, pode usar a Public Development URL (`r2.dev`), que expõe os objetos publicamente e tem limite de requisições. Configure buckets separados para produção e previews. |
 | Medição | Google Analytics 4 | `NEXT_PUBLIC_GA_ID` só em Production. |
 | Fotos do Instagram | Script local (launchd) + app "Negócio do Bem" na Meta | `FOTOS_TOKEN` no Worker de produção; o resto fica no `.env.fotos` do computador que roda a rotina. |
@@ -612,7 +628,7 @@ npm run typecheck
 | Variável | Obrigatória | Para quê |
 | --- | --- | --- |
 | `DATABASE_URL` | Sim | Conexão com o Postgres. Configure valores separados para Production e Preview. |
-| `DATABASE_URL_UNPOOLED` | No Neon | Conexão direta, usada pelas migrações. |
+| `DATABASE_URL_UNPOOLED` | Não | Conexão direta para as migrações, quando a `DATABASE_URL` passa por um pooler (como no Neon). No PlanetScale, a `DATABASE_URL` já é direta. |
 | `APP_URL` | Sim, no build e no runtime | Endereço público canônico, sem barra no final. Entra no HTML pré-renderizado, então precisa estar no build. |
 | `DEPLOY_ENV` | No `wrangler.jsonc` | `production` ou `preview`; controla indexação, seed e envio de e-mails. No build do Workers Builds, o script define pela branch. Lida por `ambienteDeDeploy()` (`src/lib/ambiente.ts`). |
 | `PREVIEW_DATABASE_URL`, `PREVIEW_DATABASE_URL_UNPOOLED`, `PREVIEW_APP_URL`, `PREVIEW_R2_PUBLIC_URL` | No build dos previews | Variáveis de build que o `cloudflare-build.sh` usa nas branches que não são a `main`, no lugar das de produção. |
@@ -679,7 +695,7 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 ### Corrigir cidades escritas fora do padrão
 
 1. Rode `npm run cidades:corrigir`. Ele lista as cidades gravadas com outra grafia ("Sao Paulo" → São Paulo) e as que não estão na lista do IBGE, sem gravar nada.
-2. Confira a lista e rode de novo com `-- --aplicar` para gravar o nome oficial. Para a produção, passe a conexão do Neon na frente: `DATABASE_URL="postgresql://..." npm run cidades:corrigir -- --aplicar`.
+2. Confira a lista e rode de novo com `-- --aplicar` para gravar o nome oficial. Para a produção, passe a conexão do banco de produção na frente: `DATABASE_URL="postgresql://..." npm run cidades:corrigir -- --aplicar`.
 3. As cidades fora da lista do IBGE se corrigem uma a uma, editando o negócio pelo painel da moderação.
 
 ### Mudar uma regra da reivindicação
@@ -706,7 +722,7 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 ### Dar ou tirar a moderação
 
 1. A pessoa se cadastra no site com o e-mail dela.
-2. Com a conexão do banco certo, rode `npm run moderacao -- dar <e-mail>` (ou `tirar <e-mail>`). Para a produção, passe a conexão do Neon na frente: `DATABASE_URL="postgresql://..." npm run moderacao -- dar <e-mail>`.
+2. Com a conexão do banco certo, rode `npm run moderacao -- dar <e-mail>` (ou `tirar <e-mail>`). Para a produção, passe a conexão do banco de produção na frente: `DATABASE_URL="postgresql://..." npm run moderacao -- dar <e-mail>`.
 3. Confira com `npm run moderacao -- listar`, que mostra quem é moderação e quem já fez ações de moderação, marcando quem não é mais.
 
 Nunca crie uma regra que dê permissão pelo e-mail ou por outro dado que a própria pessoa digita no cadastro.
