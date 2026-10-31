@@ -20,6 +20,17 @@
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "negocio-do-bem-cache" },
     { "binding": "UPLOADS", "bucket_name": "negocio-do-bem-fotos" }
   ],
+  // O Worker de produção fala com o banco pelo Hyperdrive (#177), com o cache de
+  // consultas desligado no painel. Os previews não herdam este binding e seguem
+  // na DATABASE_URL do banco de teste. O localConnectionString é o Postgres do
+  // docker-compose, usado só pelo npm run preview:cloudflare.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "9955bdb4b4fc4dfbace46f1d61728f3c",
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5433/negocio_do_bem"
+    }
+  ],
   "previews": {
     "r2_buckets": [
       { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "negocio-do-bem-preview-cache" },

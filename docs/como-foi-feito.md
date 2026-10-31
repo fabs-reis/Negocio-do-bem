@@ -373,6 +373,15 @@ Depois da migração para o Cloudflare, o build do preview da `stage` passava, m
 - **Um ambiente só para o cache.** O `populateCache` lê o bucket de cache do `wrangler.jsonc` e não conhece o bloco `previews`. O ambiente `previews-cache` aponta para os buckets dos previews, e o script passa `--env previews-cache`. Nada é publicado com ele.
 - **A Preview base config é copiada na criação do preview.** As variáveis cadastradas nela depois não chegaram ao preview da `stage`, que já existia, e foi preciso cadastrá-las também na página dele. O mesmo vale para o preview command. A seta do botão Salvar tem a opção "Aplicar a pré-visualizações existentes", que leva a mudança a todos.
 
+### 30 de outubro: o banco e as fotos antigas saem do Vercel ([#177](https://github.com/fabsreis/Negocio-do-bem/issues/177))
+
+Com o site no Cloudflare, ainda sobravam no Vercel o banco (um Neon criado pela integração do Vercel, cobrado por ele e que não se transfere para uma conta própria) e as fotos enviadas antes da migração, no Vercel Blob.
+
+- **PlanetScale Postgres criado pelo painel do Cloudflare, e não D1.** O banco aparece na fatura do Cloudflare e continua sendo Postgres: o esquema, as migrações e os testes ficam iguais. O D1 é SQLite, e o adaptador do Prisma para ele não tem transações interativas. O código depende delas, com `FOR NO KEY UPDATE` e `FOR KEY SHARE`, para as cotas de indicação e de reivindicação aguentarem pedidos simultâneos, e usa `mode: "insensitive"`, que o SQLite não tem.
+- **O Worker fala com o banco pelo Hyperdrive.** Ele mantém as conexões com o banco abertas, e cada requisição só abre uma conexão rápida até ele. O `src/lib/db.ts` usa o `env.HYPERDRIVE.connectionString` quando o binding existe e a `DATABASE_URL` quando não existe (previews, desenvolvimento e testes). Os previews não herdam os bindings da produção, então nunca chegam ao banco de produção por ele. O cache de consultas do Hyperdrive fica desligado: os dados do banco precisam estar sempre atualizados.
+- **A troca sem perder dados.** O `npm run banco:copiar` copia o Neon para o destino com `pg_dump` e `pg_restore`, numa transação só, e confere a contagem de linhas de cada tabela. Na troca, ele deixa o Neon só para leitura antes da cópia final, para nada ser gravado lá depois dela. O Neon fica assim, como reserva, até o banco novo estar conferido.
+- **As fotos do Blob vão para o R2 pelo `npm run fotos:para-r2`.** Ele procura os endereços do Blob no `fotoUrl` e no Markdown da `historia`, copia cada foto para o bucket com o mesmo nome e só troca o endereço no banco depois de abrir a foto no domínio público. Roda depois que o `www` passa para o Cloudflare: o deploy antigo do Vercel não aceita fotos de `fotos.negociodobem.com`.
+
 ---
 
 ## 4. Arquitetura
