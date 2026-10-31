@@ -32,6 +32,11 @@ const cabecalhosDeSeguranca = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    BANCO_PREVIEW_AMBIENTE: ambienteDeDeploy() ?? "",
+    BANCO_PREVIEW_PROVEDOR: process.env.DEPLOY_ENV ? "cloudflare" : process.env.VERCEL_ENV ? "vercel" : "",
+    BANCO_PREVIEW_ID: (process.env.DEPLOY_ENV ? process.env.BANCO_PREVIEW_ID : process.env.VERCEL_ENV ? process.env.VERCEL_DEPLOYMENT_ID : "") ?? "",
+  },
   // pg carrega pg-cloudflare por require dinâmico; inclua a implementação
   // Workerd no trace do Next para o bundle OpenNext poder resolvê-la.
   outputFileTracingIncludes: {

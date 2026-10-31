@@ -12,22 +12,25 @@
 
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma/client";
+import { Prisma, PrismaClient } from "../src/generated/prisma/client";
+import { configuracaoDoBanco, identificadorSql } from "../src/lib/banco";
 import { nomeOficial } from "../src/lib/municipios";
 import { textoDeBusca } from "../src/lib/texto";
 
-const urlDoBanco = process.env.DATABASE_URL;
+const banco = configuracaoDoBanco(process.env.DATABASE_URL, process.env.DEPLOY_ENV || process.env.VERCEL_ENV, process.env.DEPLOY_ENV ? process.env.BANCO_PREVIEW_ID : process.env.VERCEL_DEPLOYMENT_ID, process.env.DEPLOY_ENV ? "cloudflare" : "vercel");
+const urlDoBanco = banco.url;
 if (!urlDoBanco) {
   console.error("Falta DATABASE_URL. Configure no .env ou passe na frente do comando.");
   process.exit(1);
 }
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: urlDoBanco }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: urlDoBanco }, { schema: banco.esquema }) });
+const esquemaSql = Prisma.raw(identificadorSql(banco.esquema));
 const negocios = (total: number) => (total === 1 ? "1 negócio" : `${total} negócios`);
 
 async function main() {
   const { host, pathname } = new URL(urlDoBanco!);
-  console.log(`Banco: ${host}${pathname}\n`);
+  console.log(`Banco: ${host}${pathname}${banco.esquema ? ` · esquema ${banco.esquema}` : ""}\n`);
   const aplicar = process.argv.includes("--aplicar");
 
   const grupos = await db.empresa.groupBy({
@@ -63,7 +66,7 @@ async function main() {
   await db.$transaction(
     empresas.map((e) => {
       const cidade = nomeOficial(e.cidade, e.uf)!;
-      return db.$executeRaw`UPDATE "Empresa" SET "cidade" = ${cidade}, "busca" = ${textoDeBusca({ ...e, cidade })} WHERE "id" = ${e.id}`;
+      return db.$executeRaw`UPDATE ${esquemaSql}."Empresa" SET "cidade" = ${cidade}, "busca" = ${textoDeBusca({ ...e, cidade })} WHERE "id" = ${e.id}`;
     }),
   );
   console.log(`\nCorrigido: ${negocios(empresas.length)}.`);

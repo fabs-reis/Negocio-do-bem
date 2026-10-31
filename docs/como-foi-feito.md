@@ -270,7 +270,7 @@ Os previews do Vercel, inclusive o da `stage`, usavam o banco de produção. Tes
 
 - **Os previews ganharam um projeto Neon só deles**, conectado ao Vercel apenas no ambiente Preview. O de produção ficou só em Production.
 - **O build dos previews passou a aplicar as migrações** no banco deles. Um PR que muda o banco já funciona no preview.
-- **O seed roda no build dos previews**, para a homologação ter dados de exemplo, e só preenche um banco vazio.
+- **O seed roda no build dos previews**, para a homologação ter dados de exemplo, e só preenche um esquema sem usuários.
 
 ### 29 de outubro: um Blob só para os previews ([#27](https://github.com/fabs-reis/Negocio-do-bem/issues/27))
 
@@ -664,7 +664,7 @@ npm run typecheck
 
 1. Workers Builds conectado ao repositório executa builds de produção na `main` e previews em branches não produtivas. Configure preview bindings e secrets com o banco e buckets de teste; eles não devem apontar para recursos de produção.
 2. O PR da `stage` para `main` leva o que foi homologado para produção. O merge na `main` publica a produção. O merge é sempre com **"Create a merge commit"**, a única opção que o ruleset da `main` aceita.
-3. `scripts/cloudflare-build.sh` aplica `prisma migrate deploy` antes do bundle, usando `DATABASE_URL_UNPOOLED` quando existe. Em preview, roda também o seed, que só preenche banco vazio.
+3. `scripts/cloudflare-build.sh` aplica `prisma migrate deploy` antes do bundle, usando `DATABASE_URL_UNPOOLED` quando existe. Em preview, roda também o seed, que conta usuários apenas no esquema selecionado.
    - **O ambiente vem da branch, e não de uma variável.** As variáveis de build da produção e as dos previews ficam em abas diferentes do painel, e um engano ali não pode levar a migração de um PR ao banco de produção. O script lê a `WORKERS_CI_BRANCH`: só a `main` é produção. As outras branches usam as variáveis `PREVIEW_*` e falham se faltar alguma. Assim, a migração de um PR ainda não aprovado nunca chega ao banco de produção.
 4. Na `main`, o `opennextjs-cloudflare deploy` preenche o cache das páginas no bucket de produção e publica. Nas outras branches, o `npm run cf:preview` (`scripts/cloudflare-preview.sh`) preenche o cache no bucket dos previews e roda o `wrangler preview`.
 
@@ -672,8 +672,11 @@ npm run typecheck
 
 - Configure o Worker Previews com `DATABASE_URL` e `DATABASE_URL_UNPOOLED` do projeto Neon de teste, e bindings R2 separados. Nunca deixe preview ler ou alterar dados e fotos de produção.
 - Os previews precisam de `DEPLOY_ENV=preview`, `CLOUDFLARE_DEPLOY=1` e `NEXT_PUBLIC_R2_PUBLIC_URL` do bucket de teste. Para POC sem domínio próprio, habilite Public Development URL no bucket de uploads de teste e use a URL `r2.dev`; os objetos ficam acessíveis publicamente, então não use arquivos privados. E-mail fica desligado fora de produção, e páginas de preview ficam fora dos buscadores.
-- A `stage` e PRs podem compartilhar os recursos de teste. Uma migração de PR que apaga ou renomeia coluna pode quebrar a homologação até o PR entrar. Um PR fechado sem merge pode deixar migração aplicada no banco de preview; recrie o banco de teste e publique `stage` para reconstruir os dados.
-- O seed só preenche banco vazio. Nunca o execute com credenciais de produção: cria contas de demonstração com senha conhecida.
+- Cada build de preview recebe um UUID e um esquema separado. Migrações, seed, ORM e SQL bruto usam o mesmo esquema. O runtime usa a identidade incluída no build, não a variável do ambiente nem a branch. Um preview sem identidade válida falha. O isolamento não impede que SQL hostil acesse outros esquemas com a mesma credencial.
+- O arquivo público `/banco-preview.json` contém o UUID não secreto do artefato. Para inventariar, confira esse arquivo na URL de cada artefato em uso e associe-o ao esquema `preview_` seguido dos primeiros 55 caracteres hexadecimais do SHA-256 do UUID. Consulte os esquemas no catálogo do banco sem alterá-los. Se o inventário ou a associação estiver incompleto, mantenha todos os esquemas. Nenhum esquema é removido automaticamente.
+- Cada build começa com dados fictícios novos. Alterações manuais não acompanham o próximo build. Uma migração em esquema vazio pode falhar em produção com dados existentes. Teste-a também com dados antes de publicar.
+- SQL bruto qualifica tabelas com `esquemaSql` de `src/lib/db.ts`, sem depender de `search_path`. Os scripts usam `identificadorSql` de `src/lib/banco.ts`. Os esquemas antigos continuam ocupando espaço no banco de testes. A prova `tests/db/preview-isolado.test.ts` também deixa seus esquemas no banco. Execute-a em um banco descartável.
+- O seed conta usuários apenas no esquema selecionado. Essa contagem não identifica o banco físico. Um preview ligado ao banco de produção pode criar contas de demonstração com senha conhecida em outro esquema. Nunca use credenciais de produção.
 
 **Variáveis de ambiente:**
 

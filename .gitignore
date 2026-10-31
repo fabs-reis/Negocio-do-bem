@@ -53,5 +53,6 @@ next-env.d.ts
 # fotos enviadas em desenvolvimento (em produção vão para o Cloudflare R2)
 /public/enviados/
 
-# schema temporário do build Cloudflare (scripts/cloudflare-build.sh)
+# Arquivos gerados pelo build Cloudflare.
 /prisma/schema.cloudflare.prisma
+/public/banco-preview.json
