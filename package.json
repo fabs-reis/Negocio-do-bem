@@ -26,6 +26,7 @@
     "municipios:atualizar": "tsx scripts/municipios-ibge.ts",
     "cidades:corrigir": "tsx scripts/corrigir-cidades.ts",
     "moderacao": "tsx scripts/moderacao.ts",
+    "sessoes:limpar": "tsx scripts/limpar-sessoes.ts",
     "marca:icones": "tsx scripts/gerar-icones.ts",
     "marca:fontes": "tsx scripts/gerar-fontes.ts"
   },

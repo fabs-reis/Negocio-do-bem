@@ -761,6 +761,22 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 2. Confira a lista e rode de novo com `-- --aplicar` para gravar o nome oficial. Para a produção, passe a conexão do banco de produção na frente: `DATABASE_URL="postgresql://..." npm run cidades:corrigir -- --aplicar`.
 3. As cidades fora da lista do IBGE se corrigem uma a uma, editando o negócio pelo painel da moderação.
 
+### Limpar sessões vencidas
+
+A manutenção manual da #111 não muda o prazo de 30 dias da autenticação. O núcleo está em `src/lib/limpeza-sessoes.ts`, sem depender do Next. A CLI `scripts/limpar-sessoes.ts` abre seu próprio cliente Prisma e usa o banco configurado em `DATABASE_URL`.
+
+1. Confira qual banco está configurado e rode `npm run sessoes:limpar`. O diagnóstico informa o host e o nome do banco sem credenciais, a referência UTC, o limite e a contagem de sessões vencidas. Não altera tabelas.
+2. Confira o diagnóstico. Para remover um único lote, rode `npm run sessoes:limpar -- --aplicar`. O limite padrão é 100. Use `--lote 1` até `--lote 1000` para escolher o tamanho.
+3. Confira as quantidades selecionada e efetivamente removida. Faça outro diagnóstico antes de decidir sobre uma nova aplicação. O diagnóstico anterior não reserva as linhas e cada execução tem sua própria referência.
+
+A referência é o menor instante entre o início local e a leitura do relógio do PostgreSQL. Ela permanece fixa durante a execução. Relógios atrasados podem adiar a limpeza, mas o computador de manutenção adiantado não faz apagar sessões que o banco ainda considera futuras. As máquinas da aplicação e do banco precisam manter seus relógios sincronizados, como na autenticação existente.
+
+A seleção lê somente IDs, filtra `expiraEm <= referência`, ordena por vencimento e ID e aplica o limite. O DELETE inclui os IDs selecionados e confere novamente o vencimento. Uma renovação ou saída concorrente pode reduzir o total removido. Uma seleção vazia não dispara DELETE. Não há repetição automática, mudança de esquema, índice novo, rota pública ou agendamento.
+
+O comando não imprime IDs, hashes, e-mails ou a conexão completa, nem repassa mensagens brutas do driver. Opções inválidas falham antes de abrir conexão. Uma falha de leitura não solicita exclusão. Se a confirmação do DELETE falhar, o resultado é indeterminado. Faça novo diagnóstico antes de repetir. A conexão é encerrada em `finally`, inclusive em falha, antes de anunciar sucesso.
+
+A remoção confirmada não é desfeita ao retirar o código. Não recrie sessões apagadas. Contas, links por e-mail, tentativas, pedidos, conteúdo, mídia, auditoria e backups ficam fora desta operação. Este recorte não encerra a política de retenção da #111. As provas usam somente PostgreSQL descartável e dados sintéticos em `tests/db/limpeza-sessoes.test.ts` e `tests/unit/limpeza-sessoes.test.ts`.
+
 ### Mudar uma regra da reivindicação
 
 1. Mude a regra em `src/lib/reivindicacao.ts`, não na tela.
