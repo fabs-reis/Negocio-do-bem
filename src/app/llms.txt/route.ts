@@ -17,7 +17,7 @@ O ${NOME_DO_SITE} é um diretório gratuito e colaborativo de negócios brasilei
 - [Explorar negócios](${urlAbsoluta("/explorar")}): busca por cidade, tipo de negócio e causa.
 - [Negócios por cidade](${urlAbsoluta("/cidades")}): todas as cidades com negócios no diretório, cada uma com a sua página.
 - [Como funciona](${urlAbsoluta("/sobre")}): manifesto, moderação, como o dono assume o perfil e privacidade.
-- [Indicar um negócio](${urlAbsoluta("/indicar")}): formulário para sugerir um negócio do bem.
+- [Cadastrar um negócio](${urlAbsoluta("/participar")}): cadastro por etapas para indicar um negócio do bem ou cadastrar o próprio, com ou sem Instagram.
 
 ## Perfis dos negócios
 

@@ -5,6 +5,7 @@ import { Suspense, type ReactNode } from "react";
 import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { ACOES_AUDITORIA, METODOS_REIVINDICACAO, STATUS_REIVINDICACAO } from "@/lib/dominio";
+import { rotuloDoInstagram } from "@/lib/endereco";
 import { fichaDaConta, LIMITE_DA_FICHA } from "@/lib/moderacao/consultas";
 import { hrefModeracao, lerId } from "@/lib/moderacao/filtros";
 import { formatarData, formatarDataHora, formatarTelefone } from "@/lib/texto";
@@ -265,7 +266,7 @@ function LinhaDeNegocio({
           <EtiquetasDoNegocio empresa={empresa} />
         </div>
         <p className="text-sm text-suave">
-          @{empresa.instagramUsername} · {empresa.cidade}/{empresa.uf} · {children}
+          {rotuloDoInstagram(empresa.instagramUsername)} · {empresa.cidade}/{empresa.uf} · {children}
         </p>
       </div>
       <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao-claro botao-pequeno">

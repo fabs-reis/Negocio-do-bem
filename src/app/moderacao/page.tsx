@@ -12,11 +12,12 @@ import {
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CausaBadge } from "@/components/CausaBadge";
+import { LinkInstagram } from "@/components/LinkInstagram";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { consultarCnpj, formatarCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
-import { linkPerfil, perfilOficial } from "@/lib/instagram";
+import { perfilOficial } from "@/lib/instagram";
 import { ABAS, lerFiltros, type Aba } from "@/lib/moderacao/filtros";
 import { formatarDataHora, formatarTelefone } from "@/lib/texto";
 import { Auditoria } from "./Auditoria";
@@ -128,9 +129,7 @@ async function Reivindicacoes() {
                   {r.empresa.nome}
                 </Link>
                 <p className="text-sm text-suave">
-                  <a href={linkPerfil(r.empresa.instagramUsername)} target="_blank" rel="noopener noreferrer" className="link">
-                    @{r.empresa.instagramUsername}
-                  </a>{" "}
+                  <LinkInstagram endereco={r.empresa.instagramUsername} />{" "}
                   · {r.empresa.status === "verificada" ? "já verificado" : "sem dono"}
                 </p>
               </div>
@@ -290,9 +289,7 @@ async function Indicacoes() {
                 {e.nome}
               </Link>
               <p className="text-sm text-suave">
-                <a href={linkPerfil(e.instagramUsername)} target="_blank" rel="noopener noreferrer" className="link">
-                  @{e.instagramUsername} ↗
-                </a>{" "}
+                <LinkInstagram endereco={e.instagramUsername} seta />{" "}
                 · {e.categoria} · {e.cidade}/{e.uf}
               </p>
             </div>
@@ -311,8 +308,9 @@ async function Indicacoes() {
           </div>
           <p>{e.resumo}</p>
           {e.motivoIndicacao && <p className="text-sm text-suave italic">“{e.motivoIndicacao}”</p>}
-          {(e.site || e.whatsapp || e.emailContato) && (
+          {(e.telefoneComercial || e.site || e.whatsapp || e.emailContato) && (
             <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-suave">
+              {e.telefoneComercial && <span>Telefone {formatarTelefone(e.telefoneComercial)}</span>}
               {e.site && (
                 <a href={e.site} target="_blank" rel="noopener noreferrer nofollow" className="link break-all">
                   {e.site}
@@ -320,6 +318,12 @@ async function Indicacoes() {
               )}
               {e.whatsapp && <span>WhatsApp {formatarTelefone(e.whatsapp)}</span>}
               {e.emailContato && <span>{e.emailContato}</span>}
+            </p>
+          )}
+          {(e.emailDoDono || e.telefoneDoDono) && (
+            <p className="text-sm text-suave">
+              Contato do dono:{" "}
+              {[e.emailDoDono, e.telefoneDoDono && formatarTelefone(e.telefoneDoDono)].filter(Boolean).join(" · ")}
             </p>
           )}
           {e.causas.length > 0 && (

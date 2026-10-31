@@ -99,6 +99,8 @@ model CadastroGoogle {
 model Empresa {
   id                String   @id @default(cuid())
   // @ atual do Instagram, minúsculo e sem "@". Também é o endereço da página.
+  // Negócio sem Instagram: endereço feito do nome e da cidade, com hífen, que o
+  // Instagram não aceita no @ (ver src/lib/instagram.ts).
   instagramUsername String   @unique
   // ID fixo da conta profissional, obtido no "Entrar com Instagram".
   instagramUserId   String?  @unique
@@ -117,6 +119,11 @@ model Empresa {
   // Só dígitos, com o 55 do Brasil (ex.: 5511991488052).
   whatsapp          String?
   emailContato      String?
+  // Telefone do negócio, no mesmo formato do WhatsApp. Aparece no perfil.
+  telefoneComercial String?
+  // Contato de quem cadastrou o negócio como dono. Só o dono e a moderação veem.
+  emailDoDono       String?
+  telefoneDoDono    String?
   // "indicada" (sem dono) | "verificada" (tem dono que provou controlar o @)
   status            String   @default("indicada")
   // "pendente" | "aprovada" | "rejeitada" — só "aprovada" aparece no diretório

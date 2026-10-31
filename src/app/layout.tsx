@@ -71,8 +71,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/sobre" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
                 Como funciona
               </Link>
-              <Link href="/indicar" className="rounded-full px-2 py-2 text-suave transition hover:text-tinta sm:px-3">
-                Indicar
+              <Link href="/participar" className="rounded-full px-2 py-2 text-suave transition hover:text-tinta sm:px-3">
+                Cadastrar
               </Link>
               <AlternarTema />
               <Suspense fallback={<div className="h-9 w-20 rounded-full bg-linha/60" />}>
@@ -102,7 +102,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <p className="font-semibold text-tinta">Comunidade</p>
               <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
               <Link href="/cidades" className="block hover:text-tinta">Negócios por cidade</Link>
-              <Link href="/indicar" className="block hover:text-tinta">Indicar um negócio</Link>
+              <Link href="/participar" className="block hover:text-tinta">Cadastrar um negócio</Link>
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Para negócios</p>

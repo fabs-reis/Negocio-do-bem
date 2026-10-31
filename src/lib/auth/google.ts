@@ -63,9 +63,12 @@ export async function trocarCodigo(config: ConfigGoogle, codigo: string, verific
     }),
     signal: AbortSignal.timeout(10_000),
   });
-  const idToken = objeto(await resposta.json().catch(() => null))?.id_token;
+  const json = objeto(await resposta.json().catch(() => null));
+  const idToken = json?.id_token;
   if (!resposta.ok || typeof idToken !== "string") {
-    throw new Error(`O Google não aceitou o código de autorização (HTTP ${resposta.status}).`);
+    // O motivo do Google (como invalid_client ou invalid_grant) não é segredo e diz o que corrigir.
+    const motivo = [json?.error, json?.error_description].filter((v) => typeof v === "string").join(": ");
+    throw new Error(`O Google não aceitou o código de autorização (HTTP ${resposta.status}${motivo ? `, ${motivo}` : ""}).`);
   }
   return lerIdToken(idToken, config.clientId);
 }

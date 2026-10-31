@@ -6,11 +6,13 @@ import { cancelarReivindicacao } from "@/acoes/reivindicacoes";
 import { Aviso } from "@/components/Aviso";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { InstagramIcone } from "@/components/Icones";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, STATUS_REIVINDICACAO } from "@/lib/dominio";
-import { configLogin, normalizarUsername } from "@/lib/instagram";
+import { temInstagram } from "@/lib/endereco";
+import { configLogin, normalizarEndereco, normalizarUsername } from "@/lib/instagram";
 import { formatarDataHora } from "@/lib/texto";
 import { FormDocumento } from "./Formularios";
 import { FORA_DA_BUSCA } from "@/lib/seo";
@@ -31,7 +33,7 @@ async function Reivindicar({
   params,
   searchParams,
 }: Pick<PageProps<"/empresas/[usuario]/reivindicar">, "params" | "searchParams">) {
-  const username = normalizarUsername((await params).usuario);
+  const username = normalizarEndereco((await params).usuario);
   if (!username) notFound();
   const [empresa, usuario, busca] = await Promise.all([
     db.empresa.findUnique({ where: { instagramUsername: username }, include: { membros: true } }),
@@ -53,7 +55,7 @@ async function Reivindicar({
       </h1>
       <p className="text-lg leading-relaxed text-suave">
         Envie os dados do negócio para assumir o perfil de{" "}
-        <strong className="font-semibold text-tinta">@{username}</strong>. Depois disso, você conta a sua história,
+        <strong className="font-semibold text-tinta">{temInstagram(username) ? `@${username}` : empresa.nome}</strong>. Depois disso, você conta a sua história,
         escolhe as causas e responde à comunidade.
       </p>
       <AvisoDaUrl codigo={busca.aviso} />
@@ -115,7 +117,8 @@ async function Reivindicar({
   });
   const pendentes = solicitacoes.filter((r) => r.status === "pendente");
   const dadosEmAnalise = pendentes.some((r) => r.metodo === "documento");
-  const loginDisponivel = !!configLogin();
+  // Sem Instagram, o único caminho é enviar os dados do negócio.
+  const loginDisponivel = temInstagram(username) && !!configLogin();
 
   return (
     <>
@@ -209,15 +212,5 @@ async function Reivindicar({
         .
       </p>
     </>
-  );
-}
-
-function InstagramIcone() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-    </svg>
   );
 }

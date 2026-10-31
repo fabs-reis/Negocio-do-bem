@@ -248,6 +248,10 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
   - não pode começar nem terminar com `.`, nem ter `..`;
   - recusa caminhos do Instagram que não são perfis (`p`, `reel`, `reels`, `explore`, `stories`, `accounts`, `direct`, `tv`).
 - **Ninguém muda o @ depois** (nem o dono, nem a moderação). Não existe tela para isso.
+- **Negócio sem Instagram:** quem cadastra pelo "O negócio não tem Instagram" ganha um endereço feito do nome e da cidade, em minúsculas, sem acento e com hífens: "Padaria do Bairro", em Recife, vira `/empresas/padaria-do-bairro-recife` (`enderecoSemInstagram` em `src/lib/endereco.ts`).
+  - O endereço fica na mesma coluna do @ (`instagramUsername`). Como o Instagram não aceita hífen no @, e a cidade no fim garante ao menos um hífen, um endereço nunca se confunde com um @ (`temInstagram`).
+  - Se outro negócio já usa o endereço, o novo ganha `-2`, `-3`… no fim.
+  - Onde o site mostra o @, um negócio sem Instagram aparece como "sem Instagram", sem link para o Instagram. A rotina de fotos e os caminhos de verificação pelo Instagram o ignoram.
 - Além do @, o negócio pode guardar dois IDs fixos do Instagram:
   - `instagramUserId`, preenchido pelo Entrar com Instagram, hoje desligado (ver [seção 6](#entrar-com-instagram-desligado-por-padrão));
   - `instagramIgsid`, que só vem de pedidos antigos por código de DM (ver [seção 6](#pedidos-antigos-por-código-de-dm)).
@@ -262,21 +266,23 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 | Categoria | Sim | Uma da lista fixa (ver [seção 12](#categorias)). |
 | Cidade e estado (UF) | Sim | Um município da lista do IBGE, escolhido no campo de cidade, que sugere cidades enquanto a pessoa digita. O estado vem junto com a cidade. O servidor confere na mesma lista e grava o nome oficial, com acentos (ver [seção 12](#municípios)). |
 | Resumo ("em uma frase") | Sim | 10 a 160 caracteres. Aparece nos cards do diretório. |
+| Telefone comercial | Só no cadastro do dono | Número brasileiro com DDD, com as regras do WhatsApp (ver abaixo). No perfil, vira o botão "Ligar". |
 | Site | Não | Até 200 caracteres. Sem `http`, ganha `https://`. Precisa ter um ponto no domínio. |
 | WhatsApp | Não | Número brasileiro com DDD (ver abaixo). |
 | E-mail de contato | Não | E-mail válido, até 200 caracteres, guardado em minúsculas. |
+| E-mail e telefone do dono | Só no cadastro do dono | O contato de quem cadastrou o negócio como dono, com as regras do e-mail e do telefone. **Não aparecem no perfil:** só os donos (no painel) e a moderação (na fila de indicações e na edição) veem. |
 | Causas | Não | Qualquer combinação da lista oficial. Slugs desconhecidos são descartados. |
 | História | Não | Markdown, até 20 mil caracteres (ver [seção 8](#8-história-do-negócio)). |
 | Foto | Não | Ver [seção 9](#9-fotos). |
 
-**Regras do WhatsApp:**
+**Regras do WhatsApp e dos telefones:**
 
 - Aceita `(11) 99148-8052`, `11 99148-8052`, `+55 11 99148-8052`, com ou sem zero na frente.
 - Guarda **só os dígitos, com o 55 do Brasil** (`5511991488052`).
 - O DDD não pode ter zero.
 - Depois do DDD vem um celular (9 e mais 8 dígitos) ou um fixo (começa com 2, 3, 4 ou 5 e tem 8 dígitos).
 - Números estrangeiros são recusados.
-- No perfil, o número aparece formatado, e o botão abre `wa.me/<número>`.
+- No perfil, o número aparece formatado. O botão do WhatsApp abre `wa.me/<número>`, e o do telefone comercial, `tel:+<número>`.
 
 ### Três estados independentes
 
@@ -316,26 +322,54 @@ Repare: aprovar uma reivindicação **também publica** o negócio. Por isso a a
 
 ## 4. Indicação
 
-Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/indicar/`.
+Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participar/` (`CadastroPorEtapas.tsx`).
 
-- **Precisa de login.** Sem conta, a página `/indicar` pede para entrar ou criar uma conta.
-- **Dados pedidos:** @ do Instagram, nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Site, WhatsApp, e-mail, causas e "por que você indica" são opcionais.
-- **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa.
+### O cadastro por etapas
+
+- **Uma entrada só:** `/participar` é o "Cadastrar" do menu e o destino dos botões de indicar. O `/indicar` antigo redireciona para lá, com a busca (`?instagram=<@>&dono=sim`), que vira o @ e a escolha de dono já preenchidos.
+- **Uma pergunta por vez.** Primeiro o @, depois "O que você quer fazer?". As respostas ficam num formulário só: voltar não perde nada, Enter avança, e cada etapa confere os próprios campos antes de seguir. O servidor confere tudo de novo no envio, e um erro dele leva a pessoa de volta à etapa do campo errado.
+- **As etapas:** quem indica passa por @, escolha, nome e categoria, cidade e frase, causas (com o "por que você indica?") e revisão. O dono tem duas a mais antes da revisão: os contatos do negócio e o contato dele.
+- **A procura do @** (`procurarArroba` em `src/acoes/participacao.ts`) não precisa de login e só lê. As opções da etapa seguinte dependem do que ela acha (`casoDaProcura` em `src/lib/participacao.ts`):
+
+| O @ procurado | Opções |
+| --- | --- |
+| Ainda não está no site | "Quero indicar este negócio" ou "Sou dono deste negócio", com a prévia do Instagram |
+| No diretório e sem dono | "É meu negócio" (vai para a reivindicação) ou "Quero deixar um depoimento" |
+| No diretório e com dono | "É meu negócio: pedir revisão" ou "Quero deixar um depoimento" |
+| Tirado do ar, pendente ou oculto | Uma resposta neutra, sem dizer o motivo |
+
+- **Prévia do Instagram** (`src/lib/previa-instagram.ts`): para um @ novo, o servidor procura o perfil na API da Meta (Business Discovery, a mesma da [rotina de fotos](#rotina-de-fotos-do-instagram)) e mostra a foto, o nome e o site. O nome e o site entram no formulário com "Veio do Instagram. Pode mudar."
+  - Só contas profissionais (comerciais ou de criador) aparecem. Conta pessoal, @ errado, token vencido ou Meta fora do ar dão o mesmo resultado: sem prévia, e o cadastro segue normal. Para o dono, um aviso explica que a conta precisa ser profissional e oferece "Já mudei, procurar de novo".
+  - O servidor baixa a foto, só dos domínios da Meta, por https, até 300 KB, e a manda como data URL: a política de conteúdo do site continua fechada para outros endereços.
+  - Cada prévia encontrada fica guardada por 15 minutos em cada servidor, para não gastar o limite da Meta. A falta de prévia não fica guardada.
+  - Sem `META_ACCESS_TOKEN` e `META_IG_USER_ID`, não há prévia.
+- **Foto no cadastro:** depois de criar um negócio com Instagram, a foto da prévia vira a foto do perfil (`gravarFotoDaPrevia` em `src/lib/fotos-instagram.ts`), sem atrasar a resposta. Ela segue as regras da rotina de fotos: nunca troca uma foto já enviada e registra `empresa.foto_do_instagram` na auditoria. Sem prévia, a rotina tenta depois.
+- **Sem Instagram:** "O negócio não tem Instagram", na primeira etapa, pula a procura e oferece indicar ou cadastrar como dono. O resto das etapas é igual, e o negócio ganha um endereço feito do nome e da cidade ([seção 3](#identidade-o--do-instagram)).
+- **Conta no fim:** sem login, a última etapa pede para entrar ou criar a conta. As respostas ficam guardadas no navegador (`ndb:cadastro`) e voltam na revisão quando a pessoa retorna com `?continuar=1`. Publicar apaga o rascunho do navegador.
+
+### As regras do envio
+
+- **Precisa de login**, como antes.
+- **Dados pedidos:** o @ do Instagram (ou "sem Instagram"), nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Causas e "por que você indica" são opcionais.
+- **Quem indica não publica contatos** (#105): site, WhatsApp, e-mail, telefone comercial e contato do dono ficam vazios numa indicação, mesmo que o envio traga algum. Quem cuida dos contatos é o dono.
+- **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa. Sem Instagram, não há recusa: o endereço ganha `-2`, `-3`….
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
 - **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
 - **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
 - **Auditoria:** registra `empresa.indicada` na mesma transação da criação. Se a auditoria falhar, a indicação falha e o negócio não fica salvo. Isso inclui erros de unicidade da auditoria, que não significam que o @ já existe.
 
-### "Este negócio é meu"
+### "Sou dono deste negócio"
 
-Quando a pessoa marca **"Este negócio é meu"** no formulário de indicação:
+Quando a pessoa escolhe **"Sou dono deste negócio"** (ou "Sou dono do negócio", sem Instagram):
 
 - o campo "Por que você indica?" some e o motivo não é guardado;
+- a pessoa informa os contatos do negócio: **telefone comercial (obrigatório)**, WhatsApp, e-mail e site (opcionais). Eles aparecem no perfil;
+- e o contato dela: **e-mail e telefone de contato (obrigatórios)**. O e-mail e o telefone começam preenchidos com os da conta. Esse contato não aparece no perfil ([seção 3](#dados-do-negócio));
 - o negócio é criado do mesmo jeito, já publicado, com a pessoa como quem indicou;
-- a pessoa vai direto para a página de reivindicação (`/empresas/<@>/reivindicar`) para enviar os dados do negócio.
+- a pessoa vai direto para a página de reivindicação (`/empresas/<endereço>/reivindicar`) para enviar os dados do negócio.
 
-Marcar a opção não faz ninguém virar dono. A pessoa vira dona quando envia os dados do negócio. Como o negócio acabou de ser criado e não tem dono, isso acontece na hora ([seção 6](#aprovação-na-hora)).
+Escolher a opção não faz ninguém virar dono. A pessoa vira dona quando envia os dados do negócio. Como o negócio acabou de ser criado e não tem dono, isso acontece na hora ([seção 6](#aprovação-na-hora)).
 
 ---
 
@@ -385,7 +419,7 @@ Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindic
 ### Quem pode pedir
 
 - **Qualquer conta logada** que ainda não seja dona daquele negócio. Quem já é dono vê "Você já é dono deste perfil" e o link para o painel.
-- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"Sou o dono"** do perfil, pelo "Este negócio é meu" da indicação ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis verificados.
+- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"Sou o dono"** do perfil, pelo "Sou dono deste negócio" do cadastro (`/participar`) ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis verificados.
 - **Negócio tirado do ar:** a página responde 404.
 - **Negócio que já tem dono:** o pedido é aceito, com um aviso de que vai para a moderação. Serve para co-donos e para troca de responsáveis.
 
@@ -542,9 +576,11 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
 - **Selo:**
   - **"Verificado pelo dono"** quando `status = "verificada"`;
   - **"Indicado pela comunidade"** quando ainda não tem dono.
-- **Nome, @** (com link para o Instagram), **categoria, cidade e UF.**
-- **Botões de contato** (só os preenchidos):
-  - WhatsApp, que abre `wa.me`;
+- **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
+- **Botões de contato** (só os preenchidos). WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
+  - telefone comercial, "Ligar", que abre `tel:`;
+  - WhatsApp, com o ícone, que abre `wa.me`;
+  - Instagram, com o ícone, que abre o perfil (só para quem tem Instagram);
   - site, que mostra o domínio sem `www`;
   - e-mail, que abre `mailto:`.
 - **Resumo** e **causas** como selos.
@@ -654,7 +690,7 @@ Código: `src/lib/fotos.ts`, `src/lib/armazenamento.ts`, `src/components/reduzir
 
 Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do projeto), `src/app/api/fotos-instagram/route.ts` e `src/lib/fotos-instagram.ts`, com testes em `tests/db/fotos-instagram.test.ts`. Decidida na [issue #31](https://github.com/fabs-reis/Negocio-do-bem/issues/31).
 
-- **Quais negócios:** os que estão **sem foto** e **não foram tirados do ar**, inclusive os pendentes. Os mais antigos primeiro, até 100 por rodada.
+- **Quais negócios:** os que estão **sem foto** e **não foram tirados do ar**, inclusive os pendentes, menos os sem Instagram. Os mais antigos primeiro, até 100 por rodada. Os negócios cadastrados com uma prévia do Instagram já nascem com a foto ([seção 4](#o-cadastro-por-etapas)).
 - **De onde vem a foto:**
   1. de um arquivo na pasta local `fotos-manuais/`, com o @ no nome (`<@>.jpg`, `.png` ou `.webp`), se existir;
   2. senão, da **API oficial da Meta** (Business Discovery), que devolve a foto de perfil de contas **comerciais ou de criador** em 1080×1080. Contas pessoais, privadas ou inexistentes não aparecem e o negócio continua sem foto.

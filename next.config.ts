@@ -40,6 +40,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:caminho*", headers: cabecalhosDeSeguranca }];
   },
+  async redirects() {
+    // O cadastro tem uma entrada só (/participar). A busca vai junto: ?instagram=<@>&dono=sim.
+    return [{ source: "/indicar", destination: "/participar", permanent: false }];
+  },
   /* config options here */
   cacheComponents: true,
   experimental: {

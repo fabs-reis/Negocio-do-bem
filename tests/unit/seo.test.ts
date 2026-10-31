@@ -24,6 +24,7 @@ const NEGOCIO = {
   site: null,
   whatsapp: null,
   emailContato: null,
+  telefoneComercial: null,
 };
 
 describe("endereço do site", () => {
@@ -63,6 +64,17 @@ describe("jsonLdDoNegocio", () => {
     const completa = ficha({ whatsapp: "5581999990000", emailContato: "oi@padaria.exemplo", site: "https://padaria.exemplo" });
     expect(completa).toMatchObject({ telephone: "+5581999990000", email: "oi@padaria.exemplo" });
     expect(completa.sameAs).toContain("https://padaria.exemplo");
+  });
+
+  it("prefere o telefone comercial ao WhatsApp", () => {
+    expect(ficha({ whatsapp: "5581999990000", telefoneComercial: "558133334444" }).telephone).toBe("+558133334444");
+  });
+
+  it("negócio sem Instagram não aponta para o Instagram", () => {
+    expect(ficha({ instagramUsername: "padaria-florescer-recife" }).sameAs).toEqual([]);
+    expect(ficha({ instagramUsername: "padaria-florescer-recife", site: "https://padaria.exemplo" }).sameAs).toEqual([
+      "https://padaria.exemplo",
+    ]);
   });
 
   it("só usa fotos guardadas pelo site", () => {
