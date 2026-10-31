@@ -88,4 +88,4 @@ export const ACOES_AUDITORIA: Record<string, string> = {
 };
 
 /** Onde fica o código aberto do projeto. */
-export const REPOSITORIO = "https://github.com/fabsreis/Negocio-do-bem";
+export const REPOSITORIO = "https://github.com/fabs-reis/Negocio-do-bem";
