@@ -145,6 +145,21 @@ Um script no seu computador preenche, todo dia, a foto de perfil dos negócios q
 
 Contas pessoais ou privadas não aparecem na API. Para esses negócios, salve a foto em `fotos-manuais/<@>.jpg` (ou `.png`, `.webp`): ela tem prioridade sobre a da API.
 
+## Ativando o login com o Google (opcional)
+
+O botão "Continuar com o Google" aparece em `/entrar` e `/cadastrar` quando `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `APP_URL` estão configurados. As regras estão na [seção 2 das regras de negócio](docs/regras-de-negocio.md#cadastro-e-login).
+
+> Os nomes das telas do Google Cloud mudam com frequência. Confira a [documentação oficial](https://developers.google.com/identity/protocols/oauth2/web-server) antes de configurar.
+
+1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e abra o **Google Auth Platform**.
+2. Em **Branding**, preencha o nome do app, o e-mail de suporte e o domínio autorizado (`negociodobem.com`). Em **Audience**, escolha **External** e publique o app (**In production**): em teste, só os usuários de teste cadastrados conseguem entrar. Os escopos usados (`openid`, `email` e `profile`) não pedem a verificação do Google.
+3. Em **Clients**, crie um cliente do tipo **Web application**, com a URI de redirecionamento `https://www.negociodobem.com/api/google/retorno`: o `APP_URL` mais `/api/google/retorno`. Para testar no seu computador, acrescente `http://localhost:3000/api/google/retorno`.
+4. No Cloudflare, configure `GOOGLE_CLIENT_ID` com o ID do cliente e `GOOGLE_CLIENT_SECRET` com a chave secreta, como secret. A aba "Sistema" da moderação mostra se o login com o Google está ligado.
+
+Nos previews, o retorno vai para o `APP_URL` configurado no preview. O botão só funciona lá se esse endereço também estiver nas URIs do cliente; senão, deixe as variáveis do Google só na produção.
+
+O site pede só `openid email profile`, lê a conta, o e-mail e o nome e **não guarda o token**.
+
 ## Ativando os avisos por e-mail (opcional)
 
 O site manda por e-mail o link para confirmar o e-mail e o link para entrar sem senha. Também avisa quem pediu uma reivindicação quando a moderação decide, a moderação quando chega um pedido ou uma denúncia na fila, e os donos quando chega um depoimento. O envio é pelo [Resend](https://resend.com). As regras estão na [seção 14 das regras de negócio](docs/regras-de-negocio.md#14-avisos-por-e-mail).

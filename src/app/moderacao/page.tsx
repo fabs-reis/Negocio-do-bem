@@ -20,7 +20,7 @@ import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
 import { ABAS, lerFiltros, type Aba } from "@/lib/moderacao/filtros";
-import { formatarDataHora, formatarWhatsapp } from "@/lib/texto";
+import { formatarDataHora, formatarTelefone } from "@/lib/texto";
 import { Auditoria } from "./Auditoria";
 import { Contas } from "./Contas";
 import { Depoimentos } from "./Depoimentos";
@@ -340,7 +340,7 @@ async function Indicacoes() {
                   {e.site}
                 </a>
               )}
-              {e.whatsapp && <span>WhatsApp {formatarWhatsapp(e.whatsapp)}</span>}
+              {e.whatsapp && <span>WhatsApp {formatarTelefone(e.whatsapp)}</span>}
               {e.emailContato && <span>{e.emailContato}</span>}
             </p>
           )}
