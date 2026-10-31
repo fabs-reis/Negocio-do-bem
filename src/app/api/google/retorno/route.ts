@@ -1,5 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE_GOOGLE, configGoogle, contaDoGoogle, trocarCodigo } from "@/lib/auth/google";
+import {
+  COOKIE_CADASTRO_GOOGLE,
+  COOKIE_GOOGLE,
+  configGoogle,
+  contaDoGoogle,
+  guardarCadastroGoogle,
+  trocarCodigo,
+  VALIDADE_CADASTRO_GOOGLE_MS,
+} from "@/lib/auth/google";
 import { caminhoSeguro, criarSessao } from "@/lib/auth/sessao";
 
 /** Retorno do Google depois do login (URI de redirecionamento cadastrada no Google Cloud). */
@@ -33,6 +41,19 @@ export async function GET(request: NextRequest) {
     const resultado = await contaDoGoogle(perfil);
     if (resultado.tipo === "email_nao_verificado") return avisar("google_email_nao_verificado");
     if (resultado.tipo === "outra_conta_google") return avisar("google_outra_conta");
+    if (resultado.tipo === "precisa_telefone") {
+      // Conta nova: ela só é criada quando a pessoa informa o telefone em /cadastrar/google.
+      const token = await guardarCadastroGoogle(perfil, voltar);
+      const resposta = ir(new URL("/cadastrar/google", origem));
+      resposta.cookies.set(COOKIE_CADASTRO_GOOGLE, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/cadastrar/google",
+        maxAge: VALIDADE_CADASTRO_GOOGLE_MS / 1000,
+      });
+      return resposta;
+    }
     await criarSessao(resultado.usuarioId);
     return ir(new URL(voltar, origem));
   } catch (erro) {

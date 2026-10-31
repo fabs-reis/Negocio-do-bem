@@ -9,11 +9,17 @@
 // Documentação: https://developers.google.com/identity/openid-connect/openid-connect
 
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 
 /** Cookie que guarda o "state", o verificador do PKCE e o `voltar` até o retorno. */
 export const COOKIE_GOOGLE = "ndb_google";
+
+/** Cookie com o token do cadastro pelo Google que espera o telefone em /cadastrar/google. */
+export const COOKIE_CADASTRO_GOOGLE = "ndb_google_cadastro";
+
+/** Prazo para informar o telefone depois de voltar do Google. */
+export const VALIDADE_CADASTRO_GOOGLE_MS = 30 * 60 * 1000;
 
 export type ConfigGoogle = { clientId: string; clientSecret: string; redirectUri: string };
 
@@ -95,6 +101,7 @@ export function lerIdToken(idToken: string, clientId: string, agora = Date.now()
 
 export type ResultadoGoogle =
   | { tipo: "entrou"; usuarioId: string }
+  | { tipo: "precisa_telefone" }
   | { tipo: "email_nao_verificado" }
   | { tipo: "outra_conta_google" };
 
@@ -105,10 +112,11 @@ export type ResultadoGoogle =
  *    quem criou a conta nunca provou ser dono do endereço: a senha é apagada e as
  *    sessões abertas são encerradas, para ninguém criar a conta antes com o e-mail
  *    de outra pessoa e continuar com acesso depois que ela entrar pelo Google;
- * 3. sem conta com o e-mail, uma nova é criada, com o e-mail confirmado e sem senha.
+ * 3. sem conta com o e-mail, uma nova é criada, com o e-mail confirmado, o telefone e sem
+ *    senha. Sem o telefone (que o Google não dá), devolve "precisa_telefone" e nada é criado.
  * Ligar e criar só valem com o e-mail verificado pelo Google.
  */
-export async function contaDoGoogle(perfil: PerfilGoogle, tentativa = 1): Promise<ResultadoGoogle> {
+export async function contaDoGoogle(perfil: PerfilGoogle, telefone?: string, tentativa = 1): Promise<ResultadoGoogle> {
   const ligada = await db.usuario.findUnique({ where: { googleId: perfil.sub }, select: { id: true } });
   if (ligada) return { tipo: "entrou", usuarioId: ligada.id };
   if (!perfil.emailVerificado) return { tipo: "email_nao_verificado" };
@@ -121,13 +129,14 @@ export async function contaDoGoogle(perfil: PerfilGoogle, tentativa = 1): Promis
   // leitura acha a conta dele.
   const deNovo = () => {
     if (tentativa > 1) throw new Error("A conta mudou durante o login com o Google.");
-    return contaDoGoogle(perfil, tentativa + 1);
+    return contaDoGoogle(perfil, telefone, tentativa + 1);
   };
 
   if (!existente) {
+    if (!telefone) return { tipo: "precisa_telefone" };
     try {
       const nova = await db.usuario.create({
-        data: { nome: perfil.nome, email: perfil.email, googleId: perfil.sub, emailConfirmadoEm: new Date() },
+        data: { nome: perfil.nome, email: perfil.email, googleId: perfil.sub, telefone, emailConfirmadoEm: new Date() },
         select: { id: true },
       });
       return { tipo: "entrou", usuarioId: nova.id };
@@ -150,6 +159,45 @@ export async function contaDoGoogle(perfil: PerfilGoogle, tentativa = 1): Promis
     return true;
   });
   return ligou ? { tipo: "entrou", usuarioId: existente.id } : deNovo();
+}
+
+/**
+ * Guarda quem o Google disse que é a pessoa até ela informar o telefone, e devolve o
+ * token que vai no cookie. O banco guarda só o sha256 do token, como na sessão.
+ */
+export async function guardarCadastroGoogle(perfil: PerfilGoogle, destino: string): Promise<string> {
+  const agora = Date.now();
+  await db.cadastroGoogle.deleteMany({ where: { expiraEm: { lt: new Date(agora) } } });
+  const token = randomBytes(32).toString("base64url");
+  await db.cadastroGoogle.create({
+    data: {
+      id: hashToken(token),
+      googleId: perfil.sub,
+      email: perfil.email,
+      nome: perfil.nome,
+      destino,
+      expiraEm: new Date(agora + VALIDADE_CADASTRO_GOOGLE_MS),
+    },
+  });
+  return token;
+}
+
+/** O cadastro pelo Google que espera o telefone, ou null se não existe ou venceu. */
+export async function lerCadastroGoogle(token: string): Promise<{ perfil: PerfilGoogle; destino: string } | null> {
+  if (!token) return null;
+  const cadastro = await db.cadastroGoogle.findUnique({ where: { id: hashToken(token) } });
+  if (!cadastro || cadastro.expiraEm <= new Date()) return null;
+  // Só chega aqui o e-mail que o Google verificou: contaDoGoogle confere antes de pedir o telefone.
+  const perfil = { sub: cadastro.googleId, email: cadastro.email, emailVerificado: true, nome: cadastro.nome };
+  return { perfil, destino: cadastro.destino };
+}
+
+export async function apagarCadastroGoogle(token: string): Promise<void> {
+  if (token) await db.cadastroGoogle.deleteMany({ where: { id: hashToken(token) } });
+}
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 function violouUnicidade(erro: unknown): boolean {

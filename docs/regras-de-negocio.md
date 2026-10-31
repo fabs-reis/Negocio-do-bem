@@ -56,7 +56,9 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Cadastro** (`/cadastrar`):
   - nome de 2 a 80 caracteres;
   - e-mail válido de até 200 caracteres, guardado em minúsculas;
+  - telefone obrigatório, do Brasil, com DDD: celular (9 e mais 8 dígitos) ou fixo (começa com 2 a 5). Aceita "(11) 99148-8052" ou "+55 11 99148-8052" e guarda só os dígitos, com o 55 (`5511991488052`), como o WhatsApp do negócio. Serve só para avisos sobre a conta e o negócio da pessoa, e o campo diz isso;
   - senha de 8 a 200 caracteres.
+- **Contas sem telefone:** as criadas antes do telefone ser obrigatório ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191)) continuam sem ele e funcionam igual. Ninguém é obrigado a informar depois.
 - **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?").
 - **Login** (`/entrar`): e-mail e senha.
   - O erro é sempre o mesmo, "E-mail ou senha incorretos".
@@ -69,7 +71,12 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - **Conta com o mesmo e-mail:** o Google é ligado a ela, e a pessoa entra.
     - Se o e-mail dessa conta já estava confirmado, a senha e as sessões abertas continuam.
     - Se não estava, a senha é apagada, as sessões abertas são encerradas e o e-mail passa a valer como confirmado. Quem criou a conta nunca provou ser dono do endereço: sem isso, alguém criaria a conta com o e-mail de outra pessoa e continuaria entrando com a senha depois que ela entrasse pelo Google.
-  - **Sem conta com o e-mail:** cria uma, com o nome do Google (até 80 caracteres; sem nome, o começo do e-mail), o e-mail confirmado e sem senha.
+  - **Sem conta com o e-mail:** a conta só é criada depois que a pessoa informa o telefone, que o Google não dá.
+    - O retorno guarda quem o Google disse que é a pessoa (`CadastroGoogle`: o `sub`, o e-mail, o nome e o `voltar`) e leva a `/cadastrar/google`, "Falta só o seu telefone", que mostra o e-mail da conta do Google.
+    - O cookie `ndb_google_cadastro` (`httpOnly`, `sameSite=lax`, só no caminho `/cadastrar/google`) leva o token. O banco guarda só o sha256 dele. O cadastro vale por 30 minutos; os vencidos são apagados quando outro é guardado.
+    - Com o telefone válido, a conta é criada com o nome do Google (até 80 caracteres; sem nome, o começo do e-mail), o telefone, o e-mail confirmado e sem senha. O cadastro guardado é apagado, a sessão é aberta e a pessoa vai para o `voltar`.
+    - Depois do prazo, a página diz que ele acabou e leva de volta ao `/cadastrar`. Se, enquanto isso, o e-mail foi ligado a outro Google, aparece "Este e-mail já está ligado a outra conta do Google" e nada é criado.
+    - Entrar numa conta ligada ou ligar o Google a uma conta que já existe não pede o telefone.
   - **Ligar e criar exigem o e-mail verificado pelo Google.** Sem isso, nada é criado nem ligado, e aparece "O Google ainda não confirmou o e-mail dessa conta".
   - **Uma conta liga um Google só.** Se o e-mail já está ligado a outro Google, nada muda, e aparece "Este e-mail já está ligado a outra conta do Google".
   - Dois retornos ao mesmo tempo criam ou ligam a conta uma vez só.
@@ -204,7 +211,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 - **A busca** procura no nome e no e-mail. Cada palavra precisa aparecer, sem diferenciar maiúsculas. Acentos contam: "joao" não acha "João".
 - **Filtros:** todas, moderação, donos de negócio, novas (criadas nos últimos 7 dias) e sem atividade (não indicaram, não escreveram depoimento nem denúncia, não pediram e não são donas de nenhum negócio).
 - **A ficha da conta** (`/moderacao/contas/<id>`) junta:
-  - nome, e-mail, papel, quando a conta foi criada, quando confirmou o e-mail e as sessões abertas;
+  - nome, e-mail, telefone (ou "Não informado", nas contas de antes dele), papel, quando a conta foi criada, quando confirmou o e-mail e as sessões abertas;
   - os negócios de que é dona, as indicações, os depoimentos, as denúncias e os pedidos de reivindicação, até 30 de cada, os mais recentes primeiro, com o total quando há mais;
   - quantos pedidos decidiu, se é moderação;
   - os 20 registros mais recentes da auditoria feitos por ela ou sobre a conta dela, com um link para todos.
@@ -937,6 +944,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Nome da conta | `Usuario` | **Público** quando a pessoa escreve um depoimento ou quando a indicação dela aparece no perfil ("indicado por …"). A moderação vê nas filas. |
 | E-mail da conta | `Usuario` | Só a própria pessoa (no menu) e a moderação, que vê o e-mail de todas as contas na aba "Contas" e na ficha de cada uma, além das filas. Nunca aparece no site público. Serve para entrar e para receber os [avisos por e-mail](#14-avisos-por-e-mail). |
+| Telefone da conta | `Usuario.telefone` | Só a moderação, na ficha da conta. Nunca aparece no site público. Serve só para avisos sobre a conta e o negócio da pessoa, sem divulgação. |
+| Cadastro pelo Google esperando o telefone | `CadastroGoogle` | Ninguém vê o token: só o hash é guardado, com o ID da conta do Google, o e-mail, o nome e para onde a pessoa vai. Vale 30 minutos e é apagado quando a conta é criada; os vencidos, quando outro é guardado. |
 | Senha | `Usuario.senhaHash` | Ninguém: só o hash scrypt é guardado. A conta criada pelo Google não tem senha. |
 | Conta do Google ligada | `Usuario.googleId` | Ninguém: é só o identificador (`sub`) que o Google dá à conta, para reconhecê-la no próximo login. |
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
@@ -986,6 +995,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Duração da sessão | 30 dias | `src/lib/auth/sessao.ts` |
 | Senha | 8 a 200 caracteres | `src/acoes/conta.ts` |
 | Prazo para voltar do Google no login | 10 minutos | `src/app/api/google/entrar/route.ts` |
+| Prazo para informar o telefone na conta nova pelo Google | 30 minutos | `src/lib/auth/google.ts` |
+| Telefone da conta | do Brasil, com DDD (10 ou 11 dígitos) | `src/lib/formulario.ts` |
 | Tentativas de login e cadastro por IP | 10 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Tentativas de senha por e-mail, em cada origem (IP ou /64) | 5 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |

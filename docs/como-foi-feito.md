@@ -408,6 +408,15 @@ Com a confirmação de e-mail desligada ([#148](https://github.com/fabs-reis/Neg
 - **Ligar pelo e-mail sem abrir uma porta.** Como o cadastro não confirma o e-mail, alguém poderia criar a conta com o e-mail de outra pessoa e esperar ela entrar pelo Google. Ao ligar o Google a uma conta de e-mail não confirmado, a senha é apagada e as sessões são encerradas. Quem tinha criado a conta de boa-fé entra pelo Google ou por link no e-mail.
 - **A senha ficou opcional** (`senhaHash` pode ser nulo). O login com senha confere a conta sem senha contra o hash falso, como um e-mail sem conta.
 
+### 31 de outubro: telefone no cadastro ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191))
+
+O cadastro passou a pedir o telefone, para os avisos sobre a conta e o negócio da pessoa.
+
+- **Obrigatório só para contas novas.** As antigas continuam sem telefone e funcionam igual. Pedir o telefone a todas, a cada login, travaria quem só queria olhar o painel.
+- **A mesma regra do WhatsApp do negócio.** `campoTelefone` e `campoWhatsapp` usam a mesma conferência (Brasil, com DDD, celular ou fixo) e guardam só os dígitos com o 55. `formatarWhatsapp` virou `formatarTelefone`, que serve aos dois.
+- **Pelo Google, a conta só nasce com o telefone.** O Google não dá o telefone, e o código que ele manda vale uma vez só. Por isso o retorno guarda quem é a pessoa na tabela `CadastroGoogle`, por 30 minutos, com o token num cookie (só o hash no banco, como na sessão), e `/cadastrar/google` pede o telefone. Criar a conta antes e pedir o telefone depois deixaria contas sem telefone de quem fechasse a página no meio.
+- **Só para avisos, e o texto diz isso.** Usar o telefone para divulgação pediria um consentimento separado (LGPD), com uma caixa desmarcada. Fica para quando houver essa necessidade.
+
 ---
 
 ## 4. Arquitetura

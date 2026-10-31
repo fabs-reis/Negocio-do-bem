@@ -20,6 +20,9 @@ model Usuario {
   senhaHash String?
   // "sub" da conta do Google ligada a esta, que não muda nem quando o Gmail muda.
   googleId  String?  @unique
+  // Só os dígitos, com o 55 do Brasil: "5511991488052". Obrigatório no cadastro;
+  // vazio nas contas criadas antes dele.
+  telefone  String?
   // "membro" | "moderador"
   papel     String   @default("membro")
   // Quando a pessoa abriu um link mandado para o e-mail dela. Sem isso a conta entra,
@@ -75,6 +78,22 @@ model LinkEmail {
   criadoEm   DateTime  @default(now())
 
   @@index([usuarioId, criadoEm])
+}
+
+// Conta nova pelo Google esperando o telefone: o Google já disse quem é a pessoa,
+// e a conta só é criada quando ela informa o telefone em /cadastrar/google.
+model CadastroGoogle {
+  // sha256 do token guardado no cookie, como na Sessao
+  id        String   @id
+  googleId  String
+  email     String
+  nome      String
+  // Caminho interno aonde a pessoa vai depois de criar a conta.
+  destino   String   @default("/")
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+
+  @@index([expiraEm])
 }
 
 model Empresa {
