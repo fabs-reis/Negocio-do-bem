@@ -50,7 +50,7 @@ npm run db:seed               # dados de exemplo (opcional)
 npm run dev                   # http://localhost:3000
 ```
 
-Sem proxy declarado, o login e o cadastro dividem 10 tentativas a cada 15 minutos no `npm run dev`. Para zerar, apague as linhas da tabela `TentativaAcesso`.
+No `npm run dev`, o login e o cadastro não têm limite por IP, porque não há IP confiável. O limite por e-mail do login (5 tentativas a cada 15 minutos) continua valendo. Para zerá-lo, apague as linhas da tabela `TentativaAcesso`. Se você rodar a versão de produção no seu computador (`npm run build` e `npm start`), o login e o cadastro são recusados, porque em produção sem IP confiável eles não funcionam. Use o `npm run dev`.
 
 O seed cria negócios fictícios e estas contas, todas com a senha `senha-demo-123` e o e-mail já confirmado:
 
@@ -188,6 +188,8 @@ O site roda em Cloudflare Workers pelo adaptador OpenNext, com PostgreSQL gerenc
 5. Cadastre as variáveis de runtime em **Variables & Secrets**: `DATABASE_URL` (como secret), `APP_URL`, `NEXT_PUBLIC_R2_PUBLIC_URL` e as opcionais do Resend, do Instagram, do Analytics e da verificação nos buscadores. `DEPLOY_ENV=production` e `CLOUDFLARE_DEPLOY=1` já estão no `wrangler.jsonc`, e o `keep_vars` impede que o deploy apague as outras variáveis do painel. Em **Worker Previews**, os buckets e as variáveis dos previews ficam no bloco `previews` do `wrangler.jsonc`. Cadastre a `DATABASE_URL` do banco de teste como secret de preview (`npx wrangler preview secret put DATABASE_URL`) e, nos previews que já existiam, na página de cada um. Nunca use recursos de produção nos previews.
 6. Opcional: configure `NEXT_PUBLIC_GA_ID`, `GOOGLE_SITE_VERIFICATION` e `BING_SITE_VERIFICATION` em produção. Envie o `sitemap.xml` aos painéis do Google e Bing conforme [Como o projeto foi feito](docs/como-foi-feito.md#cadastrar-o-site-no-google-e-no-bing).
 7. Depois do primeiro deploy, cadastre sua conta e dê a moderação com a conexão direta ao banco de produção: `DATABASE_URL="<conexão de produção>" npm run moderacao -- dar voce@exemplo.com`.
+
+Em produção, login, cadastro e operações de senha são recusados sem IP confiável. No Cloudflare, `CLOUDFLARE_DEPLOY=1` exige o cabeçalho `cf-connecting-ip`; outros cabeçalhos não o substituem. O log orienta quem administra o site a conferir a configuração. Em outra hospedagem, use `AUTENTICACAO_PROXY_CONFIAVEL=1` apenas se o proxy escreve `x-forwarded-for` e é o único caminho até o site.
 
 As fotos enviadas antes da migração estavam no Vercel Blob e foram copiadas para o R2 em 31 de outubro. O Blob continua no ar como reserva. Se aparecer alguma foto com endereço do Blob, rode `npm run fotos:para-r2` com a conexão de produção na frente: sem `--aplicar`, ele só mostra o que faria; com `--aplicar`, copia cada foto para o bucket `negocio-do-bem-fotos` e troca o endereço no banco. Precisa do `npx wrangler login`. Não apague o Blob antes de conferir os perfis. Enquanto isso, trocar ou remover uma foto antiga não a apaga do Blob: o arquivo continua público no endereço antigo até a cópia e a limpeza.
 
