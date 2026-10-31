@@ -52,6 +52,7 @@ describe("Analytics retirado do aplicativo", () => {
       vi.stubEnv("NODE_ENV", ambiente);
       vi.stubEnv("DEPLOY_ENV", undefined);
       vi.stubEnv("VERCEL_ENV", vercel);
+      vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", undefined);
       vi.stubEnv("NEXT_PUBLIC_GA_ID", ID_SINTETICO);
       vi.resetModules();
 
@@ -110,6 +111,7 @@ describe("Analytics retirado do aplicativo", () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("DEPLOY_ENV", deploy);
       vi.stubEnv("VERCEL_ENV", vercel);
+      vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://vercel.live-fotos.example.com");
       vi.resetModules();
 
       const { default: config } = await import("../../next.config");
@@ -119,8 +121,21 @@ describe("Analytics retirado do aplicativo", () => {
         ?.headers.find((header) => header.key.toLowerCase() === "content-security-policy")?.value;
 
       expect(politica).toBeDefined();
-      expect(politica!.includes("https://vercel.live")).toBe(preview);
-      expect(politica!.includes("wss://ws-us3.pusher.com")).toBe(preview);
+      const diretivas = new Map(
+        politica!.split(";").map((trecho) => {
+          const [nome, ...fontes] = trecho.trim().split(/\s+/);
+          return [nome, fontes] as const;
+        }),
+      );
+
+      for (const nome of ["script-src", "style-src", "img-src", "font-src", "connect-src", "frame-src"]) {
+        expect(diretivas.get(nome)).toBeDefined();
+        expect(diretivas.get(nome)!.includes("https://vercel.live")).toBe(preview);
+      }
+      expect(diretivas.get("img-src")).toContain("https://vercel.live-fotos.example.com");
+      expect(diretivas.get("img-src")!.includes("https://vercel.com")).toBe(preview);
+      expect(diretivas.get("font-src")!.includes("https://assets.vercel.com")).toBe(preview);
+      expect(diretivas.get("connect-src")!.includes("wss://ws-us3.pusher.com")).toBe(preview);
     },
   );
 });
