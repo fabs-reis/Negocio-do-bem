@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Form from "next/form";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
@@ -15,7 +14,6 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CausaBadge } from "@/components/CausaBadge";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { consultarCnpj, formatarCnpj } from "@/lib/cnpj";
-import { extrairCodigo } from "@/lib/codigo";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
@@ -47,7 +45,6 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   await exigirModerador();
   const params = await searchParams;
   const filtros = lerFiltros(params);
-  const codigo = typeof params.codigo === "string" ? extrairCodigo(params.codigo) : null;
 
   const [reivindicacoes, indicacoes, denuncias] = await Promise.all([
     db.reivindicacao.count({ where: { status: "pendente" } }),
@@ -65,7 +62,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
         <AvisoDaUrl codigo={params.aviso} />
 
         {filtros.aba === "visao-geral" && <VisaoGeral />}
-        {filtros.aba === "reivindicacoes" && <Reivindicacoes codigo={codigo} />}
+        {filtros.aba === "reivindicacoes" && <Reivindicacoes />}
         {filtros.aba === "indicacoes" && <Indicacoes />}
         {filtros.aba === "denuncias" && <Denuncias />}
         {filtros.aba === "negocios" && <Negocios filtros={filtros} />}
@@ -78,10 +75,10 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   );
 }
 
-async function Reivindicacoes({ codigo }: { codigo: string | null }) {
+async function Reivindicacoes() {
   const [pendentes, semDono] = await Promise.all([
     db.reivindicacao.findMany({
-      where: { status: "pendente", ...(codigo ? { codigo } : {}) },
+      where: { status: "pendente" },
       orderBy: { criadoEm: "asc" },
       take: 50,
       include: {
@@ -116,28 +113,8 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
         </form>
       )}
 
-      {oficial && (
-        <Form action="/moderacao" className="cartao flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
-          <input type="hidden" name="aba" value="reivindicacoes" />
-          <label htmlFor="codigo" className="px-2 text-sm font-medium whitespace-nowrap">
-            Chegou uma DM com código?
-          </label>
-          <input id="codigo" name="codigo" defaultValue={codigo ?? ""} placeholder="BEM-XXXXXX" className="campo flex-1 font-mono uppercase" />
-          <button type="submit" className="botao">
-            Localizar
-          </button>
-          {codigo && (
-            <Link href="/moderacao?aba=reivindicacoes" className="botao-claro">
-              Ver todas
-            </Link>
-          )}
-        </Form>
-      )}
-
       {pendentes.length === 0 && (
-        <p className="cartao p-8 text-center text-suave">
-          {codigo ? `Nenhuma solicitação pendente com o código ${codigo}.` : "Nenhuma reivindicação pendente. 🎉"}
-        </p>
+        <p className="cartao p-8 text-center text-suave">Nenhuma reivindicação pendente. 🎉</p>
       )}
 
       {pendentes.map((r) => {
@@ -174,7 +151,8 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
 
             {r.metodo === "codigo_dm" && r.codigo && (
               <div className="rounded-2xl bg-papel p-4 text-sm leading-relaxed">
-                Confira se <strong>{oficial ? `@${oficial}` : "o perfil oficial"}</strong> recebeu uma DM <strong>de @{r.empresa.instagramUsername}</strong> com o
+                Pedido antigo: o código por DM não é mais oferecido. Confira se{" "}
+                <strong>{oficial ? `@${oficial}` : "o perfil oficial"}</strong> recebeu uma DM <strong>de @{r.empresa.instagramUsername}</strong> com o
                 código <code className="rounded bg-superficie px-2 py-0.5 font-mono text-base font-bold text-coral-700">{r.codigo}</code>.
                 Se a DM veio de outra conta, recuse.
               </div>

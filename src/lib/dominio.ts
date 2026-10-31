@@ -36,6 +36,7 @@ export const NOMES_UF: Record<Uf, string> = {
 
 export const METODOS_REIVINDICACAO: Record<string, string> = {
   instagram_login: "Entrar com Instagram",
+  // Não é mais oferecido; continua para mostrar os pedidos antigos.
   codigo_dm: "Código por DM",
   documento: "Dados do negócio",
 };
