@@ -19,6 +19,7 @@ import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { linkPerfil, normalizarEndereco } from "@/lib/instagram";
+import { medirContato, type CanalDeContato } from "@/lib/medicao";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
@@ -55,6 +56,8 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   const dono = ehDono(empresa, usuario);
   const causas = filtrarCausas(empresa.causas.map((c) => c.causa));
   const publico = empresa.moderacao === "aprovada" && !empresa.oculta;
+  // Os cliques nos contatos contam no Analytics só quando vêm do público, não do dono.
+  const contato = publico && !dono ? empresa : undefined;
 
   return (
     <article>
@@ -80,7 +83,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
                 {empresa.nome}
               </h1>
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-suave">
-                <LinkInstagram endereco={empresa.instagramUsername} icone />
+                <LinkInstagram endereco={empresa.instagramUsername} icone contato={contato} />
                 <span aria-hidden="true">·</span>
                 {publico && temPaginaDeTipo(empresa.categoria) ? (
                   <Link href={hrefTipo(empresa.categoria)} className="hover:text-tinta hover:underline">
@@ -103,7 +106,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
             </div>
           </div>
 
-          <Contatos empresa={empresa} />
+          <Contatos empresa={empresa} medir={!!contato} />
 
           <p className="mt-8 font-serif text-2xl leading-snug text-tinta/80 italic text-pretty">{empresa.resumo}</p>
 
@@ -169,37 +172,53 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   );
 }
 
-/** Os botões de contato. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site. */
-function Contatos({ empresa }: { empresa: Perfil }) {
+/**
+ * Os botões de contato. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site.
+ * Com `medir`, cada clique vira o evento `contato_negocio` no Analytics.
+ */
+function Contatos({ empresa, medir }: { empresa: Perfil; medir: boolean }) {
   const instagram = temInstagram(empresa.instagramUsername);
   if (!empresa.telefoneComercial && !empresa.whatsapp && !instagram && !empresa.site && !empresa.emailContato) return null;
+  const medida = (canal: CanalDeContato) => (medir ? medirContato(canal, empresa) : {});
   return (
     <div className="mt-6 flex flex-wrap gap-2">
       {empresa.telefoneComercial && (
-        <a href={`tel:+${empresa.telefoneComercial}`} className="botao botao-pequeno">
+        <a href={`tel:+${empresa.telefoneComercial}`} className="botao botao-pequeno" {...medida("telefone")}>
           Ligar {formatarTelefone(empresa.telefoneComercial)}
         </a>
       )}
       {empresa.whatsapp && (
-        <a href={`https://wa.me/${empresa.whatsapp}`} target="_blank" rel="noopener noreferrer" className="botao botao-pequeno">
+        <a
+          href={`https://wa.me/${empresa.whatsapp}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="botao botao-pequeno"
+          {...medida("whatsapp")}
+        >
           <WhatsAppIcone />
           WhatsApp {formatarTelefone(empresa.whatsapp)}
         </a>
       )}
       {instagram && (
-        <a href={linkPerfil(empresa.instagramUsername)} target="_blank" rel="noopener noreferrer" className="botao-claro botao-pequeno">
+        <a
+          href={linkPerfil(empresa.instagramUsername)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="botao-claro botao-pequeno"
+          {...medida("instagram")}
+        >
           <InstagramIcone />
           Instagram
         </a>
       )}
       {empresa.site && (
-        <a href={empresa.site} target="_blank" rel="noopener noreferrer nofollow" className="botao-claro botao-pequeno">
+        <a href={empresa.site} target="_blank" rel="noopener noreferrer nofollow" className="botao-claro botao-pequeno" {...medida("site")}>
           {new URL(empresa.site).hostname.replace(/^www\./, "")} ↗
         </a>
       )}
       {empresa.emailContato && (
         // break-all: um e-mail comprido quebra em vez de passar da largura do celular.
-        <a href={`mailto:${empresa.emailContato}`} className="botao-claro botao-pequeno max-w-full break-all">
+        <a href={`mailto:${empresa.emailContato}`} className="botao-claro botao-pequeno max-w-full break-all" {...medida("email")}>
           {empresa.emailContato}
         </a>
       )}

@@ -8,6 +8,7 @@ import { AVISOS } from "@/lib/avisos";
 import { cnpjValido, limparCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
 import { campoSite, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
+import { medir } from "@/lib/medicao-servidor";
 import { avisarNovaReivindicacao } from "@/lib/notificacoes";
 import { cancelar, ErroReivindicacao, solicitarPorDocumento } from "@/lib/reivindicacao";
 
@@ -63,6 +64,7 @@ export async function enviarDocumento(_estado: EstadoFormulario, dados: FormData
     throw erro;
   }
   if (!aprovada) after(() => avisarNovaReivindicacao(empresa.id));
+  await medir({ nome: "perfil_reivindicado", params: { method: "documento", resultado: aprovada ? "verificada" : "em_analise" } });
   redirect(aprovada ? `/painel/${empresa.instagramUsername}?aviso=verificada` : `${caminho}?aviso=documento_enviado`);
 }
 

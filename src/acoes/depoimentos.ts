@@ -7,6 +7,7 @@ import { exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { db } from "@/lib/db";
 import { texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
+import { medir } from "@/lib/medicao-servidor";
 import { avisarNovaDenuncia, avisarNovoDepoimento } from "@/lib/notificacoes";
 
 const esquemaDepoimento = z
@@ -43,6 +44,7 @@ export async function publicarDepoimento(_estado: EstadoFormulario, dados: FormD
 
   const depoimento = await db.depoimento.create({ data: { empresaId: empresa.id, autorId: usuario.id, texto: resultado.data } });
   after(() => avisarNovoDepoimento(depoimento.id));
+  await medir({ nome: "depoimento_publicado", params: { categoria: empresa.categoria } });
   redirect(`/empresas/${empresa.instagramUsername}?aviso=depoimento_publicado#depoimentos`);
 }
 
