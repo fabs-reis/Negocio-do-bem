@@ -10,6 +10,7 @@ import { lerPreenchimento } from "@/lib/indicacao";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
 import { boaCompanhia } from "@/lib/participacao";
 import { metadadosDaPagina } from "@/lib/seo";
+import { formatarTelefone } from "@/lib/texto";
 import { CadastroPorEtapas } from "./CadastroPorEtapas";
 
 // A entrada única para cadastrar um negócio: o link da bio do Instagram e o
@@ -167,13 +168,19 @@ async function BoaCompanhia() {
   );
 }
 
-/** Quem está no site e o que veio no endereço. */
+/** Quem está no site (com o telefone da conta, para o contato do dono) e o que veio no endereço. */
 async function Cadastro({ searchParams }: Pick<PageProps<"/participar">, "searchParams">) {
   const [usuario, busca] = await Promise.all([usuarioAtual(), searchParams]);
   const { instagram, souDono } = lerPreenchimento(busca);
+  const conta = usuario ? await db.usuario.findUnique({ where: { id: usuario.id }, select: { telefone: true } }) : null;
   return (
     <CadastroPorEtapas
-      conta={{ logado: !!usuario, emailConfirmado: !!usuario?.emailConfirmado, email: usuario?.email ?? null }}
+      conta={{
+        logado: !!usuario,
+        emailConfirmado: !!usuario?.emailConfirmado,
+        email: usuario?.email ?? null,
+        telefone: conta?.telefone ? formatarTelefone(conta.telefone) : null,
+      }}
       instagramInicial={instagram}
       donoInicial={souDono}
       continuar={busca.continuar === "1"}

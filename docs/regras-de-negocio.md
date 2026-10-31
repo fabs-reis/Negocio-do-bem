@@ -56,11 +56,33 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Cadastro** (`/cadastrar`):
   - nome de 2 a 80 caracteres;
   - e-mail válido de até 200 caracteres, guardado em minúsculas;
+  - telefone obrigatório, do Brasil, com DDD: celular (9 e mais 8 dígitos) ou fixo (começa com 2 a 5). Aceita "(11) 99148-8052" ou "+55 11 99148-8052" e guarda só os dígitos, com o 55 (`5511991488052`), como o WhatsApp do negócio. Serve só para avisos sobre a conta e o negócio da pessoa, e o campo diz isso;
   - senha de 8 a 200 caracteres.
+- **Contas sem telefone:** as criadas antes do telefone ser obrigatório ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191)) continuam sem ele e funcionam igual. Ninguém é obrigado a informar depois.
 - **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?").
 - **Login** (`/entrar`): e-mail e senha.
   - O erro é sempre o mesmo, "E-mail ou senha incorretos".
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
+  - A conta sem senha (criada pelo Google, ou ligada a ele com o e-mail sem confirmar) também é conferida contra o hash falso e recebe o mesmo "E-mail ou senha incorretos". Ela entra pelo Google ou por link no e-mail.
+- **Continuar com o Google** (`src/lib/auth/google.ts`, `/api/google/entrar` e `/api/google/retorno`): botão acima do formulário de `/entrar` e de `/cadastrar`.
+  - Só aparece com `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `APP_URL` configurados. Sem eles, quem chega a `/api/google/entrar` volta para `/entrar` com "O login com o Google ainda não está disponível".
+  - O site pede só `openid email profile` e lê do Google a conta (`sub`), o e-mail, se o e-mail é verificado e o nome. O token do Google não é guardado.
+  - **Conta já ligada** (o `sub` em `Usuario.googleId`): entra, mesmo que o e-mail tenha mudado no Google ou o Google deixe de dá-lo como verificado.
+  - **Conta com o mesmo e-mail:** o Google é ligado a ela, e a pessoa entra.
+    - Se o e-mail dessa conta já estava confirmado, a senha e as sessões abertas continuam.
+    - Se não estava, a senha é apagada, as sessões abertas são encerradas e o e-mail passa a valer como confirmado. Quem criou a conta nunca provou ser dono do endereço: sem isso, alguém criaria a conta com o e-mail de outra pessoa e continuaria entrando com a senha depois que ela entrasse pelo Google.
+  - **Sem conta com o e-mail:** a conta só é criada depois que a pessoa informa o telefone, que o Google não dá.
+    - O retorno guarda quem o Google disse que é a pessoa (`CadastroGoogle`: o `sub`, o e-mail, o nome e o `voltar`) e leva a `/cadastrar/google`, "Falta só o seu telefone", que mostra o e-mail da conta do Google.
+    - O cookie `ndb_google_cadastro` (`httpOnly`, `sameSite=lax`, só no caminho `/cadastrar/google`) leva o token. O banco guarda só o sha256 dele. O cadastro vale por 30 minutos; os vencidos são apagados quando outro é guardado.
+    - Com o telefone válido, a conta é criada com o nome do Google (até 80 caracteres; sem nome, o começo do e-mail), o telefone, o e-mail confirmado e sem senha. O cadastro guardado é apagado, a sessão é aberta e a pessoa vai para o `voltar`.
+    - Depois do prazo, a página diz que ele acabou e leva de volta ao `/cadastrar`. Se, enquanto isso, o e-mail foi ligado a outro Google, aparece "Este e-mail já está ligado a outra conta do Google" e nada é criado.
+    - Entrar numa conta ligada ou ligar o Google a uma conta que já existe não pede o telefone.
+  - **Ligar e criar exigem o e-mail verificado pelo Google.** Sem isso, nada é criado nem ligado, e aparece "O Google ainda não confirmou o e-mail dessa conta".
+  - **Uma conta liga um Google só.** Se o e-mail já está ligado a outro Google, nada muda, e aparece "Este e-mail já está ligado a outra conta do Google".
+  - Dois retornos ao mesmo tempo criam ou ligam a conta uma vez só.
+  - **O retorno é protegido:** o `state`, o verificador do PKCE e o `voltar` ficam no cookie `ndb_google` (`httpOnly`, `sameSite=lax`, só no caminho `/api/google`, por 10 minutos), apagado no retorno. O código só é trocado se o `state` que volta do Google bate com o do cookie. O `id_token` vem direto do Google, na troca do código, e só vale do emissor do Google, para o `GOOGLE_CLIENT_ID` do site e dentro da validade.
+  - Cancelar no Google, ou qualquer falha, volta para `/entrar` com um aviso, mantendo o `voltar`.
+  - O login pelo Google não passa pelo limite de tentativas, porque não confere senha.
 - **Limite de tentativas** (`src/lib/auth/tentativas.ts`), conferido antes do scrypt, porque cada conferência de senha custa ~32 MB de memória:
   - **por IP:** 10 tentativas de login ou cadastro, somadas, a cada 15 minutos;
   - **de onde vem o IP:** no Cloudflare, só do cabeçalho `cf-connecting-ip`, escrito pela rede, quando `CLOUDFLARE_DEPLOY=1`; no Vercel, só do cabeçalho `x-vercel-forwarded-for`, que o Vercel escreve. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
@@ -102,6 +124,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
   - As Server Actions conferem de novo no servidor e respondem "Antes, confirme o seu e-mail".
 - **O resto funciona sem confirmar:** entrar, sair, o painel, editar o próprio negócio, responder depoimentos e cancelar pedidos.
 - **Contas criadas antes da confirmação existir** (`emailConfirmadoEm` vazio) confirmam na próxima vez que forem fazer uma dessas ações.
+- **A conta criada ou ligada pelo Google já fica com o e-mail confirmado**, porque o Google verificou o endereço (veja "Continuar com o Google", acima).
 - **Entrar por link** (`/entrar/link`, também em "Esqueceu a senha?" no `/entrar`): a pessoa digita o e-mail e recebe um link para entrar sem senha.
   - A resposta é sempre "Confira seu e-mail", com ou sem conta para aquele endereço.
   - O link é criado e mandado depois da resposta, para o tempo de resposta também não revelar quais e-mails têm conta.
@@ -188,7 +211,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 - **A busca** procura no nome e no e-mail. Cada palavra precisa aparecer, sem diferenciar maiúsculas. Acentos contam: "joao" não acha "João".
 - **Filtros:** todas, moderação, donos de negócio, novas (criadas nos últimos 7 dias) e sem atividade (não indicaram, não escreveram depoimento nem denúncia, não pediram e não são donas de nenhum negócio).
 - **A ficha da conta** (`/moderacao/contas/<id>`) junta:
-  - nome, e-mail, papel, quando a conta foi criada, quando confirmou o e-mail e as sessões abertas;
+  - nome, e-mail, telefone (ou "Não informado", nas contas de antes dele), papel, quando a conta foi criada, quando confirmou o e-mail e as sessões abertas;
   - os negócios de que é dona, as indicações, os depoimentos, as denúncias e os pedidos de reivindicação, até 30 de cada, os mais recentes primeiro, com o total quando há mais;
   - quantos pedidos decidiu, se é moderação;
   - os 20 registros mais recentes da auditoria feitos por ela ou sobre a conta dela, com um link para todos.
@@ -205,7 +228,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 **Sistema:**
 
 - **Ambiente:** o nome (`production`, `preview` ou `development`), o endereço público e se os buscadores podem indexar; quando informados pelo host, também o branch e o commit.
-- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, código por DM, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
+- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, Instagram do projeto, Entrar com o Google, Entrar com Instagram, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
 - **Banco:** quantas linhas cada tabela tem e as migrações aplicadas, da mais nova para a mais antiga. Uma migração que começou e não terminou aparece em destaque, porque trava o próximo deploy.
 
 ---
@@ -229,7 +252,9 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
   - O endereço fica na mesma coluna do @ (`instagramUsername`). Como o Instagram não aceita hífen no @, e a cidade no fim garante ao menos um hífen, um endereço nunca se confunde com um @ (`temInstagram`).
   - Se outro negócio já usa o endereço, o novo ganha `-2`, `-3`… no fim.
   - Onde o site mostra o @, um negócio sem Instagram aparece como "sem Instagram", sem link para o Instagram. A rotina de fotos e os caminhos de verificação pelo Instagram o ignoram.
-- Além do @, o negócio pode guardar dois IDs fixos do Instagram (`instagramUserId` e `instagramIgsid`). Eles só são preenchidos pelos caminhos de verificação pelo Instagram, hoje desligados (ver [seção 6](#caminhos-pelo-instagram-desligados-por-padrão)).
+- Além do @, o negócio pode guardar dois IDs fixos do Instagram:
+  - `instagramUserId`, preenchido pelo Entrar com Instagram, hoje desligado (ver [seção 6](#entrar-com-instagram-desligado-por-padrão));
+  - `instagramIgsid`, que só vem de pedidos antigos por código de DM (ver [seção 6](#pedidos-antigos-por-código-de-dm)).
 
 ### Dados do negócio
 
@@ -340,7 +365,7 @@ Quando a pessoa escolhe **"Sou dono deste negócio"** (ou "Sou dono do negócio"
 
 - o campo "Por que você indica?" some e o motivo não é guardado;
 - a pessoa informa os contatos do negócio: **telefone comercial (obrigatório)**, WhatsApp, e-mail e site (opcionais). Eles aparecem no perfil;
-- e o contato dela: **e-mail e telefone de contato (obrigatórios)**. O e-mail começa preenchido com o da conta. Esse contato não aparece no perfil ([seção 3](#dados-do-negócio));
+- e o contato dela: **e-mail e telefone de contato (obrigatórios)**. O e-mail e o telefone começam preenchidos com os da conta. Esse contato não aparece no perfil ([seção 3](#dados-do-negócio));
 - o negócio é criado do mesmo jeito, já publicado, com a pessoa como quem indicou;
 - a pessoa vai direto para a página de reivindicação (`/empresas/<endereço>/reivindicar`) para enviar os dados do negócio.
 
@@ -454,6 +479,7 @@ Cada pedido mostra:
   - relação, contato, CNPJ formatado e site;
   - a mensagem;
   - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI na hora. A consulta manda um User-Agent próprio, porque sem ele a BrasilAPI responde 403. Ela é só um apoio: se falhar, aparece "Não foi possível consultar a Receita agora" e a análise segue;
+- num pedido antigo por código de DM, o código e o lembrete de conferir se a DM veio do @ do negócio;
 - as anotações automáticas do sistema, quando houver;
 - os donos atuais (nome e e-mail), quando houver.
 
@@ -491,25 +517,22 @@ stateDiagram-v2
     pendente --> recusada: moderação recusa
     pendente --> cancelada: a pessoa cancela
     pendente --> cancelada: outro pedido dela foi aprovado
-    pendente --> expirada: código por DM venceu e foi trocado
+    pendente --> expirada: código por DM venceu e foi trocado (só pedidos antigos)
 ```
 
 | Status | Rótulo na tela | Quando |
 | --- | --- | --- |
 | `pendente` | Em análise | Pedido criado e ainda não decidido. |
-| `aprovada` | Aprovada | Pela moderação. Ou sozinho: no pedido por dados do negócio, quando o negócio não tem dono e está no ar; nos caminhos pelo Instagram, quando não há conflito. |
+| `aprovada` | Aprovada | Pela moderação. Ou sozinho: no pedido por dados do negócio, quando o negócio não tem dono e está no ar; no Entrar com Instagram, quando não há conflito. |
 | `recusada` | Recusada | Pela moderação, com motivo. |
 | `cancelada` | Cancelada | A pessoa cancelou, outro pedido dela para o mesmo negócio foi aprovado, ou ela refez o "Entrar com Instagram". |
-| `expirada` | Expirada | Só no código por DM: quando a pessoa gera um código novo depois que o anterior venceu. |
+| `expirada` | Expirada | Só em pedidos antigos por código de DM: quando a pessoa gerava um código novo depois que o anterior venceu. |
 
-### Caminhos pelo Instagram (desligados por padrão)
+### Entrar com Instagram (desligado por padrão)
 
-Os dois caminhos abaixo estão prontos no código e testados, mas ficam **desligados** enquanto as variáveis de ambiente estiverem vazias. Quando algum está ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Como ligar está no [README](../README.md#ativando-o-código-por-dm-opcional).
+Este caminho está pronto no código e testado, mas fica **desligado** enquanto `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` estiverem vazias. Quando ligado, o envio de dados vira a opção "Não tenho acesso ao Instagram do negócio". Como ligar está no [README](../README.md#ativando-o-entrar-com-instagram-opcional).
 
-| Caminho | Liga quando | Aprovação |
-| --- | --- | --- |
-| **Entrar com Instagram** (`instagram_login`) | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` e `APP_URL` preenchidos | Na hora, se a conta conectada é a do negócio e não há conflito |
-| **Código por DM** (`codigo_dm`) | `INSTAGRAM_PERFIL_OFICIAL` preenchido | Pela moderação, ou sozinho se o webhook estiver configurado e não houver conflito |
+Ele aprova na hora quando a conta conectada é a do negócio e não há conflito.
 
 **A regra de ouro: não existe aprovação automática quando há conflito.** Em `conflitosDeVerificacao`, um conflito é qualquer uma destas situações:
 
@@ -520,8 +543,6 @@ Os dois caminhos abaixo estão prontos no código e testados, mas ficam **deslig
 Com conflito, o pedido fica pendente com uma anotação explicando o que aconteceu, e a moderação decide.
 
 O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque um @ pode ser abandonado e registrado por outra pessoa.
-
-**Entrar com Instagram:**
 
 - **Pedido de login:**
   - pede só a permissão `instagram_business_basic`, que dá o ID e o @ da conta, e nada de publicar ou ler mensagens;
@@ -534,23 +555,14 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
   - a pessoa já é dona: tudo certo;
   - caso contrário: aplica o limite diário, cancela tentativas anteriores pelo mesmo caminho, cria o pedido e aprova na hora se não houver conflito.
 
-**Código por DM:**
+### Pedidos antigos por código de DM
 
-- **O código:**
-  - tem o formato `BEM-XXXXXX`, com 6 caracteres de um alfabeto sem os parecidos (`0/O`, `1/I/L`);
-  - vale **48 horas**;
-  - enquanto vale, a mesma pessoa recebe o mesmo código para o mesmo negócio;
-  - vencido, ele vira `expirada` e outro é gerado.
-- **Quem vira dono é quem gerou o código.** A tela avisa: "Nunca envie um código que outra pessoa te passou".
-- **A DM precisa vir do @ do negócio** e ir para o perfil oficial.
-  - O sistema reconhece o código mesmo escrito como `bem 7k3f9q` ou `BEM7K3F9Q`.
-- **Sem webhook:** a moderação confere a DM. Na fila, há uma busca pelo código.
-- **Com webhook:**
-  - o sistema confere a assinatura `X-Hub-Signature-256` de cada chamada da Meta e descobre o @ de quem mandou;
-  - aprova sozinho só se o @ bater e não houver conflito;
-  - código vencido, @ diferente ou @ que não deu para descobrir viram anotações para a moderação;
-  - se der erro, a rota responde 500 e a Meta tenta de novo;
-  - aprovações automáticas aparecem na auditoria como "sistema".
+Até a [issue #193](https://github.com/fabs-reis/Negocio-do-bem/issues/193), havia um terceiro caminho, o **código por DM** (`codigo_dm`): a pessoa gerava um código `BEM-XXXXXX` e o mandava por DM, a partir do @ do negócio, para o perfil oficial do projeto. Ele saiu do site. A página de reivindicação não oferece mais o código, a rota do webhook da Meta (`/api/webhooks/instagram`) não existe mais e a fila da moderação não tem mais a busca por código.
+
+- **Nenhum pedido novo** é criado por esse caminho.
+- **Os pedidos antigos continuam no banco,** com o código e, quando houver, o IGSID de quem mandou a DM. As colunas `codigo` e `instagramIgsid` não saíram.
+- **Eles aparecem como "Código por DM"** na página de reivindicação, no painel da pessoa e na moderação.
+- **Um pedido antigo pendente** pode ser cancelado pela pessoa ou decidido pela moderação, que vê o código e o @ de onde a DM deveria ter vindo. Ao aprovar, o IGSID guardado é ligado ao negócio, como antes.
 
 ---
 
@@ -887,7 +899,7 @@ A cidade vem da lista de municípios do IBGE, gravada no projeto em `src/lib/mun
 
 Código: `src/lib/auditoria.ts`.
 
-Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quando. "Sistema" aparece quando a ação foi automática, por exemplo uma aprovação pelo webhook.
+Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quando. "Sistema" aparece quando a ação foi automática, por exemplo a aprovação na hora de um pedido pelos dados do negócio.
 
 A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 por página:
 
@@ -943,9 +955,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 - **O e-mail sai depois da resposta,** pelo `after()` do Next. A pessoa não espera o envio, e uma falha fica só no log, sem desfazer a ação.
 - **Remetente e resposta:** o e-mail sai de `EMAIL_REMETENTE`, um endereço de domínio verificado no Resend, e as respostas vão para `EMAIL_RESPOSTA`.
 - **Ligado só com `RESEND_API_KEY` e `EMAIL_REMETENTE`.** Sem elas, ninguém recebe e-mail, e o resto funciona igual. Nos previews do Cloudflare o envio fica desligado mesmo com as variáveis, porque o banco dos previews só tem contas de teste. A aba "Sistema" da moderação mostra se o envio está ligado.
-- **Fica de fora:**
-  - o código por DM, desligado por padrão, não avisa a moderação;
-  - quem indica um negócio, tem o negócio tirado do ar ou deixa de ser dono numa transferência não recebe e-mail.
+- **Fica de fora:** quem indica um negócio, tem o negócio tirado do ar ou deixa de ser dono numa transferência não recebe e-mail.
 
 ---
 
@@ -957,7 +967,10 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Nome da conta | `Usuario` | **Público** quando a pessoa escreve um depoimento ou quando a indicação dela aparece no perfil ("indicado por …"). A moderação vê nas filas. |
 | E-mail da conta | `Usuario` | Só a própria pessoa (no menu) e a moderação, que vê o e-mail de todas as contas na aba "Contas" e na ficha de cada uma, além das filas. Nunca aparece no site público. Serve para entrar e para receber os [avisos por e-mail](#14-avisos-por-e-mail). |
-| Senha | `Usuario.senhaHash` | Ninguém: só o hash scrypt é guardado. |
+| Telefone da conta | `Usuario.telefone` | Só a moderação, na ficha da conta. Nunca aparece no site público. Serve só para avisos sobre a conta e o negócio da pessoa, sem divulgação. |
+| Cadastro pelo Google esperando o telefone | `CadastroGoogle` | Ninguém vê o token: só o hash é guardado, com o ID da conta do Google, o e-mail, o nome e para onde a pessoa vai. Vale 30 minutos e é apagado quando a conta é criada; os vencidos, quando outro é guardado. |
+| Senha | `Usuario.senhaHash` | Ninguém: só o hash scrypt é guardado. A conta criada pelo Google não tem senha. |
+| Conta do Google ligada | `Usuario.googleId` | Ninguém: é só o identificador (`sub`) que o Google dá à conta, para reconhecê-la no próximo login. |
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
@@ -971,6 +984,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 - **Não raspamos o Instagram.** O @ é digitado por pessoas.
 - **Não guardamos tokens do Instagram.** Nos caminhos pelo Instagram, guardamos só o ID da conta.
+- **Não guardamos tokens do Google.** No login pelo Google, guardamos só o ID da conta, o e-mail e, numa conta nova, o nome.
 - **Não mostramos imagens de outros sites.** Elas avisariam esses servidores a cada visita.
 - **Não temos ranking nem anúncio pago.**
 
@@ -1003,12 +1017,14 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Duração da sessão | 30 dias | `src/lib/auth/sessao.ts` |
 | Senha | 8 a 200 caracteres | `src/acoes/conta.ts` |
+| Prazo para voltar do Google no login | 10 minutos | `src/app/api/google/entrar/route.ts` |
+| Prazo para informar o telefone na conta nova pelo Google | 30 minutos | `src/lib/auth/google.ts` |
+| Telefone da conta | do Brasil, com DDD (10 ou 11 dígitos) | `src/lib/formulario.ts` |
 | Tentativas de login e cadastro por IP | 10 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Tentativas de senha por e-mail, em cada origem (IP ou /64) | 5 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |
 | Pedidos de reivindicação por conta | 10 a cada 24 horas | `src/lib/reivindicacao.ts` |
-| Validade do código por DM | 48 horas | `src/lib/reivindicacao.ts` |
-| Validade dos outros pedidos | 30 dias (informativa) | `src/lib/reivindicacao.ts` |
+| Validade dos pedidos | 30 dias (informativa) | `src/lib/reivindicacao.ts` |
 | Nome do negócio | 2 a 80 caracteres | `src/acoes/empresas.ts` |
 | Resumo | 10 a 160 caracteres | `src/acoes/empresas.ts` |
 | Sugestões do campo de cidade | até 8, a partir de 2 letras | `src/lib/municipios.ts` |

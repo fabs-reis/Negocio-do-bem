@@ -87,7 +87,8 @@ function telefoneValido(valor: string): boolean {
 }
 
 type Props = {
-  conta: { logado: boolean; emailConfirmado: boolean; email: string | null };
+  /** A conta de quem está no site. O e-mail e o telefone dela começam como o contato do dono. */
+  conta: { logado: boolean; emailConfirmado: boolean; email: string | null; telefone: string | null };
   /** Do endereço: o @ (links antigos do /indicar) e se a pessoa voltou do login. */
   instagramInicial: string;
   donoInicial: boolean;
@@ -496,7 +497,7 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
                     type="tel"
                     maxLength={30}
                     placeholder="(11) 99999-9999"
-                    defaultValue={inicial?.telefoneDoDono ?? ""}
+                    defaultValue={inicial?.telefoneDoDono ?? conta.telefone ?? ""}
                     onChange={() => limpar("telefoneDoDono")}
                     aria-invalid={erro("telefoneDoDono") ? true : undefined}
                     className="campo"

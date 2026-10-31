@@ -85,6 +85,7 @@ O site precisa funcionar mesmo quando um serviço de fora falha ou ainda não fo
 | Integração com o Instagram | Funciona: a reivindicação pelos dados do negócio continua disponível. |
 | Consulta de CNPJ (BrasilAPI) | Funciona: a consulta é só um apoio para a moderação, nunca bloqueia a análise. |
 | Google Analytics | Funciona: sem o ID, ele simplesmente não carrega. |
+| Login com o Google | Funciona: sem a configuração, o botão não aparece. Se o Google falhar, quem entra por ele usa o link por e-mail. |
 | Cloudflare R2 | Funciona. No computador de quem desenvolve, as fotos ficam numa pasta local. Em produção, o binding R2 e o domínio público precisam estar configurados para aceitar uploads. |
 | Envio de e-mails (Resend) | Funciona, com uma exceção: ninguém recebe os avisos nem os links. Quem tem senha continua entrando. Com a confirmação de e-mail ligada, uma conta nova não consegue confirmar o e-mail e, até o envio voltar, não indica, não escreve depoimentos e não reivindica. |
 
@@ -397,10 +398,36 @@ O que deu errado e ficou de lição:
 - **O `node-postgres` não entende `sslrootcert=system`**, que vem na conexão do PlanetScale: ele tenta abrir um arquivo chamado `system`. Para o app e o build, use só `?sslmode=verify-full`. O `psql` e o Prisma Migrate aceitam as duas.
 - **Quem ainda tinha o DNS antigo em cache caiu no Vercel** por um tempo, inclusive o Chrome de quem fazia a troca. Lá, as fotos novas aparecem como iniciais e nada grava, porque o Neon está só para leitura. Para testar o Cloudflare sem depender do DNS, use o `workers.dev` ou `curl --resolve`.
 
+### 31 de outubro: entrar com o Google ([#188](https://github.com/fabs-reis/Negocio-do-bem/issues/188))
+
+Com a confirmação de e-mail desligada ([#148](https://github.com/fabs-reis/Negocio-do-bem/issues/148)), qualquer endereço vira conta. O "Continuar com o Google" cria a conta com o e-mail já verificado pelo Google, sem mandar e-mail nenhum, e poupa a senha de quem não quer mais uma.
+
+- **Sem biblioteca e sem serviço no meio.** O Auth.js e o Better Auth trariam o próprio modelo de conta e de sessão, e o projeto já tem os dele. O fluxo é o mesmo do "Entrar com Instagram" (o `state` num cookie), com PKCE. O Cloudflare Access, que também tem login com o Google, não serve: ele protege áreas internas e não cria conta para quem visita o site.
+- **O `id_token` sem conferir a assinatura.** Ele chega na resposta da troca do código, que o servidor pede direto ao Google por HTTPS, e não passa pelo navegador. O OpenID Connect aceita isso (Core, 3.1.3.7), e assim não precisamos baixar as chaves do Google. Conferimos o emissor, o destinatário (`aud`) e a validade.
+- **O `sub`, e não o e-mail, identifica a conta do Google.** O e-mail de uma conta do Google pode mudar, mas o `sub` não. O e-mail só serve para achar a conta na primeira vez.
+- **Ligar pelo e-mail sem abrir uma porta.** Como o cadastro não confirma o e-mail, alguém poderia criar a conta com o e-mail de outra pessoa e esperar ela entrar pelo Google. Ao ligar o Google a uma conta de e-mail não confirmado, a senha é apagada e as sessões são encerradas. Quem tinha criado a conta de boa-fé entra pelo Google ou por link no e-mail.
+- **A senha ficou opcional** (`senhaHash` pode ser nulo). O login com senha confere a conta sem senha contra o hash falso, como um e-mail sem conta.
+
+### 31 de outubro: telefone no cadastro ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191))
+
+O cadastro passou a pedir o telefone, para os avisos sobre a conta e o negócio da pessoa.
+
+- **Obrigatório só para contas novas.** As antigas continuam sem telefone e funcionam igual. Pedir o telefone a todas, a cada login, travaria quem só queria olhar o painel.
+- **A mesma regra do WhatsApp do negócio.** `campoTelefone` e `campoWhatsapp` usam a mesma conferência (Brasil, com DDD, celular ou fixo) e guardam só os dígitos com o 55. `formatarWhatsapp` virou `formatarTelefone`, que serve aos dois.
+- **Pelo Google, a conta só nasce com o telefone.** O Google não dá o telefone, e o código que ele manda vale uma vez só. Por isso o retorno guarda quem é a pessoa na tabela `CadastroGoogle`, por 30 minutos, com o token num cookie (só o hash no banco, como na sessão), e `/cadastrar/google` pede o telefone. Criar a conta antes e pedir o telefone depois deixaria contas sem telefone de quem fechasse a página no meio.
+- **Só para avisos, e o texto diz isso.** Usar o telefone para divulgação pediria um consentimento separado (LGPD), com uma caixa desmarcada. Fica para quando houver essa necessidade.
+
+### 31 de outubro: o código por DM sai ([#193](https://github.com/fabs-reis/Negocio-do-bem/issues/193))
+
+Dos dois caminhos pelo Instagram guardados em [#2](https://github.com/fabs-reis/Negocio-do-bem/pull/2), o dono do projeto decidiu não usar mais o código por DM. Pela mesma decisão, os PRs [#136](https://github.com/fabs-reis/Negocio-do-bem/pull/136) e [#137](https://github.com/fabs-reis/Negocio-do-bem/pull/137), que tentaram inverter o fluxo da DM, foram abandonados. Ficam o envio dos dados do negócio e o "Entrar com Instagram".
+
+- **Saiu:** a seção da DM na página de reivindicação, a geração do código, o webhook `/api/webhooks/instagram`, a busca por código na fila da moderação, `src/lib/codigo.ts` e as variáveis `INSTAGRAM_ACCESS_TOKEN` e `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`.
+- **O banco não mudou.** As colunas `codigo` e `instagramIgsid` ficam, sem migração. Os pedidos antigos aparecem como "Código por DM", e a moderação ainda decide os que estiverem pendentes.
+- **`INSTAGRAM_PERFIL_OFICIAL` continua,** agora só como o @ do projeto no Instagram, que vai nos dados estruturados da página inicial.
 
 ### 31 de outubro: cadastro por etapas, sem Instagram e com o contato do dono ([#190](https://github.com/fabs-reis/Negocio-do-bem/issues/190))
 
-A tela de cadastro por etapas veio do [#145](https://github.com/fabs-reis/Negocio-do-bem/pull/145), mas sem a verificação pela DM do [#136](https://github.com/fabs-reis/Negocio-do-bem/pull/136) e do [#137](https://github.com/fabs-reis/Negocio-do-bem/pull/137), que deixou de ser o caminho.
+A tela de cadastro por etapas veio do [#145](https://github.com/fabs-reis/Negocio-do-bem/pull/145), mas sem a verificação pela DM do [#136](https://github.com/fabs-reis/Negocio-do-bem/pull/136) e do [#137](https://github.com/fabs-reis/Negocio-do-bem/pull/137), que saiu no [#193](https://github.com/fabs-reis/Negocio-do-bem/issues/193).
 
 - **Uma pergunta por vez, num formulário só.** As etapas ficam montadas e só a atual aparece: voltar não perde nada, e o envio continua sendo o `indicarEmpresa`, que valida tudo de novo. A validação de cada etapa no navegador só serve para a pessoa não chegar ao fim com um erro lá atrás.
 - **A prévia do Instagram roda no servidor**, com a mesma API e o mesmo token da rotina de fotos. A foto vai como data URL para a política de conteúdo continuar fechada, e a mesma foto é gravada no perfil logo depois do cadastro, num `after()`, para não atrasar a resposta.
@@ -454,7 +481,7 @@ Se uma página nova precisar de um script, imagem ou iframe de outro endereço, 
 flowchart LR
     N[Navegador] -->|abre páginas| P[Páginas<br>src/app]
     N -->|envia formulários| A[Server Actions<br>src/acoes]
-    N -->|login e webhook do Instagram| R[Rotas de API<br>src/app/api]
+    N -->|login do Instagram e do Google| R[Rotas de API<br>src/app/api]
     P --> L[Regras e consultas<br>src/lib]
     A --> L
     R --> L
@@ -504,9 +531,10 @@ Decisões do esquema:
 - **As causas ficam no código** (`src/lib/causas.ts`), e o banco guarda só o slug. Criar uma causa é mudar uma linha, sem migração.
 - **Unicidade garantida pelo banco:**
   - um @ por negócio;
+  - uma conta do Google por conta do site (`googleId`);
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;
-  - um código de DM único.
+  - um código de DM único (só nos pedidos antigos).
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
   - **uma conta:** apaga as sessões, os vínculos de dono, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
   - **um negócio:** apaga as causas, os donos, os depoimentos e os pedidos ligados a ele.
@@ -590,8 +618,8 @@ npm run typecheck
 - **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob) e Instagram.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
-  - código por DM;
   - Entrar com Instagram;
+  - pedidos antigos por código de DM;
   - conflitos;
   - transferência;
   - dados do negócio;
@@ -648,9 +676,8 @@ npm run typecheck
 | `NEXT_PUBLIC_GA_ID` | Não | Google Analytics. Configure só em Production. |
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
-| `INSTAGRAM_PERFIL_OFICIAL` | Não | Liga o código por DM. |
+| `INSTAGRAM_PERFIL_OFICIAL` | Não | O @ do projeto no Instagram, que vai nos dados estruturados da página inicial. |
 | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_GRAPH_VERSION` | Não | Ligam o "Entrar com Instagram". |
-| `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | Não | Ligam a confirmação automática da DM. |
 | `RESEND_API_KEY`, `EMAIL_REMETENTE` | Não | Ligam os avisos por e-mail. Configure só em Production. |
 | `EMAIL_RESPOSTA` | Não | Para onde vão as respostas aos avisos. Vazia, elas vão para o remetente. |
 
@@ -761,13 +788,17 @@ Siga a seção "Ativando os avisos por e-mail" do [README](../README.md#ativando
 2. Redirecione com `?aviso=<codigo>`.
 3. Confira se a página destino tem `<AvisoDaUrl codigo={aviso} />`.
 
+### Ligar o login com o Google
+
+Siga a seção "Ativando o login com o Google" do [README](../README.md#ativando-o-login-com-o-google-opcional). As regras estão na [seção 2 das regras de negócio](regras-de-negocio.md#cadastro-e-login).
+
 ### Ligar a rotina de fotos do Instagram
 
 Siga a seção "Ativando a rotina de fotos do Instagram" do [README](../README.md#ativando-a-rotina-de-fotos-do-instagram-opcional). As regras estão na [seção 9 das regras de negócio](regras-de-negocio.md#rotina-de-fotos-do-instagram).
 
 ### Ligar a verificação pelo Instagram
 
-Siga as seções "Ativando…" do [README](../README.md#ativando-o-código-por-dm-opcional). Depois de ligar, atualize "Como funciona" (`src/app/sobre/page.tsx`), que hoje só descreve o envio de dados do negócio.
+Siga a seção "Ativando o 'Entrar com Instagram'" do [README](../README.md#ativando-o-entrar-com-instagram-opcional). Depois de ligar, atualize "Como funciona" (`src/app/sobre/page.tsx`), que hoje só descreve o envio de dados do negócio.
 
 ### Publicar em produção
 

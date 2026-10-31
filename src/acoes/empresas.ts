@@ -14,7 +14,7 @@ import {
   campoEmail,
   campoMunicipio,
   campoSite,
-  campoTelefone,
+  campoTelefoneOpcional,
   campoWhatsapp,
   errosPorCampo,
   texto,
@@ -44,9 +44,9 @@ const camposContato = {
   site: campoSite,
   whatsapp: campoWhatsapp,
   emailContato: campoEmail,
-  telefoneComercial: campoTelefone,
+  telefoneComercial: campoTelefoneOpcional,
   emailDoDono: campoEmail,
-  telefoneDoDono: campoTelefone,
+  telefoneDoDono: campoTelefoneOpcional,
 };
 
 function lerContato(dados: FormData) {

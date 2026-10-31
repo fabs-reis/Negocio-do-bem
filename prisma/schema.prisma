@@ -16,7 +16,13 @@ model Usuario {
   id        String   @id @default(cuid())
   nome      String
   email     String   @unique
-  senhaHash String
+  // Vazio na conta criada pelo Google: ela entra pelo Google ou por link no e-mail.
+  senhaHash String?
+  // "sub" da conta do Google ligada a esta, que não muda nem quando o Gmail muda.
+  googleId  String?  @unique
+  // Só os dígitos, com o 55 do Brasil: "5511991488052". Obrigatório no cadastro;
+  // vazio nas contas criadas antes dele.
+  telefone  String?
   // "membro" | "moderador"
   papel     String   @default("membro")
   // Quando a pessoa abriu um link mandado para o e-mail dela. Sem isso a conta entra,
@@ -74,6 +80,22 @@ model LinkEmail {
   @@index([usuarioId, criadoEm])
 }
 
+// Conta nova pelo Google esperando o telefone: o Google já disse quem é a pessoa,
+// e a conta só é criada quando ela informa o telefone em /cadastrar/google.
+model CadastroGoogle {
+  // sha256 do token guardado no cookie, como na Sessao
+  id        String   @id
+  googleId  String
+  email     String
+  nome      String
+  // Caminho interno aonde a pessoa vai depois de criar a conta.
+  destino   String   @default("/")
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+
+  @@index([expiraEm])
+}
+
 model Empresa {
   id                String   @id @default(cuid())
   // @ atual do Instagram, minúsculo e sem "@". Também é o endereço da página.
@@ -82,7 +104,8 @@ model Empresa {
   instagramUsername String   @unique
   // ID fixo da conta profissional, obtido no "Entrar com Instagram".
   instagramUserId   String?  @unique
-  // ID da conta no escopo do nosso perfil (IGSID), obtido quando o dono manda DM.
+  // ID da conta no escopo do nosso perfil (IGSID). Só vem de pedidos antigos por
+  // código de DM, caminho que não é mais oferecido.
   instagramIgsid    String?  @unique
   nome              String
   resumo            String
@@ -153,9 +176,9 @@ model Reivindicacao {
   empresa         Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   usuarioId       String
   usuario         Usuario   @relation("Solicitante", fields: [usuarioId], references: [id], onDelete: Cascade)
-  // "instagram_login" | "codigo_dm" | "documento"
+  // "instagram_login" | "documento" | "codigo_dm" (este só em pedidos antigos)
   metodo          String
-  // Código que o dono envia por DM (só no método "codigo_dm").
+  // Código que o dono enviava por DM (só nos pedidos antigos com "codigo_dm").
   codigo          String?   @unique
   // "pendente" | "aprovada" | "recusada" | "expirada" | "cancelada"
   status          String    @default("pendente")
@@ -165,7 +188,7 @@ model Reivindicacao {
   relacao         String?
   contato         String?
   mensagem        String?
-  // Anotações do sistema para a moderação (ex.: "DM recebida de @outra_conta").
+  // Anotações do sistema para a moderação (ex.: "Login confirmado como @conta").
   notas           String    @default("")
   // Motivo informado pela moderação ao recusar.
   motivoRecusa    String?
@@ -208,7 +231,7 @@ model Depoimento {
 
 model RegistroAuditoria {
   id        String   @id @default(cuid())
-  // null quando a ação foi automática (ex.: webhook do Instagram)
+  // null quando a ação foi automática (ex.: aprovação na hora pelos dados do negócio)
   usuarioId String?
   usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
   acao      String
