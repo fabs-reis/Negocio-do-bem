@@ -16,7 +16,10 @@ model Usuario {
   id        String   @id @default(cuid())
   nome      String
   email     String   @unique
-  senhaHash String
+  // Vazio na conta criada pelo Google: ela entra pelo Google ou por link no e-mail.
+  senhaHash String?
+  // "sub" da conta do Google ligada a esta, que não muda nem quando o Gmail muda.
+  googleId  String?  @unique
   // "membro" | "moderador"
   papel     String   @default("membro")
   // Quando a pessoa abriu um link mandado para o e-mail dela. Sem isso a conta entra,

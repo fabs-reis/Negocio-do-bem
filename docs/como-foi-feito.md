@@ -85,6 +85,7 @@ O site precisa funcionar mesmo quando um serviço de fora falha ou ainda não fo
 | Integração com o Instagram | Funciona: a reivindicação pelos dados do negócio continua disponível. |
 | Consulta de CNPJ (BrasilAPI) | Funciona: a consulta é só um apoio para a moderação, nunca bloqueia a análise. |
 | Google Analytics | Funciona: sem o ID, ele simplesmente não carrega. |
+| Login com o Google | Funciona: sem a configuração, o botão não aparece. Se o Google falhar, quem entra por ele usa o link por e-mail. |
 | Cloudflare R2 | Funciona. No computador de quem desenvolve, as fotos ficam numa pasta local. Em produção, o binding R2 e o domínio público precisam estar configurados para aceitar uploads. |
 | Envio de e-mails (Resend) | Funciona, com uma exceção: ninguém recebe os avisos nem os links. Quem tem senha continua entrando. Com a confirmação de e-mail ligada, uma conta nova não consegue confirmar o e-mail e, até o envio voltar, não indica, não escreve depoimentos e não reivindica. |
 
@@ -397,6 +398,16 @@ O que deu errado e ficou de lição:
 - **O `node-postgres` não entende `sslrootcert=system`**, que vem na conexão do PlanetScale: ele tenta abrir um arquivo chamado `system`. Para o app e o build, use só `?sslmode=verify-full`. O `psql` e o Prisma Migrate aceitam as duas.
 - **Quem ainda tinha o DNS antigo em cache caiu no Vercel** por um tempo, inclusive o Chrome de quem fazia a troca. Lá, as fotos novas aparecem como iniciais e nada grava, porque o Neon está só para leitura. Para testar o Cloudflare sem depender do DNS, use o `workers.dev` ou `curl --resolve`.
 
+### 31 de outubro: entrar com o Google ([#188](https://github.com/fabs-reis/Negocio-do-bem/issues/188))
+
+Com a confirmação de e-mail desligada ([#148](https://github.com/fabs-reis/Negocio-do-bem/issues/148)), qualquer endereço vira conta. O "Continuar com o Google" cria a conta com o e-mail já verificado pelo Google, sem mandar e-mail nenhum, e poupa a senha de quem não quer mais uma.
+
+- **Sem biblioteca e sem serviço no meio.** O Auth.js e o Better Auth trariam o próprio modelo de conta e de sessão, e o projeto já tem os dele. O fluxo é o mesmo do "Entrar com Instagram" (o `state` num cookie), com PKCE. O Cloudflare Access, que também tem login com o Google, não serve: ele protege áreas internas e não cria conta para quem visita o site.
+- **O `id_token` sem conferir a assinatura.** Ele chega na resposta da troca do código, que o servidor pede direto ao Google por HTTPS, e não passa pelo navegador. O OpenID Connect aceita isso (Core, 3.1.3.7), e assim não precisamos baixar as chaves do Google. Conferimos o emissor, o destinatário (`aud`) e a validade.
+- **O `sub`, e não o e-mail, identifica a conta do Google.** O e-mail de uma conta do Google pode mudar, mas o `sub` não. O e-mail só serve para achar a conta na primeira vez.
+- **Ligar pelo e-mail sem abrir uma porta.** Como o cadastro não confirma o e-mail, alguém poderia criar a conta com o e-mail de outra pessoa e esperar ela entrar pelo Google. Ao ligar o Google a uma conta de e-mail não confirmado, a senha é apagada e as sessões são encerradas. Quem tinha criado a conta de boa-fé entra pelo Google ou por link no e-mail.
+- **A senha ficou opcional** (`senhaHash` pode ser nulo). O login com senha confere a conta sem senha contra o hash falso, como um e-mail sem conta.
+
 ---
 
 ## 4. Arquitetura
@@ -493,6 +504,7 @@ Decisões do esquema:
 - **As causas ficam no código** (`src/lib/causas.ts`), e o banco guarda só o slug. Criar uma causa é mudar uma linha, sem migração.
 - **Unicidade garantida pelo banco:**
   - um @ por negócio;
+  - uma conta do Google por conta do site (`googleId`);
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;
   - um código de DM único.
@@ -749,6 +761,10 @@ Siga a seção "Ativando os avisos por e-mail" do [README](../README.md#ativando
 1. Acrescente um código e o texto em `AVISOS`, em `src/lib/avisos.ts`.
 2. Redirecione com `?aviso=<codigo>`.
 3. Confira se a página destino tem `<AvisoDaUrl codigo={aviso} />`.
+
+### Ligar o login com o Google
+
+Siga a seção "Ativando o login com o Google" do [README](../README.md#ativando-o-login-com-o-google-opcional). As regras estão na [seção 2 das regras de negócio](regras-de-negocio.md#cadastro-e-login).
 
 ### Ligar a rotina de fotos do Instagram
 

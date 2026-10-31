@@ -61,6 +61,21 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Login** (`/entrar`): e-mail e senha.
   - O erro é sempre o mesmo, "E-mail ou senha incorretos".
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
+  - A conta sem senha (criada pelo Google, ou ligada a ele com o e-mail sem confirmar) também é conferida contra o hash falso e recebe o mesmo "E-mail ou senha incorretos". Ela entra pelo Google ou por link no e-mail.
+- **Continuar com o Google** (`src/lib/auth/google.ts`, `/api/google/entrar` e `/api/google/retorno`): botão acima do formulário de `/entrar` e de `/cadastrar`.
+  - Só aparece com `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `APP_URL` configurados. Sem eles, quem chega a `/api/google/entrar` volta para `/entrar` com "O login com o Google ainda não está disponível".
+  - O site pede só `openid email profile` e lê do Google a conta (`sub`), o e-mail, se o e-mail é verificado e o nome. O token do Google não é guardado.
+  - **Conta já ligada** (o `sub` em `Usuario.googleId`): entra, mesmo que o e-mail tenha mudado no Google ou o Google deixe de dá-lo como verificado.
+  - **Conta com o mesmo e-mail:** o Google é ligado a ela, e a pessoa entra.
+    - Se o e-mail dessa conta já estava confirmado, a senha e as sessões abertas continuam.
+    - Se não estava, a senha é apagada, as sessões abertas são encerradas e o e-mail passa a valer como confirmado. Quem criou a conta nunca provou ser dono do endereço: sem isso, alguém criaria a conta com o e-mail de outra pessoa e continuaria entrando com a senha depois que ela entrasse pelo Google.
+  - **Sem conta com o e-mail:** cria uma, com o nome do Google (até 80 caracteres; sem nome, o começo do e-mail), o e-mail confirmado e sem senha.
+  - **Ligar e criar exigem o e-mail verificado pelo Google.** Sem isso, nada é criado nem ligado, e aparece "O Google ainda não confirmou o e-mail dessa conta".
+  - **Uma conta liga um Google só.** Se o e-mail já está ligado a outro Google, nada muda, e aparece "Este e-mail já está ligado a outra conta do Google".
+  - Dois retornos ao mesmo tempo criam ou ligam a conta uma vez só.
+  - **O retorno é protegido:** o `state`, o verificador do PKCE e o `voltar` ficam no cookie `ndb_google` (`httpOnly`, `sameSite=lax`, só no caminho `/api/google`, por 10 minutos), apagado no retorno. O código só é trocado se o `state` que volta do Google bate com o do cookie. O `id_token` vem direto do Google, na troca do código, e só vale do emissor do Google, para o `GOOGLE_CLIENT_ID` do site e dentro da validade.
+  - Cancelar no Google, ou qualquer falha, volta para `/entrar` com um aviso, mantendo o `voltar`.
+  - O login pelo Google não passa pelo limite de tentativas, porque não confere senha.
 - **Limite de tentativas** (`src/lib/auth/tentativas.ts`), conferido antes do scrypt, porque cada conferência de senha custa ~32 MB de memória:
   - **por IP:** 10 tentativas de login ou cadastro, somadas, a cada 15 minutos;
   - **de onde vem o IP:** no Cloudflare, só do cabeçalho `cf-connecting-ip`, escrito pela rede, quando `CLOUDFLARE_DEPLOY=1`; no Vercel, só do cabeçalho `x-vercel-forwarded-for`, que o Vercel escreve. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
@@ -102,6 +117,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
   - As Server Actions conferem de novo no servidor e respondem "Antes, confirme o seu e-mail".
 - **O resto funciona sem confirmar:** entrar, sair, o painel, editar o próprio negócio, responder depoimentos e cancelar pedidos.
 - **Contas criadas antes da confirmação existir** (`emailConfirmadoEm` vazio) confirmam na próxima vez que forem fazer uma dessas ações.
+- **A conta criada ou ligada pelo Google já fica com o e-mail confirmado**, porque o Google verificou o endereço (veja "Continuar com o Google", acima).
 - **Entrar por link** (`/entrar/link`, também em "Esqueceu a senha?" no `/entrar`): a pessoa digita o e-mail e recebe um link para entrar sem senha.
   - A resposta é sempre "Confira seu e-mail", com ou sem conta para aquele endereço.
   - O link é criado e mandado depois da resposta, para o tempo de resposta também não revelar quais e-mails têm conta.
@@ -205,7 +221,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 **Sistema:**
 
 - **Ambiente:** o nome (`production`, `preview` ou `development`), o endereço público e se os buscadores podem indexar; quando informados pelo host, também o branch e o commit.
-- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, código por DM, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
+- **Integrações:** só se cada uma está ligada (fotos no Cloudflare R2, código por DM, Entrar com o Google, Entrar com Instagram, confirmação automática da DM, rotina de fotos, Google Analytics e verificação nos buscadores), com o que falta para ligar. Os valores das variáveis nunca aparecem.
 - **Banco:** quantas linhas cada tabela tem e as migrações aplicadas, da mais nova para a mais antiga. Uma migração que começou e não terminou aparece em destaque, porque trava o próximo deploy.
 
 ---
@@ -921,7 +937,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Nome da conta | `Usuario` | **Público** quando a pessoa escreve um depoimento ou quando a indicação dela aparece no perfil ("indicado por …"). A moderação vê nas filas. |
 | E-mail da conta | `Usuario` | Só a própria pessoa (no menu) e a moderação, que vê o e-mail de todas as contas na aba "Contas" e na ficha de cada uma, além das filas. Nunca aparece no site público. Serve para entrar e para receber os [avisos por e-mail](#14-avisos-por-e-mail). |
-| Senha | `Usuario.senhaHash` | Ninguém: só o hash scrypt é guardado. |
+| Senha | `Usuario.senhaHash` | Ninguém: só o hash scrypt é guardado. A conta criada pelo Google não tem senha. |
+| Conta do Google ligada | `Usuario.googleId` | Ninguém: é só o identificador (`sub`) que o Google dá à conta, para reconhecê-la no próximo login. |
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
@@ -935,6 +952,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 - **Não raspamos o Instagram.** O @ é digitado por pessoas.
 - **Não guardamos tokens do Instagram.** Nos caminhos pelo Instagram, guardamos só o ID da conta.
+- **Não guardamos tokens do Google.** No login pelo Google, guardamos só o ID da conta, o e-mail e, numa conta nova, o nome.
 - **Não mostramos imagens de outros sites.** Elas avisariam esses servidores a cada visita.
 - **Não temos ranking nem anúncio pago.**
 
@@ -967,6 +985,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | --- | --- | --- |
 | Duração da sessão | 30 dias | `src/lib/auth/sessao.ts` |
 | Senha | 8 a 200 caracteres | `src/acoes/conta.ts` |
+| Prazo para voltar do Google no login | 10 minutos | `src/app/api/google/entrar/route.ts` |
 | Tentativas de login e cadastro por IP | 10 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Tentativas de senha por e-mail, em cada origem (IP ou /64) | 5 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |

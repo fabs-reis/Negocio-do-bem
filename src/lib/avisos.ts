@@ -36,6 +36,23 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     tipo: "erro",
     texto: "O login com Instagram ainda não está disponível. Use o código por DM.",
   },
+  google_cancelado: { tipo: "erro", texto: "O login com o Google foi cancelado." },
+  google_erro: {
+    tipo: "erro",
+    texto: "Não conseguimos entrar com o Google agora. Tente de novo ou entre com e-mail e senha.",
+  },
+  google_indisponivel: {
+    tipo: "erro",
+    texto: "O login com o Google ainda não está disponível. Entre com e-mail e senha.",
+  },
+  google_email_nao_verificado: {
+    tipo: "erro",
+    texto: "O Google ainda não confirmou o e-mail dessa conta. Confirme o e-mail no Google ou entre com e-mail e senha.",
+  },
+  google_outra_conta: {
+    tipo: "erro",
+    texto: "Este e-mail já está ligado a outra conta do Google. Entre com ela, com a senha ou com um link por e-mail.",
+  },
   limite: {
     tipo: "erro",
     texto: "Você fez muitas solicitações nas últimas 24 horas. Tente de novo amanhã.",

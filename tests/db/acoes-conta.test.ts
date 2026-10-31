@@ -315,3 +315,16 @@ describe("IP desconhecido", () => {
     expect(await db.tentativaAcesso.count()).toBe(1 + 2);
   });
 });
+
+describe("conta sem senha", () => {
+  it("a conta criada pelo Google não entra com senha nenhuma, e a resposta é a mesma", async () => {
+    contexto.cabecalhos = { "x-vercel-forwarded-for": "203.0.113.7" };
+    await db.usuario.create({ data: { nome: "Pessoa do Google", email: "google@exemplo.com", googleId: "google-1" } });
+
+    expect((await entrar({}, formulario("google@exemplo.com", "")))?.erro).toBe(MENSAGEM_RECUSA);
+    expect((await entrar({}, formulario("google@exemplo.com", SENHA_CERTA)))?.erro).toBe(MENSAGEM_RECUSA);
+    // Conferida contra o hash falso, como um e-mail sem conta, para levar o mesmo tempo.
+    expect(senha.verificarSenha).toHaveBeenCalledTimes(2);
+    expect(criarSessao).not.toHaveBeenCalled();
+  });
+});

@@ -1,6 +1,7 @@
 import "server-only";
 import { ambienteDeDeploy } from "@/lib/ambiente";
 import { usaArmazenamentoCloudflare } from "@/lib/armazenamento";
+import { configGoogle } from "@/lib/auth/google";
 import { db } from "@/lib/db";
 import { envioLigado } from "@/lib/email";
 import { tokenDasFotos } from "@/lib/fotos-instagram";
@@ -25,6 +26,12 @@ export function integracoes(): Integracao[] {
       ligada: perfilOficial() !== null,
       ligadaTexto: `Quem reivindica pode mandar um código por DM para @${perfilOficial()}.`,
       desligadaTexto: "Sem INSTAGRAM_PERFIL_OFICIAL, a reivindicação é só pelos dados do negócio.",
+    },
+    {
+      nome: "Entrar com o Google",
+      ligada: configGoogle() !== null,
+      ligadaTexto: "/entrar e /cadastrar mostram o botão “Continuar com o Google”.",
+      desligadaTexto: "Faltam GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET ou APP_URL.",
     },
     {
       nome: "Entrar com Instagram",

@@ -73,7 +73,8 @@ export default function Sobre() {
         <p>
           <strong>Que dados vocês guardam?</strong> Da sua conta, nome e e-mail. O e-mail nunca aparece no site: só a
           moderação vê. Ele serve para você entrar e para receber avisos sobre os seus pedidos e o seu negócio, como
-          a decisão da moderação ou um depoimento novo. Dos negócios, só o que aparece no perfil:
+          a decisão da moderação ou um depoimento novo. Se você entra com o Google, guardamos também o número que o
+          Google dá à sua conta, para reconhecê-la da próxima vez. Dos negócios, só o que aparece no perfil:
           textos, fotos e contatos públicos.
           Não fazemos raspagem do Instagram e não guardamos tokens de acesso.
         </p>
