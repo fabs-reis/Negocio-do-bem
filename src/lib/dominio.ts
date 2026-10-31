@@ -36,6 +36,7 @@ export const NOMES_UF: Record<Uf, string> = {
 
 export const METODOS_REIVINDICACAO: Record<string, string> = {
   instagram_login: "Entrar com Instagram",
+  // Não é mais oferecido; continua para mostrar os pedidos antigos.
   codigo_dm: "Código por DM",
   documento: "Dados do negócio",
 };
@@ -83,9 +84,11 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "reivindicacao.recusada": "Recusou um pedido de reivindicação",
   "depoimento.mantido": "Manteve um depoimento denunciado",
   "depoimento.removido": "Removeu um depoimento denunciado",
+  "usuario.senha_trocada": "Trocou a própria senha no painel",
+  "usuario.senha_redefinida": "Trocou a senha pelo link do e-mail",
   "usuario.moderacao_dada": "Deu a moderação a uma conta",
   "usuario.moderacao_tirada": "Tirou a moderação de uma conta",
 };
 
 /** Onde fica o código aberto do projeto. */
-export const REPOSITORIO = "https://github.com/fabsreis/Negocio-do-bem";
+export const REPOSITORIO = "https://github.com/fabs-reis/Negocio-do-bem";

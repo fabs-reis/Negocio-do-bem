@@ -53,6 +53,12 @@ export async function encerrarSessao(): Promise<void> {
   loja.delete(COOKIE);
 }
 
+/** Id (o sha256 do token) da sessão desta requisição, ou null. Serve para manter só ela ao trocar a senha. */
+export async function idDaSessaoAtual(): Promise<string | null> {
+  const token = (await cookies()).get(COOKIE)?.value;
+  return token ? hashToken(token) : null;
+}
+
 /** Usuário logado nesta requisição, ou null. Lido uma vez por requisição. */
 export const usuarioAtual = cache(async (): Promise<UsuarioSessao | null> => {
   const token = (await cookies()).get(COOKIE)?.value;

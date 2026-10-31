@@ -2,16 +2,17 @@
 // como o Google e o Bing, e para assistentes que buscam na web (ChatGPT, Perplexity).
 
 import type { Metadata } from "next";
+import { ambienteDeDeploy } from "@/lib/ambiente";
 import { hrefCidade } from "@/lib/diretorio";
 import { REPOSITORIO } from "@/lib/dominio";
+import { temInstagram } from "@/lib/endereco";
 import { ehFotoDoSite } from "@/lib/fotos";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
 import { nomeOficial } from "@/lib/municipios";
 
 /**
  * Endereço público do site, sem barra no final, para os links absolutos (canônico,
- * sitemap, imagens de compartilhamento). No Vercel é o domínio de produção, até
- * nos previews, para os buscadores conhecerem um endereço só. Fora dele, o APP_URL.
+ * sitemap, imagens de compartilhamento). APP_URL é o domínio público canônico.
  */
 export const ENDERECO_DO_SITE = (
   process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -19,8 +20,8 @@ export const ENDERECO_DO_SITE = (
     : process.env.APP_URL || "http://localhost:3000"
 ).replace(/\/+$/, "");
 
-/** Só a produção entra nos buscadores. Previews do Vercel ficam de fora. */
-export const INDEXAVEL = process.env.VERCEL_ENV ? process.env.VERCEL_ENV === "production" : process.env.NODE_ENV === "production";
+/** Só a produção entra nos buscadores; previews ficam de fora. */
+export const INDEXAVEL = ambienteDeDeploy() ? ambienteDeDeploy() === "production" : process.env.NODE_ENV === "production";
 
 export const NOME_DO_SITE = "Negócio do Bem";
 
@@ -100,6 +101,7 @@ type NegocioPublico = {
   site: string | null;
   whatsapp: string | null;
   emailContato: string | null;
+  telefoneComercial: string | null;
 };
 
 /** Ficha do negócio (LocalBusiness) e o caminho até ele, pela cidade (BreadcrumbList). Só para perfis públicos. */
@@ -121,9 +123,12 @@ export function jsonLdDoNegocio(empresa: NegocioPublico, causas: string[]) {
           addressRegion: empresa.uf,
           addressCountry: "BR",
         },
-        ...(empresa.whatsapp ? { telephone: `+${empresa.whatsapp}` } : {}),
+        ...(empresa.telefoneComercial || empresa.whatsapp ? { telephone: `+${empresa.telefoneComercial ?? empresa.whatsapp}` } : {}),
         ...(empresa.emailContato ? { email: empresa.emailContato } : {}),
-        sameAs: [linkPerfil(empresa.instagramUsername), ...(empresa.site ? [empresa.site] : [])],
+        sameAs: [
+          ...(temInstagram(empresa.instagramUsername) ? [linkPerfil(empresa.instagramUsername)] : []),
+          ...(empresa.site ? [empresa.site] : []),
+        ],
         keywords: [empresa.categoria, ...causas].join(", "),
       },
       jsonLdDoCaminho([

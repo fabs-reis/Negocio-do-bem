@@ -6,7 +6,7 @@ import { buscarCausa, filtrarCausas } from "@/lib/causas";
 import { FONTES, ImagemDoSite, LogoNaImagem, SUAVE, TAMANHO } from "@/lib/compartilhamento";
 import { buscarPerfil } from "@/lib/consultas";
 import { ehFotoDoSite } from "@/lib/fotos";
-import { normalizarUsername } from "@/lib/instagram";
+import { normalizarEndereco } from "@/lib/instagram";
 import { CORES_DA_MARCA } from "@/lib/marca";
 import { iniciais } from "@/lib/texto";
 
@@ -17,7 +17,7 @@ export const size = TAMANHO;
 export const contentType = "image/png";
 
 export default async function Imagem({ params }: { params: Promise<{ usuario: string }> }) {
-  const username = normalizarUsername((await params).usuario);
+  const username = normalizarEndereco((await params).usuario);
   const empresa = username ? await buscarPerfil(username) : null;
   if (!empresa || empresa.moderacao !== "aprovada" || empresa.oculta) {
     return new ImageResponse(<ImagemDoSite />, { ...TAMANHO, fonts: FONTES });
