@@ -455,6 +455,7 @@ O Analytics contava visitas, mas não dizia quantas pessoas criavam conta, quant
 - **O cookie é conferido a cada segundo,** e não a cada mudança de URL. O depoimento e o pedido por documento voltam para a mesma página, só com `?aviso=`, e seguir a URL pedia `usePathname` e `useSearchParams` num Suspense, que nunca se resolvia nas páginas com parâmetro dinâmico (o perfil do negócio): o componente nem montava ali. A conferência também espera o script do Analytics, que carrega depois da página, e apaga o cookie antes de mandar, para não repetir.
 - **Cliques medidos por atributo.** Os contatos do perfil levam `data-medir` (`medirContato`), e um único ouvinte de cliques no `EventosAnalytics` manda o evento. Assim o perfil continua um Server Component.
 - **Sem dado que identifique alguém.** Os eventos levam o método, o tipo, a categoria e o lugar do negócio, nunca nome, e-mail, telefone, @ ou `user_id`. A adequação do Analytics à LGPD continua em aberto na [#109](https://github.com/fabs-reis/Negocio-do-bem/issues/109).
+- **O GA4 foi configurado junto.** A retenção dos eventos passou de 2 para 14 meses, o máximo da versão gratuita, para as explorações compararem o ano inteiro. `sign_up`, `negocio_cadastrado`, `contato_negocio`, `perfil_reivindicado` e `depoimento_publicado` são eventos principais, sem valor em dinheiro. Como ainda não tinham chegado, foram criados em Administrador > Eventos > Criar evento > "Criar com código". Cada parâmetro virou uma dimensão personalizada de evento, e a "Cidade do negócio" (`cidade`) não se confunde com a cidade de quem visita, que o GA4 já mede.
 
 ---
 
@@ -809,7 +810,7 @@ Siga a seção "Ativando os avisos por e-mail" do [README](../README.md#ativando
 1. Acrescente o evento ao tipo `Evento`, em `src/lib/medicao.ts`, só com parâmetros que não identifiquem ninguém.
 2. Na Server Action ou no Route Handler, chame `await medir({ nome, params })` depois de salvar e antes do `redirect`.
 3. Para um clique, use atributos `data-medir` e `data-<parametro>` no elemento, como `medirContato`.
-4. Acrescente o evento à tabela da [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas) e registre os parâmetros novos como dimensões personalizadas no GA4.
+4. Acrescente o evento à tabela da [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas) e registre os parâmetros novos como dimensões personalizadas no GA4 (Administrador > Definições personalizadas). Se a ação for uma conversão, marque o evento como principal: pela estrela, em Administrador > Eventos, ou, antes de ele chegar, em Criar evento > "Criar com código".
 
 ### Mostrar uma mensagem depois de uma ação
 
