@@ -6,7 +6,7 @@ import Link from "next/link";
 // O cabeçalho e o rodapé continuam na tela, para a pessoa seguir para as páginas
 // que não dependem do banco. Não consulta o banco.
 export default function Erro({ error, retry }: { error: unknown; retry: () => void }) {
-  // Em produção o Next esconde a mensagem e manda só o digest, que acha o erro nos logs do Vercel.
+  // Em produção o Next esconde a mensagem e manda só o digest, que acha o erro nos logs do Worker.
   const codigo = error instanceof Error && "digest" in error && typeof error.digest === "string" ? error.digest : null;
 
   return (
