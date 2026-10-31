@@ -1,28 +1,54 @@
+import { createHash } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { cadastrar, entrar } from "@/acoes/conta";
+import { cadastrar, entrar, trocarSenha } from "@/acoes/conta";
+import { criarLink, lerLink } from "@/lib/auth/links";
 import * as senha from "@/lib/auth/senha";
-import { LIMITE_POR_EMAIL, LIMITE_POR_IP } from "@/lib/auth/tentativas";
+import { LIMITE_POR_EMAIL, LIMITE_POR_IP, reservarTentativaDoEmail } from "@/lib/auth/tentativas";
 import { db } from "@/lib/db";
+import { enviarEmail, type Email } from "@/lib/email";
 
-// Estes testes passam pelas ações de verdade (entrar e cadastrar). Só o que
-// precisa de uma requisição do Next fica de mentira: os cabeçalhos, o redirect,
-// o cookie da sessão e o after (o e-mail de confirmação do cadastro). O scrypt é o de verdade, com espiões para contar quantas
+// Estes testes passam pelas ações de verdade (entrar, cadastrar e trocarSenha). Só o que
+// precisa de uma requisição do Next fica de mentira: os cabeçalhos, o redirect, os
+// cookies, quem está logado, o after e o envio do e-mail. O scrypt é o de verdade, com espiões para contar quantas
 // vezes ele roda: o limite existe para impedir justamente essas conferências.
 const contexto = vi.hoisted(() => ({
   cabecalhos: {} as Record<string, string>,
   // Cabeçalhos das próximas chamadas, na ordem em que elas pedem os cabeçalhos.
   proximos: [] as Record<string, string>[],
+  // Quem está logado (para exigirUsuario) e o token no cookie da sessão.
+  usuario: null as { id: string; nome: string; email: string; moderador: boolean; emailConfirmado: boolean } | null,
+  cookieSessao: undefined as string | undefined,
+  depois: [] as (() => unknown)[],
 }));
 const criarSessao = vi.hoisted(() => vi.fn());
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers(contexto.proximos.shift() ?? contexto.cabecalhos) }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(contexto.proximos.shift() ?? contexto.cabecalhos),
+  cookies: async () => ({
+    get: (nome: string) => (nome === "ndb_sessao" && contexto.cookieSessao ? { value: contexto.cookieSessao } : undefined),
+  }),
+}));
 vi.mock("next/navigation", () => ({
   redirect: () => {
     throw new Error("redirecionado");
   },
 }));
-vi.mock("next/server", () => ({ after: () => {} }));
-vi.mock("@/lib/auth/sessao", () => ({ caminhoSeguro: () => "/", criarSessao, encerrarSessao: vi.fn() }));
+vi.mock("next/server", () => ({ after: (tarefa: () => unknown) => contexto.depois.push(tarefa) }));
+// O idDaSessaoAtual é o de verdade, para conferir no banco qual sessão sobra depois da troca.
+vi.mock("@/lib/auth/sessao", async (importarOriginal) => {
+  const original = await importarOriginal<typeof import("@/lib/auth/sessao")>();
+  return {
+    ...original,
+    caminhoSeguro: () => "/",
+    criarSessao,
+    encerrarSessao: vi.fn(),
+    exigirUsuario: async () => {
+      if (!contexto.usuario) throw new Error("sem login");
+      return contexto.usuario;
+    },
+  };
+});
+vi.mock("@/lib/email", () => ({ envioLigado: vi.fn(() => true), enviarEmail: vi.fn(async () => true) }));
 vi.mock("@/lib/auth/senha", async (importarOriginal) => {
   const original = await importarOriginal<typeof import("@/lib/auth/senha")>();
   return {
@@ -88,6 +114,9 @@ beforeAll(async () => {
 beforeEach(async () => {
   contexto.cabecalhos = {};
   contexto.proximos = [];
+  contexto.usuario = null;
+  contexto.cookieSessao = undefined;
+  contexto.depois = [];
   vi.stubEnv("VERCEL", "1");
   vi.stubEnv("AUTENTICACAO_PROXY_CONFIAVEL", undefined);
   await db.$executeRawUnsafe(`TRUNCATE "TentativaAcesso", "Usuario" CASCADE`);
@@ -268,11 +297,13 @@ describe("o limite vale nas duas ações e vem antes do scrypt", () => {
   it("o banco guarda só o hash do IP e do e-mail", async () => {
     contexto.cabecalhos = vercel;
     await entrar({}, formulario("privado@exemplo.com"));
-    const chaves = (await db.tentativaAcesso.findMany()).map((t) => t.chave);
-    expect(chaves).toHaveLength(2);
-    for (const chave of chaves) {
+    const tentativas = await db.tentativaAcesso.findMany();
+    expect(tentativas).toHaveLength(2);
+    for (const { chave } of tentativas) {
       expect(chave).toMatch(/^[0-9a-f]{64}$/);
     }
+    // A linha do limite por e-mail também guarda o e-mail só em hash.
+    expect(tentativas.map((t) => t.email).filter(Boolean)).toEqual([expect.stringMatching(/^[0-9a-f]{64}$/)]);
   });
 });
 
@@ -350,5 +381,161 @@ describe("telefone no cadastro", () => {
     expect(resposta?.valores?.telefone).toBe(telefone);
     expect(await db.usuario.count()).toBe(0);
     expect(senha.gerarHashSenha).not.toHaveBeenCalled();
+  });
+});
+
+describe("trocar a senha no painel", () => {
+  const vercel = { "x-vercel-forwarded-for": "198.51.100.1" };
+  const NOVA_SENHA = "nova-senha-123";
+  const MENSAGEM_LIMITE = "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
+
+  function hashDoToken(token: string) {
+    return createHash("sha256").update(token).digest("hex");
+  }
+
+  async function logar(email: string) {
+    const usuario = await criarUsuario(email);
+    contexto.usuario = { id: usuario.id, nome: usuario.nome, email, moderador: false, emailConfirmado: true };
+    contexto.cabecalhos = vercel;
+    return usuario;
+  }
+
+  function trocar(senhaAtual: string, novaSenha = NOVA_SENHA, confirmarSenha = novaSenha) {
+    const dados = new FormData();
+    dados.set("senhaAtual", senhaAtual);
+    dados.set("novaSenha", novaSenha);
+    dados.set("confirmarSenha", confirmarSenha);
+    return trocarSenha({}, dados);
+  }
+
+  async function senhaGravada(id: string) {
+    return (await db.usuario.findUniqueOrThrow({ where: { id } })).senhaHash;
+  }
+
+  async function rodarDepois() {
+    for (const tarefa of contexto.depois.splice(0)) await tarefa();
+  }
+
+  it("com a senha atual certa, grava a nova, mantém só a sessão deste aparelho e gasta os links abertos", async () => {
+    const usuario = await logar("ana@exemplo.com");
+    const outra = await db.usuario.create({ data: { nome: "Outra", email: "outra@exemplo.com", senhaHash: "x" } });
+    const expiraEm = new Date(Date.now() + 60_000);
+    await db.sessao.createMany({
+      data: [
+        { id: hashDoToken("token-desta-requisicao"), usuarioId: usuario.id, expiraEm },
+        { id: hashDoToken("token-de-outro-aparelho"), usuarioId: usuario.id, expiraEm },
+        { id: hashDoToken("token-de-outra-conta"), usuarioId: outra.id, expiraEm },
+      ],
+    });
+    contexto.cookieSessao = "token-desta-requisicao";
+    const linkDeEntrar = (await criarLink(usuario, "entrar"))!;
+    const linkDaOutra = (await criarLink(outra, "entrar"))!;
+
+    await expect(trocar(SENHA_CERTA)).rejects.toThrow("redirecionado");
+
+    expect(await senha.verificarSenha(NOVA_SENHA, (await senhaGravada(usuario.id))!)).toBe(true);
+    const sessoes = await db.sessao.findMany({ select: { id: true } });
+    expect(sessoes.map((s) => s.id).sort()).toEqual([hashDoToken("token-desta-requisicao"), hashDoToken("token-de-outra-conta")].sort());
+    expect(await lerLink(linkDeEntrar)).toBeNull();
+    expect(await lerLink(linkDaOutra)).not.toBeNull();
+    expect(await db.registroAuditoria.findFirstOrThrow()).toMatchObject({
+      usuarioId: usuario.id,
+      acao: "usuario.senha_trocada",
+      alvoTipo: "usuario",
+      alvoId: usuario.id,
+    });
+  });
+
+  it("avisa a dona por e-mail, depois da resposta", async () => {
+    await logar("ana@exemplo.com");
+    await expect(trocar(SENHA_CERTA)).rejects.toThrow("redirecionado");
+    expect(enviarEmail).not.toHaveBeenCalled();
+
+    await rodarDepois();
+    const [email] = vi.mocked(enviarEmail).mock.calls.map(([e]) => e as Email);
+    expect(email).toMatchObject({ para: "ana@exemplo.com", assunto: expect.stringContaining("foi trocada") });
+    expect(email!.texto).toContain("no painel");
+  });
+
+  it("zera as tentativas do e-mail em todas as origens", async () => {
+    await logar("ana@exemplo.com");
+    for (let i = 0; i < LIMITE_POR_EMAIL; i++) await reservarTentativaDoEmail("ana@exemplo.com", "203.0.113.80");
+
+    await expect(trocar(SENHA_CERTA)).rejects.toThrow("redirecionado");
+    expect(await reservarTentativaDoEmail("ana@exemplo.com", "203.0.113.80")).toBe(true);
+  });
+
+  it("com a senha atual errada, mostra o erro no campo e não muda nada", async () => {
+    const usuario = await logar("ana@exemplo.com");
+    const antes = await senhaGravada(usuario.id);
+    await db.sessao.create({ data: { id: hashDoToken("outro-aparelho"), usuarioId: usuario.id, expiraEm: new Date(Date.now() + 60_000) } });
+
+    const resposta = await trocar(SENHA_ERRADA);
+
+    expect(resposta?.erros?.senhaAtual).toBe("Senha atual incorreta.");
+    expect(await senhaGravada(usuario.id)).toBe(antes);
+    expect(await db.sessao.count()).toBe(1);
+    expect(await db.registroAuditoria.count()).toBe(0);
+  });
+
+  it("nova senha curta ou confirmação diferente nem chegam ao scrypt nem contam tentativa", async () => {
+    await logar("ana@exemplo.com");
+    expect((await trocar(SENHA_CERTA, "curta"))?.erros?.novaSenha).toBe("Use pelo menos 8 caracteres.");
+    expect((await trocar(SENHA_CERTA, NOVA_SENHA, "outra-coisa-123"))?.erros?.confirmarSenha).toBe("As senhas não conferem.");
+    expect((await trocar(""))?.erros?.senhaAtual).toBe("Digite a senha atual.");
+    expect(senha.verificarSenha).not.toHaveBeenCalled();
+    expect(await db.tentativaAcesso.count()).toBe(0);
+  });
+
+  it("a senha atual tem o limite por e-mail, conferido antes do scrypt", async () => {
+    const usuario = await logar("ana@exemplo.com");
+    const respostas = [];
+    for (let i = 0; i < LIMITE_POR_EMAIL + 2; i++) respostas.push(await trocar(SENHA_ERRADA));
+    expect(senha.verificarSenha).toHaveBeenCalledTimes(LIMITE_POR_EMAIL);
+    expect(respostas.slice(LIMITE_POR_EMAIL).map((r) => r?.erro)).toEqual(Array(2).fill(MENSAGEM_LIMITE));
+
+    // Depois do limite, nem a senha certa troca: a conferência nem acontece.
+    vi.clearAllMocks();
+    const antes = await senhaGravada(usuario.id);
+    expect((await trocar(SENHA_CERTA))?.erro).toBe(MENSAGEM_LIMITE);
+    expect(senha.verificarSenha).not.toHaveBeenCalled();
+    expect(await senhaGravada(usuario.id)).toBe(antes);
+  });
+
+  it("divide a cota do IP com o login e o cadastro", async () => {
+    await logar("ana@exemplo.com");
+    await entrarVezes(LIMITE_POR_IP, () => vercel);
+    vi.clearAllMocks();
+    expect((await trocar(SENHA_CERTA))?.erro).toBe(MENSAGEM_LIMITE);
+    expect(senha.verificarSenha).not.toHaveBeenCalled();
+  });
+
+  it("de duas trocas ao mesmo tempo, só uma passa", async () => {
+    const usuario = await logar("ana@exemplo.com");
+    const respostas = await Promise.all([
+      trocar(SENHA_CERTA, "primeira-nova-123").catch((erro: Error) => erro),
+      trocar(SENHA_CERTA, "segunda-nova-123").catch((erro: Error) => erro),
+    ]);
+
+    expect(respostas.filter((r) => r instanceof Error)).toHaveLength(1);
+    expect(respostas.find((r) => !(r instanceof Error))).toEqual({ erro: expect.stringContaining("A senha mudou") });
+    const gravada = (await senhaGravada(usuario.id))!;
+    const confere = await Promise.all(["primeira-nova-123", "segunda-nova-123"].map((s) => senha.verificarSenha(s, gravada)));
+    expect(confere.filter(Boolean)).toHaveLength(1);
+    expect(await db.registroAuditoria.count()).toBe(1);
+  });
+
+  it("a conta sem senha (do Google) não troca por aqui: ela cria a senha pelo link", async () => {
+    const usuario = await db.usuario.create({ data: { nome: "Pessoa do Google", email: "google@exemplo.com", googleId: "google-1" } });
+    contexto.usuario = { id: usuario.id, nome: usuario.nome, email: usuario.email, moderador: false, emailConfirmado: true };
+    contexto.cabecalhos = vercel;
+
+    expect((await trocar(SENHA_CERTA))?.erros?.senhaAtual).toBe("Senha atual incorreta.");
+    expect(await senhaGravada(usuario.id)).toBeNull();
+  });
+
+  it("sem login, não troca nada", async () => {
+    await expect(trocar(SENHA_CERTA)).rejects.toThrow("sem login");
+    expect(senha.verificarSenha).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,7 @@ Um diretório de negócios com consciência social e conexão com a comunidade. 
 - **Causas** como Pet friendly, Antirracista, Escala 5x2, Escala 4x3 e outras (lista em `src/lib/causas.ts`).
 - **Indicação** pela comunidade, publicada na hora. A moderação tira do ar o que for impróprio.
 - **Reivindicação de propriedade** pelo dono, explicada abaixo.
-- **Painel do dono** para editar o perfil, responder depoimentos e ocultar o negócio.
+- **Painel do dono** para editar o perfil, responder depoimentos, ocultar o negócio e trocar a senha.
 - **Moderação** com um painel próprio: os números do projeto, a atividade das últimas semanas e a saúde dos dados; filas de disputas de reivindicação e de denúncias; todos os negócios, contas e depoimentos, com a ficha de cada conta; botão para tirar um negócio do ar; edição de qualquer perfil (foto, contatos, textos e causas); e o registro de auditoria, com filtros.
 
 Vai colaborar? Comece por estes dois guias:
@@ -148,7 +148,7 @@ O site pede só `openid email profile`, lê a conta, o e-mail e o nome e **não 
 
 ## Ativando os avisos por e-mail (opcional)
 
-O site manda por e-mail o link para confirmar o e-mail e o link para entrar sem senha. Também avisa quem pediu uma reivindicação quando a moderação decide, a moderação quando chega um pedido ou uma denúncia na fila, e os donos quando chega um depoimento. O envio é pelo [Resend](https://resend.com). As regras estão na [seção 14 das regras de negócio](docs/regras-de-negocio.md#14-avisos-por-e-mail).
+O site manda por e-mail o link para confirmar o e-mail, o link para entrar sem senha e o link para criar uma senha nova, e avisa a pessoa quando a senha da conta é trocada. Também avisa quem pediu uma reivindicação quando a moderação decide, a moderação quando chega um pedido ou uma denúncia na fila, e os donos quando chega um depoimento. O envio é pelo [Resend](https://resend.com). As regras estão na [seção 14 das regras de negócio](docs/regras-de-negocio.md#14-avisos-por-e-mail).
 
 1. Crie uma conta no Resend e adicione o domínio do site em **Domains**. Crie no DNS do domínio os registros que ele mostrar: o DKIM em `resend._domainkey` e, no subdomínio `send`, um MX e um SPF. Eles não mexem no MX nem no SPF da caixa de e-mail do domínio.
 2. Quando o domínio aparecer como verificado, crie uma chave em **API Keys**, com permissão só de envio (**Sending access**).
@@ -212,7 +212,6 @@ tests/               testes (unit/ sem banco, db/ com banco)
 ## Próximos passos sugeridos
 
 - Uma verificação de verdade para o dono: hoje quem pede um negócio sem dono vira dono na hora, sem conferência. Um caminho é comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
-- Trocar a senha pelo painel, para completar a recuperação de senha: o "Entrar por link" já devolve o acesso a quem esqueceu.
 
 ## Como contribuir
 

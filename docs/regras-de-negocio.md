@@ -63,7 +63,8 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Login** (`/entrar`): e-mail e senha.
   - O erro é sempre o mesmo, "E-mail ou senha incorretos".
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
-  - A conta sem senha (criada pelo Google, ou ligada a ele com o e-mail sem confirmar) também é conferida contra o hash falso e recebe o mesmo "E-mail ou senha incorretos". Ela entra pelo Google ou por link no e-mail.
+  - A conta sem senha (criada pelo Google, ou ligada a ele com o e-mail sem confirmar) também é conferida contra o hash falso e recebe o mesmo "E-mail ou senha incorretos". Ela entra pelo Google ou por link no e-mail, e pode criar uma senha pelo link de senha nova (veja "Esqueci minha senha", abaixo).
+  - Embaixo da senha, "Esqueceu a senha? Crie uma nova ou entre com um link por e-mail." leva a `/esqueci-a-senha` e a `/entrar/link`.
 - **Continuar com o Google** (`src/lib/auth/google.ts`, `/api/google/entrar` e `/api/google/retorno`): botão acima do formulário de `/entrar` e de `/cadastrar`.
   - Só aparece com `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `APP_URL` configurados. Sem eles, quem chega a `/api/google/entrar` volta para `/entrar` com "O login com o Google ainda não está disponível".
   - O site pede só `openid email profile` e lê do Google a conta (`sub`), o e-mail, se o e-mail é verificado e o nome. O token do Google não é guardado.
@@ -84,16 +85,32 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - Cancelar no Google, ou qualquer falha, volta para `/entrar` com um aviso, mantendo o `voltar`.
   - O login pelo Google não passa pelo limite de tentativas, porque não confere senha.
 - **Limite de tentativas** (`src/lib/auth/tentativas.ts`), conferido antes do scrypt, porque cada conferência de senha custa ~32 MB de memória:
-  - **por IP:** 10 tentativas de login ou cadastro, somadas, a cada 15 minutos;
+  - **por IP:** 10 tentativas de login, cadastro, troca de senha no painel, pedido de senha nova em `/esqueci-a-senha` e senha nova pelo link, somadas, a cada 15 minutos;
   - **de onde vem o IP:** no Cloudflare, só do cabeçalho `cf-connecting-ip`, escrito pela rede, quando `CLOUDFLARE_DEPLOY=1`; no Vercel, só do cabeçalho `x-vercel-forwarded-for`, que o Vercel escreve. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
   - **IPv6:** o IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) conta como o IPv4. Os outros endereços IPv6 contam pelo prefixo /64, então todos os endereços da mesma rede dividem a cota;
   - **sem IP conhecido** (fora do Vercel/Cloudflare sem proxy declarado, ou cabeçalho ausente ou inválido), todas as tentativas dividem um contador só, de 10 a cada 15 minutos. É o lado seguro: o cadastro não tem limite por e-mail, e sem esse contador o scrypt ficaria sem freio. O custo é que, sem o proxy declarado, quem tenta entrar pode ficar recusado por causa dos outros visitantes;
-  - **por e-mail, em cada origem:** 5 tentativas de senha a cada 15 minutos para o mesmo e-mail, vindas do mesmo IP (ou do mesmo /64 no IPv6). Cada origem tem o próprio contador, então quem erra a senha de outra pessoa não a impede de entrar de outro lugar. Sem IP conhecido, as tentativas sem IP dividem um contador por e-mail. A tentativa é contada antes de a senha ser conferida, e não depois: assim, tentativas que chegam juntas não passam todas. A sexta já nem chega à conferência, mesmo com a senha certa. Um login certo zera a contagem daquele e-mail naquela origem;
-  - no login, a recusa pelo limite mostra o mesmo "E-mail ou senha incorretos", para não revelar quais e-mails existem. No cadastro, aparece "Muitas tentativas seguidas. Espere alguns minutos e tente de novo";
-  - o banco guarda só o hash (sha256) do IP e do e-mail, e as janelas vencidas são apagadas na tentativa seguinte.
+  - **por e-mail, em cada origem:** 5 tentativas de senha a cada 15 minutos para o mesmo e-mail, vindas do mesmo IP (ou do mesmo /64 no IPv6). Cada origem tem o próprio contador, então quem erra a senha de outra pessoa não a impede de entrar de outro lugar. Sem IP conhecido, as tentativas sem IP dividem um contador por e-mail. A tentativa é contada antes de a senha ser conferida, e não depois: assim, tentativas que chegam juntas não passam todas. A sexta já nem chega à conferência, mesmo com a senha certa. Vale também para a senha atual digitada na troca de senha do painel. Um login certo zera a contagem daquele e-mail naquela origem. Trocar a senha, no painel ou pelo link, zera a contagem daquele e-mail em todas as origens: quem esqueceu a senha costuma errar algumas vezes antes de pedir o link, e a senha nova não pode ficar recusada até a janela vencer;
+  - no login, a recusa pelo limite mostra o mesmo "E-mail ou senha incorretos", para não revelar quais e-mails existem. No cadastro, na troca de senha e nos pedidos de senha nova, aparece "Muitas tentativas seguidas. Espere alguns minutos e tente de novo";
+  - o banco guarda só o hash (sha256) do IP e do e-mail, e as janelas vencidas são apagadas na tentativa seguinte. A linha do limite por e-mail guarda também o hash só do e-mail (`TentativaAcesso.email`), para a troca de senha achar as de todas as origens.
 - **Senha:**
   - guardada com scrypt (N=2^15, r=8, p=1, sal aleatório de 16 bytes) no formato `scrypt$N$r$p$sal$hash`;
   - a comparação é em tempo constante.
+- **Esqueci minha senha** (`/esqueci-a-senha`, `pedirRedefinicaoDeSenha` e `criarSenhaComLink`). Usa o mesmo sistema de [links por e-mail](#e-mail-confirmado-e-links-por-e-mail), com o link de senha nova:
+  - a pessoa digita o e-mail e volta para `/entrar` com "Se existe uma conta com esse e-mail, mandamos um link para criar uma senha nova". A resposta é a mesma com ou sem conta, e o link é criado e mandado depois da resposta, para o tempo também não revelar quais e-mails têm conta;
+  - cada pedido gasta uma tentativa do limite por IP, o mesmo do login. A conta também tem o limite de 5 links por hora: depois dele, a resposta é a mesma e o e-mail não sai;
+  - o link vale **1 hora** e **uma vez só**, e funciona também na conta criada pelo Google, que passa a ter senha;
+  - o link abre `/link`, "Crie uma senha nova", com a conta e os campos da senha nova e da repetição dela. A página não redireciona quem já está logado: quem desconfia de invasão abre o link na conta aberta;
+  - a senha nova segue a regra do cadastro (8 a 200 caracteres) e precisa ser igual à repetição. Um erro no formulário não gasta o link. A troca passa pelo limite por IP, porque calcula o scrypt;
+  - a troca é uma transação só: gasta o link e **os outros links ainda abertos da conta** (inclusive o de entrar, senão quem invadiu voltaria por ele), troca a senha, confirma o e-mail, **encerra todas as sessões da conta** e grava `usuario.senha_redefinida` na auditoria. Dois envios ao mesmo tempo usam o link uma vez só;
+  - depois da troca, a contagem de tentativas daquele e-mail é zerada em todas as origens, a pessoa **entra neste aparelho** (o link prova que ela lê o e-mail da conta, como o link de entrar) e vai para o `/painel` com "Senha trocada. Os outros aparelhos saíram da sua conta.";
+  - link vencido, já usado ou sem o cookie mostra "Este link venceu ou já foi usado.", com um link para pedir outro;
+  - a conta recebe um e-mail avisando da troca, para quem não foi quem trocou perceber a invasão.
+- **Trocar a senha no painel** (`/painel`, seção "Minha conta"; `trocarSenha`):
+  - pede a senha atual, a nova (8 a 200 caracteres) e a repetição da nova. Um erro de validação não chega ao scrypt nem conta tentativa;
+  - a senha atual passa pelos limites de tentativas acima, por IP e por e-mail, antes do scrypt. Errada, aparece "Senha atual incorreta." no campo;
+  - a troca é uma transação só: grava a senha nova, **encerra as outras sessões da conta** (só a deste aparelho continua), gasta os links ainda abertos da conta e grava `usuario.senha_trocada` na auditoria. Ela só grava se a senha não mudou desde a conferência: de duas trocas ao mesmo tempo, uma passa e a outra vê "A senha mudou enquanto você trocava";
+  - depois, a contagem de tentativas daquele e-mail é zerada em todas as origens, a conta recebe um e-mail avisando da troca e a pessoa volta ao `/painel` com "Senha trocada. Os outros aparelhos saíram da sua conta.";
+  - **sem senha atual:** quem esqueceu a senha atual, e a conta sem senha (criada pelo Google), usa o botão "Mandar o link de senha nova", que manda para o e-mail da conta o mesmo link de "Esqueci minha senha". A conta sem senha não vê os campos de troca, só esse botão. Passar de 5 links por hora mostra "Você pediu muitos e-mails na última hora".
 - **Sessão:**
   - dura 30 dias;
   - o cookie `ndb_sessao` é `httpOnly`, `sameSite=lax` e `secure` em produção, e guarda um token aleatório;
@@ -125,27 +142,29 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
 - **O resto funciona sem confirmar:** entrar, sair, o painel, editar o próprio negócio, responder depoimentos e cancelar pedidos.
 - **Contas criadas antes da confirmação existir** (`emailConfirmadoEm` vazio) confirmam na próxima vez que forem fazer uma dessas ações.
 - **A conta criada ou ligada pelo Google já fica com o e-mail confirmado**, porque o Google verificou o endereço (veja "Continuar com o Google", acima).
-- **Entrar por link** (`/entrar/link`, também em "Esqueceu a senha?" no `/entrar`): a pessoa digita o e-mail e recebe um link para entrar sem senha.
+- **Entrar por link** (`/entrar/link`, também em "Esqueceu a senha?" no `/entrar`, ao lado de "Crie uma nova"): a pessoa digita o e-mail e recebe um link para entrar sem senha.
   - A resposta é sempre "Confira seu e-mail", com ou sem conta para aquele endereço.
   - O link é criado e mandado depois da resposta, para o tempo de resposta também não revelar quais e-mails têm conta.
   - A senha continua valendo. Entrar por link não muda a senha.
-- **Os dois links:**
+- **Os três links:**
 
   | Link | Vale por | Ao usar |
   | --- | --- | --- |
   | Confirmar o e-mail | 24 horas | Confirma o e-mail. Não abre sessão. |
   | Entrar | 15 minutos | Abre a sessão e também confirma o e-mail. |
+  | Senha nova | 1 hora | Troca a senha, encerra as sessões, gasta os outros links da conta, confirma o e-mail e abre a sessão neste aparelho. Só se usa salvando a senha nova, nunca pelo botão de entrar. Veja "Esqueci minha senha", acima. |
 
 - **Cada link vale uma vez.** Dois cliques ao mesmo tempo usam o link uma vez só.
 - **O link só vale para o e-mail para onde foi.** Se a conta mudar de e-mail, os links antigos deixam de valer.
-- **Abrir o link não usa o link.** `/api/link` guarda o token num cookie (`ndb_link`, `httpOnly`, só no caminho `/link`) e leva a `/link`, que mostra a conta e pede um clique em "Entrar" ou em "Confirmar meu e-mail".
+- **Abrir o link não usa o link.** `/api/link` guarda o token num cookie (`ndb_link`, `httpOnly`, só no caminho `/link`) e leva a `/link`, que mostra a conta e pede um clique em "Entrar" ou em "Confirmar meu e-mail", ou mostra os campos da senha nova.
+  - Chegar a `/api/link` sem token apaga o cookie: num computador dividido, a próxima pessoa não herda um link que ainda vale. Um token novo substitui o anterior.
   - Filtros de e-mail que abrem links sozinhos (Outlook, antivírus) não gastam o link nem confirmam um e-mail sem a pessoa.
   - O token sai do endereço antes de a página carregar o Google Analytics.
 - **Depois do clique,** o link de entrar leva ao `voltar` de quando foi pedido. O de confirmar mostra "E-mail confirmado" e um botão para continuar de onde a pessoa estava.
 - **O banco guarda só o SHA-256 do token,** como na sessão.
-- **Limite:** no máximo **5 links por conta a cada hora**, somando os dois tipos.
-  - Ao mandar de novo a confirmação, quem passou do limite vê "Você pediu muitos e-mails na última hora".
-  - No "Entrar por link", a resposta continua a mesma, e o e-mail simplesmente não sai.
+- **Limite:** no máximo **5 links por conta a cada hora**, somando os três tipos.
+  - Ao mandar de novo a confirmação, ou o link de senha nova pelo painel, quem passou do limite vê "Você pediu muitos e-mails na última hora".
+  - No "Entrar por link" e no "Esqueci minha senha", a resposta continua a mesma, e o e-mail simplesmente não sai.
   - Os links vencidos há mais de uma hora são apagados quando a conta recebe outro.
 - **O endereço do link vem da configuração** (`ENDERECO_DO_SITE`, ou o domínio canônico configurado por ambiente), nunca do cabeçalho `Host` da requisição.
 - **Sem o envio de e-mail configurado,** o link vai para o log do servidor no `npm run dev` e nos previews, para dar para testar. Na produção, ele não vai para o log.
@@ -632,7 +651,9 @@ Código: `src/app/painel/`.
 - **`/painel`** mostra:
   - os negócios de que a pessoa é dona, com avisos de "Oculto do diretório" e "Falta contar a história";
   - as solicitações de reivindicação;
-  - as indicações dela, com a situação de cada uma na moderação.
+  - as indicações dela, com a situação de cada uma na moderação;
+  - a seção "Minha conta", com a troca de senha, ou o link para criar uma na conta sem senha (veja [Cadastro e login](#cadastro-e-login));
+  - o aviso da ação anterior (`?aviso=`), como "Senha trocada".
 - **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). Nele, o dono:
   - **edita o perfil:** foto, informações, contatos, causas e história. O @ não muda;
   - **responde depoimentos:** até 1.000 caracteres. A resposta pode ser trocada a qualquer momento, e apagar o texto tira a resposta;
@@ -919,6 +940,8 @@ A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
 | `reivindicacao.recusada` | Um pedido foi recusado. Os detalhes trazem o motivo. |
 | `depoimento.mantido` / `depoimento.removido` | A moderação decidiu uma denúncia. |
+| `usuario.senha_trocada` | A pessoa trocou a própria senha no painel. |
+| `usuario.senha_redefinida` | A pessoa criou uma senha nova pelo link de "Esqueci minha senha" (ou pelo link pedido no painel). |
 | `usuario.moderacao_dada` / `usuario.moderacao_tirada` | Alguém virou moderação ou deixou de ser, pelo `npm run moderacao`. Aparece como "Sistema"; os detalhes trazem o e-mail. |
 
 O que **não** vai para a auditoria hoje:
@@ -947,8 +970,10 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
 | Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail". Só com a confirmação ligada, e hoje ela está desligada | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |
 | Alguém pede para entrar por link | O e-mail digitado, se tiver conta | O link para entrar, que vale por 15 minutos. |
+| Alguém pede uma senha nova em `/esqueci-a-senha`, ou pelo botão do painel | O e-mail digitado (ou o da conta logada), se tiver conta | O link para criar uma senha nova, que vale por 1 hora. |
+| A senha é trocada, no painel ou pelo link de senha nova | A própria pessoa | Aviso de que a senha foi trocada e de que os outros aparelhos saíram, com o link de "Esqueci minha senha" para quem não foi quem trocou. |
 
-- **Os links de confirmar e de entrar** seguem as regras de [e-mail confirmado e links por e-mail](#e-mail-confirmado-e-links-por-e-mail).
+- **Os links de confirmar, de entrar e de senha nova** seguem as regras de [e-mail confirmado e links por e-mail](#e-mail-confirmado-e-links-por-e-mail).
 - **A aprovação na hora não manda e-mail.** Quem vira dono pelos dados do negócio ou pelo Instagram já vê o resultado na tela.
 - **Cada pessoa recebe o próprio e-mail.** Ninguém vê o endereço de outra, nem entre a moderação nem entre co-donos.
 - **Os avisos para a moderação não levam dados pessoais:** nada de nome, e-mail ou contato de quem pediu ou denunciou. Isso fica só nas filas.
@@ -1020,8 +1045,10 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Prazo para voltar do Google no login | 10 minutos | `src/app/api/google/entrar/route.ts` |
 | Prazo para informar o telefone na conta nova pelo Google | 30 minutos | `src/lib/auth/google.ts` |
 | Telefone da conta | do Brasil, com DDD (10 ou 11 dígitos) | `src/lib/formulario.ts` |
-| Tentativas de login e cadastro por IP | 10 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
+| Tentativas de login, cadastro, troca de senha e senha nova por IP | 10 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
 | Tentativas de senha por e-mail, em cada origem (IP ou /64) | 5 a cada 15 minutos | `src/lib/auth/tentativas.ts` |
+| Validade do link de senha nova | 1 hora | `src/lib/auth/links.ts` |
+| Links por e-mail por conta (confirmar, entrar e senha nova) | 5 por hora | `src/lib/auth/links.ts` |
 | Indicações por conta | 10 a cada 24 horas | `src/acoes/empresas.ts` |
 | Pedidos de reivindicação por conta | 10 a cada 24 horas | `src/lib/reivindicacao.ts` |
 | Validade dos pedidos | 30 dias (informativa) | `src/lib/reivindicacao.ts` |
@@ -1082,7 +1109,8 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 **Contas**
 
-- Não há recuperação de senha, confirmação de e-mail, troca de nome ou e-mail, nem exclusão da conta.
+- Não há troca de nome ou e-mail, nem exclusão da conta. A confirmação de e-mail existe, mas está desligada (veja [E-mail confirmado e links por e-mail](#e-mail-confirmado-e-links-por-e-mail)).
+- Um link de senha nova aberto e não usado fica no cookie de `/link` até vencer (1 hora) ou até outro link substituí-lo. Quem usar o mesmo navegador nesse meio-tempo pode abrir `/link` e criar a senha. O mesmo vale para o link de entrar, por 15 minutos.
 - Não há registro do último acesso: "Sair" apaga a sessão, então o painel só sabe das sessões que continuam abertas.
 - Sessões vencidas deixam de valer, mas não são apagadas do banco.
 - O e-mail da conta não é confirmado. Um aviso pode ir para um endereço digitado errado, e ninguém fica sabendo.

@@ -435,6 +435,18 @@ A tela de cadastro por etapas veio do [#145](https://github.com/fabs-reis/Negoci
 - **O contato do dono fica no negócio, e não na conta.** É o contato de quem cuida daquele negócio, e o dono pode corrigir no painel. Ele não aparece no perfil.
 - **O rascunho do cadastro fica só no navegador.** O #145 também guardava na conta, para quem ainda não tinha confirmado o e-mail. Com a confirmação desligada ([#148](https://github.com/fabs-reis/Negocio-do-bem/issues/148)), ficou só o do navegador, que cobre o login e o cadastro no meio do caminho.
 
+### 31 de outubro: esqueci minha senha e troca de senha no painel ([#65](https://github.com/fabs-reis/Negocio-do-bem/issues/65), [#165](https://github.com/fabs-reis/Negocio-do-bem/issues/165))
+
+Quem esquecia a senha só voltava pelo "Entrar por link" e continuava sem senha, e quem estava logado não tinha como trocar a sua. As duas mudanças vieram de PRs de contribuição ([#128](https://github.com/fabs-reis/Negocio-do-bem/pull/128) e [#166](https://github.com/fabs-reis/Negocio-do-bem/pull/166)), abertos antes do login com o Google e refeitos juntos em cima dele, porque mexem nos mesmos arquivos.
+
+- **A recuperação não tem sistema próprio.** É a finalidade `redefinir` dos links por e-mail (`src/lib/auth/links.ts`), com o token só em hash, o cookie de `/api/link` e o clique em `/link`. Um primeiro desenho do #128 tinha tabela, cookie e rotas separados, e foi desfeito na revisão: dois sistemas de token seriam duas superfícies para manter.
+- **Gastar o link e trocar a senha no mesmo passo.** `redefinirSenhaComLink` é uma transação que gasta o link, gasta os outros links abertos da conta (senão um link de entrar já mandado devolveria o acesso a quem invadiu), troca a senha, encerra as sessões e grava a auditoria. O link de senha nova não serve no botão "Entrar" de `/link`: `usarLinkDoEmail` recusa essa finalidade.
+- **Depois do link, a pessoa já entra.** Abrir o link prova que ela lê o e-mail da conta, o mesmo que o link de entrar prova. Mandá-la para o `/entrar` só pediria a senha que ela acabou de digitar.
+- **A troca zera as tentativas de todas as origens.** Quem esqueceu a senha erra algumas vezes antes de pedir o link, e a chave do contador por e-mail mistura o e-mail e o IP. Por isso a migração `tentativas_por_email` guarda também o hash só do e-mail em `TentativaAcesso.email`, e `zerarTentativasDeTodasAsOrigens` apaga as linhas por ele.
+- **A troca no painel confere a senha atual com os limites do login,** para uma sessão roubada não virar força bruta da senha. Ela grava só se a senha não mudou desde a conferência (`updateMany` com a senha antiga no filtro), mantém a sessão deste aparelho (`idDaSessaoAtual`) e encerra as outras.
+- **A conta sem senha cria a primeira pelo link.** A conta criada pelo Google não tem senha atual para digitar, e criar uma só com a sessão aberta daria a senha a quem roubou o cookie. O painel manda o mesmo link de "Esqueci minha senha" para o e-mail da conta, que serve também para quem esqueceu a senha atual.
+- **Um e-mail avisa de toda troca** (`avisarSenhaTrocada`), porque é o que permite notar uma invasão. Gasta a cota do Resend, mas trocas de senha são raras.
+
 ---
 
 ## 4. Arquitetura
@@ -624,7 +636,8 @@ npm run typecheck
   - transferência;
   - dados do negócio;
   - limite diário;
-  - limite de tentativas de login e cadastro: `tests/db/tentativas.test.ts` testa os contadores, e `tests/db/acoes-conta.test.ts` passa pelas ações `entrar` e `cadastrar` de verdade, com espiões no scrypt. Só o Next (cabeçalhos, redirect e cookie) é de mentira. Esses testes falham se alguém tirar o limite do cadastro, mover o limite para depois do scrypt, ou confiar num cabeçalho de IP que o visitante escreve.
+  - limite de tentativas de login e cadastro: `tests/db/tentativas.test.ts` testa os contadores, e `tests/db/acoes-conta.test.ts` passa pelas ações `entrar`, `cadastrar` e `trocarSenha` de verdade, com espiões no scrypt. Só o Next (cabeçalhos, redirect e cookie) é de mentira. Esses testes falham se alguém tirar o limite do cadastro, mover o limite para depois do scrypt, ou confiar num cabeçalho de IP que o visitante escreve;
+  - esqueci minha senha: `tests/db/redefinicao-de-senha.test.ts` passa pelo pedido, pela troca com o link e pelo link pedido no painel (uso único, envios ao mesmo tempo, links gastos, sessões encerradas, tentativas zeradas e o e-mail de aviso).
 - **O banco de teste é separado** (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`).
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
