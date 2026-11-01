@@ -29,9 +29,9 @@ const QUEM_JA_ESTA_AQUI = 6;
 const PROMESSAS: { titulo: string; texto: ReactNode }[] = [
   { titulo: "É de graça.", texto: "Não tem plano pago." },
   { titulo: "Ninguém compra destaque.", texto: "Não tem anúncio nem ranking." },
-  { titulo: "Você pode gerir o perfil.", texto: "Após assumir o perfil, é possível editar os dados e ocultar o negócio no painel, respeitando as regras de moderação." },
+  { titulo: "Você pode editar o perfil.", texto: "Após assumir o perfil, você pode editar os dados e ocultar o negócio no painel, respeitando as regras de moderação." },
   { titulo: "Não pedimos a senha do seu Instagram.", texto: "Da sua conta, guardamos o nome, o e-mail e a senha protegida." },
-  { titulo: "Tem gente cuidando.", texto: "A moderação pode retirar perfis falsos do ar; as decisões tomadas ficam registadas." },
+  { titulo: "Tem gente cuidando.", texto: "A moderação pode retirar perfis falsos do ar; as decisões tomadas ficam registradas." },
   {
     titulo: "O código é aberto.",
     texto: (
