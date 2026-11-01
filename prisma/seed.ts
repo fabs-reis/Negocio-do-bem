@@ -7,6 +7,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { ambienteDeDeploy } from "../src/lib/ambiente";
 import { gerarHashSenha } from "../src/lib/auth/senha";
 import { textoDeBusca } from "../src/lib/texto";
+import { OPCOES_TRANSACAO_FOTOS, validarReferenciasFotos } from "../src/lib/publicacao-fotos";
 
 // O build dos previews também roda o seed, nunca o de produção.
 const emProducao = ambienteDeDeploy()
@@ -219,24 +220,27 @@ async function main() {
 
   const empresas = new Map<string, string>();
   for (const [i, n] of NEGOCIOS.entries()) {
-    const empresa = await db.empresa.create({
-      data: {
-        instagramUsername: n.instagramUsername,
-        nome: n.nome,
-        resumo: n.resumo,
-        categoria: n.categoria,
-        cidade: n.cidade,
-        uf: n.uf,
-        historia: n.historia ?? "",
-        motivoIndicacao: n.motivo ?? null,
-        status: n.dono ? "verificada" : "indicada",
-        moderacao: n.moderacao ?? "aprovada",
-        indicadaPorId: n.dono ? pessoas[n.dono as keyof typeof pessoas].id : [pessoas.carla, pessoas.ana, pessoas.joao][i % 3]!.id,
-        busca: textoDeBusca(n),
-        causas: { create: n.causas.map((causa) => ({ causa })) },
-        ...(n.dono ? { membros: { create: { usuarioId: pessoas[n.dono as keyof typeof pessoas].id } } } : {}),
-      },
-    });
+    const empresa = await db.$transaction(async (tx) => {
+      await validarReferenciasFotos(tx, { historia: n.historia ?? "" });
+      return tx.empresa.create({
+        data: {
+          instagramUsername: n.instagramUsername,
+          nome: n.nome,
+          resumo: n.resumo,
+          categoria: n.categoria,
+          cidade: n.cidade,
+          uf: n.uf,
+          historia: n.historia ?? "",
+          motivoIndicacao: n.motivo ?? null,
+          status: n.dono ? "verificada" : "indicada",
+          moderacao: n.moderacao ?? "aprovada",
+          indicadaPorId: n.dono ? pessoas[n.dono as keyof typeof pessoas].id : [pessoas.carla, pessoas.ana, pessoas.joao][i % 3]!.id,
+          busca: textoDeBusca(n),
+          causas: { create: n.causas.map((causa) => ({ causa })) },
+          ...(n.dono ? { membros: { create: { usuarioId: pessoas[n.dono as keyof typeof pessoas].id } } } : {}),
+        },
+      });
+    }, OPCOES_TRANSACAO_FOTOS);
     empresas.set(n.instagramUsername, empresa.id);
   }
 
@@ -253,18 +257,22 @@ async function main() {
   }
 
   // Uma reivindicação esperando a moderação, para ver o fluxo funcionando.
-  await db.reivindicacao.create({
-    data: {
-      empresaId: empresas.get("cafe.arcoiris.exemplo")!,
-      usuarioId: pessoas.carla.id,
-      metodo: "documento",
-      cnpj: "11222333000181",
-      site: "https://cafearcoiris.example.com/",
-      relacao: "Sou sócia e cuido do Instagram do café",
-      contato: "carla@exemplo.com",
-      expiraEm: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
-  });
+  const siteDoExemplo = "https://cafearcoiris.example.com/";
+  await db.$transaction(async (tx) => {
+    await validarReferenciasFotos(tx, { site: siteDoExemplo });
+    await tx.reivindicacao.create({
+      data: {
+        empresaId: empresas.get("cafe.arcoiris.exemplo")!,
+        usuarioId: pessoas.carla.id,
+        metodo: "documento",
+        cnpj: "11222333000181",
+        site: siteDoExemplo,
+        relacao: "Sou sócia e cuido do Instagram do café",
+        contato: "carla@exemplo.com",
+        expiraEm: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }, OPCOES_TRANSACAO_FOTOS);
 
   console.log(`Dados de exemplo criados. Todas as contas usam a senha "${SENHA_DEMO}":`);
   for (const p of Object.values(pessoas)) console.log(`  ${p.email}`);

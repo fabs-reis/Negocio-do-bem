@@ -662,6 +662,32 @@ O melhor exemplo é `src/lib/reivindicacao.ts`: as Server Actions e as rotas do 
 
 Erros que podem ser mostrados para a pessoa usam uma classe própria (`ErroReivindicacao`). Os outros erros sobem normalmente.
 
+### Photo retirement
+
+Story uploads precede text publication. Abandoned edits still create unused objects. The manual command reclaims selected objects without changing that upload sequence.
+
+`FotoAposentada` stores a public storage origin or absolute local directory, an object key, and retirement timestamps. Its composite primary key prevents duplicate retirement. Audit retention does not control safety. The first retirement also creates `foto.descarte_iniciado` as history, within the same transaction. Its read-only history filter accepts canonical R2 URLs and historical Blob or local URLs. This display filter does not authorize storage operations. This is not an upload registry and has no permanent trigger.
+
+Reference publication and retirement use `pg_advisory_xact_lock(7346019)` in `READ COMMITTED` transactions. The retirement scan runs after lock acquisition. It reads every saved story, profile reference, company website link and claim website link, without status filters. It commits retirement before storage I/O. Storage failure cannot release the key. Successful storage verification sets `confirmadaEm`. A later database failure still reports failure and retains retirement.
+
+`publicacao-fotos.ts` contains the admission check without a runtime `server-only` import. Server Actions, Instagram, claim submission, the migration CAS and seed use it within their write transaction. Company creation and claim submission acquire photo admission before user or company row locks. Claim approval does not copy its website URL into the company. It introduces no new URL reference and takes no photo lock. Migration keeps its comparison of the previous story and profile values. The parser uses the installed `react-markdown` and GFM pipeline. Candidate identity stays strict. Reference matching retains possible aliases by key, including encoded paths and normalized URL paths. Cross-domain matches can refuse an otherwise valid save.
+
+Diagnosis reads without the publication lock and never writes retirement. Its output is an observation, not deletion authority. Explicit deletion repeats the reference scan under the lock. A previous retirement permits a retry when inventory no longer contains the object. Local filesystem checks and R2 API checks confirm absence without consulting the CDN. Legacy Blob and `perfis/` objects remain outside cleanup. Site edits and lost Instagram races retain their physical uploads.
+
+Local deletion requires Linux and `/proc/self/fd`. The command opens the working directory, then each storage component through its parent descriptor with `O_DIRECTORY` and `O_NOFOLLOW`. It compares the final descriptor identity with the selected directory. File checks and deletion use that pinned descriptor. Replacing a pathname cannot redirect deletion to an external directory.
+
+Before confirmation, the command reopens the current storage chain without following symbolic links. The reopened directory must match the pinned directory identity. A changed, missing or inaccessible current directory fails confirmation. Confirmation requires `ENOENT` for the selected entry in that reopened directory. An earlier `ENOENT` from the file check or deletion does not skip this verification. Confirmation records this observation through the checked chain, not permanent future absence.
+
+The final `lstat` and `unlink` are not atomic. Inventory excludes existing symbolic links, and deletion never follows a final symbolic link. A replacement link can itself be unlinked after the file check, without touching its external target. Confirmation does not prove an atomic regular-file-only unlink. Other platforms retain diagnosis but refuse local deletion.
+
+Before activation, identify every database and writer that shares the storage. Remove write access from incompatible versions and old requests. Keep `FOTOS_DOMINIO_EXCLUSIVO` unset until this prerequisite holds. R2 checks compare active Worker versions, bucket domains and the Hyperdrive database identity. These checks do not prove a complete reference domain. Independent databases cannot share the lock. Refuse cleanup if that coordination is absent.
+
+The configured preview photos bucket is shared. It does not prove isolation per PR. The historical database move used a read-only default and terminated sessions of the same role. It does not establish current maintenance conditions or exclude other roles. No production activation or arbitrary-SQL guarantee follows from these procedures.
+
+Keep retirement records during audit retention, deployment changes, database copies and restores. Reconcile imported references and retirement before restoring write access. Do not reuse retired keys. To stop new cleanup, disable its activation variable. Retirement remains necessary for delayed storage requests and stale forms.
+
+Tests use synthetic objects, disposable PostgreSQL and the actual CLI against disposable local storage. They force both race orders through the real save action. Process tests run the seed and migration entrypoints without the Vitest `server-only` alias. Those process tests prove import viability, not managed-reference publication. Separate writer tests cover the migration CAS and real form publication. Remote transport tests do not establish production readiness.
+
 ### Interface
 
 - **Componentes de formulário:** `Campo` (rótulo, ajuda e erro), `BotaoEnviar` (mostra "Enviando…"), `Aviso`.

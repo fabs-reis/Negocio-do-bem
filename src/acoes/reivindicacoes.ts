@@ -11,6 +11,7 @@ import { campoSite, errosPorCampo, texto, valoresDoFormulario, type EstadoFormul
 import { medir } from "@/lib/medicao-servidor";
 import { avisarNovaReivindicacao } from "@/lib/notificacoes";
 import { cancelar, ErroReivindicacao, solicitarPorDocumento } from "@/lib/reivindicacao";
+import { ErroFotoDescartada } from "@/lib/publicacao-fotos";
 
 async function carregar(dados: FormData) {
   const empresa = await db.empresa.findUnique({ where: { id: texto(dados, "empresaId") } });
@@ -60,6 +61,7 @@ export async function enviarDocumento(_estado: EstadoFormulario, dados: FormData
     });
     aprovada = pedido.status === "aprovada";
   } catch (erro) {
+    if (erro instanceof ErroFotoDescartada) return { erros: { site: erro.message }, valores: valoresDoFormulario(dados) };
     if (erro instanceof ErroReivindicacao) return { erro: erro.message, valores: valoresDoFormulario(dados) };
     throw erro;
   }
