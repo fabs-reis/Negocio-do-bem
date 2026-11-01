@@ -772,7 +772,9 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 - **A moderação recebe um e-mail** com o negócio e o link da fila, sem dizer quem denunciou.
 - **Uma denúncia aberta por vez:**
   - enquanto há uma denúncia aberta, o botão "Denunciar" some para todos;
-  - uma segunda denúncia não substitui a primeira.
+  - uma segunda denúncia não substitui a primeira, mesmo quando duas pessoas enviam ao mesmo tempo: a gravação só acontece se o depoimento ainda estiver publicado e não houver denúncia aberta.
+  - um depoimento removido não recebe nova denúncia nem gera aviso à moderação, mesmo se a remoção ocorrer durante o envio.
+  - a segunda pessoa volta ao perfil com o aviso "Denúncia enviada", mas nada é gravado: o motivo e a autoria da primeira ficam, e a moderação não recebe um segundo e-mail.
 - **A fila "Denúncias"** mostra:
   - o negócio;
   - o autor do depoimento (nome e e-mail) e a data;
