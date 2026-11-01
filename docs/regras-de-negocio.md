@@ -740,7 +740,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
   - no computador de quem desenvolve, sem URL R2 configurada, em `public/enviados/`, fora do Git;
   - em produção sem o binding ou a URL pública R2, a pessoa vê uma mensagem de erro em vez de o site quebrar.
 
-**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado, endereços antigos do Vercel Blob durante a transição, ou da pasta `/enviados/`. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
+**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado ou da pasta `/enviados/`. As fotos antigas do Vercel Blob foram copiadas para o R2, e um endereço do Blob também não aparece. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
 
 ---
 
