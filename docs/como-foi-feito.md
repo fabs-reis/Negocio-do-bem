@@ -923,3 +923,50 @@ E dois combinados que mantêm esta documentação útil:
 
 - **Mudou uma regra de negócio?** Atualize o [Regras de negócio](regras-de-negocio.md) no mesmo PR.
 - **Tomou uma decisão que muda o rumo do projeto?** Conte o porquê na descrição do PR e, se for uma decisão de fundo, aqui neste guia.
+
+## Issue #40 — Arquitetura da primeira entrega de serviços
+
+### Decisões
+
+A funcionalidade reaproveita `Usuario`, `Empresa`, `EmpresaMembro`, autenticação via sessão, auditoria e o design system da `stage`, sem criar contas paralelas.
+
+- `PerfilProfissional` é vinculado 1:1 a `Usuario`; `Servico` referencia um perfil ou uma empresa, nunca ambos. O Prisma descreve as relações e a migração PostgreSQL impõe os invariantes que o Prisma não representa em seu schema.
+- `src/lib/servicos.ts` concentra validação Zod e funções puras, seguras para importar em Client Components.
+- `src/lib/servicos/permissoes.ts` é **server-only** e centraliza as decisões de acesso ao prestador e ao anúncio.
+- `src/lib/servicos/consultas.ts` é **server-only** e fornece o filtro público reutilizável com consulta paginada e ordenação estável.
+- `src/lib/servicos/transicoes.ts` documenta e testa as transições válidas entre estados.
+- `src/acoes/servicos.ts` autentica, valida os dados recebidos, chama as regras no banco numa transação e regista auditoria, mantendo redirecionamentos e revalidação das páginas fora da transação.
+- As páginas em `src/app/servicos`, `src/app/painel/servicos` e `src/app/moderacao/servicos` seguem a convenção do projeto de colocar acesso ao banco e à sessão dentro de `Suspense`.
+- `FormularioServico` é reutilizado para criar e rever anúncios. Revisões reenviam o anúncio à moderação; o prestador é imutável.
+
+### Moderação e privacidade
+
+O processo de aprovação verifica, no momento da decisão, que o prestador continua visível ou verificado. Uma rejeição exige motivo; o motivo fica restrito ao proprietário e à moderação. O filtro público nunca inclui anúncios pendentes ou rejeitados. Não se expõem e-mails de conta; somente o contato profissional fornecido voluntariamente.
+
+### Validação
+
+- `tests/unit/servicos.test.ts`: dados inválidos, tipos de prestador, requisitos para publicar perfis, motivo de rejeição, transições e paginação.
+- `tests/db/servicos.test.ts`: visibilidade pública, exclusividade do prestador, modalidades exigidas, propriedades e elegibilidade de empresa.
+- O teste de banco utiliza base de teste isolada, com limpeza apenas dos fixtures criados pela suite, evitando `TRUNCATE` indiscriminado.
+- Antes do merge: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, migração numa base limpa e revisão visual em 375 px, 768 px e 1440 px, claro e escuro.
+
+### Escalabilidade e evolução
+
+A consulta usa texto de busca normalizado com `contains`. Foi mantida a mesma estratégia simples do diretório atual para este MVP; quando a quantidade de serviços exigir, avaliar busca indexada com `pg_trgm` ou índice de texto completo e medir planos com `EXPLAIN ANALYZE`. A pesquisa é limitada a seis termos para controlar custo. Transações e verificações de propriedade reduzem inconsistências; para concorrência elevada, considerar isolamento serializável com retry antes de introduzir fluxos transacionais adicionais.
+
+A migração da feature foi atualizada **antes de entrar em `stage`**. Quem já a aplicou localmente deve verificar o histórico de migrações e evitar reaplicação manual em bancos com dados; os testes devem usar um banco descartável separado.
+
+### Escopo futuro
+
+Pedidos de orçamento, denúncias, contratos, avaliações, histórico de serviços e pagamentos não estão nesta PR. Devem começar por regras de negócio discutidas na issue #40, com testes de autorização e moderação antes da UI.
+
+
+### Issue #40 — Ajustes de revisão: cidades atendidas e moderação
+
+- `AreaAtendimentoServico` guarda até dez municípios validados por anúncio. A origem do prestador permanece em `PerfilProfissional` ou `Empresa`; a busca geográfica é feita pela associação, sem depender de CEP ou da PR #168.
+- `filtroServicosPublicos` compõe os critérios de modalidade e localização com a regra de elegibilidade. `count` e `findMany` usam o mesmo `where`.
+- O catálogo usa formulários GET nativos, com campos identificados, estado de erro acessível, comportamento responsivo e paginação que preserva filtros.
+- A moderação distingue publicação, rejeição e suspensão. Só um anúncio publicado pode ser suspenso, com justificativa e auditoria na transação. O prestador pode rever um anúncio suspenso, mas isso exige nova aprovação.
+- A validação contempla municípios repetidos, município inválido, presença de modalidade, operações suspensas e pesquisa geográfica.
+- Antes do merge: executar migrações num PostgreSQL descartável, lint, typecheck, testes e build; testar navegação por teclado e leitor de ecrã, 360/375/768/1280 px, claro/escuro e o fluxo de suspensão.
+- Dependências: a #137 propõe `confirmadoEm` para proprietários; quando integrada, serviços de empresas também precisarão dessa verificação, sem novo sistema de permissões. A #168 pode fornecer identificação territorial adicional sem fazer parte do MVP.

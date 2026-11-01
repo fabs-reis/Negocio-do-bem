@@ -39,6 +39,7 @@ model Usuario {
   reivindicacoes      Reivindicacao[]  @relation("Solicitante")
   revisoes            Reivindicacao[]  @relation("Revisor")
   registrosAuditoria  RegistroAuditoria[]
+  perfilProfissional  PerfilProfissional?
 }
 
 model Sessao {
@@ -145,6 +146,7 @@ model Empresa {
   depoimentos    Depoimento[]
   membros        EmpresaMembro[]
   reivindicacoes Reivindicacao[]
+  servicos       Servico[]
 
   @@index([moderacao, oculta, status])
   @@index([uf])
@@ -245,4 +247,70 @@ model RegistroAuditoria {
 
   @@index([criadoEm])
   @@index([alvoTipo, alvoId])
+}
+
+// Um usuário pode oferecer serviços com um perfil profissional opcional.
+model PerfilProfissional {
+  usuarioId    String   @id
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  nomePublico  String
+  apresentacao String
+  cidade       String
+  uf           String
+  remoto       Boolean  @default(false)
+  presencial   Boolean  @default(false)
+  emailContato String?
+  site         String?
+  publicado    Boolean  @default(false)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  servicos Servico[]
+
+  @@index([publicado, uf])
+}
+
+// Um serviço tem exatamente um prestador. Os CHECKs estão na migração SQL.
+model Servico {
+  id              String              @id @default(cuid())
+  perfilUsuarioId String?
+  perfil          PerfilProfissional? @relation(fields: [perfilUsuarioId], references: [usuarioId], onDelete: Cascade)
+  empresaId       String?
+  empresa         Empresa?            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  titulo          String
+  descricao       String
+  categoria       String
+  cidade          String
+  uf              String
+  remoto          Boolean             @default(false)
+  presencial      Boolean             @default(false)
+  precoReferencia String?
+  busca           String              @default("")
+  // "pendente" | "publicado" | "rejeitado" | "suspenso"
+  status          String              @default("pendente")
+  oculto          Boolean             @default(false)
+  motivoRecusa    String?
+  motivoSuspensao String?
+  moderadoEm      DateTime?
+  criadoEm        DateTime            @default(now())
+  atualizadoEm    DateTime            @updatedAt
+
+  @@index([status, oculto, criadoEm])
+  @@index([status, oculto, categoria, criadoEm])
+  @@index([perfilUsuarioId])
+  @@index([empresaId])
+  @@index([categoria, uf])
+
+  areasAtendimento AreaAtendimentoServico[]
+}
+
+// Área de atendimento declarada para cada serviço, independente do endereço do prestador.
+model AreaAtendimentoServico {
+  servicoId String
+  servico   Servico @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  cidade    String
+  uf        String
+
+  @@id([servicoId, cidade, uf])
+  @@index([cidade, uf])
 }
