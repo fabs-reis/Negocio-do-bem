@@ -29,9 +29,9 @@ const QUEM_JA_ESTA_AQUI = 6;
 const PROMESSAS: { titulo: string; texto: ReactNode }[] = [
   { titulo: "É de graça.", texto: "Não tem plano pago." },
   { titulo: "Ninguém compra destaque.", texto: "Não tem anúncio nem ranking." },
-  { titulo: "O perfil é seu.", texto: "Você edita quando quiser e tira o negócio do diretório com um clique." },
+  { titulo: "Você pode gerir o perfil.", texto: "Após assumir o perfil, é possível editar os dados e ocultar o negócio no painel, respeitando as regras de moderação." },
   { titulo: "Não pedimos a senha do seu Instagram.", texto: "Da sua conta, guardamos o nome, o e-mail e a senha protegida." },
-  { titulo: "Tem gente cuidando.", texto: "A moderação tira perfil falso do ar, e as decisões ficam registradas." },
+  { titulo: "Tem gente cuidando.", texto: "A moderação pode retirar perfis falsos do ar; as decisões tomadas ficam registadas." },
   {
     titulo: "O código é aberto.",
     texto: (
@@ -53,7 +53,7 @@ const DUVIDAS = [
   },
   {
     pergunta: "Alguém já cadastrou meu negócio. E agora?",
-    resposta: "Que bom, é sinal de carinho. Coloque o @ ali em cima e confirme que ele é seu.",
+    resposta: "Coloque o @ acima para consultar o perfil e solicitar o acesso. A confirmação pelo Instagram é um processo separado.",
   },
   {
     pergunta: "E se eu não quiser aparecer?",
