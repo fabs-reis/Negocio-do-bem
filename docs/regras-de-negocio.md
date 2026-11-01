@@ -1046,6 +1046,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
   | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
   | `app_instalado` | Site instalado como app pelo Chrome ou pelo Edge. O Safari não avisa quando alguém instala | — |
   | `app_aberto` | Site aberto pelo ícone do app instalado, uma vez por abertura | — |
+  | `instalacao_aparelho` | Escolha do celular em `/instalacao` | `aparelho` (`iphone` ou `android`) |
 
 - Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
 - O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
@@ -1115,12 +1116,19 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `src/app/manifest.ts`. Ao segurar o ícone, aparecem os atalhos Explorar, Cadastrar e Painel.
 
+**A página de instalação** (`src/app/instalacao/`)
+
+- `/instalacao` pergunta qual é o celular, com dois cartões: iPhone, com o ícone da Apple, e Android, com o do Android. Cada um leva ao seu passo a passo.
+- Depois que a página carrega, o cartão do aparelho de quem visita ganha o selo "Este celular". Num computador, nenhum cartão ganha o selo.
+- `/instalacao/android` ensina o caminho pelo menu do Chrome. Quando o navegador oferece a instalação, aparece também o botão "Instalar agora", que abre a janela de instalação.
+- `/instalacao/iphone` ensina o caminho pelo Compartilhar do Safari e avisa que o app do iPhone pede o login de novo.
+- Com o site aberto como app, as três páginas avisam "Você já está usando o app instalado".
+- As três estão no sitemap e no `llms.txt`.
+
 **O convite para instalar** (`src/components/InstalarApp.tsx`)
 
-- No Android e no computador, com o Chrome ou o Edge, "Instalar o app" aparece no rodapé, na coluna Comunidade, quando o navegador oferece a instalação. O link abre a janela de instalação do navegador.
-- No iPhone e no iPad, o mesmo link mostra o caminho: Compartilhar e "Adicionar à Tela de Início".
-- Nos outros navegadores, como o Firefox e o Safari do Mac, o link não aparece.
-- No painel, o cartão "Use como app", embaixo de "Minha conta", faz o mesmo convite. "Agora não" o esconde naquele navegador (fica no `localStorage`).
+- O botão "Instalar o app", com um ícone de download, fica em destaque no rodapé, logo abaixo da descrição do site, e leva a `/instalacao`, em qualquer navegador.
+- No painel, o cartão "Use como app", embaixo de "Minha conta", faz o convite quando o navegador oferece a instalação (botão "Instalar") ou no iPhone ("Ver como instalar", que leva a `/instalacao/iphone`). "Agora não" o esconde naquele navegador (fica no `localStorage`).
 - Com o site aberto como app, nenhum convite aparece.
 
 **Sem conexão**

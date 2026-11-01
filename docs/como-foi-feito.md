@@ -489,6 +489,15 @@ O manifest e os ícones vinham da nova identidade visual, e o Chrome do Android 
 - **O login por link no iPhone.** O app instalado no iPhone guarda cookies separados do Safari, e o link do e-mail sempre abre no Safari. Um código digitado no próprio app resolveria, mas mexe no login inteiro; por ora, as telas de link avisam e sugerem o Google ou a senha.
 - **Notificações push ficaram para depois.** Pedem uma tabela de inscrições, chaves VAPID nos secrets do Worker e um envio que rode no Worker. No iPhone, só chegam com o app instalado.
 
+### 1º de novembro: a página de instalação ([#236](https://github.com/fabs-reis/Negocio-do-bem/issues/236))
+
+O convite do rodapé só aparecia em alguns navegadores, e o manual em PDF não tinha um endereço para divulgar. `/instalacao` passou a ser a porta de entrada: pergunta qual é o celular e leva ao passo a passo de cada um. As regras estão em [O site como app](regras-de-negocio.md#17-o-site-como-app).
+
+- **A escolha vem primeiro.** Quem nunca instalou um app pelo navegador não sabe se o caminho é o do Chrome ou o do Safari. Os ícones da Apple e do Android resolvem isso de relance. A página sugere o aparelho ("Este celular"), mas não redireciona sozinha: quem divulga o link pelo computador também precisa ver as duas opções.
+- **Os ícones vêm do Simple Icons** (licença CC0), desenhados em `src/components/IconesDosAparelhos.tsx`. Apple e Android são marcas das suas empresas e aparecem só para indicar o aparelho.
+- **Sem prints das telas do sistema.** Os botões do Chrome e do Safari aparecem desenhados no meio do texto. Prints do iOS e do Android mudam a cada versão e envelheceriam a página.
+- **O rodapé leva sempre a `/instalacao`,** em qualquer navegador, e o link sai no HTML do servidor, para os buscadores acharem a página. Ele virou um botão laranja com ícone de download, logo abaixo da descrição do site: no celular, é a primeira coisa do rodapé. O botão que abre direto a janela do Chrome ficou no passo a passo do Android e no cartão do painel.
+
 ---
 
 ## 4. Arquitetura
