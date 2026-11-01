@@ -85,10 +85,15 @@ export async function exigirUsuario(voltarPara: string): Promise<UsuarioSessao> 
   return usuario;
 }
 
-/** Para quem não é moderador, a área de moderação simplesmente não existe. */
-export async function exigirModerador(): Promise<UsuarioSessao> {
+/** A página mantém o 404. A ação recusa com um redirecionamento, porque o `notFound()` de um POST sem JavaScript quebra no Next. */
+export async function exigirModerador(contexto: "pagina" | "acao" = "pagina"): Promise<UsuarioSessao> {
   const usuario = await usuarioAtual();
-  if (!usuario?.moderador) notFound();
+  if (!usuario?.moderador) {
+    // No Next 16.4.3, um notFound() vindo de um POST sem JavaScript termina em erro no servidor
+    // ("Couldn't find all resumable slots") e em 404. O redirecionamento evita o erro.
+    if (contexto === "acao") redirect("/404");
+    notFound();
+  }
   return usuario;
 }
 

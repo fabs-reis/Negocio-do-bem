@@ -33,7 +33,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/negocio_do_bem?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/negocio_do_bem_teste?schema=public
     steps:
       # Actions presas pelo commit (SHA), e não pela tag, que pode ser movida.
       # O Dependabot atualiza o SHA e o comentário da versão.
@@ -48,3 +48,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
+      - run: npm run test:integracao
+      - run: npm run test:cloudflare
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/negocio_do_bem_teste

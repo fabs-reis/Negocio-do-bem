@@ -15,6 +15,8 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
+    "test:integracao": "vitest run --config vitest.integracao.config.mts",
+    "test:cloudflare": "tsx scripts/testar-cloudflare.ts",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

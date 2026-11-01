@@ -185,7 +185,8 @@ Detalhes da moderação:
 
 - **Só o papel no banco dá moderação.** O e-mail nunca dá acesso, nem confirmado: se desse, quem se cadastrasse primeiro com o endereço certo levaria a moderação, e as contas antigas nem confirmaram o e-mail.
 - Quem cuida do projeto dá e tira a moderação com `npm run moderacao`, que roda com a conexão direta do banco e registra na auditoria. Vale a partir da próxima página aberta, sem precisar sair e entrar.
-- Para quem não é moderação, `/moderacao`, `/moderacao/negocios/<@>` e `/moderacao/contas/<id>` respondem 404: a área simplesmente não existe.
+- Para quem não é moderação, `/moderacao`, `/moderacao/negocios/<@>` e `/moderacao/contas/<id>` mostram a página 404, sem conteúdo privado. A guarda chama `notFound()`. Se o HTML já começou a chegar por streaming, o Next pode manter o status HTTP 200.
+- **Envio de uma ação sem moderação:** a mesma guarda recusa antes de qualquer escrita e redireciona para `/404`. Em um formulário sem JavaScript, o POST responde 303 e o destino público responde 404. Sem o redirecionamento, o Next 16.4.3 falha com "Couldn't find all resumable slots" quando `notFound()` vem de um POST sem JavaScript. O erro aparece no servidor, e a pessoa vê só um 404.
 - A moderação **não** responde depoimentos nem oculta negócios dos outros. Isso é só do dono.
 - A moderação **não** dá nem tira a moderação pela tela, não suspende nem apaga contas: o painel só consulta.
 
