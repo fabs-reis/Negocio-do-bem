@@ -6,7 +6,7 @@ export function SeloStatus({ status, oficial }: { status: string; oficial: boole
   if (status === "verificada" && oficial) {
     return (
       <span
-        title="O controlo da conta Instagram do negócio foi confirmado. Isto não certifica a identidade legal nem as causas do negócio."
+        title="O controle da conta do Instagram do negócio foi confirmado. Isso não certifica a identidade legal nem as causas do negócio."
         className="inline-flex items-center gap-1 rounded-full bg-folha-50 px-2.5 py-1 text-xs font-semibold text-folha"
       >
         <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" aria-hidden="true">
