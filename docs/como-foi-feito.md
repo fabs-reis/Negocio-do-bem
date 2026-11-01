@@ -673,6 +673,9 @@ npm run typecheck
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
 - **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
   - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
+  - A auditoria só falha com vulnerabilidade alta ou crítica (`--audit-level=high`).
+    - Os `overrides` do `package.json` levam ao `glob` 14 o `@opennextjs/cloudflare` (que pede o 13) e o `@node-minify/core`, que entra pelo `@opennextjs/aws` e fixa o 10.3.3. Os dois tinham avisos de segurança que o OpenNext ainda não corrigiu, e só chamam `glob()` e `globSync()`, que não mudaram no 14. Quando o OpenNext pedir um `glob` corrigido, tire os overrides.
+    - Fica uma exceção conhecida: o `minimatch` do ESLint e dos plugins dele ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), moderada). A correção só existe no `minimatch` 11, que não pode mais ser chamado como função, e os plugins do ESLint chamam o 3 assim. Ele só roda no lint, com padrões do próprio repositório. Some quando o ESLint e os plugins subirem o `minimatch`.
   - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
