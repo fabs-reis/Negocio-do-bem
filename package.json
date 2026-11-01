@@ -69,6 +69,14 @@
     "vitest": "5.0.5",
     "wrangler": "4.156.0"
   },
+  "overrides": {
+    "@opennextjs/cloudflare": {
+      "glob": "14.0.3"
+    },
+    "@node-minify/core": {
+      "glob": "14.0.3"
+    }
+  },
   "engines": {
     "node": ">=24"
   }
