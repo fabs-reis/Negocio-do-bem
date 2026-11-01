@@ -101,6 +101,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 Um movimento independente para fortalecer negócios que cuidam das pessoas, da comunidade e do planeta.
                 Feito pela comunidade, para a comunidade.
               </p>
+              <InstalarApp />
               <a href={REPOSITORIO} target="_blank" rel="noopener noreferrer" className="link inline-block">
                 Código aberto no GitHub ↗
               </a>
@@ -110,7 +111,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
               <Link href="/cidades" className="block hover:text-tinta">Negócios por cidade</Link>
               <Link href="/participar" className="block hover:text-tinta">Cadastrar um negócio</Link>
-              <InstalarApp />
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Para negócios</p>

@@ -42,6 +42,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: urlAbsoluta("/cidades"), lastModified: ultimaMudanca },
     { url: urlAbsoluta("/sobre") },
     { url: urlAbsoluta("/participar") },
+    { url: urlAbsoluta("/instalacao") },
+    { url: urlAbsoluta("/instalacao/android") },
+    { url: urlAbsoluta("/instalacao/iphone") },
     ...[...mudancas].map(([caminho, quando]) => ({
       url: urlAbsoluta(caminho),
       lastModified: quando,

@@ -94,9 +94,8 @@ describe("jsonLdDoNegocio", () => {
   });
 
   it("só usa fotos guardadas pelo site", () => {
-    expect(ficha({ fotoUrl: "https://abc.public.blob.vercel-storage.com/perfis/x.jpg" }).image).toBe(
-      "https://abc.public.blob.vercel-storage.com/perfis/x.jpg",
-    );
+    vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://fotos.exemplo.com");
+    expect(ficha({ fotoUrl: "https://fotos.exemplo.com/perfis/x.jpg" }).image).toBe("https://fotos.exemplo.com/perfis/x.jpg");
     expect(ficha({ fotoUrl: "https://outro-site.exemplo/foto.jpg" })).not.toHaveProperty("image");
   });
 

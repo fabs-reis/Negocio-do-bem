@@ -398,6 +398,8 @@ O que deu errado e ficou de lição:
 - **O `node-postgres` não entende `sslrootcert=system`**, que vem na conexão do PlanetScale: ele tenta abrir um arquivo chamado `system`. Para o app e o build, use só `?sslmode=verify-full`. O `psql` e o Prisma Migrate aceitam as duas.
 - **Quem ainda tinha o DNS antigo em cache caiu no Vercel** por um tempo, inclusive o Chrome de quem fazia a troca. Lá, as fotos novas aparecem como iniciais e nada grava, porque o Neon está só para leitura. Para testar o Cloudflare sem depender do DNS, use o `workers.dev` ou `curl --resolve`.
 
+Em 1º de novembro, nenhuma das 913 páginas de negócio da produção tinha endereço do Blob, nem na foto do perfil nem na história. Então o Blob saiu do `ehFotoDoSite` e da CSP: o site só mostra fotos do R2 (ou da pasta local, no desenvolvimento). Um endereço do Blob que ainda estiver no banco não aparece mais, e o perfil mostra as iniciais no lugar da foto. O Blob continua na equipe da Vercel como reserva, e o `fotos:para-r2` ainda copia para o R2 uma foto que tenha ficado para trás.
+
 ### 31 de outubro: entrar com o Google ([#188](https://github.com/fabs-reis/Negocio-do-bem/issues/188))
 
 Com a confirmação de e-mail desligada ([#148](https://github.com/fabs-reis/Negocio-do-bem/issues/148)), qualquer endereço vira conta. O "Continuar com o Google" cria a conta com o e-mail já verificado pelo Google, sem mandar e-mail nenhum, e poupa a senha de quem não quer mais uma.
@@ -489,6 +491,15 @@ O manifest e os ícones vinham da nova identidade visual, e o Chrome do Android 
 - **O login por link no iPhone.** O app instalado no iPhone guarda cookies separados do Safari, e o link do e-mail sempre abre no Safari. Um código digitado no próprio app resolveria, mas mexe no login inteiro; por ora, as telas de link avisam e sugerem o Google ou a senha.
 - **Notificações push ficaram para depois.** Pedem uma tabela de inscrições, chaves VAPID nos secrets do Worker e um envio que rode no Worker. No iPhone, só chegam com o app instalado.
 
+### 1º de novembro: a página de instalação ([#236](https://github.com/fabs-reis/Negocio-do-bem/issues/236))
+
+O convite do rodapé só aparecia em alguns navegadores, e o manual em PDF não tinha um endereço para divulgar. `/instalacao` passou a ser a porta de entrada: pergunta qual é o celular e leva ao passo a passo de cada um. As regras estão em [O site como app](regras-de-negocio.md#17-o-site-como-app).
+
+- **A escolha vem primeiro.** Quem nunca instalou um app pelo navegador não sabe se o caminho é o do Chrome ou o do Safari. Os ícones da Apple e do Android resolvem isso de relance. A página sugere o aparelho ("Este celular"), mas não redireciona sozinha: quem divulga o link pelo computador também precisa ver as duas opções.
+- **Os ícones vêm do Simple Icons** (licença CC0), desenhados em `src/components/IconesDosAparelhos.tsx`. Apple e Android são marcas das suas empresas e aparecem só para indicar o aparelho.
+- **Sem prints das telas do sistema.** Os botões do Chrome e do Safari aparecem desenhados no meio do texto. Prints do iOS e do Android mudam a cada versão e envelheceriam a página.
+- **O rodapé leva sempre a `/instalacao`,** em qualquer navegador, e o link sai no HTML do servidor, para os buscadores acharem a página. Ele virou um botão laranja com ícone de download, logo abaixo da descrição do site: no celular, é a primeira coisa do rodapé. O botão que abre direto a janela do Chrome ficou no passo a passo do Android e no cartão do painel.
+
 ---
 
 ## 4. Arquitetura
@@ -523,7 +534,7 @@ O e-mail nunca dá permissão, nem depois de confirmado: as contas antigas não 
 
 Toda resposta leva cabeçalhos de segurança (`headers()` no `next.config.ts`):
 
-- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site, do Vercel Blob (`*.public.blob.vercel-storage.com`) e do Google Analytics. Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
+- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site e do Google Analytics. As imagens podem vir também do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`). Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
 - **Sem nonce:** a CSP aceita scripts inline (`'unsafe-inline'`), como o script do tema no `layout.tsx` e os do próprio Next. Uma CSP com nonce obriga toda página a ser renderizada a cada acesso e é incompatível com o Partial Prerendering, que o projeto usa com o Cache Components. Ficaríamos sem pré-render e sem cache na CDN.
 - **`Strict-Transport-Security`** (2 anos), **`X-Frame-Options: DENY`** (para navegadores antigos), **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: strict-origin-when-cross-origin`** (sites abertos a partir do perfil não recebem o endereço completo) e **`Permissions-Policy`** (sem câmera, microfone, localização, pagamento, USB nem `browsing-topics`).
 
@@ -670,7 +681,7 @@ npm run lint
 npm run typecheck
 ```
 
-- **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob) e Instagram.
+- **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (de quais endereços o site aceita mostrar) e Instagram.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
   - Entrar com Instagram;
