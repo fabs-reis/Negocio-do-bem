@@ -13,7 +13,7 @@
 // Mudou o comportamento deste arquivo? Troque a VERSAO: os caches antigos são
 // apagados quando a versão nova assume.
 
-const VERSAO = "1";
+const VERSAO = "2";
 const CACHE_SEM_CONEXAO = `sem-conexao-${VERSAO}`;
 const CACHE_ARQUIVOS = `arquivos-${VERSAO}`;
 const NOSSOS_CACHES = [CACHE_SEM_CONEXAO, CACHE_ARQUIVOS];
@@ -25,10 +25,24 @@ self.addEventListener("install", (evento) => {
   evento.waitUntil(
     caches
       .open(CACHE_SEM_CONEXAO)
-      .then((cache) => cache.addAll(GUARDADOS_NA_INSTALACAO.map((url) => new Request(url, { cache: "reload" }))))
+      .then((cache) => Promise.all(GUARDADOS_NA_INSTALACAO.map((url) => guardar(cache, url))))
       .then(() => self.skipWaiting()),
   );
 });
+
+/**
+ * Guarda a resposta sem a marca de redirecionamento. No Cloudflare, /offline.html
+ * redireciona para /offline, e o navegador recusa uma resposta redirecionada no
+ * lugar de uma página: mostraria o erro de rede em vez da página "Sem conexão".
+ */
+async function guardar(cache, url) {
+  const resposta = await fetch(url, { cache: "reload" });
+  if (!resposta.ok) throw new Error(`${url} respondeu ${resposta.status}`);
+  const copia = resposta.redirected
+    ? new Response(await resposta.blob(), { status: resposta.status, statusText: resposta.statusText, headers: resposta.headers })
+    : resposta;
+  await cache.put(url, copia);
+}
 
 self.addEventListener("activate", (evento) => {
   evento.waitUntil(
