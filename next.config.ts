@@ -50,6 +50,9 @@ const nextConfig: NextConfig = {
     // Fotos chegam reduzidas pelo navegador, mas o padrão de 1 MB é apertado.
     // O Vercel aceita até 4,5 MB por requisição.
     serverActions: { bodySizeLimit: "4mb" },
+    // Sem conexão, navegações e Server Actions esperam a internet voltar em
+    // vez de dar erro; o AvisoSemConexao avisa enquanto isso.
+    useOffline: true,
   },
   partialPrefetching: true,
   turbopack: {

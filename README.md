@@ -212,6 +212,7 @@ tests/               testes (unit/ sem banco, db/ com banco)
 ## Próximos passos sugeridos
 
 - Uma verificação de verdade para o dono: hoje quem pede um negócio sem dono vira dono na hora, sem conferência. Um caminho é comparar o nome de quem pede com os sócios que a Receita devolve para o CNPJ.
+- Notificações no app instalado: avisar o dono quando a reivindicação for aprovada ou chegar um depoimento, e a moderação quando houver algo na fila ([#230](https://github.com/fabs-reis/Negocio-do-bem/issues/230)).
 
 ## Como contribuir
 

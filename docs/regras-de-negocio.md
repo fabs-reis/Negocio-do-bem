@@ -24,7 +24,8 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 14. [Avisos por e-mail](#14-avisos-por-e-mail)
 15. [Privacidade: o que guardamos e quem vê](#15-privacidade-o-que-guardamos-e-quem-vê)
 16. [Números e limites](#16-números-e-limites)
-17. [Comportamentos atuais que valem conhecer](#17-comportamentos-atuais-que-valem-conhecer)
+17. [O site como app](#17-o-site-como-app)
+18. [Comportamentos atuais que valem conhecer](#18-comportamentos-atuais-que-valem-conhecer)
 
 ---
 
@@ -1043,6 +1044,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
   | `depoimento_publicado` | Depoimento publicado | `categoria` |
   | `contato_negocio` | Clique em Ligar, WhatsApp, Instagram, site ou e-mail no perfil de um negócio público, menos do próprio dono | `canal` (`telefone`, `whatsapp`, `instagram`, `site` ou `email`), `categoria`, `uf` |
   | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
+  | `app_instalado` | Site instalado como app pelo Chrome ou pelo Edge. O Safari não avisa quando alguém instala | — |
+  | `app_aberto` | Site aberto pelo ícone do app instalado, uma vez por abertura | — |
 
 - Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
 - O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
@@ -1104,10 +1107,38 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Leitura da história | 200 palavras por minuto | `src/lib/texto.ts` |
 | Espera pela resposta do Resend | 10 segundos | `src/lib/email.ts` |
 | E-mails pelo plano gratuito do Resend | 100 por dia, 3.000 por mês | Conta do Resend |
+| Arquivos do site guardados no aparelho pelo service worker | 200 | `public/sw.js` |
 
 ---
 
-## 17. Comportamentos atuais que valem conhecer
+## 17. O site como app
+
+O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `src/app/manifest.ts`. Ao segurar o ícone, aparecem os atalhos Explorar, Cadastrar e Painel.
+
+**O convite para instalar** (`src/components/InstalarApp.tsx`)
+
+- No Android e no computador, com o Chrome ou o Edge, "Instalar o app" aparece no rodapé, na coluna Comunidade, quando o navegador oferece a instalação. O link abre a janela de instalação do navegador.
+- No iPhone e no iPad, o mesmo link mostra o caminho: Compartilhar e "Adicionar à Tela de Início".
+- Nos outros navegadores, como o Firefox e o Safari do Mac, o link não aparece.
+- No painel, o cartão "Use como app", embaixo de "Minha conta", faz o mesmo convite. "Agora não" o esconde naquele navegador (fica no `localStorage`).
+- Com o site aberto como app, nenhum convite aparece.
+
+**Sem conexão**
+
+- Uma página que não abre por falta de internet mostra "Sem conexão" (`public/offline.html`), com "Tentar de novo". Ela recarrega sozinha quando a conexão volta. Um erro do servidor não mostra essa página.
+- As páginas nunca ficam guardadas no aparelho, para os dados virem sempre atualizados. Sem internet, nada do diretório aparece. O service worker (`public/sw.js`) guarda só os arquivos do site (JS, CSS e fontes) e a página "Sem conexão".
+- Se a conexão cai com o site aberto, o pé da tela avisa "Sem conexão. O que você pediu continua assim que a internet voltar." A página ou o formulário pedidos seguem sozinhos quando ela volta (`experimental.useOffline` do Next).
+- Se a conexão cair depois que o servidor recebeu um formulário, mas antes da resposta, o Next o manda de novo quando ela volta. É o mesmo que aconteceria se a pessoa, vendo o erro, enviasse de novo: o segundo envio de um @ ou de um depoimento é recusado, mesmo com o primeiro salvo, e um negócio sem Instagram pode sair repetido, com `-2` no endereço.
+
+**Links por e-mail no app do iPhone**
+
+- O app instalado no iPhone e no iPad não divide o login com o Safari, e o link do e-mail sempre abre no Safari.
+- Por isso, só no app do iPhone, `/entrar/link` avisa que o login fica no Safari e sugere o Google ou o e-mail e a senha. `/esqueci-a-senha` sugere criar a senha nova no Safari e voltar ao app para entrar com ela.
+- No Android, o app divide o login com o Chrome, então o link do e-mail vale também no app.
+
+---
+
+## 18. Comportamentos atuais que valem conhecer
 
 O sistema funciona hoje assim. Algumas destas situações podem ser intencionais e outras são lacunas. Antes de mudar qualquer uma, abra uma issue para combinar o caminho.
 
