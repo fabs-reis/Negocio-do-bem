@@ -45,6 +45,14 @@ export function CortinaDePagina() {
       if (movimento.matches || (window.__abertura && window.__abertura !== "aberta")) return;
       const alvo = evento.target instanceof Element ? evento.target.closest<HTMLAnchorElement>("a[href]") : null;
       if (!alvo) return;
+      // Uma área opt-out protege os handlers dos seus descendentes (ex.: diálogos
+      // e interfaces que controlam a navegação). Conteúdo editável é sempre nativo.
+      if (
+        evento.defaultPrevented ||
+        alvo.closest('[data-sem-cortina], [inert], [aria-disabled="true"]') ||
+        alvo.isContentEditable ||
+        (evento.target instanceof Element && evento.target.closest("[contenteditable]"))
+      ) return;
       const destino = destinoDaCortina({
         atual: location.href,
         href: alvo.href,
