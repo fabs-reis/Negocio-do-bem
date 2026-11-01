@@ -6,10 +6,13 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AlternarTema } from "@/components/AlternarTema";
+import { AvisoSemConexao } from "@/components/AvisoSemConexao";
 import { EventosAnalytics } from "@/components/EventosAnalytics";
+import { InstalarApp } from "@/components/InstalarApp";
 import { Logo } from "@/components/Logo";
 import { MenuUsuario } from "@/components/MenuUsuario";
 import { ProtecaoDoMenu } from "@/components/ProtecaoDoMenu";
+import { RegistrarServiceWorker } from "@/components/RegistrarServiceWorker";
 import { REPOSITORIO } from "@/lib/dominio";
 import { CORES_DA_MARCA } from "@/lib/marca";
 import { DESCRICAO_DO_SITE, ENDERECO_DO_SITE, NOME_DO_SITE, TITULO_DO_SITE } from "@/lib/seo";
@@ -26,6 +29,8 @@ export const metadata: Metadata = {
   },
   description: DESCRICAO_DO_SITE,
   applicationName: NOME_DO_SITE,
+  // No iPhone, o site adicionado à tela de início abre sem a barra do Safari.
+  appleWebApp: { capable: true, title: NOME_DO_SITE, statusBarStyle: "default" },
   openGraph: {
     type: "website",
     locale: "pt_BR",
@@ -105,6 +110,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
               <Link href="/cidades" className="block hover:text-tinta">Negócios por cidade</Link>
               <Link href="/participar" className="block hover:text-tinta">Cadastrar um negócio</Link>
+              <InstalarApp />
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Para negócios</p>
@@ -113,6 +119,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </div>
           </div>
         </footer>
+        <AvisoSemConexao />
+        <RegistrarServiceWorker />
         {ID_ANALYTICS && <EventosAnalytics />}
       </body>
       {ID_ANALYTICS && <GoogleAnalytics gaId={ID_ANALYTICS} />}

@@ -477,6 +477,18 @@ No ar, a prévia de Salvador tinha 958 KB e a de São Paulo, 1 MB. O `ImageRespo
 - **Refeita a cada execução do script.** Ela leva uns 20 ms por cidade, e o nome do arquivo leva o hash da imagem: uma mudança no desenho gera arquivos novos, e o cache de um ano nunca mostra a prévia antiga.
 - **O Worker deixou de ler a foto** pelo binding `ASSETS` e de montar um PNG de 1 MB a cada prévia de cidade.
 
+### 1º de novembro: o site vira app ([#230](https://github.com/fabs-reis/Negocio-do-bem/issues/230))
+
+O manifest e os ícones vinham da nova identidade visual, e o Chrome do Android já deixava instalar. Faltava o que faz o site funcionar como app: não cair na tela de erro do navegador sem internet, convidar para instalar e saber quantas pessoas instalaram. As regras estão em [O site como app](regras-de-negocio.md#17-o-site-como-app).
+
+- **Service worker escrito à mão, sem Serwist.** O guia de PWA do Next sugere o Serwist para funcionar offline, mas ele guarda as páginas de antemão. Com o Cache Components e o `partialPrefetching`, isso arriscava mostrar dados velhos, e seria mais uma peça no build Turbopack + OpenNext. Um diretório vale pelos dados atuais, então o `public/sw.js` (menos de 90 linhas) guarda só os arquivos com hash de `/_next/static` e a página "Sem conexão".
+- **A página "Sem conexão" é um HTML solto** (`public/offline.html`), com estilos e script dentro. Uma página do Next guardada levaria o menu da conta de quem estava logado na hora e dependeria de CSS e JS do build que podiam não estar no cache.
+- **Sem `navigationPreload`.** Ele adianta a página enquanto o service worker acorda, mas as navegações que o service worker deixa passar (`/api`) iriam duas vezes ao servidor, e o login do Google começaria duas vezes.
+- **`experimental.useOffline` do Next 16.** O projeto já usava `cacheComponents` e `partialPrefetching`, o cenário do guia "Offline support" (`node_modules/next/dist/docs/01-app/02-guides/offline-support.md`). Com ele, a queda de conexão no meio de uma navegação ou de um envio vira espera, e não erro, e o `AvisoSemConexao` avisa no pé da tela. Um formulário que chegou ao servidor sem a resposta voltar é mandado de novo, como se a pessoa tivesse clicado de novo depois do erro.
+- **O convite não insiste.** O guia do Next desaconselha um botão próprio de instalação, porque o `beforeinstallprompt` só existe no Chrome e no Edge. Por isso o convite fica no rodapé e num cartão do painel que some com "Agora não", e só aparece quando o navegador oferece a instalação ou no iPhone, com o caminho pelo Compartilhar. O evento é ouvido fora do componente, porque o Chrome pode mandá-lo antes de a página hidratar.
+- **O login por link no iPhone.** O app instalado no iPhone guarda cookies separados do Safari, e o link do e-mail sempre abre no Safari. Um código digitado no próprio app resolveria, mas mexe no login inteiro; por ora, as telas de link avisam e sugerem o Google ou a senha.
+- **Notificações push ficaram para depois.** Pedem uma tabela de inscrições, chaves VAPID nos secrets do Worker e um envio que rode no Worker. No iPhone, só chegam com o app instalado.
+
 ---
 
 ## 4. Arquitetura
@@ -546,6 +558,7 @@ As linhas tracejadas são serviços opcionais. O site funciona sem eles.
 | `src/acoes/` | Server Actions, uma por formulário ou botão. Conferem a permissão e validam os dados. |
 | `src/lib/` | Regras de negócio e utilitários, sem interface: `reivindicacao.ts`, `consultas.ts`, `instagram.ts`, `causas.ts`, `cnpj.ts`, `formulario.ts`, `armazenamento.ts`, `auth/`, `moderacao/` (filtros, indicadores e consultas do painel da moderação)… |
 | `src/components/` | Componentes de interface reutilizados entre páginas. |
+| `public/` | Arquivos servidos como estão: ícones, fotos e prévias das cidades, o service worker (`sw.js`), a página "Sem conexão" (`offline.html`) e os cabeçalhos de cache do Cloudflare (`_headers`). |
 | `tests/` | `unit/` (sem banco) e `db/` (com banco). |
 | `docs/` | Esta documentação e os prints do README. |
 | `assets/fontes/` | Fontes das imagens de compartilhamento, com a licença OFL de cada uma. |
@@ -746,7 +759,8 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 1. Atualize `src/lib/marca.ts`: `ICONE` para o ícone, `TEXTO_DO_LOGO` para o texto e `CORES_DA_MARCA` para as cores. Se as cores mudarem, mude também as `--color-marca-*` de `globals.css`.
 2. Rode `npm run marca:icones`. Ele gera de novo o favicon, o ícone do iPhone e os ícones do manifest.
 3. Confira a imagem geral (`/opengraph-image`) e a de um perfil (`/empresas/<@>/opengraph-image`) com `next build && next start`. Em `next dev`, um erro na imagem só aparece no terminal.
-4. Faça commit dos arquivos gerados.
+4. Troque a `VERSAO` de `public/sw.js`, para a página "Sem conexão" guardar o ícone novo.
+5. Faça commit dos arquivos gerados.
 
 ### Cadastrar o site no Google e no Bing
 
@@ -848,6 +862,26 @@ Siga a seção "Ativando os avisos por e-mail" do [README](../README.md#ativando
 2. Redirecione com `?aviso=<codigo>`.
 3. Confira se a página destino tem `<AvisoDaUrl codigo={aviso} />`.
 
+### Mudar ou desligar o service worker
+
+1. Edite `public/sw.js` e troque a `VERSAO`. O navegador confere o arquivo a cada abertura do site (`updateViaCache: "none"` e o `no-cache` de `public/_headers`), e a versão nova apaga os caches da antiga.
+2. Teste com `next build && next start`, porque em `next dev` o service worker não é registrado. No DevTools, em Application > Service workers, marque "Offline" e recarregue para ver a página "Sem conexão".
+3. Para desligar de vez, tire o `RegistrarServiceWorker` do layout e troque o `public/sw.js` por um que apaga os caches e se desregistra:
+
+   ```js
+   self.addEventListener("install", () => self.skipWaiting());
+   self.addEventListener("activate", (evento) => {
+     evento.waitUntil(
+       caches
+         .keys()
+         .then((nomes) => Promise.all(nomes.map((nome) => caches.delete(nome))))
+         .then(() => self.registration.unregister()),
+     );
+   });
+   ```
+
+   Deixe esse arquivo no ar por alguns meses: quem já instalou só se livra do service worker antigo quando o navegador baixa este.
+
 ### Ligar o login com o Google
 
 Siga a seção "Ativando o login com o Google" do [README](../README.md#ativando-o-login-com-o-google-opcional). As regras estão na [seção 2 das regras de negócio](regras-de-negocio.md#cadastro-e-login).
@@ -889,6 +923,8 @@ O PR só conflita se a `main` recebeu algo que não passou pela `stage`. Nesse c
   - Quando uma Server Action devolve erro de validação, o modo de desenvolvimento às vezes mostra esse erro interno do Next.
   - Ele não acontece no build de produção (`next build && next start`).
 - **CSS desatualizado em `next dev`.** Se uma mudança de estilo não aparece, pare o servidor, apague `.next/dev` e rode de novo.
+- **Service worker esquecido no `localhost`.** Depois de testar com `next start`, o service worker continua registrado naquela porta. Com o servidor parado, ele mostra "Sem conexão", e um `next dev` na mesma porta recebe os arquivos que ele guardou. Em DevTools > Application > Service workers, use "Unregister".
+- **No `localhost`, o aviso "Sem conexão" não sai quando a conexão volta.** A checagem do `useOffline` recebe um 307 para `/?_rsc`, e o `upgrade-insecure-requests` da CSP manda esse redirecionamento para `https://localhost`, que falha. Em HTTPS, nos previews e em produção, funciona. Para testar no seu computador, tire o `upgrade-insecure-requests` de `.next/routes-manifest.json` depois do `next build`.
 - **"User was denied access on the database"** quase sempre é o `DATABASE_URL` apontando para outro Postgres na porta 5432. O do Docker usa a **5433**. Veja os [problemas comuns do README](../README.md#problemas-comuns).
 - **O `next dev` reescreve o começo do `AGENTS.md`.** Escreva as regras do projeto **depois** do bloco que ele gerencia.
 - **Fotos no computador de quem desenvolve** ficam em `public/enviados/`, que está fora do Git. Os links delas não funcionam em outro computador.
