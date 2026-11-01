@@ -6,6 +6,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AlternarTema } from "@/components/AlternarTema";
+import { EventosAnalytics } from "@/components/EventosAnalytics";
 import { Logo } from "@/components/Logo";
 import { MenuUsuario } from "@/components/MenuUsuario";
 import { ProtecaoDoMenu } from "@/components/ProtecaoDoMenu";
@@ -15,7 +16,8 @@ import { DESCRICAO_DO_SITE, ENDERECO_DO_SITE, NOME_DO_SITE, TITULO_DO_SITE } fro
 import { SCRIPT_TEMA } from "@/lib/tema";
 
 // A imagem de compartilhamento vem de opengraph-image.tsx (o perfil de cada
-// negócio tem a sua), e os ícones de icon.svg, favicon.ico e apple-icon.png.
+// negócio e cada cidade têm a sua; ver metadadosDaPagina, em src/lib/seo.ts),
+// e os ícones de icon.svg, favicon.ico e apple-icon.png.
 export const metadata: Metadata = {
   metadataBase: new URL(ENDERECO_DO_SITE),
   title: {
@@ -111,6 +113,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </div>
           </div>
         </footer>
+        {ID_ANALYTICS && <EventosAnalytics />}
       </body>
       {ID_ANALYTICS && <GoogleAnalytics gaId={ID_ANALYTICS} />}
     </html>

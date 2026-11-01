@@ -48,6 +48,16 @@ describe("metadadosDaPagina", () => {
     expect(m.alternates).toEqual({ canonical: "/explorar" });
     expect(m.openGraph).toMatchObject({ siteName: "Negócio do Bem", locale: "pt_BR", title: "Explorar negócios", url: "/explorar" });
   });
+
+  it("leva a imagem geral do site, que se perderia junto com o openGraph do layout", () => {
+    const m = metadadosDaPagina({ titulo: "Sobre", descricao: "Como funciona.", caminho: "/sobre" });
+    expect(m.openGraph?.images).toEqual([expect.objectContaining({ url: "/opengraph-image", width: 1200, height: 630 })]);
+  });
+
+  it("deixa a imagem para o opengraph-image.tsx da página que tem o seu", () => {
+    const m = metadadosDaPagina({ titulo: "Salvador", descricao: "Negócios.", caminho: "/cidades/salvador-ba", imagemPropria: true });
+    expect(m.openGraph).not.toHaveProperty("images");
+  });
 });
 
 describe("jsonLdDoNegocio", () => {
