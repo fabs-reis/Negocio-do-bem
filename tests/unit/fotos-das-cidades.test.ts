@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { slugCidade } from "@/lib/diretorio";
@@ -36,12 +36,13 @@ describe("fotoDaCidade", () => {
     expect(fotoDaCidade("Cidade Que Não Existe", "SP")).toBeNull();
   });
 
-  it("acha a foto pelo nome com ou sem acento, e monta os dois tamanhos e a página no Commons", () => {
+  it("acha a foto pelo nome com ou sem acento, e monta os dois tamanhos, a prévia e a página no Commons", () => {
     const [slug, gravada] = LISTA[0]!;
     const foto = fotoDaCidade(gravada.cidade.normalize("NFD").replace(/\p{M}/gu, ""), gravada.uf);
     expect(foto).toMatchObject({
       src: `/fotos/cidades/${gravada.foto}.jpg`,
       srcPequena: `/fotos/cidades/${gravada.foto}-800.jpg`,
+      previa: `/fotos/cidades/${gravada.previa}.jpg`,
       alt: gravada.descricao,
       pagina: paginaNoCommons(gravada.arquivo),
     });
@@ -64,10 +65,15 @@ describe.each(LISTA)("fotos-das-cidades.json: %s", (slug, gravada) => {
     expect(gravada.arquivo).toMatch(/^File:/);
   });
 
-  it("é horizontal e está em public/fotos/cidades nos dois tamanhos", () => {
+  it("é horizontal e está em public/fotos/cidades nos dois tamanhos, com a prévia do link", () => {
     expect(gravada.largura / gravada.altura).toBeGreaterThanOrEqual(1.3);
-    for (const arquivo of [`${gravada.foto}.jpg`, `${gravada.foto}-800.jpg`]) {
+    expect(gravada.previa.startsWith(`${slug}-previa-`)).toBe(true);
+    for (const arquivo of [`${gravada.foto}.jpg`, `${gravada.foto}-800.jpg`, `${gravada.previa}.jpg`]) {
       expect(existsSync(path.join(process.cwd(), "public/fotos/cidades", arquivo)), arquivo).toBe(true);
     }
+  });
+
+  it("tem a prévia do link abaixo de 300 KB, longe do limite de 600 KB do WhatsApp", () => {
+    expect(statSync(path.join(process.cwd(), "public/fotos/cidades", `${gravada.previa}.jpg`)).size).toBeLessThan(300 * 1024);
   });
 });

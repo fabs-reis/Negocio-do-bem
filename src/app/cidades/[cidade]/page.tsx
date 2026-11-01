@@ -12,8 +12,8 @@ import { jsonLdDaVitrine, metadadosDaPagina, type Migalha } from "@/lib/seo";
 
 // "Negócios do bem em Salvador, BA": a página que responde a quem busca pela cidade.
 // Só existe para cidades com negócios no diretório; as outras mostram "Não encontramos esta página".
-// As cidades de fotos-das-cidades.json levam a foto no topo; a prévia do link
-// fica no opengraph-image.tsx desta pasta.
+// As cidades de fotos-das-cidades.json levam a foto no topo e têm a prévia do link
+// pronta de antemão, em JPEG. As outras usam o opengraph-image.tsx desta pasta.
 
 function textos(cidade: CidadeComNegocios) {
   const onde = `${cidade.cidade}, ${cidade.uf}`;
@@ -35,8 +35,15 @@ function textos(cidade: CidadeComNegocios) {
 export async function generateMetadata(props: PageProps<"/cidades/[cidade]">): Promise<Metadata> {
   const cidade = await cidadeDoSlug((await props.params).cidade);
   if (!cidade) notFound();
-  const { titulo, descricao, caminho } = textos(cidade);
-  return metadadosDaPagina({ titulo, descricao, caminho, imagemPropria: true });
+  const { onde, titulo, descricao, caminho } = textos(cidade);
+  const foto = fotoDaCidade(cidade.cidade, cidade.uf);
+  return metadadosDaPagina({
+    titulo,
+    descricao,
+    caminho,
+    imagemPropria: true,
+    previa: foto ? { url: foto.previa, alt: `${foto.alt}, com o texto "Negócios do bem em ${onde}"` } : undefined,
+  });
 }
 
 export default function PaginaDaCidade(props: PageProps<"/cidades/[cidade]">) {

@@ -1,7 +1,8 @@
 // Fotos de cartão-postal das páginas de cidade, do Wikimedia Commons. A lista fica
 // em fotos-das-cidades.json, por endereço da cidade ("salvador-ba"), e os arquivos
-// em public/fotos/cidades. Quem escolhe a foto preenche "arquivo" e "descricao";
-// o npm run cidades:fotos baixa a foto e preenche o resto (ver o script).
+// em public/fotos/cidades, junto com a prévia do link de cada cidade. Quem escolhe
+// a foto preenche "arquivo" e "descricao"; o npm run cidades:fotos baixa a foto,
+// faz a prévia e preenche o resto (ver o script).
 
 import dados from "@/lib/fotos-das-cidades.json";
 import { slugCidade } from "@/lib/diretorio";
@@ -16,6 +17,8 @@ export type FotoGravada = {
   descricao: string;
   /** O nome dos arquivos em public/fotos/cidades, sem o ".jpg". Muda junto com o arquivo do Commons. */
   foto: string;
+  /** O nome da prévia do link, sem o ".jpg". Muda junto com a imagem. */
+  previa: string;
   autor: string;
   licenca: string;
   licencaUrl: string | null;
@@ -28,6 +31,8 @@ export type FotoDaCidade = {
   src: string;
   /** A versão para telas pequenas, com metade da largura. */
   srcPequena: string;
+  /** A prévia do link: a foto com o logo e o nome da cidade, em 1200×630. */
+  previa: string;
   largura: number;
   altura: number;
   alt: string;
@@ -61,6 +66,7 @@ export function fotoDaCidade(cidade: string, uf: string): FotoDaCidade | null {
   return {
     src: `${PASTA_DAS_FOTOS}/${gravada.foto}.jpg`,
     srcPequena: `${PASTA_DAS_FOTOS}/${gravada.foto}-${LARGURA_DA_FOTO_PEQUENA}.jpg`,
+    previa: `${PASTA_DAS_FOTOS}/${gravada.previa}.jpg`,
     largura: gravada.largura,
     altura: gravada.altura,
     alt: gravada.descricao,

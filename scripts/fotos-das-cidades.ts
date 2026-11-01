@@ -3,6 +3,11 @@
 // (1280 e 800 px de largura). Também preenche no JSON o autor, a licença e o
 // tamanho de cada foto, lidos do Commons, que vão no crédito embaixo da foto.
 //
+// De cada foto sai também a prévia do link (a imagem que aparece no WhatsApp),
+// pronta de antemão em JPEG: o PNG que o Next gera na hora passa de 1 MB com a
+// foto, e o WhatsApp não mostra prévia acima de 600 KB. A prévia é refeita a cada
+// execução, porque leva milissegundos, e o nome dela muda junto com a imagem.
+//
 // Para pôr ou trocar a foto de uma cidade, escreva no JSON só "cidade", "uf",
 // "arquivo" (o nome no Commons, "File:...") e "descricao" (o texto alternativo),
 // rode o script e faça commit do JSON e das fotos. O nome dos arquivos muda junto
@@ -14,7 +19,10 @@
 import { createHash } from "node:crypto";
 import { access, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { ImageResponse } from "next/og";
+import { createElement } from "react";
 import sharp from "sharp";
+import { FONTES, TAMANHO } from "../src/lib/compartilhamento";
 import { slugCidade } from "../src/lib/diretorio";
 import {
   LARGURA_DA_FOTO,
@@ -24,6 +32,7 @@ import {
   type FotoGravada,
 } from "../src/lib/fotos-das-cidades";
 import { nomeOficial } from "../src/lib/municipios";
+import { PreviaDaCidade } from "../src/lib/previa-da-cidade";
 
 const RAIZ = process.cwd();
 const LISTA = path.join(RAIZ, "src/lib/fotos-das-cidades.json");
@@ -99,6 +108,19 @@ function textoSimples(html: string): string {
   return texto.length > 100 ? `${texto.slice(0, 98).trimEnd()}…` : texto;
 }
 
+/**
+ * A prévia do link: o desenho de previa-da-cidade.tsx por cima da foto cortada em
+ * 1200×630. Na qualidade 65, fica entre 30 e 120 KB.
+ */
+async function fazerPrevia(foto: string, nome: string): Promise<Buffer> {
+  const desenho = new ImageResponse(createElement(PreviaDaCidade, { nome, sobreFoto: true }), { ...TAMANHO, fonts: FONTES });
+  return sharp(foto)
+    .resize(TAMANHO.width, TAMANHO.height, { fit: "cover" })
+    .composite([{ input: Buffer.from(await desenho.arrayBuffer()) }])
+    .jpeg({ quality: 65, mozjpeg: true, progressive: true })
+    .toBuffer();
+}
+
 const existe = (arquivo: string) =>
   access(arquivo).then(
     () => true,
@@ -155,12 +177,17 @@ async function principal() {
     }
     const { width, height } = await sharp(grande).metadata();
 
+    const imagemDaPrevia = await fazerPrevia(grande, `${escolha.cidade}, ${escolha.uf}`);
+    const previa = `${slug}-previa-${createHash("sha1").update(imagemDaPrevia).digest("hex").slice(0, 8)}`;
+    await writeFile(path.join(PASTA, `${previa}.jpg`), imagemDaPrevia);
+
     gravadas[slug] = {
       cidade: escolha.cidade,
       uf: escolha.uf,
       arquivo: info.title,
       descricao: escolha.descricao.trim(),
       foto,
+      previa,
       autor: textoSimples(metadados("Attribution") || metadados("Artist")) || "Autor desconhecido",
       licenca,
       licencaUrl: metadados("LicenseUrl") || null,
@@ -172,8 +199,13 @@ async function principal() {
   // Cidades com problema ficam na lista como estavam, com a foto de antes, para serem corrigidas.
   for (const [slug, escolha] of Object.entries(lista)) if (!gravadas[slug]) gravadas[slug] = escolha as FotoGravada;
 
-  // Fotos que nenhuma cidade usa mais, como a antiga de uma cidade que trocou de foto.
-  const usadas = new Set(Object.values(gravadas).flatMap((g) => (g.foto ? [`${g.foto}.jpg`, `${g.foto}-${LARGURA_DA_FOTO_PEQUENA}.jpg`] : [])));
+  // Fotos e prévias que nenhuma cidade usa mais, como a antiga de uma cidade que trocou de foto.
+  const usadas = new Set(
+    Object.values(gravadas).flatMap((g) => [
+      ...(g.foto ? [`${g.foto}.jpg`, `${g.foto}-${LARGURA_DA_FOTO_PEQUENA}.jpg`] : []),
+      ...(g.previa ? [`${g.previa}.jpg`] : []),
+    ]),
+  );
   for (const arquivo of await readdir(PASTA)) {
     if (arquivo.endsWith(".jpg") && !usadas.has(arquivo)) {
       await unlink(path.join(PASTA, arquivo));

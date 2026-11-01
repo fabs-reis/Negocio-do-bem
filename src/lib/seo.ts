@@ -51,18 +51,21 @@ const IMAGEM_DO_SITE = { url: "/opengraph-image", width: 1200, height: 630, type
  * A imagem também se perde com o openGraph do layout, então vai a geral do site.
  * `imagemPropria` é para a página cuja pasta tem o seu opengraph-image.tsx (a
  * inicial, o perfil e a cidade): o Next só usa a imagem do arquivo quando o
- * openGraph da página não traz imagem.
+ * openGraph da página não traz imagem. `previa` é uma imagem pronta de antemão,
+ * em JPEG de 1200×630, como a das cidades com foto, e passa na frente das outras.
  */
 export function metadadosDaPagina({
   titulo,
   descricao,
   caminho,
   imagemPropria = false,
+  previa,
 }: {
   titulo?: string;
   descricao: string;
   caminho: string;
   imagemPropria?: boolean;
+  previa?: { url: string; alt: string };
 }): Metadata {
   return {
     ...(titulo ? { title: titulo } : {}),
@@ -75,7 +78,11 @@ export function metadadosDaPagina({
       title: titulo ?? TITULO_DO_SITE,
       description: descricao,
       url: caminho,
-      ...(imagemPropria ? {} : { images: [IMAGEM_DO_SITE] }),
+      ...(previa
+        ? { images: [{ ...previa, width: 1200, height: 630, type: "image/jpeg" }] }
+        : imagemPropria
+          ? {}
+          : { images: [IMAGEM_DO_SITE] }),
     },
   };
 }

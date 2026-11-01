@@ -466,7 +466,16 @@ A ideia era ter páginas de cidade para o Google, com uma foto de cartão-postal
 - **Fotos do Wikimedia Commons,** com o crédito na página. Quase toda cidade brasileira tem boas fotos lá, e o autor e a licença vêm junto no Commons, então o crédito sai sem trabalho manual. As fotos foram escolhidas uma a uma e aprovadas antes de entrar. Recusamos montagens, mapas, fotos com pessoas em destaque e licenças que pedem mais do que o crédito.
 - **102 das 114 cidades ficaram com foto.** As outras 12, como Diadema, Suzano, Araraquara e Lorena, não têm no Commons uma vista boa da cidade. A de Contagem ficou de fora porque a única foto boa vinha do perfil oficial de um político, que apareceria no crédito.
 - **Guardadas no site, não buscadas no Commons.** Ligar a foto direto ao Commons avisaria a Wikimedia a cada visita, como diz a regra de `ehFotoDoSite`. O `npm run cidades:fotos` baixa cada foto em 1280 e 800 px, e a página manda a pequena para o celular. O nome do arquivo leva um pedaço do hash do arquivo do Commons, então a foto pode ficar em cache por um ano (`public/_headers`) e uma troca de foto nunca mostra a antiga.
-- **A prévia da cidade lê a foto pelo binding `ASSETS`.** No Worker, os arquivos de `public/` não estão no disco. Ela usa a foto de 800 px, que basta para a prévia e pesa menos para o gerador.
+- **A prévia da cidade lia a foto pelo binding `ASSETS`,** porque no Worker os arquivos de `public/` não estão no disco. A prévia passou de 1 MB e foi trocada por um JPEG pronto na [#224](https://github.com/fabs-reis/Negocio-do-bem/issues/224).
+
+### 1º de novembro: prévia leve das cidades com foto ([#224](https://github.com/fabs-reis/Negocio-do-bem/issues/224))
+
+No ar, a prévia de Salvador tinha 958 KB e a de São Paulo, 1 MB. O `ImageResponse` só gera PNG, e um PNG com foto pesa muito. O WhatsApp não mostra imagem de prévia acima de 600 KB.
+
+- **Prévia pronta de antemão, em JPEG.** O `npm run cidades:fotos` põe o desenho de `src/lib/previa-da-cidade.tsx` por cima da foto de 1280 px, cortada em 1200×630, e grava em qualidade 65. As 102 prévias ficaram entre 30 e 119 KB, 71 KB em média, 7 MB ao todo. A página passa a prévia ao `metadadosDaPagina` (`previa`), e o Next deixa de lado o `opengraph-image.tsx` da pasta.
+- **Sem o número de negócios.** A imagem pronta não acompanha o diretório, e o número continua na descrição do link. A cidade sem foto segue com a prévia gerada na hora, com o número.
+- **Refeita a cada execução do script.** Ela leva uns 20 ms por cidade, e o nome do arquivo leva o hash da imagem: uma mudança no desenho gera arquivos novos, e o cache de um ano nunca mostra a prévia antiga.
+- **O Worker deixou de ler a foto** pelo binding `ASSETS` e de montar um PNG de 1 MB a cada prévia de cidade.
 
 ---
 
@@ -776,8 +785,9 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 
 1. Ache a foto no [Wikimedia Commons](https://commons.wikimedia.org): horizontal, com pelo menos 1280 px de largura, sem pessoa em destaque e com licença de domínio público, CC0, CC BY ou CC BY-SA.
 2. Em `src/lib/fotos-das-cidades.json`, escreva ou mude a entrada da cidade, pelo endereço da página dela: `"salvador-ba": { "cidade": "Salvador", "uf": "BA", "arquivo": "File:Nome no Commons.jpg", "descricao": "O que a foto mostra" }`. A descrição vira o texto alternativo.
-3. Rode `npm run cidades:fotos`. Ele baixa a foto para `public/fotos/cidades`, preenche o autor, a licença e o tamanho, e apaga a foto antiga. Se algo estiver errado (nome fora do IBGE, licença recusada, foto vertical), ele avisa e não grava aquela cidade.
-4. Rode `npm test` e faça commit do JSON e das fotos.
+3. Rode `npm run cidades:fotos`. Ele baixa a foto para `public/fotos/cidades`, preenche o autor, a licença e o tamanho, faz a prévia do link e apaga a foto e a prévia antigas. Se algo estiver errado (nome fora do IBGE, licença recusada, foto vertical), ele avisa e não grava aquela cidade.
+4. Abra a prévia nova (`public/fotos/cidades/<endereço>-previa-*.jpg`) e veja se o texto aparece bem em cima da foto.
+5. Rode `npm test` e faça commit do JSON, das fotos e da prévia.
 
 ### Mudar uma regra da reivindicação
 
@@ -885,7 +895,8 @@ O PR só conflita se a `main` recebeu algo que não passou pela `stage`. Nesse c
 - **Imagens de compartilhamento (`ImageResponse`):**
   - toda `div` com mais de um filho precisa de `display: "flex"`. Texto com variáveis como `{a} · {b}` vira vários filhos: use uma template string;
   - o gerador não lê WebP, woff2 nem fonte variável. Por isso as fotos em WebP viram monograma na prévia, e as fontes ficam em TTF em `assets/fontes`;
-  - uma página que define o `openGraph` apaga a imagem herdada do layout. Use o `metadadosDaPagina`, que põe a imagem geral do site, e passe `imagemPropria: true` só quando a pasta da página tem o seu `opengraph-image.tsx` ([#220](https://github.com/fabs-reis/Negocio-do-bem/issues/220)).
+  - uma página que define o `openGraph` apaga a imagem herdada do layout. Use o `metadadosDaPagina`, que põe a imagem geral do site, e passe `imagemPropria: true` só quando a pasta da página tem o seu `opengraph-image.tsx` ([#220](https://github.com/fabs-reis/Negocio-do-bem/issues/220));
+  - o gerador só faz PNG, e um PNG com foto de fundo passa de 1 MB, acima do limite de 600 KB do WhatsApp. Imagem com foto se faz de antemão, em JPEG, como a prévia das cidades ([#224](https://github.com/fabs-reis/Negocio-do-bem/issues/224)).
 - **O Worker não lê arquivos do projeto.** Um `readFile` de algo fora de `public/` funciona no `npm run dev` e falha no Cloudflare com ENOENT. Se o arquivo é lido ao carregar o módulo, como as fontes eram, todas as páginas que importam o módulo respondem 500. Embuta o arquivo num módulo, como em `npm run marca:fontes`.
 - **Conexão com o banco no Worker.** Uma conexão aberta numa requisição não pode ser usada em outra. Por isso, o `db` (`src/lib/db.ts`) cria um cliente por requisição no Worker, e um só no Node.
 - **Senha (scrypt) no Worker.** Cada cálculo usa ~32 MB e ~100 ms de CPU. No Worker, o `scrypt` roda um de cada vez no isolate, mesmo com vários logins ao mesmo tempo, então a memória não soma: os logins esperam na fila. Medido no workerd local: 8 logins simultâneos terminam em ~0,8 s.
