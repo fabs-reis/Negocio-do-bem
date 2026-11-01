@@ -654,6 +654,20 @@ No cliente, os formulários com `useActionState` usam `enviarSemLimpar` (`src/co
 
   Nenhuma das três consulta o banco. A página com erro continua respondendo com status 200: o erro aparece quando o navegador processa a página.
 
+### Cache da consulta pública de CNPJ
+
+`consultarCnpj` (`src/lib/cnpj.ts`) normaliza e valida o documento antes das camadas de cache. Preserva letras e converte para maiúsculas. Fichas com documentos equivalentes compartilham a consulta durante a renderização pelo `cache` do React. Isso também funciona com o sinal do timeout, que desativa a memoização automática do `fetch`.
+
+O `unstable_cache`, compatível com Cache Components, persiste somente os cinco campos públicos já interpretados da BrasilAPI. A chave inclui a versão `brasilapi-cnpj-v1` e o CNPJ normalizado. A revalidação usa **86400 segundos (24 horas)**. O `fetch` interno não recebe outro cache persistente. Mantém o User-Agent próprio, necessário para evitar o 403, e o timeout de cinco segundos.
+
+Essa é uma exceção para dados cadastrais públicos externos, que mudam pouco. Não é cache do nosso banco nem da página. Fichas, contatos, sessões e permissões continuam fora dessa persistência. O banco continua atualizado a cada requisição, e a moderação continua restrita ao papel lido no banco.
+
+Falhas HTTP, JSON inválido, rede e timeout rejeitam dentro da função persistente. A função pública converte essa rejeição em `null` fora do cache. Uma falha fria mostra o aviso atual e permite recuperação no próximo carregamento. Na revalidação, o Next mantém o sucesso anterior se a atualização falhar e tenta novamente no próximo acesso. Portanto, 24 horas é a janela de atualização, não uma idade máxima garantida durante indisponibilidade.
+
+A integração opt-in usa Next de produção, login real, Postgres descartável e transporte BrasilAPI local com contador. Ela verifica reutilização, CNPJs equivalentes, falhas, recuperação, streaming, banco atualizado e revogação de permissão. O reinício preserva o build e comprova persistência local em disco. A prova diária envelhece apenas o `mtime` de uma entrada identificada, sem mudar bytes, build ou TTL. Não comprova persistência ou revalidação no Cloudflare com OpenNext e R2, nem exclusão de consultas frias simultâneas entre processos. Até 50 CNPJs distintos e frios ainda podem gerar até 50 consultas.
+
+A prova isolada exige containers sem rede e uma cópia sem arquivos `.env` em `/fixture/source`. Use um Postgres descartável com socket em `/fixture/pg`, crie o banco `negocio_do_bem_teste` e aplique as migrações antes da prova. Prepare o build de produção e comece com o cache de fetch vazio. O arquivo `/fixture/fixture.json` identifica o container sintético, o socket, o usuário `postgres` e o banco. O arquivo `/fixture/config.json` aponta para essa fixture e para `/fixture/evidence`. Execute `TESTAR_CACHE_CNPJ=1` com `CACHE_CNPJ_PROVA=/fixture/config.json` e a configuração `tests/apoio/cache-cnpj/vitest.config.mts`. Essa configuração não usa o setup global da suíte.
+
 ### Regras de negócio fora da interface
 
 Regra que decide algo importante vai para `src/lib/`, separada da tela e da Server Action. Assim ela pode ser testada sem navegador.
@@ -683,6 +697,8 @@ npm run typecheck
 
 - **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (de quais endereços o site aceita mostrar) e Instagram.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
+- **`tests/unit/cnpj.test.ts`:** projeção, normalização, timeout e rejeição interna. Os substitutos de `next/cache` e React verificam o contrato, não a persistência.
+- **`tests/integracao/cache-cnpj.test.ts`:** prova explícita do cache no consumidor real. O `npm test` comum ignora essa prova e não inicia build nem servidor. Ela exige uma cópia limpa com build Turbopack pronto e sem arquivos `.env`. `CACHE_CNPJ_PROVA` aponta para um JSON com `fixture` e `evidencias`. A fixture Unix sintética deve corresponder às restrições de `tests/apoio/cache-cnpj/prova.mjs`. Nessa cópia, execute `TESTAR_CACHE_CNPJ=1 npx vitest run --config tests/apoio/cache-cnpj/vitest.config.mts tests/integracao/cache-cnpj.test.ts`. O config separado evita que o preparo da suíte comum limpe a fixture da integração.
 - **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
   - Entrar com Instagram;
   - pedidos antigos por código de DM;

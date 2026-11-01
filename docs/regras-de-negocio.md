@@ -498,7 +498,7 @@ Cada pedido mostra:
 - no pedido por dados do negócio:
   - relação, contato, CNPJ formatado e site;
   - a mensagem;
-  - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI na hora. A consulta manda um User-Agent próprio, porque sem ele a BrasilAPI responde 403. Ela é só um apoio: se falhar, aparece "Não foi possível consultar a Receita agora" e a análise segue;
+  - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI. Somente o resultado público bem-sucedido fica em cache por CNPJ normalizado, com revalidação após 24 horas. Documentos equivalentes compartilham a consulta. A consulta mantém o User-Agent próprio para evitar o 403 e o timeout de cinco segundos. Sem sucesso anterior, uma falha mostra "Não foi possível consultar a Receita agora" e a análise segue. O próximo carregamento pode tentar novamente. Se a revalidação falhar, o sucesso anterior permanece disponível até uma atualização bem-sucedida. A janela diária não garante idade máxima durante indisponibilidade. Esse cache não inclui fichas, contatos, sessões nem permissões.
 - num pedido antigo por código de DM, o código e o lembrete de conferir se a DM veio do @ do negócio;
 - as anotações automáticas do sistema, quando houver;
 - os donos atuais (nome e e-mail), quando houver.
