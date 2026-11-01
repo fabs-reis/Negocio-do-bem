@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ehModerador } from "@/lib/auth/sessao";
 import { ACOES_AUDITORIA } from "@/lib/dominio";
 import { agruparPorSemana, comAviso, DIA, destinoNaModeracao, hrefModeracao, lerFiltros } from "@/lib/moderacao/filtros";
@@ -59,6 +59,18 @@ describe("lerFiltros do painel", () => {
     expect(lerFiltros({ alvo: "empresa:cm1abc23" }).alvo).toEqual({ tipo: "empresa", id: "cm1abc23" });
     expect(lerFiltros({ alvo: "sessao:cm1abc23" }).alvo).toBeNull();
     expect(lerFiltros({ alvo: "empresa:" }).alvo).toBeNull();
+  });
+
+  it("mantém a URL canônica R2 no filtro de histórico somente leitura", () => {
+    vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://fotos.exemplo.com");
+    try {
+      const r2 = "https://fotos.exemplo.com/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg";
+      expect(lerFiltros({ aba: "auditoria", alvo: `foto:${r2}` }).alvo).toEqual({ tipo: "foto", id: r2 });
+      expect(lerFiltros({ alvo: `foto:${r2}?cache=1` }).alvo).toBeNull();
+      expect(lerFiltros({ alvo: `foto:${r2.replace("fotos.exemplo.com", "outro.exemplo.com")}` }).alvo).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("o alvo foto aceita só o endereço de uma foto do site, mesmo com dois-pontos", () => {

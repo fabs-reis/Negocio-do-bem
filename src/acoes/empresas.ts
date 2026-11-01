@@ -3,12 +3,12 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
-import { apagarFoto, conferirFoto, guardarFoto } from "@/lib/armazenamento";
+import { conferirFoto, guardarFoto } from "@/lib/armazenamento";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { caminhoSeguro, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { filtrarCausas } from "@/lib/causas";
-import { ErroFotoDescartada, validarFotosDaHistoria } from "@/lib/ciclo-fotos";
+import { ErroFotoDescartada, OPCOES_TRANSACAO_FOTOS, validarReferenciasFotos } from "@/lib/publicacao-fotos";
 import { db } from "@/lib/db";
 import { CATEGORIAS } from "@/lib/dominio";
 import {
@@ -131,6 +131,7 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
   let empresa;
   try {
     empresa = await db.$transaction(async (tx) => {
+      await validarReferenciasFotos(tx, { site: campos.site });
       await tx.$queryRaw`SELECT id FROM "Usuario" WHERE id = ${usuario.id} FOR NO KEY UPDATE`;
       const recentes = await tx.empresa.count({
         where: { indicadaPorId: usuario.id, criadoEm: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
@@ -160,8 +161,9 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
         alvoId: criada.id,
       });
       return criada;
-    });
+    }, OPCOES_TRANSACAO_FOTOS);
   } catch (erro) {
+    if (erro instanceof ErroFotoDescartada) return { erros: { site: erro.message }, valores };
     // Outra pessoa cadastrou o mesmo endereço entre a conferência acima e a criação.
     if (erro !== empresaDuplicada) throw erro;
     if (instagram) return { erros: { instagram: `@${instagram} já está no Negócio do Bem.` }, existente: instagram, valores };
@@ -242,16 +244,16 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
 
   try {
     await db.$transaction(async (tx) => {
-      await validarFotosDaHistoria(tx, campos.historia);
+      await validarReferenciasFotos(tx, campos);
       await tx.empresa.update({
         where: { id: empresa.id },
         data: { ...campos, busca: textoDeBusca({ ...campos, instagramUsername: empresa.instagramUsername }) },
       });
       await tx.empresaCausa.deleteMany({ where: { empresaId: empresa.id } });
       await tx.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) });
-    });
+    }, OPCOES_TRANSACAO_FOTOS);
   } catch (erro) {
-    if (erro instanceof ErroFotoDescartada) return { erros: { historia: erro.message }, valores };
+    if (erro instanceof ErroFotoDescartada) return { erros: { [erro.campo === "site" ? "site" : "historia"]: erro.message }, valores };
     throw erro;
   }
   await auditarEdicao(usuario.id, empresa, "empresa.editada", pelaModeracao);
@@ -285,8 +287,15 @@ export async function trocarFoto(_estado: EstadoFormulario, dados: FormData): Pr
     console.error("Falha ao guardar a foto do perfil", erro);
     return { erro: "Não conseguimos guardar a foto agora. Tente de novo em instantes." };
   }
-  await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl } });
-  await apagarFoto(empresa.fotoUrl);
+  try {
+    await db.$transaction(async (tx) => {
+      await validarReferenciasFotos(tx, { fotoUrl });
+      await tx.empresa.update({ where: { id: empresa.id }, data: { fotoUrl } });
+    }, OPCOES_TRANSACAO_FOTOS);
+  } catch (erro) {
+    if (erro instanceof ErroFotoDescartada) return { erro: erro.message };
+    throw erro;
+  }
   await auditarEdicao(usuario.id, empresa, "empresa.foto_trocada", pelaModeracao);
   redirect(`${voltarDe(dados, empresa)}?aviso=foto_salva`);
 }
@@ -294,8 +303,10 @@ export async function trocarFoto(_estado: EstadoFormulario, dados: FormData): Pr
 /** Tira a foto do perfil: o dono ou a moderação. */
 export async function removerFoto(dados: FormData): Promise<void> {
   const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
-  await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl: null } });
-  await apagarFoto(empresa.fotoUrl);
+  await db.$transaction(async (tx) => {
+    await validarReferenciasFotos(tx, { fotoUrl: null });
+    await tx.empresa.update({ where: { id: empresa.id }, data: { fotoUrl: null } });
+  }, OPCOES_TRANSACAO_FOTOS);
   await auditarEdicao(usuario.id, empresa, "empresa.foto_removida", pelaModeracao);
   redirect(`${voltarDe(dados, empresa)}?aviso=foto_removida`);
 }

@@ -232,6 +232,17 @@ model Depoimento {
   @@index([denunciado])
 }
 
+// Keep retirement records when objects or audit history are removed.
+model FotoAposentada {
+  dominio      String
+  chave        String
+  iniciadoEm   DateTime  @default(now())
+  confirmadaEm DateTime?
+
+  @@id([dominio, chave])
+  @@index([chave])
+}
+
 model RegistroAuditoria {
   id        String   @id @default(cuid())
   // null quando a ação foi automática (ex.: aprovação na hora pelos dados do negócio)

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fotosDaHistoria, identidadeDaFoto } from "@/lib/fotos-historias";
+import { chavesDaReferencia, chavesDaHistoria, fotosDaHistoria, identidadeDaFoto } from "@/lib/fotos-historias";
 
 const FOTO = "https://fotos.exemplo.com/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg";
 
@@ -41,6 +41,25 @@ describe("referências das fotos", () => {
     "/enviados/historias/nome-fora-do-padrao.jpg",
   ])("recusa identidade ambígua ou não administrada: %s", (valor) => {
     expect(identidadeDaFoto(valor)).toBeNull();
+  });
+
+  it.each([
+    "//outra.exemplo/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    "http://antigo.exemplo/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    "/fotos/historias%2Faaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    "https://proxy.exemplo/?url=historias%252Faaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    "https://proxy.exemplo/#historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    "/enviados/historias/subpasta/../aaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    "//outra.exemplo/historias/%2e/aaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+    "https://outra.exemplo/historias\\aaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+  ])("reconhece a chave em referência de outra origem: %s", (valor) => {
+    expect(chavesDaReferencia(valor)).toContain("historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg");
+    expect(chavesDaHistoria(`![Foto](${valor})`)).toContain("historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg");
+  });
+
+  it("preserva todas as chaves de uma referência", () => {
+    expect(chavesDaReferencia("https://exemplo.test/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg?outra=perfis%2Fbbbbbbbbbbbbbbbbbbbbbbbb.webp"))
+      .toEqual(new Set(["historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg", "perfis/bbbbbbbbbbbbbbbbbbbbbbbb.webp"]));
   });
 
   it("não interpreta exemplos de código como fotos usadas", () => {

@@ -31,7 +31,7 @@ function origemPublica(valor: string): string {
 }
 
 /** Prepara o inventário e só autoriza o descarte após conferir a associação nativa. */
-export async function prepararInventarioHistoriasR2(aplicar: boolean): Promise<Inventario> {
+export async function prepararInventarioHistoriasR2(aplicar: boolean, aposentadas: readonly string[] = []): Promise<Inventario> {
   const conta = texto(process.env.CLOUDFLARE_ACCOUNT_ID);
   const token = texto(process.env.CLOUDFLARE_API_TOKEN);
   const bucket = texto(process.env.FOTOS_R2_BUCKET);
@@ -146,6 +146,11 @@ export async function prepararInventarioHistoriasR2(aplicar: boolean): Promise<I
     if (cursores.size > 10_000) throw new Error("Paginação R2 excedeu o limite seguro.");
   } while (cursor);
   const autorizados = new Map(objetos);
+  // The caller supplies only retirement records read from the selected database.
+  for (const url of aposentadas) {
+    if (identidadeDaFoto(url) !== url || !url.startsWith(`${origem}/historias/`)) throw new Error("A repetição não pertence ao armazenamento autorizado.");
+    autorizados.set(url, new URL(url).pathname.slice(1));
+  }
   return {
     objetos,
     async excluir(url) {
@@ -156,7 +161,7 @@ export async function prepararInventarioHistoriasR2(aplicar: boolean): Promise<I
       try {
         const resposta = await fetch(endereco, { method: "DELETE", headers: { Authorization: `Bearer ${token}`, "cf-r2-data-catalog-check": "true" }, redirect: "error" });
         await resposta.body?.cancel();
-        if (!resposta.ok) throw new Error();
+        if (!resposta.ok && resposta.status !== 404) throw new Error();
         const confirmacao = await fetch(endereco, { method: "GET", headers: { Authorization: `Bearer ${token}` }, redirect: "error" });
         await confirmacao.body?.cancel();
         if (confirmacao.status !== 404) throw new Error();

@@ -177,9 +177,12 @@ describe("administração R2", () => {
   it("não autoriza chave inserida no mapa após o inventário", async () => {
     const { prepararInventarioHistoriasR2 } = await import("@/lib/r2-administracao");
     const inventario = await prepararInventarioHistoriasR2(true);
+    const transporte = vi.fn<typeof fetch>(async (_entrada, opcoes) => new Response(null, { status: opcoes?.method === "DELETE" ? 200 : 404 }));
+    vi.stubGlobal("fetch", transporte);
     inventario.objetos.set("https://fotos.exemplo.com/historias/bbbbbbbbbbbbbbbbbbbbbbbb.jpg", "historias/bbbbbbbbbbbbbbbbbbbbbbbb.jpg");
     await expect(inventario.excluir("https://fotos.exemplo.com/historias/bbbbbbbbbbbbbbbbbbbbbbbb.jpg")).rejects.toThrow();
     expect(transportes.executar.mock.calls.some((c) => c[1][0] === "r2")).toBe(false);
+    expect(transporte).not.toHaveBeenCalled();
   });
 
   it("recusa paginação repetida sem excluir", async () => {

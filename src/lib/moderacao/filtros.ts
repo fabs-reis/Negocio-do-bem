@@ -1,6 +1,8 @@
 // Seções e filtros do painel da moderação (/moderacao), lidos da URL.
 // Como no diretório, só valores conhecidos passam: o resto volta para o padrão.
 
+import { identidadeDaFoto } from "@/lib/fotos-historias";
+
 export const ABAS = {
   "visao-geral": "Visão geral",
   reivindicacoes: "Reivindicações",
@@ -69,7 +71,7 @@ function opcao<T extends string>(valor: string, opcoes: Record<T, string>, padra
   return Object.hasOwn(opcoes, valor) ? (valor as T) : padrao;
 }
 
-/** O alvo "foto" é o endereço de uma foto do site (Blob ou /enviados), que tem dois-pontos e barras. */
+/** Historical Blob and local URLs remain valid for read-only history. */
 const ENDERECO_DE_FOTO =
   /^(?:https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com|\/enviados)\/(?:historias|perfis)\/[a-f0-9]{24}\.(?:jpg|png|webp)$/;
 
@@ -103,9 +105,10 @@ export function lerFiltros(params: Params): FiltrosModeracao {
   const separador = textoDoAlvo.indexOf(":");
   const tipoAlvo = textoDoAlvo.slice(0, Math.max(separador, 0));
   const idAlvo = textoDoAlvo.slice(separador + 1);
+  // This filter selects history records. It does not authorize storage operations.
   const alvoValido =
     (TIPOS_DE_ALVO as readonly string[]).includes(tipoAlvo) &&
-    (tipoAlvo === "foto" ? ENDERECO_DE_FOTO.test(idAlvo) : lerId(idAlvo) !== null);
+    (tipoAlvo === "foto" ? (ENDERECO_DE_FOTO.test(idAlvo) || identidadeDaFoto(idAlvo) === idAlvo) : lerId(idAlvo) !== null);
   return {
     aba,
     q: primeiro(params, "q").slice(0, 100),

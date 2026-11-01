@@ -1,9 +1,11 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { lstat, mkdir, readdir, realpath, unlink, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, open, readdir, realpath, stat, unlink, writeFile, type FileHandle } from "node:fs/promises";
 import path from "node:path";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { descartarFotos, type ResultadoDescarte } from "@/lib/ciclo-fotos";
+import { descartarFotos, objetoDaFoto, type ResultadoDescarte } from "@/lib/ciclo-fotos";
+import { db } from "@/lib/db";
 import { TAMANHO_MAXIMO_FOTO, type TipoDeFoto } from "@/lib/fotos";
 import { identidadeDaFoto } from "@/lib/fotos-historias";
 
@@ -94,35 +96,71 @@ async function inventariarFotos(pasta: "perfis" | "historias"): Promise<Map<stri
   return objetos;
 }
 
-async function excluirObjeto(url: string, objetos: Map<string, string>): Promise<void> {
-  const objeto = objetos.get(url);
-  if (!objeto) throw new Error("A foto não pertence ao inventário deste armazenamento.");
-  const pasta = url.includes("/historias/") ? "historias" : "perfis";
-  if (!await pastaLocalSegura(pasta)) throw new Error("A pasta da foto não é segura para exclusão.");
+async function abrirPastaParaExclusao(): Promise<FileHandle> {
+  if (process.platform !== "linux") throw new Error("A exclusão local exige Linux com /proc/self/fd.");
+  const esperado = await lstat(path.join(PASTA_LOCAL, "historias"));
+  if (!esperado.isDirectory()) throw new Error("A pasta da foto não é segura para exclusão.");
+  const opcoes = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
+  let pasta = await open(".", opcoes);
   try {
-    if (!(await lstat(objeto)).isFile()) throw new Error("O destino da foto não é um arquivo regular.");
-    await unlink(objeto);
+    // Each component opens through its parent descriptor without following symbolic links.
+    for (const nome of ["public", "enviados", "historias"]) {
+      const anterior = pasta;
+      pasta = await open(`/proc/self/fd/${anterior.fd}/${nome}`, opcoes);
+      await anterior.close();
+    }
+    const identidade = await pasta.stat();
+    const viaProc = await stat(`/proc/self/fd/${pasta.fd}`);
+    if (identidade.dev !== esperado.dev || identidade.ino !== esperado.ino || viaProc.dev !== identidade.dev || viaProc.ino !== identidade.ino) {
+      throw new Error("A identidade da pasta mudou antes da exclusão.");
+    }
+    return pasta;
   } catch (erro) {
-    if (typeof erro === "object" && erro !== null && "code" in erro && erro.code === "ENOENT") return;
+    await pasta.close();
     throw erro;
   }
 }
 
-/** Sem domínio exclusivo confirmado, preserva inclusive fotos de perfil antigas. */
-export async function apagarFoto(url: string | null): Promise<ResultadoDescarte["status"]> {
-  if (configuracaoRemota() || process.env.NODE_ENV === "production" || !url?.startsWith("/enviados/")) return "bloqueada";
-  const identidade = identidadeDaFoto(url);
-  if (!identidade || process.env.FOTOS_DOMINIO_EXCLUSIVO !== "confirmado") return "bloqueada";
-  try {
-    const pasta = identidade.includes("/historias/") ? "historias" : "perfis";
-    const objetos = await inventariarFotos(pasta);
-    if (!objetos.has(identidade)) return "bloqueada";
-    const [resultado] = await descartarFotos([identidade], (foto) => excluirObjeto(foto, objetos), true);
-    return resultado.status;
-  } catch (erro) {
-    console.error("Não foi possível apagar a foto", url, erro);
-    return "falha";
+async function excluirObjeto(url: string, objetos: Map<string, string>): Promise<void> {
+  const chave = objetoDaFoto(url).chave;
+  if (!objetos.has(url) || !/^historias\/[a-f0-9]{24}\.(jpg|png|webp)$/.test(chave)) {
+    throw new Error("A foto não pertence ao inventário deste armazenamento.");
   }
+  const pasta = await abrirPastaParaExclusao();
+  // A renamed parent cannot redirect this path to a different directory.
+  const destino = `/proc/self/fd/${pasta.fd}/${path.basename(chave)}`;
+  try {
+    try {
+      if (!(await lstat(destino)).isFile()) throw new Error("O destino da foto não é um arquivo regular.");
+      await unlink(destino);
+    } catch (erro) {
+      if (!(typeof erro === "object" && erro !== null && "code" in erro && erro.code === "ENOENT")) throw erro;
+    }
+    const atual = await abrirPastaParaExclusao();
+    try {
+      const selecionada = await pasta.stat();
+      const identidade = await atual.stat();
+      if (identidade.dev !== selecionada.dev || identidade.ino !== selecionada.ino) {
+        throw new Error("A identidade da pasta mudou antes da confirmação.");
+      }
+      try {
+        await lstat(`/proc/self/fd/${atual.fd}/${path.basename(chave)}`);
+      } catch (erro) {
+        if (typeof erro === "object" && erro !== null && "code" in erro && erro.code === "ENOENT") return;
+        throw erro;
+      }
+      throw new Error("O armazenamento não confirmou a ausência da foto.");
+    } finally {
+      await atual.close();
+    }
+  } finally {
+    await pasta.close();
+  }
+}
+
+/** Physical deletion requires the explicit story cleanup command. */
+export async function apagarFoto(_url: string | null): Promise<ResultadoDescarte["status"]> {
+  return "bloqueada";
 }
 
 /** O diagnóstico é o padrão. Aplicar exige seleção explícita e domínio confirmado. */
@@ -132,11 +170,26 @@ export async function limparFotosHistorias(selecionadas: string[] = [], aplicar 
     throw new Error("A exclusão está bloqueada: confirme todos os bancos e escritores que usam este armazenamento.");
   }
   const remoto = configuracaoRemota();
+  if (aplicar && !remoto && process.platform !== "linux") throw new Error("A exclusão local exige Linux com /proc/self/fd. O diagnóstico continua disponível.");
   if (!remoto && process.env.NODE_ENV === "production") throw new Error("Configure o armazenamento R2 para a limpeza em produção.");
+  const aposentadas = new Set<string>();
+  for (const selecionada of selecionadas) {
+    const url = identidadeDaFoto(selecionada);
+    if (!url || !url.includes("/historias/") || (remoto && url.startsWith("/enviados/"))) continue;
+    const objeto = objetoDaFoto(url);
+    if (await db.fotoAposentada.findUnique({ where: { dominio_chave: objeto } })) aposentadas.add(url);
+  }
   const inventario = remoto
-    ? await (await import("@/lib/r2-administracao")).prepararInventarioHistoriasR2(aplicar)
+    ? await (await import("@/lib/r2-administracao")).prepararInventarioHistoriasR2(aplicar, [...aposentadas])
     : await inventariarFotos("historias").then((objetos) => ({ objetos, excluir: (url: string) => excluirObjeto(url, objetos) }));
   const urls = selecionadas.length ? selecionadas.map(identidadeDaFoto) : [...inventario.objetos.keys()];
-  if (urls.some((url) => !url || !inventario.objetos.has(url))) throw new Error("A seleção contém foto fora do inventário de histórias.");
+  for (const url of urls) {
+    if (url && inventario.objetos.has(url)) continue;
+    if (!url || !url.includes("/historias/") || (remoto && url.startsWith("/enviados/"))) throw new Error("A seleção contém foto fora do inventário de histórias.");
+    const objeto = objetoDaFoto(url);
+    if (!aposentadas.has(url)) throw new Error("A seleção contém foto fora do inventário de histórias.");
+    // A previous request can remove an object before its response is lost.
+    inventario.objetos.set(url, remoto ? objeto.chave : path.join(PASTA_LOCAL, objeto.chave));
+  }
   return descartarFotos(urls as string[], inventario.excluir, aplicar);
 }

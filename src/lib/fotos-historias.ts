@@ -39,6 +39,39 @@ function identidadeDaReferencia(valor: string): string | null {
   }
 }
 
+/** Extrai possíveis chaves sem usar a origem como prova de identidade. */
+export function chavesDaReferencia(valor: string): Set<string> {
+  const chaves = new Set<string>();
+  let texto = valor;
+  for (;;) {
+    let normalizado = texto;
+    try { normalizado = new URL(texto, "https://referencia.invalid").href; } catch { /* Keep the original reference. */ }
+    for (const valor of [texto, normalizado]) {
+      for (const resultado of valor.matchAll(/(?:historias|perfis)\/[a-f0-9]{24}\.(?:jpg|png|webp)/gi)) {
+        chaves.add(resultado[0].toLowerCase());
+      }
+    }
+    // Decode ASCII escapes even when another escape is invalid.
+    const decodificado = texto.replace(/%([0-7][0-9a-f])/gi, (_, byte: string) => String.fromCharCode(parseInt(byte, 16)));
+    if (decodificado === texto) break;
+    texto = decodificado;
+  }
+  return chaves;
+}
+
+export function chavesDaHistoria(historia: string): Set<string> {
+  const chaves = new Set<string>();
+  type NoMarkdown = { url?: string; children?: NoMarkdown[] };
+  function visitar(no: NoMarkdown) {
+    if (typeof no.url === "string") {
+      for (const chave of chavesDaReferencia(no.url)) chaves.add(chave);
+    }
+    for (const filho of no.children ?? []) visitar(filho);
+  }
+  Markdown({ children: historia, remarkPlugins: [remarkGfm, () => visitar] });
+  return chaves;
+}
+
 /** Usa o mesmo parser da exibição, inclusive imagens por referência e links GFM. */
 export function fotosDaHistoria(historia: string): Set<string> {
   const fotos = new Set<string>();
