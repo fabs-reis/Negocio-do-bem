@@ -8,7 +8,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { caminhoSeguro, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { filtrarCausas } from "@/lib/causas";
-import { db } from "@/lib/db";
+import { db, type Prisma } from "@/lib/db";
 import { CATEGORIAS } from "@/lib/dominio";
 import {
   campoEmail,
@@ -219,8 +219,8 @@ async function exigirEditor(empresaId: string, voltarPara: string) {
 }
 
 /** Edições feitas pela moderação ficam marcadas na auditoria. */
-function auditarEdicao(usuarioId: string, empresa: { id: string; instagramUsername: string }, acao: string, pelaModeracao: boolean) {
-  return registrarAuditoria(db, {
+function auditarEdicao(tx: Prisma.TransactionClient, usuarioId: string, empresa: { id: string; instagramUsername: string }, acao: string, pelaModeracao: boolean) {
+  return registrarAuditoria(tx, {
     usuarioId,
     acao: pelaModeracao ? `${acao}_pela_moderacao` : acao,
     alvoTipo: "empresa",
@@ -250,15 +250,15 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
   const campos = comCidade(resultado.data);
   const causas = filtrarCausas(dados.getAll("causas").map(String));
 
-  await db.$transaction([
-    db.empresa.update({
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({
       where: { id: empresa.id },
       data: { ...campos, busca: textoDeBusca({ ...campos, instagramUsername: empresa.instagramUsername }) },
-    }),
-    db.empresaCausa.deleteMany({ where: { empresaId: empresa.id } }),
-    db.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) }),
-  ]);
-  await auditarEdicao(usuario.id, empresa, "empresa.editada", pelaModeracao);
+    });
+    await tx.empresaCausa.deleteMany({ where: { empresaId: empresa.id } });
+    await tx.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) });
+    await auditarEdicao(tx, usuario.id, empresa, "empresa.editada", pelaModeracao);
+  });
 
   redirect(`${voltarDe(dados, empresa)}?aviso=salvo`);
 }
@@ -266,12 +266,14 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
 export async function alternarVisibilidade(dados: FormData): Promise<void> {
   const { usuario, empresa } = await exigirDono(texto(dados, "empresaId"), "/painel");
   const oculta = dados.get("ocultar") === "sim";
-  await db.empresa.update({ where: { id: empresa.id }, data: { oculta } });
-  await registrarAuditoria(db, {
-    usuarioId: usuario.id,
-    acao: oculta ? "empresa.ocultada" : "empresa.reexibida",
-    alvoTipo: "empresa",
-    alvoId: empresa.id,
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({ where: { id: empresa.id }, data: { oculta } });
+    await registrarAuditoria(tx, {
+      usuarioId: usuario.id,
+      acao: oculta ? "empresa.ocultada" : "empresa.reexibida",
+      alvoTipo: "empresa",
+      alvoId: empresa.id,
+    });
   });
   redirect(`/painel/${empresa.instagramUsername}?aviso=${oculta ? "oculta" : "visivel"}`);
 }
@@ -289,18 +291,22 @@ export async function trocarFoto(_estado: EstadoFormulario, dados: FormData): Pr
     console.error("Falha ao guardar a foto do perfil", erro);
     return { erro: "Não conseguimos guardar a foto agora. Tente de novo em instantes." };
   }
-  await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl } });
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({ where: { id: empresa.id }, data: { fotoUrl } });
+    await auditarEdicao(tx, usuario.id, empresa, "empresa.foto_trocada", pelaModeracao);
+  });
   await apagarFoto(empresa.fotoUrl);
-  await auditarEdicao(usuario.id, empresa, "empresa.foto_trocada", pelaModeracao);
   redirect(`${voltarDe(dados, empresa)}?aviso=foto_salva`);
 }
 
 /** Tira a foto do perfil: o dono ou a moderação. */
 export async function removerFoto(dados: FormData): Promise<void> {
   const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
-  await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl: null } });
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({ where: { id: empresa.id }, data: { fotoUrl: null } });
+    await auditarEdicao(tx, usuario.id, empresa, "empresa.foto_removida", pelaModeracao);
+  });
   await apagarFoto(empresa.fotoUrl);
-  await auditarEdicao(usuario.id, empresa, "empresa.foto_removida", pelaModeracao);
   redirect(`${voltarDe(dados, empresa)}?aviso=foto_removida`);
 }
 

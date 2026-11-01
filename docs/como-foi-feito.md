@@ -624,7 +624,7 @@ Cada formulário chama uma função em `src/acoes/`, sempre na mesma ordem:
    Nunca confie em um botão escondido: a conferência é sempre no servidor.
 2. **Valida os dados com Zod.** Os campos reaproveitáveis (`campoSite`, `campoWhatsapp`, `campoEmail`) estão em `src/lib/formulario.ts`.
 3. **Faz a mudança no banco.** Use uma transação quando mais de uma tabela muda junto.
-4. **Registra na auditoria** se for uma decisão ou edição importante.
+4. **Registra na auditoria** se for uma decisão ou edição importante, dentro da mesma transação da alteração no banco. Use `registrarAuditoria(tx, ...)`, para uma falha no registro também desfazer a alteração.
 5. **Redireciona com um aviso:** `?aviso=codigo`, com o texto em `src/lib/avisos.ts`.
 
 Quando há erro de validação, a ação devolve um `EstadoFormulario` com os erros por campo e os valores enviados. Assim o formulário mostra o erro sem perder o que a pessoa digitou.
@@ -824,7 +824,7 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 ### Criar uma ação de moderação
 
 1. Crie a Server Action em `src/acoes/moderacao.ts`, começando por `exigirModerador()`.
-2. Registre na auditoria com `registrarAuditoria`, com uma ação no formato `alvo.verbo` (por exemplo, `empresa.despublicada`), e acrescente a descrição dela em `ACOES_AUDITORIA` (`src/lib/dominio.ts`).
+2. Registre na auditoria com `registrarAuditoria(tx, ...)`, dentro da mesma transação da decisão (nunca com `db`, para uma falha no registro também desfazer a decisão), com uma ação no formato `alvo.verbo` (por exemplo, `empresa.despublicada`), e acrescente a descrição dela em `ACOES_AUDITORIA` (`src/lib/dominio.ts`).
 3. Volte para a aba certa com um aviso: `redirect("/moderacao?aba=…&aviso=feito")`. Se o botão fica numa lista com busca, filtro ou página, mande a lista num campo `voltar` e redirecione com `destinoNaModeracao` e `comAviso`, como em `moderarEmpresa`.
 4. Atualize a [tabela da auditoria](regras-de-negocio.md#13-auditoria).
 
