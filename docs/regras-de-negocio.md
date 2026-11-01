@@ -634,7 +634,7 @@ Para todo o resto, a página responde 404. Quem pode ver encontra um aviso no to
 
 ### Buscadores e prévia do link
 
-Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/opengraph-image.tsx`, `src/app/empresas/[usuario]/opengraph-image.tsx` e `src/app/cidades/[cidade]/opengraph-image.tsx`.
+Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/opengraph-image.tsx`, `src/app/empresas/[usuario]/opengraph-image.tsx`, `src/app/cidades/[cidade]/opengraph-image.tsx` e `src/lib/previa-da-cidade.tsx`.
 
 - **Só perfis do diretório vão para os buscadores.** O sitemap lista os negócios aprovados e não ocultos, lido do banco a cada pedido: um negócio aprovado entra na hora, e um oculto sai na hora. Ele também lista as páginas de cidade, causa e tipo que têm negócios (ver [seção 11](#páginas-de-cidade-causa-e-tipo)).
 - **Título do perfil na busca:** "Nome — Categoria em Cidade, UF". Na categoria "Outros", só "Nome em Cidade, UF". A descrição é o resumo.
@@ -853,7 +853,10 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
   - **Só fotos que pedem apenas o crédito:** domínio público, CC0, CC BY e CC BY-SA. O `npm run cidades:fotos` e os testes recusam as outras.
   - **A foto não cria página:** uma cidade da lista sem negócios no diretório continua sem página. Quando entra o primeiro negócio, a página já aparece com a foto.
   - **Cidade fora da lista:** a página fica como era, sem foto.
-- **Prévia do link da cidade:** a foto, "Negócios do bem em Salvador, BA" e quantos negócios há no diretório. Sem foto, o mesmo texto no creme da marca.
+- **Prévia do link da cidade:** a foto com o logo e "Negócios do bem em Salvador, BA", num JPEG feito de antemão pelo `npm run cidades:fotos`.
+  - **Leve para o WhatsApp,** que não mostra prévia acima de 600 KB: cada uma fica entre 30 e 120 KB.
+  - **Sem o número de negócios,** porque a imagem pronta não acompanha o diretório. O número continua na descrição do link.
+  - **Cidade sem foto:** o mesmo texto no creme da marca, com quantos negócios há no diretório, gerado na hora.
 - **Foto para os buscadores:** a foto vai no sitemap e nos dados estruturados como imagem principal da página (`primaryImageOfPage`), com o autor e a licença, que o Google Imagens mostra.
 - **Cidade sem negócios no diretório** mostra "Não encontramos esta página", com `noindex`. Isso inclui cidades que só têm negócios pendentes, rejeitados ou ocultos. Endereço de causa ou tipo que não existe, e o `/tipos/outros`, também.
   - Como no perfil, o status HTTP é 200: o Next já mandou o começo da página quando descobre que ela não existe. Para os buscadores, o `noindex` basta.

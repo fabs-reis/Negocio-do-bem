@@ -58,6 +58,12 @@ describe("metadadosDaPagina", () => {
     const m = metadadosDaPagina({ titulo: "Salvador", descricao: "Negócios.", caminho: "/cidades/salvador-ba", imagemPropria: true });
     expect(m.openGraph).not.toHaveProperty("images");
   });
+
+  it("usa a prévia pronta em JPEG no lugar da imagem do arquivo", () => {
+    const previa = { url: "/fotos/cidades/salvador-ba-previa-0cf27790.jpg", alt: "Farol da Barra" };
+    const m = metadadosDaPagina({ titulo: "Salvador", descricao: "Negócios.", caminho: "/cidades/salvador-ba", imagemPropria: true, previa });
+    expect(m.openGraph?.images).toEqual([{ ...previa, width: 1200, height: 630, type: "image/jpeg" }]);
+  });
 });
 
 describe("jsonLdDoNegocio", () => {
