@@ -39,7 +39,7 @@ export type FotoDaCidade = {
 };
 
 export const PASTA_DAS_FOTOS = "/fotos/cidades";
-export const LARGURA_DA_FOTO = 1600;
+export const LARGURA_DA_FOTO = 1280;
 export const LARGURA_DA_FOTO_PEQUENA = 800;
 
 const FOTOS = dados as Record<string, FotoGravada>;

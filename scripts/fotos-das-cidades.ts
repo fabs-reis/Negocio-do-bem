@@ -1,6 +1,6 @@
 // Baixa do Wikimedia Commons as fotos das páginas de cidade listadas em
 // src/lib/fotos-das-cidades.json e grava em public/fotos/cidades, em dois tamanhos
-// (1600 e 800 px de largura). Também preenche no JSON o autor, a licença e o
+// (1280 e 800 px de largura). Também preenche no JSON o autor, a licença e o
 // tamanho de cada foto, lidos do Commons, que vão no crédito embaixo da foto.
 //
 // Para pôr ou trocar a foto de uma cidade, escreva no JSON só "cidade", "uf",

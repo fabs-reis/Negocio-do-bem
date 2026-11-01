@@ -464,7 +464,8 @@ A ideia era ter páginas de cidade para o Google, com uma foto de cartão-postal
 - **A prévia tinha sumido de quase todas as páginas.** O `openGraph` de uma página substitui o do layout inteiro, e a imagem do `opengraph-image.tsx` da raiz ia junto. Só a página inicial e o perfil, que têm o arquivo na própria pasta, mostravam imagem. Agora o `metadadosDaPagina` põe a imagem geral do site, e a página com o próprio arquivo passa `imagemPropria: true`, porque o Next só usa a imagem do arquivo quando o `openGraph` não traz nenhuma.
 - **Nada de página para cidade sem negócios.** Cem páginas vazias, feitas para pegar a busca de cada cidade, são o que o Google chama de *doorway pages*. Elas tendem a ficar fora do índice, e a avaliação de qualidade vale para o site inteiro. A lista das cidades mais populosas serviu para as fotos: quando entrar o primeiro negócio de uma delas, a página já nasce com foto.
 - **Fotos do Wikimedia Commons,** com o crédito na página. Quase toda cidade brasileira tem boas fotos lá, e o autor e a licença vêm junto no Commons, então o crédito sai sem trabalho manual. As fotos foram escolhidas uma a uma e aprovadas antes de entrar. Recusamos montagens, mapas, fotos com pessoas em destaque e licenças que pedem mais do que o crédito.
-- **Guardadas no site, não buscadas no Commons.** Ligar a foto direto ao Commons avisaria a Wikimedia a cada visita, como diz a regra de `ehFotoDoSite`. O `npm run cidades:fotos` baixa cada foto em 1600 e 800 px, e a página manda a pequena para o celular. O nome do arquivo leva um pedaço do hash do arquivo do Commons, então a foto pode ficar em cache por um ano (`public/_headers`) e uma troca de foto nunca mostra a antiga.
+- **102 das 114 cidades ficaram com foto.** As outras 12, como Diadema, Suzano, Araraquara e Lorena, não têm no Commons uma vista boa da cidade. A de Contagem ficou de fora porque a única foto boa vinha do perfil oficial de um político, que apareceria no crédito.
+- **Guardadas no site, não buscadas no Commons.** Ligar a foto direto ao Commons avisaria a Wikimedia a cada visita, como diz a regra de `ehFotoDoSite`. O `npm run cidades:fotos` baixa cada foto em 1280 e 800 px, e a página manda a pequena para o celular. O nome do arquivo leva um pedaço do hash do arquivo do Commons, então a foto pode ficar em cache por um ano (`public/_headers`) e uma troca de foto nunca mostra a antiga.
 - **A prévia da cidade lê a foto pelo binding `ASSETS`.** No Worker, os arquivos de `public/` não estão no disco. Ela usa a foto de 800 px, que basta para a prévia e pesa menos para o gerador.
 
 ---
@@ -773,7 +774,7 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 
 ### Pôr ou trocar a foto de uma cidade
 
-1. Ache a foto no [Wikimedia Commons](https://commons.wikimedia.org): horizontal, com pelo menos 1600 px de largura, sem pessoa em destaque e com licença de domínio público, CC0, CC BY ou CC BY-SA.
+1. Ache a foto no [Wikimedia Commons](https://commons.wikimedia.org): horizontal, com pelo menos 1280 px de largura, sem pessoa em destaque e com licença de domínio público, CC0, CC BY ou CC BY-SA.
 2. Em `src/lib/fotos-das-cidades.json`, escreva ou mude a entrada da cidade, pelo endereço da página dela: `"salvador-ba": { "cidade": "Salvador", "uf": "BA", "arquivo": "File:Nome no Commons.jpg", "descricao": "O que a foto mostra" }`. A descrição vira o texto alternativo.
 3. Rode `npm run cidades:fotos`. Ele baixa a foto para `public/fotos/cidades`, preenche o autor, a licença e o tamanho, e apaga a foto antiga. Se algo estiver errado (nome fora do IBGE, licença recusada, foto vertical), ele avisa e não grava aquela cidade.
 4. Rode `npm test` e faça commit do JSON e das fotos.
