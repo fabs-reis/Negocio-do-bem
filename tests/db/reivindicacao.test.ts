@@ -441,11 +441,12 @@ describe("documento e moderação", () => {
       const segurador = new Client({ connectionString: URL_BANCO_TESTE });
       await segurador.connect();
       let resultados: PromiseSettledResult<void>[];
+      let aprovacoes: Promise<PromiseSettledResult<void>[]> | null = null;
       try {
         await segurador.query("BEGIN");
         await segurador.query(`SELECT id FROM "Empresa" WHERE id = $1 FOR UPDATE`, [empresa.id]);
 
-        const aprovacoes = Promise.allSettled([
+        aprovacoes = Promise.allSettled([
           aprovar({ reivindicacaoId: porDocumento.id, revisorId: moderadoras[0]!.id }),
           aprovar({ reivindicacaoId: porDm.id, revisorId: moderadoras[1]!.id }),
         ]);
@@ -466,8 +467,15 @@ describe("documento e moderação", () => {
         await segurador.query("COMMIT");
         resultados = await aprovacoes;
       } finally {
-        await segurador.query("ROLLBACK").catch(() => undefined);
-        await segurador.end();
+        // Se a espera do PostgreSQL atingir o limite, desbloqueia e drena todas as
+        // operações iniciadas antes do afterEach apagar os fixtures. Sem isso,
+        // transações ainda ativas podem bloquear a limpeza e mascarar a falha real.
+        try {
+          await segurador.query("ROLLBACK").catch(() => undefined);
+          await segurador.end();
+        } finally {
+          if (aprovacoes) await aprovacoes;
+        }
       }
 
       // O deadlock (40P01) chega do Prisma como P2034; o usuário veria um erro 500.
