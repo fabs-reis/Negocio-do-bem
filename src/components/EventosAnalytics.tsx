@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { abertoComoApp } from "@/lib/app";
 import { COOKIE_EVENTOS, enviarEvento, lerEventos } from "@/lib/medicao";
 
 // Os eventos do servidor chegam no cookie depois de um redirecionamento: uma página nova,
@@ -16,8 +17,8 @@ function lerCookie(nome: string): string | undefined {
 }
 
 /**
- * Manda ao Google Analytics os eventos que o servidor deixou no cookie (`medir`) e os
- * cliques em elementos com `data-medir`.
+ * Manda ao Google Analytics os eventos que o servidor deixou no cookie (`medir`), os
+ * cliques em elementos com `data-medir` e a abertura pelo app instalado (`app_aberto`).
  */
 export function EventosAnalytics() {
   useEffect(() => {
@@ -42,6 +43,18 @@ export function EventosAnalytics() {
     }
     document.addEventListener("click", aoClicar);
     return () => document.removeEventListener("click", aoClicar);
+  }, []);
+
+  useEffect(() => {
+    // O site aberto pelo ícone do app instalado. O layout não recarrega entre as páginas,
+    // então conta uma vez por abertura. Espera o script do Analytics carregar.
+    if (!abertoComoApp()) return;
+    const intervalo = setInterval(() => {
+      if (!window.gtag) return;
+      clearInterval(intervalo);
+      enviarEvento("app_aberto", {});
+    }, INTERVALO_MS);
+    return () => clearInterval(intervalo);
   }, []);
 
   return null;
