@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { BuscaDiretorio } from "@/components/BuscaDiretorio";
 import { Contador } from "@/components/Contador";
+import { FaixaEmbaixadores } from "@/components/FaixaEmbaixadores";
 import { IconeCategoria } from "@/components/IconeCategoria";
 import { JsonLd } from "@/components/JsonLd";
 import { listarCidades, resumoDoDiretorio } from "@/lib/consultas";
@@ -82,6 +83,10 @@ export default function Inicio() {
 
       <Suspense>
         <CidadesComMaisNegocios />
+      </Suspense>
+
+      <Suspense>
+        <FaixaEmbaixadores />
       </Suspense>
 
       <ComoFunciona />

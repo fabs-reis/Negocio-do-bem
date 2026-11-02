@@ -507,6 +507,16 @@ Desde a mudança para o Cloudflare, em 31/10, o site não carregava o Google Ana
 - **A variável era lida no build.** O `NEXT_PUBLIC_GA_ID` estava só na Vercel. O Next põe as variáveis `NEXT_PUBLIC_` no código durante o build, e a casca estática do layout também é gerada ali. No Cloudflare, ela precisa estar nas variáveis de build da produção (Workers Builds), e não nas de runtime do Worker.
 - **Os previews continuam sem Analytics.** As variáveis de build dos previews ficam em outra aba do painel, sem o ID.
 
+### 2 de novembro: embaixadores do bem ([#250](https://github.com/fabs-reis/Negocio-do-bem/issues/250))
+
+Influenciadores que levam o projeto para a cidade ou o estado deles ganharam uma faixa na página inicial, a página `/embaixadores` e um bloco na página da cidade. O visual foi combinado num canvas antes do código. As regras estão em [Embaixadores do bem](regras-de-negocio.md#19-embaixadores-do-bem).
+
+- **A faixa passa sozinha.** A primeira versão rolava para o lado com o dedo ou o mouse, mas a barra de rolagem escondia quem estava fora da tela. O loop tem o botão "Pausar" e para com o mouse e o foco do teclado, porque um conteúdo que se mexe por mais de 5 segundos precisa de um jeito de parar. Para quem pede menos movimento, fica parada.
+- **Os seguidores vêm do próprio site, e não da rotina de fotos do Mac.** A prévia do cadastro já consulta a API da Meta pelo Worker. Os seguidores vêm na mesma consulta, uma vez por dia, depois de uma visita à página inicial ou a `/embaixadores`. Assim o número não depende de um computador ligado, e o limite da Meta fica longe.
+- **Arredondado para baixo.** "48,2 mil" nunca é mais do que a pessoa tem.
+- **Os seguidores aparecem, mas não ordenam.** A ordem é a que a moderação escolhe, e o número é o do Instagram, não uma nota do site: o princípio de [sem ranking](#sem-ranking-e-sem-anúncio-pago) continua valendo para os negócios.
+- **Embaixador não é conta do site.** Só a moderação cadastra, e quem cobre o estado inteiro aparece em todas as cidades dele. Ligar o embaixador a uma conta, para mostrar quantos negócios ele indicou, ficou para depois.
+
 ---
 
 ## 4. Arquitetura
@@ -604,6 +614,7 @@ Decisões do esquema:
 - **As causas ficam no código** (`src/lib/causas.ts`), e o banco guarda só o slug. Criar uma causa é mudar uma linha, sem migração.
 - **Unicidade garantida pelo banco:**
   - um @ por negócio;
+  - um @ por embaixador;
   - uma conta do Google por conta do site (`googleId`);
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;

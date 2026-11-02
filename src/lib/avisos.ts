@@ -73,6 +73,18 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   feito: { tipo: "sucesso", texto: "Feito." },
   ja_processada: { tipo: "erro", texto: "Esta solicitação já tinha sido decidida por outra pessoa da moderação." },
   cancelada: { tipo: "info", texto: "Solicitação cancelada." },
+  embaixador_salvo: { tipo: "sucesso", texto: "Embaixador salvo." },
+  embaixador_salvo_sem_instagram: {
+    tipo: "info",
+    texto:
+      "Embaixador salvo, mas o Instagram não mostrou esta conta. Confira o @. Se a conta for pessoal ou privada, marque os seguidores à mão.",
+  },
+  embaixador_atualizado: { tipo: "sucesso", texto: "Seguidores atualizados pelo Instagram." },
+  embaixador_sem_instagram: {
+    tipo: "erro",
+    texto: "O Instagram não mostrou esta conta agora. Ela pode ser pessoal ou privada, ou o @ mudou.",
+  },
+  embaixador_excluido: { tipo: "info", texto: "Embaixador excluído." },
 };
 
 export function avisoDe(codigo: unknown) {

@@ -232,6 +232,40 @@ model Depoimento {
   @@index([denunciado])
 }
 
+// Embaixador do bem (#250): quem leva o projeto para uma cidade ou um estado inteiro.
+// Só a moderação cadastra. Aparece na página inicial, em /embaixadores e na página da cidade.
+model Embaixador {
+  id                String    @id @default(cuid())
+  // Nome que aparece no site.
+  nome              String
+  // @ atual do Instagram, minúsculo e sem "@".
+  instagramUsername String    @unique
+  // Como a página da cidade chama a pessoa: chave de TITULOS_EMBAIXADOR (src/lib/dominio.ts).
+  titulo            String    @default("embaixadora")
+  // Nome oficial do IBGE. Vazio quando a pessoa cobre o estado inteiro.
+  cidade            String?
+  uf                String
+  // Foto do perfil, enviada pela moderação ou vinda do Instagram (ver src/lib/embaixadores.ts).
+  fotoUrl           String?
+  seguidores        Int?
+  // O número foi digitado pela moderação (conta pessoal ou privada): a consulta ao Instagram não mexe nele.
+  seguidoresManual  Boolean   @default(false)
+  // Quando o número veio do Instagram pela última vez.
+  seguidoresEm      DateTime?
+  // A última consulta ao Instagram, com ou sem resposta: no máximo uma por dia.
+  consultadoEm      DateTime?
+  // Ordem na página inicial e em /embaixadores, do menor para o maior; empate vai pelo nome.
+  ordem             Int       @default(0)
+  // Entra na faixa da página inicial.
+  naInicial         Boolean   @default(true)
+  // Fora do ar, não aparece em lugar nenhum do site.
+  ativo             Boolean   @default(true)
+  criadoEm          DateTime  @default(now())
+  atualizadoEm      DateTime  @updatedAt
+
+  @@index([ativo, uf])
+}
+
 model RegistroAuditoria {
   id        String   @id @default(cuid())
   // null quando a ação foi automática (ex.: aprovação na hora pelos dados do negócio)
