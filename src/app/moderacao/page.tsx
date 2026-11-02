@@ -130,7 +130,7 @@ async function Reivindicacoes() {
                 </Link>
                 <p className="text-sm text-suave">
                   <LinkInstagram endereco={r.empresa.instagramUsername} />{" "}
-                  · {r.empresa.status === "verificada" ? "já verificado" : "sem dono"}
+                  · {r.empresa.status === "verificada" ? "perfil já assumido" : "sem dono"}
                 </p>
               </div>
               <div className="text-right text-sm">
