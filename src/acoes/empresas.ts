@@ -25,6 +25,7 @@ import { gravarFotoDaPrevia } from "@/lib/fotos-instagram";
 import { enderecoLivre, enderecoSemInstagram } from "@/lib/endereco";
 import { semContatosDeTerceiros } from "@/lib/indicacao";
 import { normalizarUsername } from "@/lib/instagram";
+import { medir } from "@/lib/medicao-servidor";
 import { textoDeBusca } from "@/lib/texto";
 
 const LIMITE_INDICACOES_POR_DIA = 10;
@@ -175,6 +176,16 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
     const empresaId = empresa.id;
     after(() => gravarFotoDaPrevia(empresaId, instagram));
   }
+  await medir({
+    nome: "negocio_cadastrado",
+    params: {
+      tipo: souDono ? "dono" : "indicacao",
+      categoria: campos.categoria,
+      uf: campos.uf,
+      cidade: campos.cidade,
+      com_instagram: instagram ? "sim" : "nao",
+    },
+  });
   redirect(souDono ? `/empresas/${endereco}/reivindicar` : `/empresas/${endereco}?aviso=indicada`);
 }
 
