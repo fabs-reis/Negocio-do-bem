@@ -398,6 +398,8 @@ O que deu errado e ficou de lição:
 - **O `node-postgres` não entende `sslrootcert=system`**, que vem na conexão do PlanetScale: ele tenta abrir um arquivo chamado `system`. Para o app e o build, use só `?sslmode=verify-full`. O `psql` e o Prisma Migrate aceitam as duas.
 - **Quem ainda tinha o DNS antigo em cache caiu no Vercel** por um tempo, inclusive o Chrome de quem fazia a troca. Lá, as fotos novas aparecem como iniciais e nada grava, porque o Neon está só para leitura. Para testar o Cloudflare sem depender do DNS, use o `workers.dev` ou `curl --resolve`.
 
+Em 1º de novembro, nenhuma das 913 páginas de negócio da produção tinha endereço do Blob, nem na foto do perfil nem na história. Então o Blob saiu do `ehFotoDoSite` e da CSP: o site só mostra fotos do R2 (ou da pasta local, no desenvolvimento). Um endereço do Blob que ainda estiver no banco não aparece mais, e o perfil mostra as iniciais no lugar da foto. O Blob continua na equipe da Vercel como reserva, e o `fotos:para-r2` ainda copia para o R2 uma foto que tenha ficado para trás.
+
 ### 31 de outubro: entrar com o Google ([#188](https://github.com/fabs-reis/Negocio-do-bem/issues/188))
 
 Com a confirmação de e-mail desligada ([#148](https://github.com/fabs-reis/Negocio-do-bem/issues/148)), qualquer endereço vira conta. O "Continuar com o Google" cria a conta com o e-mail já verificado pelo Google, sem mandar e-mail nenhum, e poupa a senha de quem não quer mais uma.
@@ -447,6 +449,57 @@ Quem esquecia a senha só voltava pelo "Entrar por link" e continuava sem senha,
 - **A conta sem senha cria a primeira pelo link.** A conta criada pelo Google não tem senha atual para digitar, e criar uma só com a sessão aberta daria a senha a quem roubou o cookie. O painel manda o mesmo link de "Esqueci minha senha" para o e-mail da conta, que serve também para quem esqueceu a senha atual.
 - **Um e-mail avisa de toda troca** (`avisarSenhaTrocada`), porque é o que permite notar uma invasão. Gasta a cota do Resend, mas trocas de senha são raras.
 
+### 31 de outubro: cadastros, indicações e contatos no Analytics ([#203](https://github.com/fabs-reis/Negocio-do-bem/issues/203))
+
+O Analytics contava visitas, mas não dizia quantas pessoas criavam conta, quantos negócios eram indicados nem de onde vinham as pessoas que faziam isso. A lista dos eventos está na [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas).
+
+- **O servidor decide, o navegador manda.** As ações terminam num `redirect`, e só o servidor sabe que salvaram. `medir` (`src/lib/medicao-servidor.ts`) deixa o evento no cookie `ndb_eventos`, e `EventosAnalytics` (no layout) o manda pelo `gtag` na página seguinte. O evento entra na mesma visita, com a origem dela. O Measurement Protocol, que manda direto do servidor, foi descartado: precisa de mais um segredo e, sem a sessão do navegador, o evento perde a origem da visita.
+- **O cookie é conferido a cada segundo,** e não a cada mudança de URL. O depoimento e o pedido por documento voltam para a mesma página, só com `?aviso=`, e seguir a URL pedia `usePathname` e `useSearchParams` num Suspense, que nunca se resolvia nas páginas com parâmetro dinâmico (o perfil do negócio): o componente nem montava ali. A conferência também espera o script do Analytics, que carrega depois da página, e apaga o cookie antes de mandar, para não repetir.
+- **Cliques medidos por atributo.** Os contatos do perfil levam `data-medir` (`medirContato`), e um único ouvinte de cliques no `EventosAnalytics` manda o evento. Assim o perfil continua um Server Component.
+- **Sem dado que identifique alguém.** Os eventos levam o método, o tipo, a categoria e o lugar do negócio, nunca nome, e-mail, telefone, @ ou `user_id`. A adequação do Analytics à LGPD continua em aberto na [#109](https://github.com/fabs-reis/Negocio-do-bem/issues/109).
+- **O GA4 foi configurado junto.** A retenção dos eventos passou de 2 para 14 meses, o máximo da versão gratuita, para as explorações compararem o ano inteiro. `sign_up`, `negocio_cadastrado`, `contato_negocio`, `perfil_reivindicado` e `depoimento_publicado` são eventos principais, sem valor em dinheiro. Como ainda não tinham chegado, foram criados em Administrador > Eventos > Criar evento > "Criar com código". Cada parâmetro virou uma dimensão personalizada de evento, e a "Cidade do negócio" (`cidade`) não se confunde com a cidade de quem visita, que o GA4 já mede.
+
+### 31 de outubro: foto das cidades e prévia em todas as páginas ([#220](https://github.com/fabs-reis/Negocio-do-bem/issues/220))
+
+A ideia era ter páginas de cidade para o Google, com uma foto de cartão-postal de cada uma. As 243 cidades com negócios já tinham página desde a [#71](https://github.com/fabs-reis/Negocio-do-bem/issues/71), mas sem foto e sem prévia do link: no WhatsApp, a página de Salvador aparecia só com o texto.
+
+- **A prévia tinha sumido de quase todas as páginas.** O `openGraph` de uma página substitui o do layout inteiro, e a imagem do `opengraph-image.tsx` da raiz ia junto. Só a página inicial e o perfil, que têm o arquivo na própria pasta, mostravam imagem. Agora o `metadadosDaPagina` põe a imagem geral do site, e a página com o próprio arquivo passa `imagemPropria: true`, porque o Next só usa a imagem do arquivo quando o `openGraph` não traz nenhuma.
+- **Nada de página para cidade sem negócios.** Cem páginas vazias, feitas para pegar a busca de cada cidade, são o que o Google chama de *doorway pages*. Elas tendem a ficar fora do índice, e a avaliação de qualidade vale para o site inteiro. A lista das cidades mais populosas serviu para as fotos: quando entrar o primeiro negócio de uma delas, a página já nasce com foto.
+- **Fotos do Wikimedia Commons,** com o crédito na página. Quase toda cidade brasileira tem boas fotos lá, e o autor e a licença vêm junto no Commons, então o crédito sai sem trabalho manual. As fotos foram escolhidas uma a uma e aprovadas antes de entrar. Recusamos montagens, mapas, fotos com pessoas em destaque e licenças que pedem mais do que o crédito.
+- **102 das 114 cidades ficaram com foto.** As outras 12, como Diadema, Suzano, Araraquara e Lorena, não têm no Commons uma vista boa da cidade. A de Contagem ficou de fora porque a única foto boa vinha do perfil oficial de um político, que apareceria no crédito.
+- **Guardadas no site, não buscadas no Commons.** Ligar a foto direto ao Commons avisaria a Wikimedia a cada visita, como diz a regra de `ehFotoDoSite`. O `npm run cidades:fotos` baixa cada foto em 1280 e 800 px, e a página manda a pequena para o celular. O nome do arquivo leva um pedaço do hash do arquivo do Commons, então a foto pode ficar em cache por um ano (`public/_headers`) e uma troca de foto nunca mostra a antiga.
+- **A prévia da cidade lia a foto pelo binding `ASSETS`,** porque no Worker os arquivos de `public/` não estão no disco. A prévia passou de 1 MB e foi trocada por um JPEG pronto na [#224](https://github.com/fabs-reis/Negocio-do-bem/issues/224).
+
+### 1º de novembro: prévia leve das cidades com foto ([#224](https://github.com/fabs-reis/Negocio-do-bem/issues/224))
+
+No ar, a prévia de Salvador tinha 958 KB e a de São Paulo, 1 MB. O `ImageResponse` só gera PNG, e um PNG com foto pesa muito. O WhatsApp não mostra imagem de prévia acima de 600 KB.
+
+- **Prévia pronta de antemão, em JPEG.** O `npm run cidades:fotos` põe o desenho de `src/lib/previa-da-cidade.tsx` por cima da foto de 1280 px, cortada em 1200×630, e grava em qualidade 65. As 102 prévias ficaram entre 30 e 119 KB, 71 KB em média, 7 MB ao todo. A página passa a prévia ao `metadadosDaPagina` (`previa`), e o Next deixa de lado o `opengraph-image.tsx` da pasta.
+- **Sem o número de negócios.** A imagem pronta não acompanha o diretório, e o número continua na descrição do link. A cidade sem foto segue com a prévia gerada na hora, com o número.
+- **Refeita a cada execução do script.** Ela leva uns 20 ms por cidade, e o nome do arquivo leva o hash da imagem: uma mudança no desenho gera arquivos novos, e o cache de um ano nunca mostra a prévia antiga.
+- **O Worker deixou de ler a foto** pelo binding `ASSETS` e de montar um PNG de 1 MB a cada prévia de cidade.
+
+### 1º de novembro: o site vira app ([#230](https://github.com/fabs-reis/Negocio-do-bem/issues/230))
+
+O manifest e os ícones vinham da nova identidade visual, e o Chrome do Android já deixava instalar. Faltava o que faz o site funcionar como app: não cair na tela de erro do navegador sem internet, convidar para instalar e saber quantas pessoas instalaram. As regras estão em [O site como app](regras-de-negocio.md#17-o-site-como-app).
+
+- **Service worker escrito à mão, sem Serwist.** O guia de PWA do Next sugere o Serwist para funcionar offline, mas ele guarda as páginas de antemão. Com o Cache Components e o `partialPrefetching`, isso arriscava mostrar dados velhos, e seria mais uma peça no build Turbopack + OpenNext. Um diretório vale pelos dados atuais, então o `public/sw.js` (menos de 90 linhas) guarda só os arquivos com hash de `/_next/static` e a página "Sem conexão".
+- **A página "Sem conexão" é um HTML solto** (`public/offline.html`), com estilos e script dentro. Uma página do Next guardada levaria o menu da conta de quem estava logado na hora e dependeria de CSS e JS do build que podiam não estar no cache.
+- **Sem `navigationPreload`.** Ele adianta a página enquanto o service worker acorda, mas as navegações que o service worker deixa passar (`/api`) iriam duas vezes ao servidor, e o login do Google começaria duas vezes.
+- **`experimental.useOffline` do Next 16.** O projeto já usava `cacheComponents` e `partialPrefetching`, o cenário do guia "Offline support" (`node_modules/next/dist/docs/01-app/02-guides/offline-support.md`). Com ele, a queda de conexão no meio de uma navegação ou de um envio vira espera, e não erro, e o `AvisoSemConexao` avisa no pé da tela. Um formulário que chegou ao servidor sem a resposta voltar é mandado de novo, como se a pessoa tivesse clicado de novo depois do erro.
+- **O convite não insiste.** O guia do Next desaconselha um botão próprio de instalação, porque o `beforeinstallprompt` só existe no Chrome e no Edge. Por isso o convite fica no rodapé e num cartão do painel que some com "Agora não", e só aparece quando o navegador oferece a instalação ou no iPhone, com o caminho pelo Compartilhar. O evento é ouvido fora do componente, porque o Chrome pode mandá-lo antes de a página hidratar.
+- **O login por link no iPhone.** O app instalado no iPhone guarda cookies separados do Safari, e o link do e-mail sempre abre no Safari. Um código digitado no próprio app resolveria, mas mexe no login inteiro; por ora, as telas de link avisam e sugerem o Google ou a senha.
+- **Notificações push ficaram para depois.** Pedem uma tabela de inscrições, chaves VAPID nos secrets do Worker e um envio que rode no Worker. No iPhone, só chegam com o app instalado.
+
+### 1º de novembro: a página de instalação ([#236](https://github.com/fabs-reis/Negocio-do-bem/issues/236))
+
+O convite do rodapé só aparecia em alguns navegadores, e o manual em PDF não tinha um endereço para divulgar. `/instalacao` passou a ser a porta de entrada: pergunta qual é o celular e leva ao passo a passo de cada um. As regras estão em [O site como app](regras-de-negocio.md#17-o-site-como-app).
+
+- **A escolha vem primeiro.** Quem nunca instalou um app pelo navegador não sabe se o caminho é o do Chrome ou o do Safari. Os ícones da Apple e do Android resolvem isso de relance. A página sugere o aparelho ("Este celular"), mas não redireciona sozinha: quem divulga o link pelo computador também precisa ver as duas opções.
+- **Os ícones vêm do Simple Icons** (licença CC0), desenhados em `src/components/IconesDosAparelhos.tsx`. Apple e Android são marcas das suas empresas e aparecem só para indicar o aparelho.
+- **Sem prints das telas do sistema.** Os botões do Chrome e do Safari aparecem desenhados no meio do texto. Prints do iOS e do Android mudam a cada versão e envelheceriam a página.
+- **O rodapé leva sempre a `/instalacao`,** em qualquer navegador, e o link sai no HTML do servidor, para os buscadores acharem a página. Ele virou um botão laranja com ícone de download, logo abaixo da descrição do site: no celular, é a primeira coisa do rodapé. O botão que abre direto a janela do Chrome ficou no passo a passo do Android e no cartão do painel.
+
 ---
 
 ## 4. Arquitetura
@@ -481,7 +534,7 @@ O e-mail nunca dá permissão, nem depois de confirmado: as contas antigas não 
 
 Toda resposta leva cabeçalhos de segurança (`headers()` no `next.config.ts`):
 
-- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site, do Vercel Blob (`*.public.blob.vercel-storage.com`) e do Google Analytics. Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
+- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site e do Google Analytics. As imagens podem vir também do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`). Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
 - **Sem nonce:** a CSP aceita scripts inline (`'unsafe-inline'`), como o script do tema no `layout.tsx` e os do próprio Next. Uma CSP com nonce obriga toda página a ser renderizada a cada acesso e é incompatível com o Partial Prerendering, que o projeto usa com o Cache Components. Ficaríamos sem pré-render e sem cache na CDN.
 - **`Strict-Transport-Security`** (2 anos), **`X-Frame-Options: DENY`** (para navegadores antigos), **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: strict-origin-when-cross-origin`** (sites abertos a partir do perfil não recebem o endereço completo) e **`Permissions-Policy`** (sem câmera, microfone, localização, pagamento, USB nem `browsing-topics`).
 
@@ -516,6 +569,7 @@ As linhas tracejadas são serviços opcionais. O site funciona sem eles.
 | `src/acoes/` | Server Actions, uma por formulário ou botão. Conferem a permissão e validam os dados. |
 | `src/lib/` | Regras de negócio e utilitários, sem interface: `reivindicacao.ts`, `consultas.ts`, `instagram.ts`, `causas.ts`, `cnpj.ts`, `formulario.ts`, `armazenamento.ts`, `auth/`, `moderacao/` (filtros, indicadores e consultas do painel da moderação)… |
 | `src/components/` | Componentes de interface reutilizados entre páginas. |
+| `public/` | Arquivos servidos como estão: ícones, fotos e prévias das cidades, o service worker (`sw.js`), a página "Sem conexão" (`offline.html`) e os cabeçalhos de cache do Cloudflare (`_headers`). |
 | `tests/` | `unit/` (sem banco) e `db/` (com banco). |
 | `docs/` | Esta documentação e os prints do README. |
 | `assets/fontes/` | Fontes das imagens de compartilhamento, com a licença OFL de cada uma. |
@@ -643,7 +697,7 @@ npm run lint
 npm run typecheck
 ```
 
-- **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (inclusive quando elas vão para o Vercel Blob) e Instagram.
+- **`tests/unit/`:** funções sem banco. Cobrem CNPJ, senha, normalização de texto, causas, campos de formulário, tempo de leitura, fotos (de quais endereços o site aceita mostrar) e Instagram.
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
   - Entrar com Instagram;
@@ -658,6 +712,8 @@ npm run typecheck
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
 - **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
+  - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
+  - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
 
@@ -730,7 +786,8 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 1. Atualize `src/lib/marca.ts`: `ICONE` para o ícone, `TEXTO_DO_LOGO` para o texto e `CORES_DA_MARCA` para as cores. Se as cores mudarem, mude também as `--color-marca-*` de `globals.css`.
 2. Rode `npm run marca:icones`. Ele gera de novo o favicon, o ícone do iPhone e os ícones do manifest.
 3. Confira a imagem geral (`/opengraph-image`) e a de um perfil (`/empresas/<@>/opengraph-image`) com `next build && next start`. Em `next dev`, um erro na imagem só aparece no terminal.
-4. Faça commit dos arquivos gerados.
+4. Troque a `VERSAO` de `public/sw.js`, para a página "Sem conexão" guardar o ícone novo.
+5. Faça commit dos arquivos gerados.
 
 ### Cadastrar o site no Google e no Bing
 
@@ -764,6 +821,14 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 1. Rode `npm run cidades:corrigir`. Ele lista as cidades gravadas com outra grafia ("Sao Paulo" → São Paulo) e as que não estão na lista do IBGE, sem gravar nada.
 2. Confira a lista e rode de novo com `-- --aplicar` para gravar o nome oficial. Para a produção, passe a conexão do banco de produção na frente: `DATABASE_URL="postgresql://..." npm run cidades:corrigir -- --aplicar`.
 3. As cidades fora da lista do IBGE se corrigem uma a uma, editando o negócio pelo painel da moderação.
+
+### Pôr ou trocar a foto de uma cidade
+
+1. Ache a foto no [Wikimedia Commons](https://commons.wikimedia.org): horizontal, com pelo menos 1280 px de largura, sem pessoa em destaque e com licença de domínio público, CC0, CC BY ou CC BY-SA.
+2. Em `src/lib/fotos-das-cidades.json`, escreva ou mude a entrada da cidade, pelo endereço da página dela: `"salvador-ba": { "cidade": "Salvador", "uf": "BA", "arquivo": "File:Nome no Commons.jpg", "descricao": "O que a foto mostra" }`. A descrição vira o texto alternativo.
+3. Rode `npm run cidades:fotos`. Ele baixa a foto para `public/fotos/cidades`, preenche o autor, a licença e o tamanho, faz a prévia do link e apaga a foto e a prévia antigas. Se algo estiver errado (nome fora do IBGE, licença recusada, foto vertical), ele avisa e não grava aquela cidade.
+4. Abra a prévia nova (`public/fotos/cidades/<endereço>-previa-*.jpg`) e veja se o texto aparece bem em cima da foto.
+5. Rode `npm test` e faça commit do JSON, das fotos e da prévia.
 
 ### Mudar uma regra da reivindicação
 
@@ -811,11 +876,38 @@ Nunca crie uma regra que dê permissão pelo e-mail ou por outro dado que a pró
 
 Siga a seção "Ativando os avisos por e-mail" do [README](../README.md#ativando-os-avisos-por-e-mail-opcional). As regras estão na [seção 14 das regras de negócio](regras-de-negocio.md#14-avisos-por-e-mail).
 
+### Medir uma ação nova no Analytics
+
+1. Acrescente o evento ao tipo `Evento`, em `src/lib/medicao.ts`, só com parâmetros que não identifiquem ninguém.
+2. Na Server Action ou no Route Handler, chame `await medir({ nome, params })` depois de salvar e antes do `redirect`.
+3. Para um clique, use atributos `data-medir` e `data-<parametro>` no elemento, como `medirContato`.
+4. Acrescente o evento à tabela da [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas) e registre os parâmetros novos como dimensões personalizadas no GA4 (Administrador > Definições personalizadas). Se a ação for uma conversão, marque o evento como principal: pela estrela, em Administrador > Eventos, ou, antes de ele chegar, em Criar evento > "Criar com código".
+
 ### Mostrar uma mensagem depois de uma ação
 
 1. Acrescente um código e o texto em `AVISOS`, em `src/lib/avisos.ts`.
 2. Redirecione com `?aviso=<codigo>`.
 3. Confira se a página destino tem `<AvisoDaUrl codigo={aviso} />`.
+
+### Mudar ou desligar o service worker
+
+1. Edite `public/sw.js` e troque a `VERSAO`. O navegador confere o arquivo a cada abertura do site (`updateViaCache: "none"` e o `no-cache` de `public/_headers`), e a versão nova apaga os caches da antiga.
+2. Teste com `next build && next start`, porque em `next dev` o service worker não é registrado. No DevTools, em Application > Service workers, marque "Offline" e recarregue para ver a página "Sem conexão".
+3. Para desligar de vez, tire o `RegistrarServiceWorker` do layout e troque o `public/sw.js` por um que apaga os caches e se desregistra:
+
+   ```js
+   self.addEventListener("install", () => self.skipWaiting());
+   self.addEventListener("activate", (evento) => {
+     evento.waitUntil(
+       caches
+         .keys()
+         .then((nomes) => Promise.all(nomes.map((nome) => caches.delete(nome))))
+         .then(() => self.registration.unregister()),
+     );
+   });
+   ```
+
+   Deixe esse arquivo no ar por alguns meses: quem já instalou só se livra do service worker antigo quando o navegador baixa este.
 
 ### Ligar o login com o Google
 
@@ -858,12 +950,17 @@ O PR só conflita se a `main` recebeu algo que não passou pela `stage`. Nesse c
   - Quando uma Server Action devolve erro de validação, o modo de desenvolvimento às vezes mostra esse erro interno do Next.
   - Ele não acontece no build de produção (`next build && next start`).
 - **CSS desatualizado em `next dev`.** Se uma mudança de estilo não aparece, pare o servidor, apague `.next/dev` e rode de novo.
+- **Service worker esquecido no `localhost`.** Depois de testar com `next start`, o service worker continua registrado naquela porta. Com o servidor parado, ele mostra "Sem conexão", e um `next dev` na mesma porta recebe os arquivos que ele guardou. Em DevTools > Application > Service workers, use "Unregister".
+- **O Cloudflare tira o `.html` do endereço.** `/offline.html` responde 307 para `/offline`, o que o `next start` não faz. Uma resposta redirecionada guardada pelo service worker não serve no lugar de uma página: o navegador mostra erro de rede. Por isso o `public/sw.js` guarda uma cópia sem o redirecionamento ([#233](https://github.com/fabs-reis/Negocio-do-bem/issues/233)). Para ver os arquivos de `public/` como o Cloudflare serve, rode `npx wrangler dev` com um `wrangler.jsonc` que só tenha `name`, `compatibility_date` e `assets.directory` apontando para `public/`.
+- **No `localhost`, o aviso "Sem conexão" não sai quando a conexão volta.** A checagem do `useOffline` recebe um 307 para `/?_rsc`, e o `upgrade-insecure-requests` da CSP manda esse redirecionamento para `https://localhost`, que falha. Em HTTPS, nos previews e em produção, funciona. Para testar no seu computador, tire o `upgrade-insecure-requests` de `.next/routes-manifest.json` depois do `next build`.
 - **"User was denied access on the database"** quase sempre é o `DATABASE_URL` apontando para outro Postgres na porta 5432. O do Docker usa a **5433**. Veja os [problemas comuns do README](../README.md#problemas-comuns).
 - **O `next dev` reescreve o começo do `AGENTS.md`.** Escreva as regras do projeto **depois** do bloco que ele gerencia.
 - **Fotos no computador de quem desenvolve** ficam em `public/enviados/`, que está fora do Git. Os links delas não funcionam em outro computador.
 - **Imagens de compartilhamento (`ImageResponse`):**
   - toda `div` com mais de um filho precisa de `display: "flex"`. Texto com variáveis como `{a} · {b}` vira vários filhos: use uma template string;
-  - o gerador não lê WebP, woff2 nem fonte variável. Por isso as fotos em WebP viram monograma na prévia, e as fontes ficam em TTF em `assets/fontes`.
+  - o gerador não lê WebP, woff2 nem fonte variável. Por isso as fotos em WebP viram monograma na prévia, e as fontes ficam em TTF em `assets/fontes`;
+  - uma página que define o `openGraph` apaga a imagem herdada do layout. Use o `metadadosDaPagina`, que põe a imagem geral do site, e passe `imagemPropria: true` só quando a pasta da página tem o seu `opengraph-image.tsx` ([#220](https://github.com/fabs-reis/Negocio-do-bem/issues/220));
+  - o gerador só faz PNG, e um PNG com foto de fundo passa de 1 MB, acima do limite de 600 KB do WhatsApp. Imagem com foto se faz de antemão, em JPEG, como a prévia das cidades ([#224](https://github.com/fabs-reis/Negocio-do-bem/issues/224)).
 - **O Worker não lê arquivos do projeto.** Um `readFile` de algo fora de `public/` funciona no `npm run dev` e falha no Cloudflare com ENOENT. Se o arquivo é lido ao carregar o módulo, como as fontes eram, todas as páginas que importam o módulo respondem 500. Embuta o arquivo num módulo, como em `npm run marca:fontes`.
 - **Conexão com o banco no Worker.** Uma conexão aberta numa requisição não pode ser usada em outra. Por isso, o `db` (`src/lib/db.ts`) cria um cliente por requisição no Worker, e um só no Node.
 - **Senha (scrypt) no Worker.** Cada cálculo usa ~32 MB e ~100 ms de CPU. No Worker, o `scrypt` roda um de cada vez no isolate, mesmo com vários logins ao mesmo tempo, então a memória não soma: os logins esperam na fila. Medido no workerd local: 8 logins simultâneos terminam em ~0,8 s.

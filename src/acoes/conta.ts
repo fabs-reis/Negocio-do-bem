@@ -28,6 +28,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { AVISOS } from "@/lib/avisos";
 import { db } from "@/lib/db";
 import { campoTelefone, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
+import { medir } from "@/lib/medicao-servidor";
 import { avisarSenhaTrocada } from "@/lib/notificacoes";
 
 const campoEmail = z.email("Digite um e-mail válido.").max(200, "E-mail muito longo.");
@@ -82,6 +83,7 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
 
   const usuario = await db.usuario.create({ data: { nome, email, telefone, senhaHash: await gerarHashSenha(senha) } });
   await criarSessao(usuario.id);
+  await medir({ nome: "sign_up", params: { method: "senha" } });
   const voltar = caminhoSeguro(texto(dados, "voltar"));
   if (CONFIRMACAO_DE_EMAIL_LIGADA) {
     after(async () => {
@@ -111,6 +113,7 @@ export async function concluirCadastroGoogle(_estado: EstadoFormulario, dados: F
   await apagarCadastroGoogle(token);
   loja.delete({ name: COOKIE_CADASTRO_GOOGLE, path: "/cadastrar/google" });
   await criarSessao(resultado.usuarioId);
+  await medir({ nome: "sign_up", params: { method: "google" } });
   redirect(caminhoSeguro(cadastro.destino));
 }
 
@@ -134,6 +137,7 @@ export async function entrar(_estado: EstadoFormulario, dados: FormData): Promis
   if (!usuario || !senhaConfere) return recusado;
   await zerarTentativasDoEmail(email, ip);
   await criarSessao(usuario.id);
+  await medir({ nome: "login", params: { method: "senha" } });
   redirect(caminhoSeguro(texto(dados, "voltar")));
 }
 
@@ -185,6 +189,7 @@ export async function usarLinkDoEmail(): Promise<void> {
   const destino = caminhoSeguro(link.destino);
   if (link.finalidade === "entrar") {
     await criarSessao(link.usuario.id);
+    await medir({ nome: "login", params: { method: "link" } });
     redirect(destino);
   }
   redirect(`/link?confirmado=1&voltar=${encodeURIComponent(destino)}`);

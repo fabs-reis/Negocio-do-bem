@@ -20,6 +20,7 @@ import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { linkPerfil, normalizarEndereco } from "@/lib/instagram";
+import { medirContato, type CanalDeContato } from "@/lib/medicao";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
@@ -35,6 +36,7 @@ export async function generateMetadata(props: PageProps<"/empresas/[usuario]">):
     titulo: empresa.categoria === "Outros" ? `${empresa.nome} em ${onde}` : `${empresa.nome} — ${empresa.categoria} em ${onde}`,
     descricao: empresa.resumo,
     caminho: `/empresas/${empresa.instagramUsername}`,
+    imagemPropria: true,
   });
 }
 
@@ -62,6 +64,8 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
     "--tinta-negocio": `var(--color-${tinta})`,
     "--texto-negocio": `var(--color-${tinta}-texto)`,
   } as CSSProperties;
+  // Os cliques nos contatos contam no Analytics só quando vêm do público, não do dono.
+  const contato = publico && !dono ? empresa : undefined;
 
   return (
     <article className={"cortejo-perfil"} style={cores}>
@@ -89,7 +93,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
               <SeloStatus status={empresa.status} />
               <h1>{empresa.nome}</h1>
               <div className={"cortejo-perfil-metadados"}>
-                <LinkInstagram endereco={empresa.instagramUsername} icone />
+                <LinkInstagram endereco={empresa.instagramUsername} icone contato={contato} />
                 {publico && temPaginaDeTipo(empresa.categoria) ? <Link href={hrefTipo(empresa.categoria)}>{empresa.categoria}</Link> : <span>{empresa.categoria}</span>}
                 {publico ? (
                   <Link href={paginaDaCidade(empresa.cidade, empresa.uf).caminho}>{empresa.cidade}, {empresa.uf}</Link>
@@ -98,7 +102,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
             </div>
           </div>
           <p className={"cortejo-perfil-resumo"}>{empresa.resumo}</p>
-          <Contatos empresa={empresa} />
+          <Contatos empresa={empresa} medir={!!contato} />
 
           {causas.length > 0 && (
             <section className={"cortejo-perfil-causas"} aria-label="Causas do negócio">
@@ -144,31 +148,56 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   );
 }
 
-/** Os botões de contato. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site. */
-function Contatos({ empresa }: { empresa: Perfil }) {
+/**
+ * Os botões de contato. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site.
+ * Com `medir`, cada clique vira o evento `contato_negocio` no Analytics.
+ */
+function Contatos({ empresa, medir }: { empresa: Perfil; medir: boolean }) {
   const instagram = temInstagram(empresa.instagramUsername);
   if (!empresa.telefoneComercial && !empresa.whatsapp && !instagram && !empresa.site && !empresa.emailContato) return null;
+  const medida = (canal: CanalDeContato) => (medir ? medirContato(canal, empresa) : {});
   return (
     <div className={"cortejo-perfil-contatos"}>
       {empresa.telefoneComercial && (
-        <a href={`tel:+${empresa.telefoneComercial}`} className="botao botao-pequeno">
+        <a href={`tel:+${empresa.telefoneComercial}`} className="botao botao-pequeno" {...medida("telefone")}>
           Ligar {formatarTelefone(empresa.telefoneComercial)}
         </a>
       )}
       {empresa.whatsapp && (
-        <a href={`https://wa.me/${empresa.whatsapp}`} target="_blank" rel="noopener noreferrer" className="botao botao-pequeno">
+        <a
+          href={`https://wa.me/${empresa.whatsapp}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="botao botao-pequeno"
+          {...medida("whatsapp")}
+        >
           <WhatsAppIcone />
           WhatsApp {formatarTelefone(empresa.whatsapp)}
         </a>
       )}
       {instagram && (
-        <a href={linkPerfil(empresa.instagramUsername)} target="_blank" rel="noopener noreferrer" className="botao-claro botao-pequeno">
+        <a
+          href={linkPerfil(empresa.instagramUsername)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="botao-claro botao-pequeno"
+          {...medida("instagram")}
+        >
           <InstagramIcone />
           Instagram
         </a>
       )}
-      {empresa.site && <a href={empresa.site} target="_blank" rel="noopener noreferrer nofollow" className="botao-claro botao-pequeno">{new URL(empresa.site).hostname.replace(/^www\./, "")} ↗</a>}
-      {empresa.emailContato && <a href={`mailto:${empresa.emailContato}`} className="botao-claro botao-pequeno max-w-full break-all">{empresa.emailContato}</a>}
+      {empresa.site && (
+        <a href={empresa.site} target="_blank" rel="noopener noreferrer nofollow" className="botao-claro botao-pequeno" {...medida("site")}>
+          {new URL(empresa.site).hostname.replace(/^www\./, "")} ↗
+        </a>
+      )}
+      {empresa.emailContato && (
+        // break-all: um e-mail comprido quebra em vez de passar da largura do celular.
+        <a href={`mailto:${empresa.emailContato}`} className="botao-claro botao-pequeno max-w-full break-all" {...medida("email")}>
+          {empresa.emailContato}
+        </a>
+      )}
     </div>
   );
 }

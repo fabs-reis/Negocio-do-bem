@@ -48,6 +48,22 @@ describe("metadadosDaPagina", () => {
     expect(m.alternates).toEqual({ canonical: "/explorar" });
     expect(m.openGraph).toMatchObject({ siteName: "Negócio do Bem", locale: "pt_BR", title: "Explorar negócios", url: "/explorar" });
   });
+
+  it("leva a imagem geral do site, que se perderia junto com o openGraph do layout", () => {
+    const m = metadadosDaPagina({ titulo: "Sobre", descricao: "Como funciona.", caminho: "/sobre" });
+    expect(m.openGraph?.images).toEqual([expect.objectContaining({ url: "/opengraph-image", width: 1200, height: 630 })]);
+  });
+
+  it("deixa a imagem para o opengraph-image.tsx da página que tem o seu", () => {
+    const m = metadadosDaPagina({ titulo: "Salvador", descricao: "Negócios.", caminho: "/cidades/salvador-ba", imagemPropria: true });
+    expect(m.openGraph).not.toHaveProperty("images");
+  });
+
+  it("usa a prévia pronta em JPEG no lugar da imagem do arquivo", () => {
+    const previa = { url: "/fotos/cidades/salvador-ba-previa-0cf27790.jpg", alt: "Farol da Barra" };
+    const m = metadadosDaPagina({ titulo: "Salvador", descricao: "Negócios.", caminho: "/cidades/salvador-ba", imagemPropria: true, previa });
+    expect(m.openGraph?.images).toEqual([{ ...previa, width: 1200, height: 630, type: "image/jpeg" }]);
+  });
 });
 
 describe("jsonLdDoNegocio", () => {
@@ -78,9 +94,8 @@ describe("jsonLdDoNegocio", () => {
   });
 
   it("só usa fotos guardadas pelo site", () => {
-    expect(ficha({ fotoUrl: "https://abc.public.blob.vercel-storage.com/perfis/x.jpg" }).image).toBe(
-      "https://abc.public.blob.vercel-storage.com/perfis/x.jpg",
-    );
+    vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://fotos.exemplo.com");
+    expect(ficha({ fotoUrl: "https://fotos.exemplo.com/perfis/x.jpg" }).image).toBe("https://fotos.exemplo.com/perfis/x.jpg");
     expect(ficha({ fotoUrl: "https://outro-site.exemplo/foto.jpg" })).not.toHaveProperty("image");
   });
 

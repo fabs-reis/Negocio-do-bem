@@ -12,7 +12,7 @@ import { CortejoInicial } from "./inicio/CortejoInicial";
 import { EntradaAnimada, Laco, SeloDoConvite } from "./inicio/MovimentoInicio";
 import "./inicio/inicio.css";
 
-export const metadata: Metadata = metadadosDaPagina({ descricao: DESCRICAO_DO_SITE, caminho: "/" });
+export const metadata: Metadata = metadadosDaPagina({ descricao: DESCRICAO_DO_SITE, caminho: "/", imagemPropria: true });
 
 const TECNICAS = ["pintura", "xilogravura", "barro", "azulejo"];
 
