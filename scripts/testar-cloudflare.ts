@@ -74,6 +74,7 @@ async function executar() {
     CLOUDFLARE_DEPLOY: "1",
     NEXT_TELEMETRY_DISABLED: "1",
     WRANGLER_SEND_METRICS: "false",
+    CLOUDFLARE_CF_FETCH_ENABLED: "false",
     WRANGLER_LOG_PATH: join(pasta, "wrangler.log"),
     DOTENV_CONFIG_PATH: join(pasta, "empty.env"),
     CI: "1",
