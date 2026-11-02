@@ -37,14 +37,36 @@ describe("rótulos de perfil assumido", () => {
     expect(selo).not.toContain("Perfil assumido");
   });
 
-  it("usa a mesma descrição verdadeira no card e no ícone da lista", () => {
+  it("usa um marcador neutro no selo do perfil assumido e no card", () => {
+    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "verificada" }));
     const card = renderToStaticMarkup(createElement(EmpresaCard, { empresa }));
-    const linha = renderToStaticMarkup(createElement(EmpresaLinha, { empresa }));
 
-    expect(card).toContain("Perfil assumido");
-    expect(linha).toContain('aria-label="Perfil assumido"');
-    expect(linha).toContain("<title>Perfil assumido</title>");
+    expect(selo).toMatch(/<span\b[^>]*aria-hidden="true"[^>]*>•<\/span>/);
+    expect(selo).toContain("border-linha");
+    expect(selo).toContain("O selo não certifica a identidade nem as causas do negócio.");
+    expect(card).toContain(selo);
+  });
+
+  it("descreve o marcador neutro da lista sem afirmar certificação", () => {
+    const linha = renderToStaticMarkup(createElement(EmpresaLinha, { empresa }));
+    const indicador = linha.match(/<[^>]*aria-label="Perfil assumido"[^>]*>[\s\S]*?<\/(?:span|svg)>/)?.[0];
+
+    expect(indicador).toBeDefined();
+    expect(indicador).toContain('title="Uma conta assumiu o perfil. Identidade e causas não certificadas."');
+    expect(indicador).toMatch(/>\s*•\s*<\/span>$/);
+    expect(linha).toContain('href="/empresas/cafe_exemplo"');
     expect(linha).not.toContain("Verificado pelo dono");
+  });
+
+  it("não mostra um perfil indicado como assumido no card ou na lista", () => {
+    const indicada = { ...empresa, status: "indicada" };
+    const card = renderToStaticMarkup(createElement(EmpresaCard, { empresa: indicada }));
+    const linha = renderToStaticMarkup(createElement(EmpresaLinha, { empresa: indicada }));
+
+    expect(card).toContain("Indicado pela comunidade");
+    expect(card).not.toContain("Perfil assumido");
+    expect(linha).not.toContain('aria-label="Perfil assumido"');
+    expect(linha).toContain('href="/empresas/cafe_exemplo"');
   });
 
   it("preserva o cadastro por etapas no painel sem prometer verificação", () => {

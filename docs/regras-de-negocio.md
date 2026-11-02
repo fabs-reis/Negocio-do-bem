@@ -594,7 +594,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
 
 - **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @.
 - **Selo:**
-  - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação.
+  - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
 - **Botões de contato** (só os preenchidos). WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
