@@ -1,13 +1,12 @@
 import "@fontsource-variable/inter";
 import "@fontsource-variable/newsreader";
 import "./globals.css";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AlternarTema } from "@/components/AlternarTema";
 import { AvisoSemConexao } from "@/components/AvisoSemConexao";
-import { EventosAnalytics } from "@/components/EventosAnalytics";
+import { PreferenciasAnalytics } from "@/components/PreferenciasAnalytics";
 import { InstalarApp } from "@/components/InstalarApp";
 import { Logo } from "@/components/Logo";
 import { MenuUsuario } from "@/components/MenuUsuario";
@@ -117,14 +116,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <p className="font-semibold text-tinta">Para negócios</p>
               <Link href="/sobre#dono" className="block hover:text-tinta">Reivindicar meu perfil</Link>
               <Link href="/sobre#privacidade" className="block hover:text-tinta">Privacidade e remoção</Link>
+              {ID_ANALYTICS && <PreferenciasAnalytics />}
             </div>
           </div>
         </footer>
         <AvisoSemConexao />
         <RegistrarServiceWorker />
-        {ID_ANALYTICS && <EventosAnalytics />}
       </body>
-      {ID_ANALYTICS && <GoogleAnalytics gaId={ID_ANALYTICS} />}
     </html>
   );
 }

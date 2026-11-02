@@ -9,11 +9,11 @@ const dominioFotos = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ? ` ${new URL(process
 
 const politicaDeConteudo = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://*.googletagmanager.com${desenvolvimento ? " 'unsafe-eval'" : ""}${preview ? ` ${VERCEL_LIVE}` : ""}`,
+  `script-src 'self' 'unsafe-inline'${desenvolvimento ? " 'unsafe-eval'" : ""}${preview ? ` ${VERCEL_LIVE}` : ""}`,
   `style-src 'self' 'unsafe-inline'${preview ? ` ${VERCEL_LIVE}` : ""}`,
-  `img-src 'self' data: blob:${dominioFotos} ${ANALYTICS}${preview ? ` ${VERCEL_LIVE} https://vercel.com` : ""}`,
+  `img-src 'self' data: blob:${dominioFotos}${preview ? ` ${VERCEL_LIVE} https://vercel.com` : ""}`,
   `font-src 'self' data:${preview ? ` ${VERCEL_LIVE} https://assets.vercel.com` : ""}`,
-  `connect-src 'self' ${ANALYTICS}${desenvolvimento ? " ws:" : ""}${preview ? ` ${VERCEL_LIVE} wss://ws-us3.pusher.com` : ""}`,
+  `connect-src 'self'${desenvolvimento ? " ws:" : ""}${preview ? ` ${VERCEL_LIVE} wss://ws-us3.pusher.com` : ""}`,
   `frame-src 'self'${preview ? ` ${VERCEL_LIVE}` : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
@@ -38,7 +38,17 @@ const nextConfig: NextConfig = {
     "**/*": ["./node_modules/pg-cloudflare/dist/**", "./node_modules/pg-cloudflare/esm/**"],
   },
   async headers() {
-    return [{ source: "/:caminho*", headers: cabecalhosDeSeguranca }];
+    return [
+      { source: "/:caminho*", headers: cabecalhosDeSeguranca },
+      {
+        source: "/api/analytics",
+        headers: [
+          { key: "Content-Security-Policy", value: `default-src 'none'; script-src 'unsafe-inline' https://www.googletagmanager.com; connect-src ${ANALYTICS}; img-src ${ANALYTICS}; frame-ancestors 'self'; base-uri 'none'; form-action 'none'; sandbox allow-scripts` },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+    ];
   },
   async redirects() {
     // O cadastro tem uma entrada só (/participar). A busca vai junto: ?instagram=<@>&dono=sim.

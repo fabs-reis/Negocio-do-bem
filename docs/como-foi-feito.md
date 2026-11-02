@@ -507,6 +507,17 @@ Desde a mudança para o Cloudflare, em 31/10, o site não carregava o Google Ana
 - **A variável era lida no build.** O `NEXT_PUBLIC_GA_ID` estava só na Vercel. O Next põe as variáveis `NEXT_PUBLIC_` no código durante o build, e a casca estática do layout também é gerada ali. No Cloudflare, ela precisa estar nas variáveis de build da produção (Workers Builds), e não nas de runtime do Worker.
 - **Os previews continuam sem Analytics.** As variáveis de build dos previews ficam em outra aba do painel, sem o ID.
 
+### 2 de novembro: preferência e fronteira da medição ([#109](https://github.com/fabs-reis/Negocio-do-bem/issues/109))
+
+A restauração do Analytics no PR #246 continua sendo a direção do produto. A proposta anterior de remoção no PR #144 fica preservada no histórico, mas não substitui essa decisão posterior.
+
+- **A configuração não é consentimento.** O layout mostra controles iguais de aceitar e recusar. A escolha versionada fica no navegador. Sem escolha positiva ou sem armazenamento disponível, o carregador não existe.
+- **O sandbox precisa impedir acesso ao parent.** Um teste Chromium mostrou que `allow-scripts allow-same-origin` lia a página e os cookies funcionais sintéticos. A implementação usa apenas `allow-scripts`, também na CSP da resposta. A origem opaca bloqueia essas leituras. Isso impede cookies GA no frame. A recepção real dos eventos e a equivalência da contagem antiga não foram verificadas.
+- **Só dados permitidos cruzam a fronteira.** O parent confere consentimento e rota a cada envio. O documento recebe mensagens apenas do parent e valida os parâmetros de novo. O parent aceita a mensagem de pronto só do frame atual, com origem `null`. O destino `*` é necessário para esse frame opaco, não é uma transmissão a todas as janelas.
+- **As exclusões prevalecem sobre os eventos antigos.** Login, cadastro de conta e reivindicação não geram Analytics. Consultas livres, títulos reais, identificadores, categoria, cidade e causas ficam fora. As listas completas estão nas [regras de medição](regras-de-negocio.md#medição-de-visitas).
+- **A revogação descarta o documento e as filas opcionais.** Sessão, OAuth, tema e rascunhos ficam intactos. A preferência vale por até 180 dias e pode ser revista no rodapé.
+- **A prova não usa a propriedade real.** Os testes de navegador usam ID sintético e abortam requisições externas. Eles conferem o carregador, a `dataLayer`, a fronteira, a autenticação local e a limpeza. A #109 continua aberta para a verificação da conta Google e a aceitação jurídica.
+
 ---
 
 ## 4. Arquitetura
@@ -541,7 +552,7 @@ O e-mail nunca dá permissão, nem depois de confirmado: as contas antigas não 
 
 Toda resposta leva cabeçalhos de segurança (`headers()` no `next.config.ts`):
 
-- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site e do Google Analytics. As imagens podem vir também do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`). Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
+- **`Content-Security-Policy`:** as páginas principais não permitem scripts, imagens ou conexões Google. As imagens podem vir do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`). Nos previews, também há permissões para a barra do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas, e `form-action 'self'` impede formulários de enviar dados para fora. A exceção `/api/analytics` permite somente o carregador e os destinos de medição Google, usa `sandbox allow-scripts`, `frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN` e `Referrer-Policy: no-referrer`. Ela só entrega o carregador com escolha positiva válida.
 - **Sem nonce:** a CSP aceita scripts inline (`'unsafe-inline'`), como o script do tema no `layout.tsx` e os do próprio Next. Uma CSP com nonce obriga toda página a ser renderizada a cada acesso e é incompatível com o Partial Prerendering, que o projeto usa com o Cache Components. Ficaríamos sem pré-render e sem cache na CDN.
 - **`Strict-Transport-Security`** (2 anos), **`X-Frame-Options: DENY`** (para navegadores antigos), **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: strict-origin-when-cross-origin`** (sites abertos a partir do perfil não recebem o endereço completo) e **`Permissions-Policy`** (sem câmera, microfone, localização, pagamento, USB nem `browsing-topics`).
 
@@ -710,6 +721,7 @@ npm run typecheck
 - The command creates a separate database with a random name. It runs preview migrations and seed through `scripts/cloudflare-build.sh`, then builds the Worker with OpenNext. It prepares the local R2 cache with `opennextjs-cloudflare populateCache local`. The cache state stays in the temporary directory. It starts `wrangler dev --local` on a free loopback port.
 - The public route must render the seeded business and its structured data. Anonymous access to `/moderacao` must return the Next 404 refusal without action forms. Worker errors fail the command. The Next HTTP tests still check authorized writes and denied writes against the database.
 - The command creates a temporary Wrangler configuration without production routes or the upload binding. The R2 cache is local only. `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, and Hyperdrive use the same separate database. Child processes receive only explicit test settings. Local `.env*` and `.dev.vars*` files stop execution before migration, except `.example` templates. The command does not read these files.
+- O ambiente fechado da prova fixa `CLOUDFLARE_CF_FETCH_ENABLED=false`, a opção oficial do Miniflare que impede a busca externa de `Request.cf`. Isso mantém a prova local sem rede externa. A detecção de erros do Worker continua ativa, sem filtros para ocultar falhas de rede.
 - On success or failure, the command stops its Worker and removes its database, temporary configuration, and local cache. It does not publish resources.
   - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
   - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
@@ -877,10 +889,13 @@ Siga a seção "Ativando os avisos por e-mail" do [README](../README.md#ativando
 
 ### Medir uma ação nova no Analytics
 
-1. Acrescente o evento ao tipo `Evento`, em `src/lib/medicao.ts`, só com parâmetros que não identifiquem ninguém.
-2. Na Server Action ou no Route Handler, chame `await medir({ nome, params })` depois de salvar e antes do `redirect`.
-3. Para um clique, use atributos `data-medir` e `data-<parametro>` no elemento, como `medirContato`.
-4. Acrescente o evento à tabela da [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas) e registre os parâmetros novos como dimensões personalizadas no GA4 (Administrador > Definições personalizadas). Se a ação for uma conversão, marque o evento como principal: pela estrela, em Administrador > Eventos, ou, antes de ele chegar, em Criar evento > "Criar com código".
+1. Confira primeiro se a ação e a rota cabem nas [regras de medição](regras-de-negocio.md#medição-de-visitas). Conta, reivindicação, moderação e dados identificáveis continuam excluídos, mesmo com consentimento.
+2. Acrescente somente parâmetros de lista fixa a `PARAMETROS_EVENTOS`, em `src/lib/medicao.ts`. O mesmo esquema é usado no parent e no documento isolado. Uma chave nova não pode aceitar texto livre.
+3. Para uma ação de servidor permitida, acrescente o tipo `Evento` e chame `await medir({ nome, params })` depois de salvar e antes do `redirect`. A função só cria a fila com escolha positiva válida e vincula os eventos a ela.
+4. Para um clique permitido, use `data-medir` e `data-<parametro>`, como `medirContato`. Não use `gtag` direto nem carregue scripts Google na página principal.
+5. Atualize a tabela de regras e as regressões. Rode `npm run lint`, `npm run typecheck` e `npm test` com PostgreSQL descartável. As regressões focadas também podem ser executadas com `npx vitest run --config vitest.consentimento-local.mts`.
+6. Os scripts em `tests/browser/` usam Playwright e Chromium. `CONSENTIMENTO_TEST_URL` escolhe o servidor local e `CONSENTIMENTO_PLAYWRIGHT` pode indicar o módulo Playwright instalado no ambiente de prova. Use ID sintético e mantenha a interceptação externa. `consentimento-analytics.cjs` cobre escolhas e rede, `fronteira-analytics.cjs` cobre parent e cookies, e `login-consentimento.cjs` cria uma conta sintética e comprova a preservação do login. Não use esses scripts em produção. Capturas opcionais usam `CONSENTIMENTO_CAPTURAR=1`.
+7. Qualquer mudança no painel GA4 depende do responsável pela conta. A validação local não confirma essas configurações nem autoriza uma mudança nelas.
 
 ### Mostrar uma mensagem depois de uma ação
 

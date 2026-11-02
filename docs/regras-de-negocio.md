@@ -160,7 +160,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
 - **Abrir o link não usa o link.** `/api/link` guarda o token num cookie (`ndb_link`, `httpOnly`, só no caminho `/link`) e leva a `/link`, que mostra a conta e pede um clique em "Entrar" ou em "Confirmar meu e-mail", ou mostra os campos da senha nova.
   - Chegar a `/api/link` sem token apaga o cookie: num computador dividido, a próxima pessoa não herda um link que ainda vale. Um token novo substitui o anterior.
   - Filtros de e-mail que abrem links sozinhos (Outlook, antivírus) não gastam o link nem confirmam um e-mail sem a pessoa.
-  - O token sai do endereço antes de a página carregar o Google Analytics.
+  - O token sai do endereço no redirecionamento. A página `/link` é excluída da medição opcional.
 - **Depois do clique,** o link de entrar leva ao `voltar` de quando foi pedido. O de confirmar mostra "E-mail confirmado" e um botão para continuar de onde a pessoa estava.
 - **O banco guarda só o SHA-256 do token,** como na sessão.
 - **Limite:** no máximo **5 links por conta a cada hora**, somando os três tipos.
@@ -1037,30 +1037,34 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 ### Medição de visitas
 
-- O site usa o **Google Analytics 4**, só em produção: ele só carrega quando `NEXT_PUBLIC_GA_ID` está configurado, e essa variável só existe nas variáveis de build da produção do Cloudflare.
-- A "medição otimizada" está ligada. Ela conta:
-  - páginas vistas;
-  - rolagem;
-  - cliques para outros sites;
-  - buscas no diretório (o parâmetro `q` da URL).
-- O site manda também estes eventos (`src/lib/medicao.ts`):
+Código: `src/components/PreferenciasAnalytics.tsx`, `src/components/EventosAnalytics.tsx`, `src/lib/consentimento-analytics.ts`, `src/lib/medicao.ts`, `src/lib/medicao-servidor.ts` e `src/app/api/analytics/route.ts`.
 
-  | Evento | Quando | Parâmetros |
+- O provedor continua sendo **Google Analytics 4**, conforme #13, #203 e a restauração de produção em #246. A remoção proposta no PR #144 é histórica e não define a direção atual do produto. Nenhum provedor novo foi adicionado.
+- **Finalidade e necessidade:** entender visitas, páginas públicas, classes de origem do tráfego e interações mínimas. A medição não é necessária ao serviço. A base adotada para esse tratamento opcional é a escolha positiva prévia. A validação jurídica pelo responsável continua pendente na #109.
+- **Antes de aceitar, após recusar ou sem armazenamento disponível:** não há carregador Google, listener de cliques da medição, fila de eventos ou cookie opcional novo. `NEXT_PUBLIC_GA_ID` continua sendo uma variável de build exclusiva da produção do Cloudflare, mas sua presença não autoriza medição.
+- **Escolha:** aceitar e recusar têm o mesmo estilo e destaque. O site continua acessível após a recusa. O botão **Preferências de privacidade**, no rodapé, reabre os controles e permite revogar. `ndb_consentimento` guarda apenas versão do aviso, escolha e instante, por até 180 dias. Uma versão inválida, antiga ou vencida não autoriza medição.
+- **Separação funcional:** sessão (`ndb_sessao`), cookies de OAuth e links de acesso, tema e rascunhos não são medição. Aceitar, recusar e revogar não os apagam e não condicionam o login.
+- **Rotas permitidas:** início, explorar, sobre, cidades, participar e instruções de instalação. Perfis públicos e páginas de cidades usam caminhos e títulos genéricos, sem identificadores. Conta, login, reivindicação, painel, moderação, causas e rotas desconhecidas ficam fora. Nenhum parâmetro de consulta ou fragmento entra nos eventos.
+- **Isolamento:** o carregador fica no endpoint local `/api/analytics`, com `sandbox="allow-scripts"` no iframe e `sandbox allow-scripts` na CSP da resposta. `allow-same-origin` não é permitido. A origem opaca impede o script de ler a página principal, cookies, localStorage e rascunhos. Não foi criado outro domínio ou provedor. A resposta permite Google apenas nesse documento e usa `frame-ancestors 'self'`. A página principal não permite conexões Google.
+- **Mensagens:** o parent envia somente parâmetros saneados à referência `contentWindow` daquele frame. O destino `*` é necessário para a origem opaca. O parent só aceita a mensagem de pronto com `source` igual ao frame atual e `origin` igual a `null`. O documento só aceita mensagens do seu `parent`, com a origem real do site, e valida de novo rotas, eventos e parâmetros. Nunca recebe o endereço privado ou os campos da página.
+- **Armazenamento da medição:** o sandbox impede cookies GA e o acesso ao armazenamento do site. A inicialização declara `analytics_storage`, `ad_storage`, `ad_user_data` e `ad_personalization` como negados, mesmo após a autorização local para medição. Isso não carrega o Google antes da escolha e não constitui prova de conformidade jurídica. A persistência de sessões e a recepção dos eventos pelo GA4 real não foram verificadas. Não se afirma equivalência da contagem com a integração antiga baseada em cookies.
+- **Troca de rota e limpeza:** trocar de rota descarta o documento de medição. Entrar em área excluída ou revogar o consentimento o remove e interrompe seus scripts e filas em memória. A medição otimizada remota não observa a página principal. Páginas vistas são enviadas explicitamente com endereço genérico, título fixo e referrer vazio.
+- **Origem do tráfego:** apenas `direto`, `busca`, `rede_social`, `interno` ou `outro`, por lista fixa de domínios conhecidos. Não são enviados domínio de origem, caminho, busca ou referrer privado.
+- **Os sete nomes existentes são reconciliados com as exclusões**, sem inventar eventos de conta em páginas públicas:
+
+  | Evento | Comportamento atual | Parâmetros permitidos |
   | --- | --- | --- |
-  | `sign_up` | Conta criada | `method`: `senha` ou `google` |
-  | `login` | Entrou numa conta que já existia | `method`: `senha`, `google` ou `link` |
-  | `negocio_cadastrado` | Negócio publicado no diretório | `tipo` (`indicacao` ou `dono`), `categoria`, `uf`, `cidade`, `com_instagram` (`sim` ou `nao`) |
-  | `perfil_reivindicado` | Pedido de dono enviado | `method` (`documento` ou `instagram`), `resultado` (`verificada` ou `em_analise`) |
-  | `depoimento_publicado` | Depoimento publicado | `categoria` |
-  | `contato_negocio` | Clique em Ligar, WhatsApp, Instagram, site ou e-mail no perfil de um negócio público, menos do próprio dono | `canal` (`telefone`, `whatsapp`, `instagram`, `site` ou `email`), `categoria`, `uf` |
-  | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
-  | `app_instalado` | Site instalado como app pelo Chrome ou pelo Edge. O Safari não avisa quando alguém instala | — |
-  | `app_aberto` | Site aberto pelo ícone do app instalado, uma vez por abertura | — |
-  | `instalacao_aparelho` | Escolha do celular em `/instalacao` | `aparelho` (`iphone` ou `android`) |
+  | `sign_up` | Não coletado, pois é ação de conta | — |
+  | `login` | Não coletado, pois é ação de conta | — |
+  | `negocio_cadastrado` | Só após publicação e escolha positiva | `tipo`, `uf`, `com_instagram` |
+  | `perfil_reivindicado` | Não coletado, pois é ação de reivindicação | — |
+  | `depoimento_publicado` | Só após publicação e escolha positiva | Nenhum dado do depoimento |
+  | `contato_negocio` | Contato no perfil público, exceto pelo próprio dono | `canal`, `uf` |
+  | `cadastro_etapa` | Etapa fixa do cadastro público | `etapa`, `tipo` opcional |
 
-- Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
-- O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
-- Por decisão do projeto, o site não mostra aviso de cookies. A página "Como funciona" explica a medição na seção de privacidade.
+- `page_view` mede páginas permitidas. Os antigos eventos opcionais de app e escolha de aparelho ficam fora da lista. Categoria, cidade, causas, texto livre, títulos reais, nomes, e-mails, telefones, @, nome do negócio e `user_id` não são enviados. Valores fora das listas fixas são recusados.
+- **Fila:** só ações bem-sucedidas e consentidas criam `ndb_eventos`, por até 5 minutos e com até cinco eventos mínimos. A fila é vinculada ao valor exato da escolha. Aceitar não recupera eventos anteriores. Revogar descarta a fila e remove cookies opcionais acessíveis, sem tocar nos funcionais. Não há Measurement Protocol ou fingerprint.
+- **Limite da prova local:** os testes usam ID sintético e interceptam chamadas externas. Eles não contatam o Google nem comprovam recebimento na propriedade real. Retenção, compartilhamento, recursos de publicidade, dados já recebidos e configuração efetiva da conta Google precisam de verificação pelo responsável. O código desativa sinais Google e personalização de publicidade na inicialização, mas isso não substitui essa verificação. A #109 continua aberta até a aceitação dessas pendências.
 
 ### Proteções da interface
 
