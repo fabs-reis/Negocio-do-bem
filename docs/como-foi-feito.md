@@ -500,6 +500,13 @@ O convite do rodapé só aparecia em alguns navegadores, e o manual em PDF não 
 - **Sem prints das telas do sistema.** Os botões do Chrome e do Safari aparecem desenhados no meio do texto. Prints do iOS e do Android mudam a cada versão e envelheceriam a página.
 - **O rodapé leva sempre a `/instalacao`,** em qualquer navegador, e o link sai no HTML do servidor, para os buscadores acharem a página. Ele virou um botão laranja com ícone de download, logo abaixo da descrição do site: no celular, é a primeira coisa do rodapé. O botão que abre direto a janela do Chrome ficou no passo a passo do Android e no cartão do painel.
 
+### 1º de novembro: o Analytics volta à produção ([#243](https://github.com/fabs-reis/Negocio-do-bem/issues/243))
+
+Desde a mudança para o Cloudflare, em 31/10, o site não carregava o Google Analytics. As visitas registradas caíram de quase 5 mil por dia para algumas dezenas, e os eventos da #203 nunca chegaram.
+
+- **A variável era lida no build.** O `NEXT_PUBLIC_GA_ID` estava só na Vercel. O Next põe as variáveis `NEXT_PUBLIC_` no código durante o build, e a casca estática do layout também é gerada ali. No Cloudflare, ela precisa estar nas variáveis de build da produção (Workers Builds), e não nas de runtime do Worker.
+- **Os previews continuam sem Analytics.** As variáveis de build dos previews ficam em outra aba do painel, sem o ID.
+
 ---
 
 ## 4. Arquitetura
@@ -712,7 +719,7 @@ npm run typecheck
 | Banco dos previews | Projeto Neon separado (da integração do Vercel) | Não compartilha credenciais de produção. Configure em Worker Previews. |
 | Domínio | `www.negociodobem.com` como domínio personalizado do Worker | O domínio sem `www` passa pelo proxy do Cloudflare e uma regra de redirecionamento da zona manda para o `www` (301, com caminho e consulta). |
 | Fotos | Cloudflare R2 | Bucket privado para cache; bucket de uploads servido por domínio próprio em produção. Em POC, pode usar a Public Development URL (`r2.dev`), que expõe os objetos publicamente e tem limite de requisições. Configure buckets separados para produção e previews. |
-| Medição | Google Analytics 4 | `NEXT_PUBLIC_GA_ID` só em Production. |
+| Medição | Google Analytics 4 | `NEXT_PUBLIC_GA_ID` só nas variáveis de build da produção. |
 | Fotos do Instagram | Script local (launchd) + app "Negócio do Bem" na Meta | `FOTOS_TOKEN` no Worker de produção; o resto fica no `.env.fotos` do computador que roda a rotina. |
 | Avisos por e-mail | Resend, com o domínio `negociodobem.com` | `RESEND_API_KEY` e `EMAIL_REMETENTE` só em Production. O DNS do domínio fica na Hostinger, e a caixa `ola@negociodobem.com`, que recebe as respostas, no Zoho Mail. |
 
@@ -742,7 +749,7 @@ npm run typecheck
 | `PREVIEW_DATABASE_URL`, `PREVIEW_DATABASE_URL_UNPOOLED`, `PREVIEW_APP_URL`, `PREVIEW_R2_PUBLIC_URL` | No build dos previews | Variáveis de build que o `cloudflare-build.sh` usa nas branches que não são a `main`, no lugar das de produção. |
 | `NEXT_PUBLIC_R2_PUBLIC_URL` | Sim em deploy | Origem HTTPS pública do bucket de uploads R2 (domínio próprio em produção; `r2.dev` pode ser usado em POC/previews). Configure também durante o build. |
 | `CLOUDFLARE_DEPLOY` | No `wrangler.jsonc` | Com `1`, permite usar o cabeçalho `cf-connecting-ip`, inserido pelo Cloudflare, para limitar tentativas por IP. |
-| `NEXT_PUBLIC_GA_ID` | Não | Google Analytics. Configure só em Production. |
+| `NEXT_PUBLIC_GA_ID` | Não | Google Analytics. Configure só nas variáveis de build da produção, no Workers Builds: o Next põe o valor no código durante o build. Só como variável de runtime, o script do Analytics não entra nas páginas. |
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | Não | Meta tags de verificação do Google Search Console e do Bing Webmaster Tools. Configure só em Production. |
 | `FOTOS_TOKEN` | Não | Liga a rota da rotina de fotos do Instagram. No mínimo 32 caracteres. |
 | `INSTAGRAM_PERFIL_OFICIAL` | Não | O @ do projeto no Instagram, que vai nos dados estruturados da página inicial. |
