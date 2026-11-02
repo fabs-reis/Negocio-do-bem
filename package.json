@@ -70,7 +70,9 @@
     "wrangler": "4.156.0"
   },
   "overrides": {
-    "glob": "14.0.3"
+    "@node-minify/core": {
+      "glob": "^10.5.0"
+    }
   },
   "engines": {
     "node": ">=24"
