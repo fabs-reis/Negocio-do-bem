@@ -24,7 +24,8 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 14. [Avisos por e-mail](#14-avisos-por-e-mail)
 15. [Privacidade: o que guardamos e quem vê](#15-privacidade-o-que-guardamos-e-quem-vê)
 16. [Números e limites](#16-números-e-limites)
-17. [Comportamentos atuais que valem conhecer](#17-comportamentos-atuais-que-valem-conhecer)
+17. [O site como app](#17-o-site-como-app)
+18. [Comportamentos atuais que valem conhecer](#18-comportamentos-atuais-que-valem-conhecer)
 
 ---
 
@@ -184,7 +185,8 @@ Detalhes da moderação:
 
 - **Só o papel no banco dá moderação.** O e-mail nunca dá acesso, nem confirmado: se desse, quem se cadastrasse primeiro com o endereço certo levaria a moderação, e as contas antigas nem confirmaram o e-mail.
 - Quem cuida do projeto dá e tira a moderação com `npm run moderacao`, que roda com a conexão direta do banco e registra na auditoria. Vale a partir da próxima página aberta, sem precisar sair e entrar.
-- Para quem não é moderação, `/moderacao`, `/moderacao/negocios/<@>` e `/moderacao/contas/<id>` respondem 404: a área simplesmente não existe.
+- Para quem não é moderação, `/moderacao`, `/moderacao/negocios/<@>` e `/moderacao/contas/<id>` mostram a página 404, sem conteúdo privado. A guarda chama `notFound()`. Se o HTML já começou a chegar por streaming, o Next pode manter o status HTTP 200.
+- **Envio de uma ação sem moderação:** a mesma guarda recusa antes de qualquer escrita e redireciona para `/404`. Em um formulário sem JavaScript, o POST responde 303 e o destino público responde 404. Sem o redirecionamento, o Next 16.4.3 falha com "Couldn't find all resumable slots" quando `notFound()` vem de um POST sem JavaScript. O erro aparece no servidor, e a pessoa vê só um 404.
 - A moderação **não** responde depoimentos nem oculta negócios dos outros. Isso é só do dono.
 - A moderação **não** dá nem tira a moderação pela tela, não suspende nem apaga contas: o painel só consulta.
 
@@ -208,7 +210,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 
 - **Filas:** um cartão por fila com itens esperando. Sem nada esperando, aparece "Nenhuma fila esperando a moderação".
 - **Números do projeto:** contam tudo o que está no banco, inclusive o que o público não vê:
-  - negócios no diretório e cadastrados, verificados, sem dono, tirados do ar, ocultos pelo dono e indicados nos últimos 7 dias;
+  - negócios no diretório e cadastrados, perfis assumidos, sem dono, tirados do ar, ocultos pelo dono e indicados nos últimos 7 dias;
   - contas cadastradas, donas de negócio, de moderação, com sessão aberta, sem atividade e criadas nos últimos 7 dias;
   - depoimentos publicados, com e sem resposta do dono, com denúncia aberta, removidos e escritos nos últimos 7 dias;
   - pedidos de reivindicação aprovados, recusados, em análise, e cancelados ou expirados.
@@ -310,7 +312,7 @@ O negócio tem três informações de estado que andam separadas:
 | Campo | Valores | O que significa |
 | --- | --- | --- |
 | `moderacao` | `pendente` · `aprovada` · `rejeitada` | Se o negócio está no ar. Toda indicação entra `aprovada`, e a moderação pode tirar do ar (`rejeitada`) e publicar de novo. `pendente` só existe em negócios indicados antes da publicação automática. Só `aprovada` pode aparecer no diretório. |
-| `status` | `indicada` · `verificada` | Se tem dono aprovado. Vira `verificada` quando a primeira reivindicação é aprovada e não volta mais. |
+| `status` | `indicada` · `verificada` | Se o perfil foi assumido. Vira `verificada` quando a primeira reivindicação é aprovada e não volta mais. O nome interno não significa certificação de identidade ou das causas. |
 | `oculta` | `false` · `true` | Se o dono tirou o negócio do diretório. |
 
 **Um negócio aparece para o público quando `moderacao = "aprovada"` e `oculta = false`.** Fora disso, só o dono, a moderação e quem indicou veem o perfil (ver [seção 7](#quem-vê-um-perfil-que-não-está-no-diretório)).
@@ -410,7 +412,7 @@ Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderaca
   - **Publicar** → `moderacao = "aprovada"`, e o negócio entra no diretório;
   - **Não publicar** → `moderacao = "rejeitada"`, e o negócio some para o público;
   - **Editar perfil** → abre a edição pela moderação antes de decidir, por exemplo para corrigir um nome ou tirar uma causa duvidosa.
-- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes. A mudança e o registro estão na mesma transação.
+- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes. A decisão e a auditoria são confirmadas juntas: se a auditoria falhar, o negócio continua como estava.
 - **Duas pessoas da moderação ao mesmo tempo:** cada botão leva a situação que a pessoa viu na tela, e a decisão só vale se o negócio ainda estiver nela (código em `src/lib/moderacao/decisoes.ts`). Se outra pessoa decidiu antes, nada muda, nada é registrado e aparece o aviso "Outra pessoa da moderação já tinha decidido isso. A lista mostra como ficou".
 - **O que muda num negócio tirado do ar:**
   - o @ continua ocupado, então ninguém consegue indicar de novo;
@@ -420,9 +422,9 @@ Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderaca
 
 Código: aba "Negócios" e `src/app/moderacao/negocios/[usuario]/page.tsx`.
 
-- **A aba "Negócios"** lista todos os negócios, publicados, pendentes, fora do ar e ocultos, dos atualizados mais recentemente aos mais antigos, 30 por página. Cada um mostra foto, @, tipo, cidade, quantos depoimentos publicados tem, os donos, quem indicou e quando, a situação ("No diretório", "Oculto pelo dono", "Fora do ar", "Aguardando moderação" e "Verificado") e os botões "Editar perfil", "Histórico" (a auditoria do negócio) e "Tirar do ar" (ou "Publicar de novo").
+- **A aba "Negócios"** lista todos os negócios, publicados, pendentes, fora do ar e ocultos, dos atualizados mais recentemente aos mais antigos, 30 por página. Cada um mostra foto, @, tipo, cidade, quantos depoimentos publicados tem, os donos, quem indicou e quando, a situação ("No diretório", "Oculto pelo dono", "Fora do ar", "Aguardando moderação" e "Perfil assumido") e os botões "Editar perfil", "Histórico" (a auditoria do negócio) e "Tirar do ar" (ou "Publicar de novo").
   - A busca usa os mesmos campos da busca do diretório e aceita o @ com a arroba.
-  - **Filtros:** no diretório, tirados do ar, ocultos pelo dono, aguardando moderação, verificados, sem dono e, entre os do diretório, sem foto, sem contato e sem história.
+  - **Filtros:** no diretório, tirados do ar, ocultos pelo dono, aguardando moderação, perfis assumidos, sem dono e, entre os do diretório, sem foto, sem contato e sem história.
   - Depois de "Tirar do ar" ou "Publicar de novo", a moderação volta para a mesma lista, com a busca, o filtro e a página. O endereço de volta só é aceito se for da própria moderação (`destinoNaModeracao`).
 - **Edição:** `/moderacao/negocios/<@>` usa o **mesmo formulário do painel do dono**: foto, informações, contatos, causas e história.
   - Um aviso lembra que a edição é pela moderação e que fica registrada.
@@ -439,7 +441,7 @@ Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindic
 ### Quem pode pedir
 
 - **Qualquer conta logada** que ainda não seja dona daquele negócio. Quem já é dono vê "Você já é dono deste perfil" e o link para o painel.
-- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"Sou o dono"** do perfil, pelo "Sou dono deste negócio" do cadastro (`/participar`) ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis verificados.
+- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"Sou o dono"** do perfil, pelo "Sou dono deste negócio" do cadastro (`/participar`) ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis assumidos.
 - **Negócio tirado do ar:** a página responde 404.
 - **Negócio que já tem dono:** o pedido é aceito, com um aviso de que vai para a moderação. Serve para co-donos e para troca de responsáveis.
 
@@ -492,7 +494,7 @@ Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que
 
 Cada pedido mostra:
 
-- o negócio, o @ (com link para o Instagram) e se já é verificado ou está sem dono;
+- o negócio, o @ (com link para o Instagram) e se o perfil já foi assumido ou está sem dono;
 - o caminho usado, a data do pedido e, se for o caso, a data em que expirou;
 - quem pediu: nome e e-mail;
 - no pedido por dados do negócio:
@@ -594,7 +596,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
 
 - **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @.
 - **Selo:**
-  - **"Verificado pelo dono"** quando `status = "verificada"`;
+  - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
 - **Botões de contato** (só os preenchidos). WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
@@ -608,9 +610,9 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - para o dono, um convite para escrever;
   - para os outros, o motivo da indicação e o nome de quem indicou, se houver;
   - senão, "A história deste negócio ainda vai ser contada."
-- **"Este negócio é seu? Sou o dono",** se o negócio ainda não é verificado e quem vê não é dono.
+- **"Este negócio é seu? Sou o dono",** se o perfil ainda não foi assumido e quem vê não é dono.
 - **Depoimentos** (ver [seção 10](#10-depoimentos-e-denúncias)).
-- **"Este perfil é seu e outra pessoa assumiu? Fale com a moderação",** se o negócio é verificado e quem vê não é dono. O link leva à página de reivindicação.
+- **"Este perfil é seu e outra pessoa assumiu? Fale com a moderação",** se o perfil já foi assumido e quem vê não é dono. O link leva à página de reivindicação.
 
 **Botões de edição:**
 
@@ -635,12 +637,13 @@ Para todo o resto, a página responde 404. Quem pode ver encontra um aviso no to
 
 ### Buscadores e prévia do link
 
-Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts` e `src/app/empresas/[usuario]/opengraph-image.tsx`.
+Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/opengraph-image.tsx`, `src/app/empresas/[usuario]/opengraph-image.tsx`, `src/app/cidades/[cidade]/opengraph-image.tsx` e `src/lib/previa-da-cidade.tsx`.
 
 - **Só perfis do diretório vão para os buscadores.** O sitemap lista os negócios aprovados e não ocultos, lido do banco a cada pedido: um negócio aprovado entra na hora, e um oculto sai na hora. Ele também lista as páginas de cidade, causa e tipo que têm negócios (ver [seção 11](#páginas-de-cidade-causa-e-tipo)).
 - **Título do perfil na busca:** "Nome — Categoria em Cidade, UF". Na categoria "Outros", só "Nome em Cidade, UF". A descrição é o resumo.
 - **Dados estruturados:** o perfil público leva a ficha do negócio (`LocalBusiness`) com nome, resumo, foto, cidade, UF, WhatsApp, e-mail, Instagram, site, categoria e causas. São os mesmos dados que a página já mostra. O caminho até o perfil passa pela página da cidade: "Início › Recife, PE › Padaria Florescer".
-- **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Verificado pelo dono". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
+- **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Perfil assumido". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
+- **Prévia das outras páginas:** a página de cada cidade tem a sua (ver [seção 11](#páginas-de-cidade-causa-e-tipo)). As outras páginas públicas (início, `/sobre`, `/explorar`, `/cidades`, `/participar`, causas e tipos) levam a imagem geral do site, com o logo e o lema.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
 - **Fora da busca:** login, cadastro, painel, reivindicação e moderação levam `noindex`. `/painel`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
 - **Previews** (`DEPLOY_ENV=preview`) bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
@@ -667,9 +670,9 @@ Código: `src/app/painel/`.
 - Enquanto oculto, ninguém deixa depoimento.
 - O perfil fica guardado, e o dono pode voltar a mostrar quando quiser.
 - É a resposta para "meu negócio foi indicado e eu não quero aparecer": a pessoa reivindica o perfil e oculta.
-- **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`.
+- **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`. Se a auditoria falhar, a visibilidade não muda.
 
-**Toda edição** atualiza o texto de busca do negócio e fica na auditoria (`empresa.editada`, `empresa.foto_trocada`, `empresa.foto_removida`).
+**Toda edição** atualiza o texto de busca do negócio e fica na auditoria (`empresa.editada`, `empresa.foto_trocada`, `empresa.foto_removida`). Se a auditoria falhar, a edição, a troca e a remoção da foto não são gravadas. A foto antiga só é apagada depois da confirmação.
 
 ---
 
@@ -719,7 +722,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
 - **Preparo, no computador:** a foto é recortada no centro, em quadrado de 600×600, e convertida para WebP. O Worker só recebe o arquivo pronto.
 - **Gravação, no site:** a rota `/api/fotos-instagram` exige o token `FOTOS_TOKEN` e confere a foto como qualquer outra. Ela **só grava se o negócio continuar sem foto**: a foto enviada pelo dono ou pela moderação nunca é trocada, nem se chegar no meio do envio.
 - **Sem `FOTOS_TOKEN` configurado,** a rota responde 404.
-- **Auditoria:** cada foto gravada registra `empresa.foto_do_instagram`, como "sistema".
+- **Auditoria:** cada foto gravada registra `empresa.foto_do_instagram`, como "sistema". A foto e a auditoria são gravadas juntas: se a auditoria falhar, o negócio fica sem a foto importada.
 - **Quando roda:** todo dia às 7h, pelo agendador do macOS (`npm run fotos:agendar`). Se o Mac estiver desligado, roda quando ele ligar.
 - **Quando para:** a rodada inteira para se o token da Meta vencer, perder permissão ou bater no limite de consultas. Os negócios que faltaram ficam para o dia seguinte.
 
@@ -739,7 +742,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
   - no computador de quem desenvolve, sem URL R2 configurada, em `public/enviados/`, fora do Git;
   - em produção sem o binding ou a URL pública R2, a pessoa vê uma mensagem de erro em vez de o site quebrar.
 
-**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado, endereços antigos do Vercel Blob durante a transição, ou da pasta `/enviados/`. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
+**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado ou da pasta `/enviados/`. As fotos antigas do Vercel Blob foram copiadas para o R2, e um endereço do Blob também não aparece. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
 
 ---
 
@@ -771,15 +774,17 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 - **A moderação recebe um e-mail** com o negócio e o link da fila, sem dizer quem denunciou.
 - **Uma denúncia aberta por vez:**
   - enquanto há uma denúncia aberta, o botão "Denunciar" some para todos;
-  - uma segunda denúncia não substitui a primeira.
+  - uma segunda denúncia não substitui a primeira, mesmo quando duas pessoas enviam ao mesmo tempo: a gravação só acontece se o depoimento ainda estiver publicado e não houver denúncia aberta.
+  - um depoimento removido não recebe nova denúncia nem gera aviso à moderação, mesmo se a remoção ocorrer durante o envio.
+  - a segunda pessoa volta ao perfil com o aviso "Denúncia enviada", mas nada é gravado: o motivo e a autoria da primeira ficam, e a moderação não recebe um segundo e-mail.
 - **A fila "Denúncias"** mostra:
   - o negócio;
   - o autor do depoimento (nome e e-mail) e a data;
   - o texto;
   - quem denunciou e o motivo.
 - **Decisões:**
-  - **Manter no ar:** limpa a denúncia, e o depoimento pode ser denunciado de novo no futuro. Registra `depoimento.mantido`.
-  - **Remover:** o depoimento passa a `removido` e sai do site. Registra `depoimento.removido`. Não existe botão para desfazer.
+  - **Manter no ar:** limpa a denúncia, e o depoimento pode ser denunciado de novo no futuro. Registra `depoimento.mantido`. A denúncia só é limpa junto com a auditoria.
+  - **Remover:** o depoimento passa a `removido` e sai do site. Registra `depoimento.removido`. A remoção só vale junto com a auditoria. Não existe botão para desfazer.
 - **Duas pessoas da moderação ao mesmo tempo:** a decisão só vale se o depoimento ainda está publicado e com a denúncia aberta. Se outra pessoa decidiu antes, nada muda e aparece o aviso "Outra pessoa da moderação já tinha decidido isso. A lista mostra como ficou".
 
 ---
@@ -792,7 +797,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 ### Página inicial
 
-- **O número de negócios cadastrados** aparece em destaque, subindo de zero até o total ao abrir a página (direto no total para quem pede menos movimento no sistema). Embaixo, quantas cidades, quantos estados e quantos negócios verificados pelo dono.
+- **O número de negócios cadastrados** aparece em destaque, subindo de zero até o total ao abrir a página (direto no total para quem pede menos movimento no sistema). Embaixo, quantas cidades, quantos estados e quantos perfis foram assumidos.
 - **A busca** tem dois campos, "O que você procura?" e "Onde?", e leva ao diretório.
 - **"Experimente:"** tem atalhos fixos para um tipo de negócio e algumas causas.
 - **Os 16 tipos de negócio** aparecem com quantos negócios cada um tem. Clicar num tipo abre o diretório com ele marcado. Tipos sem negócios ficam apagados, mas continuam clicáveis.
@@ -802,7 +807,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 - **Abre** pela busca da página inicial, pelos tipos de negócio, pelos atalhos e pelo "Explorar" do menu.
 - **Ordem:**
-  - **Verificados primeiro** (padrão): os verificados pelo dono e, dentro de cada grupo, os atualizados mais recentemente;
+  - **Assumidos primeiro** (padrão): os perfis que já foram assumidos e, dentro de cada grupo, os atualizados mais recentemente;
   - **Mais recentes:** pela data de entrada no diretório;
   - **Nome (A–Z)**.
   - Não existe ranking por nota nem anúncio pago.
@@ -818,11 +823,12 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
   - aceita um estado ("PE", "Pernambuco" ou "Pernambuco (estado)"), "Cidade, UF" ou só o nome da cidade, sem diferenciar acentos e maiúsculas;
   - um nome que é de estado e de cidade (São Paulo) sem a UF vale como estado, que inclui a cidade;
   - um nome de cidade que existe em vários estados, sem a UF, vale para todos eles;
+  - um nome de cidade com negócios vale como cidade mesmo quando termina com uma sigla de UF: "Sento Sé" é a cidade da Bahia, e não "Sento" em Sergipe;
   - um lugar sem negócios mostra "Ainda não há negócios do bem em … no diretório".
 - **Filtros ao lado** (no celular, recolhidos em "Filtros"):
   - **tipo de negócio:** vários de uma vez, mostrando negócios de **qualquer** um deles. Os 8 com mais negócios aparecem direto, e o resto fica em "Ver todos os 16 tipos";
   - **causas,** separadas pelos três grupos: quem marca várias vê os negócios que têm **todas** elas;
-  - **só verificados pelo dono.**
+  - **só perfis assumidos.**
   - Cada opção mostra quantos negócios aparecem se ela for marcada. Nos tipos, a conta ignora os tipos já marcados. Opções com zero ficam apagadas.
 - **Filtros em uso** aparecem acima dos resultados, cada um com um "✕" para tirar.
 - **Grade ou lista:** a lista mostra um negócio por linha, com resumo, categoria e cidade.
@@ -832,7 +838,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 ### Páginas de cidade, causa e tipo
 
-Código: `src/app/cidades/`, `src/app/causas/[causa]/`, `src/app/tipos/[tipo]/`, o componente `src/components/Vitrine.tsx`, os endereços em `src/lib/diretorio.ts` e as consultas `cidadeDoSlug` e `cidadesCom` em `src/lib/consultas.ts`.
+Código: `src/app/cidades/`, `src/app/causas/[causa]/`, `src/app/tipos/[tipo]/`, os componentes `src/components/Vitrine.tsx` e `src/components/CapaDaCidade.tsx`, os endereços em `src/lib/diretorio.ts`, as consultas `cidadeDoSlug` e `cidadesCom` em `src/lib/consultas.ts` e as fotos em `src/lib/fotos-das-cidades.ts`.
 
 São as páginas que respondem às buscas mais comuns, como "negócios do bem em Salvador" ou "negócios liderados por mulheres".
 
@@ -843,12 +849,22 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
 | Causa | `/causas/opcoes-veganas` (o slug da causa) | o título da causa, como "Negócios com opções veganas" |
 | Tipo | `/tipos/cafe-e-padaria` (o slug do tipo) | "Negócios de café e padaria" |
 
-- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (verificados primeiro) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
+- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (perfis assumidos primeiro) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
 - **Links para continuar:**
   - na cidade: os tipos e as causas que existem nela, que abrem o diretório com a cidade e aquele filtro, e as outras cidades do mesmo estado;
   - na causa: as cidades e os tipos que têm a causa, que abrem o diretório com os dois filtros, e as outras causas do mesmo grupo;
   - no tipo: as cidades e as causas desse tipo, que abrem o diretório com os dois filtros, e os outros tipos.
 - **A cidade vai pelo nome oficial do IBGE,** como no "Onde?". O endereço não tem acento nem maiúscula, e a UF vai no final. Grafias diferentes da mesma cidade ("Sao Paulo", "São Paulo", "Tubarão-SC") levam à mesma página, inclusive pelos links do perfil e do sitemap. Nas listas de cidades de uma causa ou de um tipo, elas contam juntas. Uma cidade fora da lista do IBGE fica com a grafia mais usada.
+- **Foto da cidade:** as cidades de `src/lib/fotos-das-cidades.json` mostram uma foto de cartão-postal do Wikimedia Commons ao lado do título (em cima dele, no celular). A lista começou com as capitais, os 100 municípios mais populosos do Censo 2022 e as cidades com 3 ou mais negócios no diretório.
+  - **Crédito:** embaixo da foto vão o autor, a licença (com link para ela) e o link para a página da foto no Commons.
+  - **Só fotos que pedem apenas o crédito:** domínio público, CC0, CC BY e CC BY-SA. O `npm run cidades:fotos` e os testes recusam as outras.
+  - **A foto não cria página:** uma cidade da lista sem negócios no diretório continua sem página. Quando entra o primeiro negócio, a página já aparece com a foto.
+  - **Cidade fora da lista:** a página fica como era, sem foto.
+- **Prévia do link da cidade:** a foto com o logo e "Negócios do bem em Salvador, BA", num JPEG feito de antemão pelo `npm run cidades:fotos`.
+  - **Leve para o WhatsApp,** que não mostra prévia acima de 600 KB: cada uma fica entre 30 e 120 KB.
+  - **Sem o número de negócios,** porque a imagem pronta não acompanha o diretório. O número continua na descrição do link.
+  - **Cidade sem foto:** o mesmo texto no creme da marca, com quantos negócios há no diretório, gerado na hora.
+- **Foto para os buscadores:** a foto vai no sitemap e nos dados estruturados como imagem principal da página (`primaryImageOfPage`), com o autor e a licença, que o Google Imagens mostra.
 - **Cidade sem negócios no diretório** mostra "Não encontramos esta página", com `noindex`. Isso inclui cidades que só têm negócios pendentes, rejeitados ou ocultos. Endereço de causa ou tipo que não existe, e o `/tipos/outros`, também.
   - Como no perfil, o status HTTP é 200: o Next já mandou o começo da página quando descobre que ela não existe. Para os buscadores, o `noindex` basta.
 - **Causa ou tipo sem negócios:** a página existe, com um convite para indicar, mas leva `noindex` e fica fora do sitemap.
@@ -929,6 +945,12 @@ A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 
 - cada ação aparece com uma descrição em português (`ACOES_AUDITORIA`, em `src/lib/dominio.ts`) e com o código embaixo;
 - quem fez leva à ficha da conta, e o alvo leva ao negócio, à conta ou ao perfil do depoimento, enquanto ele existir. Alvo apagado aparece como "removido";
 - **filtros:** por ação (a lista mostra quantas vezes cada uma aparece), por quem fez (inclusive "sistema") e por alvo. O link "histórico" de cada linha, o "Histórico" da aba Negócios e o "Tudo o que esta conta fez" da ficha usam esses filtros.
+
+Nas Server Actions de indicação, edição do perfil, visibilidade, foto do perfil e decisões de moderação, e na gravação da foto importada do Instagram, a alteração no banco e sua auditoria são confirmadas na mesma transação. Se o registro de auditoria falhar, a alteração no banco também é desfeita. Na foto importada, a escrita continua condicional: a foto enviada pelo dono sempre vale mais do que a importada.
+
+O armazenamento das fotos não participa da transação do banco. A foto antiga só é apagada depois de confirmar a alteração e a auditoria. Se o envio da foto nova funcionar e a transação falhar, o perfil mantém a foto antiga, mas o arquivo novo pode ficar sem referência no armazenamento. Se o resultado da confirmação for incerto, nenhum arquivo é apagado. A foto importada só é apagada quando a transação confirma que o dono já tinha uma foto.
+
+These tests use a real PostgreSQL database and mock external storage. They do not verify the behavior of a live R2 bucket. [Issue #82](https://github.com/fabs-reis/Negocio-do-bem/issues/82) and [PR #94](https://github.com/fabs-reis/Negocio-do-bem/pull/94) cover safe reconciliation of files without database references. That work is separate from the audit transaction guarantee.
 
 | Ação registrada | Quando |
 | --- | --- |
@@ -1017,13 +1039,29 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 ### Medição de visitas
 
-- O site usa o **Google Analytics 4**, só em produção: ele só carrega quando `NEXT_PUBLIC_GA_ID` está configurado, e essa variável só existe no ambiente de produção do Cloudflare.
+- O site usa o **Google Analytics 4**, só em produção: ele só carrega quando `NEXT_PUBLIC_GA_ID` está configurado, e essa variável só existe nas variáveis de build da produção do Cloudflare.
 - A "medição otimizada" está ligada. Ela conta:
   - páginas vistas;
   - rolagem;
   - cliques para outros sites;
   - buscas no diretório (o parâmetro `q` da URL).
-- O Analytics usa cookies e não recebe nome nem e-mail.
+- O site manda também estes eventos (`src/lib/medicao.ts`):
+
+  | Evento | Quando | Parâmetros |
+  | --- | --- | --- |
+  | `sign_up` | Conta criada | `method`: `senha` ou `google` |
+  | `login` | Entrou numa conta que já existia | `method`: `senha`, `google` ou `link` |
+  | `negocio_cadastrado` | Negócio publicado no diretório | `tipo` (`indicacao` ou `dono`), `categoria`, `uf`, `cidade`, `com_instagram` (`sim` ou `nao`) |
+  | `perfil_reivindicado` | Pedido de dono enviado | `method` (`documento` ou `instagram`), `resultado` (`verificada` ou `em_analise`) |
+  | `depoimento_publicado` | Depoimento publicado | `categoria` |
+  | `contato_negocio` | Clique em Ligar, WhatsApp, Instagram, site ou e-mail no perfil de um negócio público, menos do próprio dono | `canal` (`telefone`, `whatsapp`, `instagram`, `site` ou `email`), `categoria`, `uf` |
+  | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
+  | `app_instalado` | Site instalado como app pelo Chrome ou pelo Edge. O Safari não avisa quando alguém instala | — |
+  | `app_aberto` | Site aberto pelo ícone do app instalado, uma vez por abertura | — |
+  | `instalacao_aparelho` | Escolha do celular em `/instalacao` | `aparelho` (`iphone` ou `android`) |
+
+- Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
+- O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
 - Por decisão do projeto, o site não mostra aviso de cookies. A página "Como funciona" explica a medição na seção de privacidade.
 
 ### Proteções da interface
@@ -1082,10 +1120,45 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Leitura da história | 200 palavras por minuto | `src/lib/texto.ts` |
 | Espera pela resposta do Resend | 10 segundos | `src/lib/email.ts` |
 | E-mails pelo plano gratuito do Resend | 100 por dia, 3.000 por mês | Conta do Resend |
+| Arquivos do site guardados no aparelho pelo service worker | 200 | `public/sw.js` |
 
 ---
 
-## 17. Comportamentos atuais que valem conhecer
+## 17. O site como app
+
+O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `src/app/manifest.ts`. Ao segurar o ícone, aparecem os atalhos Explorar, Cadastrar e Painel.
+
+**A página de instalação** (`src/app/instalacao/`)
+
+- `/instalacao` pergunta qual é o celular, com dois cartões: iPhone, com o ícone da Apple, e Android, com o do Android. Cada um leva ao seu passo a passo.
+- Depois que a página carrega, o cartão do aparelho de quem visita ganha o selo "Este celular". Num computador, nenhum cartão ganha o selo.
+- `/instalacao/android` ensina o caminho pelo menu do Chrome. Quando o navegador oferece a instalação, aparece também o botão "Instalar agora", que abre a janela de instalação.
+- `/instalacao/iphone` ensina o caminho pelo Compartilhar do Safari e avisa que o app do iPhone pede o login de novo.
+- Com o site aberto como app, as três páginas avisam "Você já está usando o app instalado".
+- As três estão no sitemap e no `llms.txt`.
+
+**O convite para instalar** (`src/components/InstalarApp.tsx`)
+
+- O botão "Instalar o app", com um ícone de download, fica em destaque no rodapé, logo abaixo da descrição do site, e leva a `/instalacao`, em qualquer navegador.
+- No painel, o cartão "Use como app", embaixo de "Minha conta", faz o convite quando o navegador oferece a instalação (botão "Instalar") ou no iPhone ("Ver como instalar", que leva a `/instalacao/iphone`). "Agora não" o esconde naquele navegador (fica no `localStorage`).
+- Com o site aberto como app, nenhum convite aparece.
+
+**Sem conexão**
+
+- Uma página que não abre por falta de internet mostra "Sem conexão" (`public/offline.html`), com "Tentar de novo". Ela recarrega sozinha quando a conexão volta. Um erro do servidor não mostra essa página.
+- As páginas nunca ficam guardadas no aparelho, para os dados virem sempre atualizados. Sem internet, nada do diretório aparece. O service worker (`public/sw.js`) guarda só os arquivos do site (JS, CSS e fontes) e a página "Sem conexão".
+- Se a conexão cai com o site aberto, o pé da tela avisa "Sem conexão. O que você pediu continua assim que a internet voltar." A página ou o formulário pedidos seguem sozinhos quando ela volta (`experimental.useOffline` do Next).
+- Se a conexão cair depois que o servidor recebeu um formulário, mas antes da resposta, o Next o manda de novo quando ela volta. É o mesmo que aconteceria se a pessoa, vendo o erro, enviasse de novo: o segundo envio de um @ ou de um depoimento é recusado, mesmo com o primeiro salvo, e um negócio sem Instagram pode sair repetido, com `-2` no endereço.
+
+**Links por e-mail no app do iPhone**
+
+- O app instalado no iPhone e no iPad não divide o login com o Safari, e o link do e-mail sempre abre no Safari.
+- Por isso, só no app do iPhone, `/entrar/link` avisa que o login fica no Safari e sugere o Google ou o e-mail e a senha. `/esqueci-a-senha` sugere criar a senha nova no Safari e voltar ao app para entrar com ela.
+- No Android, o app divide o login com o Chrome, então o link do e-mail vale também no app.
+
+---
+
+## 18. Comportamentos atuais que valem conhecer
 
 O sistema funciona hoje assim. Algumas destas situações podem ser intencionais e outras são lacunas. Antes de mudar qualquer uma, abra uma issue para combinar o caminho.
 
@@ -1095,7 +1168,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 - **Um @ tirado do ar fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404 até a moderação publicar de novo.
 - **O @ de um negócio não muda.** Se o negócio trocar de @ no Instagram, hoje só dá para ajustar direto no banco.
 - **Cidades cadastradas antes da lista do IBGE** continuam como foram digitadas até o negócio ser editado. Se a grafia não bate com a lista, a edição pede para escolher a cidade de novo.
-- **Não dá para tirar um dono** sem transferir o perfil para outra pessoa. O selo "Verificado pelo dono" não volta atrás.
+- **Não dá para tirar um dono** sem transferir o perfil para outra pessoa. O selo "Perfil assumido" não volta atrás.
 - "Atualizada em", ao lado da história, usa a data da última mudança em **qualquer** dado do negócio (inclusive foto e visibilidade), não só no texto.
 
 **Reivindicações**

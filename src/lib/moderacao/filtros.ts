@@ -20,7 +20,7 @@ export const SITUACOES_NEGOCIO = {
   "fora-do-ar": "Tirados do ar",
   ocultos: "Ocultos pelo dono",
   pendentes: "Aguardando moderação",
-  verificados: "Verificados",
+  verificados: "Perfis assumidos",
   "sem-dono": "Sem dono",
   "sem-foto": "No diretório, sem foto",
   "sem-contato": "No diretório, sem contato",

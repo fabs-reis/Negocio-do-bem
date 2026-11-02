@@ -81,8 +81,10 @@ export default function Sobre() {
           Não fazemos raspagem do Instagram e não guardamos tokens de acesso.
         </p>
         <p>
-          <strong>Vocês medem as visitas?</strong> Sim, com o Google Analytics, para saber quantas pessoas visitam o site e
-          quais páginas e buscas são mais comuns. Ele usa cookies no seu navegador e não recebe seu nome nem seu e-mail.
+          <strong>Vocês medem as visitas?</strong> Sim, com o Google Analytics, para saber quantas pessoas visitam o site,
+          quais páginas e buscas são mais comuns, quantas contas e negócios são cadastrados e quantos contatos os negócios
+          recebem pelo site. Ele usa cookies no seu navegador e não recebe seu nome, seu e-mail, seu telefone nem o nome do
+          negócio: só a categoria, a cidade e o estado, que já estão no perfil.
         </p>
         <p>
           <strong>E os depoimentos?</strong> Ficam no ar com o nome de quem escreveu. Donos podem responder, mas não
