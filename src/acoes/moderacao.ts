@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { exigirModerador } from "@/lib/auth/sessao";
+import { exigirModerador, exigirModeradorRecente } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
 import { comAviso, destinoNaModeracao } from "@/lib/moderacao/filtros";
@@ -16,7 +16,7 @@ function voltar(aba: string, aviso: string): never {
 
 /** Esvazia a fila antiga: aprova as reivindicações de negócios que ainda não têm dono. */
 export async function aprovarReivindicacoesSemDono(): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModeradorRecente();
   const aprovadas = await aprovarPendentesSemDono(moderador.id);
   after(async () => {
     for (const id of aprovadas) await avisarDecisaoDaReivindicacao(id);
@@ -26,7 +26,7 @@ export async function aprovarReivindicacoesSemDono(): Promise<void> {
 
 /** Esvazia a fila antiga: publica todas as indicações que esperavam a moderação. */
 export async function publicarIndicacoesPendentes(): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModeradorRecente();
   const pendentes = await db.empresa.findMany({ where: { moderacao: "pendente" }, select: { id: true, instagramUsername: true } });
   for (const { id, instagramUsername } of pendentes) {
     await db.$transaction(async (tx) => {
@@ -45,8 +45,8 @@ export async function publicarIndicacoesPendentes(): Promise<void> {
 }
 
 export async function aprovarReivindicacao(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador();
   const modo: ModoAprovacao = dados.get("modo") === "transferir" ? "transferir" : "adicionar";
+  const moderador = modo === "transferir" ? await exigirModeradorRecente() : await exigirModerador();
   const reivindicacaoId = texto(dados, "reivindicacaoId");
   try {
     await aprovar({ reivindicacaoId, revisorId: moderador.id, modo });

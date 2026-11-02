@@ -29,6 +29,13 @@ model Usuario {
   // mas não indica, não escreve nem denuncia depoimentos e não reivindica negócios.
   emailConfirmadoEm DateTime?
   criadoEm  DateTime @default(now())
+  // MFA é obrigatório para exercer o papel de moderador.
+  mfaSegredo String?
+  mfaSegredoPendente String?
+  mfaAtivadoEm DateTime?
+  mfaUltimoPeriodo Int?
+  codigosRecuperacao MfaCodigoRecuperacao[]
+  limiteMfa MfaLimite?
 
   sessoes             Sessao[]
   links               LinkEmail[]
@@ -48,6 +55,25 @@ model Sessao {
   usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   expiraEm  DateTime
   criadoEm  DateTime @default(now())
+  ultimaAtividadeEm DateTime @default(now())
+  mfaVerificadoEm DateTime?
+  tentativasMfa Int @default(0)
+
+  @@index([usuarioId])
+}
+
+model MfaLimite {
+  usuarioId String @id
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  contagem Int
+  janelaIniciadaEm DateTime
+}
+
+model MfaCodigoRecuperacao {
+  hash String @id
+  usuarioId String
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  criadoEm DateTime @default(now())
 
   @@index([usuarioId])
 }

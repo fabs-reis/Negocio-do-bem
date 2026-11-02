@@ -278,6 +278,7 @@ export async function trocarSenha(_estado: EstadoFormulario, dados: FormData): P
     const { count } = await tx.usuario.updateMany({ where: { id: usuario.id, senhaHash: senhaAntiga }, data: { senhaHash } });
     if (count === 0) return false;
     await tx.sessao.deleteMany({ where: { usuarioId: usuario.id, ...(sessaoAtual ? { id: { not: sessaoAtual } } : {}) } });
+    if (sessaoAtual) await tx.sessao.updateMany({ where: { id: sessaoAtual, usuarioId: usuario.id }, data: { mfaVerificadoEm: null } });
     await gastarLinksAbertos(tx, usuario.id, agora);
     await registrarAuditoria(tx, { usuarioId: usuario.id, acao: "usuario.senha_trocada", alvoTipo: "usuario", alvoId: usuario.id });
     return true;

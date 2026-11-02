@@ -27,11 +27,19 @@ export async function MenuUsuario() {
         <Link href="/painel" className="block rounded-xl px-3 py-2 hover:bg-papel">
           Meu painel
         </Link>
-        {usuario.moderador && (
+        {usuario.temPapelModeracao && (
           <Link href="/moderacao" className="block rounded-xl px-3 py-2 hover:bg-papel">
             Moderação
           </Link>
         )}
+        {usuario.temPapelModeracao && (
+          <Link href="/seguranca/mfa" className="block rounded-xl px-3 py-2 hover:bg-papel">
+            Segurança da moderação
+          </Link>
+        )}
+        <Link href="/seguranca/sessoes" className="block rounded-xl px-3 py-2 hover:bg-papel">
+          Sessões e segurança
+        </Link>
         <form action={sair}>
           <button type="submit" className="block w-full rounded-xl px-3 py-2 text-left text-suave hover:bg-papel hover:text-tinta">
             Sair
