@@ -20,9 +20,9 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe("Analytics retirado do aplicativo", () => {
+describe("Analytics sujeito a consentimento", () => {
   it.each([undefined, ID_SINTETICO])(
-    "o Sistema informa desativação mesmo com ID %s",
+    "o Sistema informa configuração sem dispensar consentimento com ID %s",
     async (id) => {
       vi.stubEnv("NEXT_PUBLIC_GA_ID", id);
       vi.stubEnv("GOOGLE_SITE_VERIFICATION", undefined);
@@ -33,10 +33,8 @@ describe("Analytics retirado do aplicativo", () => {
       const itens = integracoes().filter((item) => item.nome === "Google Analytics");
 
       expect(itens).toHaveLength(1);
-      expect(itens[0].ligada).toBe(false);
-      expect(itens[0].desligadaTexto).toMatch(/desativad[oa]/i);
-      expect(itens[0].desligadaTexto).toMatch(/aplicativo/i);
-      expect(itens[0].desligadaTexto).not.toMatch(/só a produção/i);
+      expect(itens[0].ligada).toBe(Boolean(id));
+      expect(itens[0].ligadaTexto).toMatch(/consentimento/i);
       expect(JSON.stringify(itens)).not.toContain(ID_SINTETICO);
     },
   );
@@ -83,7 +81,6 @@ describe("Analytics retirado do aplicativo", () => {
           "'self'",
           "data:",
           "blob:",
-          "https://*.public.blob.vercel-storage.com",
         ]),
       );
       expect(diretivas.get("connect-src")).toContain("'self'");

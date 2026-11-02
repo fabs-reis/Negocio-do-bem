@@ -3,6 +3,7 @@ import { ambienteDeDeploy } from "./src/lib/ambiente";
 
 const desenvolvimento = process.env.NODE_ENV === "development";
 const preview = ambienteDeDeploy() === "preview";
+const ANALYTICS = "https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com";
 const VERCEL_LIVE = "https://vercel.live";
 const dominioFotos = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ? ` ${new URL(process.env.NEXT_PUBLIC_R2_PUBLIC_URL).origin}` : "";
 
@@ -10,7 +11,7 @@ const politicaDeConteudo = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${desenvolvimento ? " 'unsafe-eval'" : ""}${preview ? ` ${VERCEL_LIVE}` : ""}`,
   `style-src 'self' 'unsafe-inline'${preview ? ` ${VERCEL_LIVE}` : ""}`,
-  `img-src 'self' data: blob: https://*.public.blob.vercel-storage.com${dominioFotos}${preview ? ` ${VERCEL_LIVE} https://vercel.com` : ""}`,
+  `img-src 'self' data: blob:${dominioFotos}${preview ? ` ${VERCEL_LIVE} https://vercel.com` : ""}`,
   `font-src 'self' data:${preview ? ` ${VERCEL_LIVE} https://assets.vercel.com` : ""}`,
   `connect-src 'self'${desenvolvimento ? " ws:" : ""}${preview ? ` ${VERCEL_LIVE} wss://ws-us3.pusher.com` : ""}`,
   `frame-src 'self'${preview ? ` ${VERCEL_LIVE}` : ""}`,
@@ -37,7 +38,17 @@ const nextConfig: NextConfig = {
     "**/*": ["./node_modules/pg-cloudflare/dist/**", "./node_modules/pg-cloudflare/esm/**"],
   },
   async headers() {
-    return [{ source: "/:caminho*", headers: cabecalhosDeSeguranca }];
+    return [
+      { source: "/:caminho*", headers: cabecalhosDeSeguranca },
+      {
+        source: "/api/analytics",
+        headers: [
+          { key: "Content-Security-Policy", value: `default-src 'none'; script-src 'unsafe-inline' https://www.googletagmanager.com; connect-src ${ANALYTICS}; img-src ${ANALYTICS}; frame-ancestors 'self'; base-uri 'none'; form-action 'none'; sandbox allow-scripts` },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+    ];
   },
   async redirects() {
     // O cadastro tem uma entrada só (/participar). A busca vai junto: ?instagram=<@>&dono=sim.
@@ -49,6 +60,9 @@ const nextConfig: NextConfig = {
     // Fotos chegam reduzidas pelo navegador, mas o padrão de 1 MB é apertado.
     // O Vercel aceita até 4,5 MB por requisição.
     serverActions: { bodySizeLimit: "4mb" },
+    // Sem conexão, navegações e Server Actions esperam a internet voltar em
+    // vez de dar erro; o AvisoSemConexao avisa enquanto isso.
+    useOffline: true,
   },
   partialPrefetching: true,
   turbopack: {

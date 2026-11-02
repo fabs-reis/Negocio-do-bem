@@ -53,9 +53,9 @@ export function integracoes(): Integracao[] {
     },
     {
       nome: "Google Analytics",
-      ligada: false,
-      ligadaTexto: "A medição está desativada no aplicativo.",
-      desligadaTexto: "A medição está desativada no aplicativo.",
+      ligada: Boolean(process.env.NEXT_PUBLIC_GA_ID),
+      ligadaTexto: "O Google Analytics só mede páginas públicas após consentimento neste navegador.",
+      desligadaTexto: "Só a produção mede visitas.",
     },
     {
       nome: "Verificação no Google e no Bing",

@@ -8,12 +8,16 @@ const GRUPOS: { titulo: string; abas: Aba[] }[] = [
   { titulo: "Registros", abas: ["auditoria", "sistema"] },
 ];
 
-/** O menu das seções: em linha no celular e na lateral em telas largas. As filas mostram quantos itens esperam. */
+/**
+ * O menu das seções: em linha no celular e na lateral em telas largas. As filas mostram quantos itens esperam.
+ * O `relative` prende o texto `sr-only` (position: absolute) dentro da barra: sem ele, o texto escapa do
+ * `overflow-x-auto` e alarga a página no celular. Em telas largas o `lg:sticky` assume.
+ */
 export function MenuModeracao({ aba, pendentes }: { aba: Aba; pendentes: Partial<Record<Aba, number>> }) {
   return (
     <nav
       aria-label="Seções da moderação"
-      className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:sticky lg:top-6 lg:mx-0 lg:flex-col lg:gap-6 lg:self-start lg:overflow-visible lg:px-0"
+      className="relative -mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:sticky lg:top-6 lg:mx-0 lg:flex-col lg:gap-6 lg:self-start lg:overflow-visible lg:px-0"
     >
       {GRUPOS.map((grupo) => (
         <div key={grupo.titulo} className="contents lg:block">

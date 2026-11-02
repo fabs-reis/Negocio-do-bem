@@ -81,8 +81,22 @@ export default function Sobre() {
           Não fazemos raspagem do Instagram e não guardamos tokens de acesso.
         </p>
         <p>
-          <strong>Vocês medem as visitas?</strong> Esta versão não usa Google Analytics para medir visitas, buscas ou
-          cliques. Os cookies necessários para entrar na conta e a preferência de tema continuam funcionando.
+          <strong>Vocês medem as visitas?</strong> Só se você aceitar. O Google Analytics mede visitas,
+          páginas públicas e interações permitidas, como contatos com negócios, em um documento isolado.
+          Esse documento não acessa o conteúdo da página nem o armazenamento do site. A origem do tráfego entra apenas como
+          direto, busca, rede social, interno ou outro, sem o endereço de onde você veio. A medição não é necessária para usar o site.
+          Você pode recusar ou revogar em &ldquo;Preferências de privacidade&rdquo;, no rodapé. O login continua funcionando.
+        </p>
+        <p>
+          Não enviamos buscas, fragmentos da URL, formulários, nomes, e-mails, telefones, @, nomes de negócios nem identificador
+          da sua conta. Os endereços e títulos enviados são genéricos. Conta, reivindicação, moderação e páginas de causas
+          ficam fora da medição. A escolha fica neste navegador por até 180 dias, com a versão do aviso e a data.
+          Sessão, segurança do login, tema e rascunhos têm funções separadas e não dependem dessa escolha.
+        </p>
+        <p>
+          A revogação impede novos envios e descarta filas opcionais. Ela não apaga dados já recebidos pelo Google.
+          A retenção, o compartilhamento, os recursos de publicidade e as demais configurações da conta Google precisam
+          de verificação pelo responsável. Estes controles técnicos não são uma declaração de conformidade jurídica.
         </p>
         <p>
           <strong>E os depoimentos?</strong> Ficam no ar com o nome de quem escreveu. Donos podem responder, mas não
