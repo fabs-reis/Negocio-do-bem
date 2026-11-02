@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, type CSSProperties } from "react";
 import { denunciarDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { CausaBadge } from "@/components/CausaBadge";
@@ -15,6 +15,7 @@ import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { buscarCausa, filtrarCausas } from "@/lib/causas";
 import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
+import { tintaDoNegocio } from "@/lib/cortejo";
 import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
@@ -23,6 +24,7 @@ import { medirContato, type CanalDeContato } from "@/lib/medicao";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
+import "./perfil.css";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
   const username = normalizarEndereco((await props.params).usuario);
@@ -57,18 +59,27 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   const dono = ehDono(empresa, usuario);
   const causas = filtrarCausas(empresa.causas.map((c) => c.causa));
   const publico = empresa.moderacao === "aprovada" && !empresa.oculta;
+  const tinta = tintaDoNegocio(empresa.instagramUsername);
+  const cores = {
+    "--tinta-negocio": `var(--color-${tinta})`,
+    "--texto-negocio": `var(--color-${tinta}-texto)`,
+  } as CSSProperties;
   // Os cliques nos contatos contam no Analytics só quando vêm do público, não do dono.
   const contato = publico && !dono ? empresa : undefined;
 
   return (
-    <article>
+    <article className={"cortejo-perfil"} style={cores}>
       {publico && <JsonLd dados={jsonLdDoNegocio(empresa, causas.map((slug) => buscarCausa(slug)!.nome))} />}
-      <header className="border-b border-linha bg-gradient-to-b from-superficie to-papel">
-        <div className="mx-auto max-w-3xl px-4 pt-12 pb-10 sm:px-6">
-          <div className="mb-6 space-y-3">
+      <header className={"cortejo-perfil-cabecalho"}>
+        <div className={"cortejo-perfil-abertura"}>
+          <Link href="/explorar" className={"cortejo-perfil-voltar"}>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m8 4-6 6 6 6M2 10h16" /></svg>
+            Explorar negócios
+          </Link>
+          <div className={"cortejo-perfil-avisos"}>
             <AvisoDaUrl codigo={aviso} />
             {!publico && (
-              <p className="rounded-2xl border border-linha bg-superficie px-4 py-3 text-sm text-suave">
+              <p className={"cortejo-perfil-restrito"}>
                 {empresa.oculta
                   ? "Este perfil está oculto pelo dono e não aparece no diretório."
                   : `${MODERACAO_EMPRESA[empresa.moderacao]}: só você e a moderação veem este perfil por enquanto.`}
@@ -76,96 +87,60 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
             )}
           </div>
 
-          <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-            <FotoEmpresa empresa={empresa} tamanho="lg" />
-            <div className="min-w-0 space-y-2">
+          <div className={"cortejo-perfil-identidade"}>
+            <div className={"cortejo-perfil-retrato"}><FotoEmpresa empresa={empresa} tamanho="lg" /></div>
+            <div className={"cortejo-perfil-nome"}>
               <SeloStatus status={empresa.status} />
-              <h1 className="font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">
-                {empresa.nome}
-              </h1>
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-suave">
+              <h1>{empresa.nome}</h1>
+              <div className={"cortejo-perfil-metadados"}>
                 <LinkInstagram endereco={empresa.instagramUsername} icone contato={contato} />
-                <span aria-hidden="true">·</span>
-                {publico && temPaginaDeTipo(empresa.categoria) ? (
-                  <Link href={hrefTipo(empresa.categoria)} className="hover:text-tinta hover:underline">
-                    {empresa.categoria}
-                  </Link>
-                ) : (
-                  <span>{empresa.categoria}</span>
-                )}
-                <span aria-hidden="true">·</span>
+                {publico && temPaginaDeTipo(empresa.categoria) ? <Link href={hrefTipo(empresa.categoria)}>{empresa.categoria}</Link> : <span>{empresa.categoria}</span>}
                 {publico ? (
-                  <Link href={paginaDaCidade(empresa.cidade, empresa.uf).caminho} className="hover:text-tinta hover:underline">
-                    {empresa.cidade}, {empresa.uf}
-                  </Link>
-                ) : (
-                  <span>
-                    {empresa.cidade}, {empresa.uf}
-                  </span>
-                )}
-              </p>
+                  <Link href={paginaDaCidade(empresa.cidade, empresa.uf).caminho}>{empresa.cidade}, {empresa.uf}</Link>
+                ) : <span>{empresa.cidade}, {empresa.uf}</span>}
+              </div>
             </div>
           </div>
-
+          <p className={"cortejo-perfil-resumo"}>{empresa.resumo}</p>
           <Contatos empresa={empresa} medir={!!contato} />
 
-          <p className="mt-8 font-serif text-2xl leading-snug text-tinta/80 italic text-pretty">{empresa.resumo}</p>
-
           {causas.length > 0 && (
-            <div className="mt-6 flex flex-wrap gap-2">
-              {causas.map((slug) =>
-                publico ? (
-                  <Link key={slug} href={hrefCausa(slug)} className="transition hover:opacity-80">
-                    <CausaBadge slug={slug} grande />
-                  </Link>
-                ) : (
-                  <CausaBadge key={slug} slug={slug} grande />
-                ),
-              )}
-            </div>
+            <section className={"cortejo-perfil-causas"} aria-label="Causas do negócio">
+              <h2>As causas que abraçam</h2>
+              <div>
+                {causas.map((slug) => publico ? (
+                  <Link key={slug} href={hrefCausa(slug)}><CausaBadge slug={slug} grande /></Link>
+                ) : <CausaBadge key={slug} slug={slug} grande />)}
+              </div>
+            </section>
           )}
-
           {dono ? (
-            <Link href={`/painel/${empresa.instagramUsername}`} className="botao mt-8">
-              Editar meu perfil
-            </Link>
-          ) : (
-            usuario?.moderador && (
-              <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao mt-8">
-                Editar perfil (moderação)
-              </Link>
-            )
-          )}
+            <Link href={`/painel/${empresa.instagramUsername}`} className={`botao-claro cortejo-perfil-editar`}>Editar meu perfil</Link>
+          ) : usuario?.moderador ? (
+            <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className={`botao-claro cortejo-perfil-editar`}>Editar perfil (moderação)</Link>
+          ) : null}
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <section className="py-12">
+      <div className={"cortejo-perfil-conteudo"}>
+        <section className={"cortejo-perfil-historia"}>
           {empresa.historia.trim() ? (
             <>
-              <p className="mb-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Nossa história</span>
-                <span className="text-sm text-suave">
-                  {tempoDeLeitura(empresa.historia)} min de leitura · atualizada em {formatarData(empresa.atualizadoEm)}
-                </span>
+              <h2>Nossa história</h2>
+              <p className={"cortejo-perfil-dadosHistoria"}>
+                <span>{tempoDeLeitura(empresa.historia)} min de leitura</span>
+                <span>Atualizada em <time dateTime={empresa.atualizadoEm.toISOString()}>{formatarData(empresa.atualizadoEm)}</time></span>
               </p>
               <Historia markdown={empresa.historia} />
             </>
-          ) : (
-            <SemHistoria empresa={empresa} dono={dono} />
-          )}
+          ) : <SemHistoria empresa={empresa} dono={dono} />}
         </section>
-
         {empresa.status !== "verificada" && !dono && <ChamadaReivindicar username={empresa.instagramUsername} />}
-
         <Depoimentos empresa={empresa} usuario={usuario} dono={dono} publico={publico} />
-
         {empresa.status === "verificada" && !dono && (
-          <p className="mt-12 text-center text-sm text-suave">
+          <p className={"cortejo-perfil-disputa"}>
             Este perfil é seu e outra pessoa assumiu?{" "}
-            <Link href={`/empresas/${empresa.instagramUsername}/reivindicar`} className="link">
-              Fale com a moderação
-            </Link>
+            <Link href={`/empresas/${empresa.instagramUsername}/reivindicar`} className="link">Fale com a moderação</Link>
           </p>
         )}
       </div>
@@ -182,7 +157,7 @@ function Contatos({ empresa, medir }: { empresa: Perfil; medir: boolean }) {
   if (!empresa.telefoneComercial && !empresa.whatsapp && !instagram && !empresa.site && !empresa.emailContato) return null;
   const medida = (canal: CanalDeContato) => (medir ? medirContato(canal, empresa) : {});
   return (
-    <div className="mt-6 flex flex-wrap gap-2">
+    <div className={"cortejo-perfil-contatos"}>
       {empresa.telefoneComercial && (
         <a href={`tel:+${empresa.telefoneComercial}`} className="botao botao-pequeno" {...medida("telefone")}>
           Ligar {formatarTelefone(empresa.telefoneComercial)}
@@ -228,68 +203,43 @@ function Contatos({ empresa, medir }: { empresa: Perfil; medir: boolean }) {
 }
 
 function SemHistoria({ empresa, dono }: { empresa: Perfil; dono: boolean }) {
-  if (dono) {
-    return (
-      <div className="cartao p-8 text-center">
-        <p className="font-serif text-2xl">Conte a história do seu negócio</p>
-        <p className="mx-auto mt-2 max-w-md text-suave">
-          Como tudo começou, o que move vocês, quem faz acontecer. É aqui que a comunidade conhece vocês de verdade.
-        </p>
-        <Link href={`/painel/${empresa.instagramUsername}`} className="botao-coral mt-6">
-          Escrever nossa história
-        </Link>
-      </div>
-    );
-  }
-  if (empresa.motivoIndicacao) {
-    return (
-      <figure className="cartao p-8">
-        <p className="mb-4 text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Por que foi indicado</p>
-        <blockquote className="font-serif text-2xl leading-relaxed text-tinta/85">“{empresa.motivoIndicacao}”</blockquote>
-        {empresa.indicadaPor && (
-          <figcaption className="mt-4 text-sm text-suave">— indicado por {empresa.indicadaPor.nome}</figcaption>
-        )}
-      </figure>
-    );
-  }
-  return <p className="text-center font-serif text-xl text-suave italic">A história deste negócio ainda vai ser contada.</p>;
+  if (dono) return (
+    <div className={"cortejo-perfil-conviteHistoria"}>
+      <h2>Conte a história do seu negócio</h2>
+      <p>Como tudo começou, o que move vocês, quem faz acontecer. É aqui que a comunidade conhece vocês de verdade.</p>
+      <Link href={`/painel/${empresa.instagramUsername}`} className="botao-coral">Escrever nossa história</Link>
+    </div>
+  );
+  if (empresa.motivoIndicacao) return (
+    <figure className={"cortejo-perfil-bilhete"}>
+      <h2>Por que foi indicado</h2>
+      <blockquote>“{empresa.motivoIndicacao}”</blockquote>
+      {empresa.indicadaPor && <figcaption>Indicado por {empresa.indicadaPor.nome}</figcaption>}
+    </figure>
+  );
+  return <p className={"cortejo-perfil-semHistoria"}>A história deste negócio ainda vai ser contada.</p>;
 }
 
 function ChamadaReivindicar({ username }: { username: string }) {
   return (
-    <aside className="mb-12 flex flex-col gap-4 rounded-3xl border border-dashed border-coral/40 bg-coral-50/60 p-6 sm:flex-row sm:items-center sm:justify-between">
+    <aside className={"cortejo-perfil-assumir"}>
       <div>
-        <p className="font-semibold">Este negócio é seu?</p>
-        <p className="text-sm text-suave">
-          Reivindique o perfil para contar a sua história, escolher suas causas e responder à comunidade.
-        </p>
+        <p>Este negócio é seu?</p>
+        <p>Reivindique o perfil para contar a sua história, escolher suas causas e responder à comunidade.</p>
       </div>
-      <Link href={`/empresas/${username}/reivindicar`} className="botao-coral shrink-0">
-        Sou o dono
-      </Link>
+      <Link href={`/empresas/${username}/reivindicar`} className="botao-coral">Sou o dono</Link>
     </aside>
   );
 }
 
-function Depoimentos({
-  empresa,
-  usuario,
-  dono,
-  publico,
-}: {
-  empresa: Perfil;
-  usuario: UsuarioSessao | null;
-  dono: boolean;
-  publico: boolean;
-}) {
+function Depoimentos({ empresa, usuario, dono, publico }: { empresa: Perfil; usuario: UsuarioSessao | null; dono: boolean; publico: boolean }) {
   const jaEscreveu = !!usuario && empresa.depoimentos.some((d) => d.autorId === usuario.id);
   return (
-    <section id="depoimentos" className="scroll-mt-24 border-t border-linha pt-12">
-      <h2 className="font-serif text-3xl font-semibold">Depoimentos da comunidade</h2>
-      <p className="mt-1 text-suave">Experiências reais de quem conhece este negócio.</p>
-
+    <section id="depoimentos" className={"cortejo-perfil-depoimentos"}>
+      <h2>Depoimentos da comunidade</h2>
+      <p>Experiências reais de quem conhece este negócio.</p>
       {publico && !dono && !jaEscreveu && (
-        <div className="mt-8">
+        <div className={"cortejo-perfil-formularioDepoimento"}>
           {usuario?.emailConfirmado ? (
             <FormDepoimento empresaId={empresa.id} nomeEmpresa={empresa.nome} />
           ) : usuario ? (
@@ -299,48 +249,35 @@ function Depoimentos({
               voltar={`/empresas/${empresa.instagramUsername}#depoimentos`}
             />
           ) : (
-            <p className="cartao p-5 text-sm text-suave">
-              <Link href={`/entrar?voltar=${encodeURIComponent(`/empresas/${empresa.instagramUsername}#depoimentos`)}`} className="link">
-                Entre
-              </Link>{" "}
-              para deixar seu depoimento.
-            </p>
+            <div className={"cortejo-perfil-entrar"}>
+              <Link href={`/entrar?voltar=${encodeURIComponent(`/empresas/${empresa.instagramUsername}#depoimentos`)}`} className="botao-claro">Entrar para deixar um depoimento</Link>
+              <p>Sua experiência ajuda outras pessoas a conhecer este negócio.</p>
+            </div>
           )}
         </div>
       )}
-
-      <div className="mt-8 space-y-4">
-        {empresa.depoimentos.length === 0 && (
-          <p className="text-suave italic">Ainda não há depoimentos. Que tal ser a primeira pessoa?</p>
-        )}
+      <div className={"cortejo-perfil-listaDepoimentos"}>
+        {empresa.depoimentos.length === 0 && <p className="text-suave italic">Ainda não há depoimentos. Que tal ser a primeira pessoa?</p>}
         {empresa.depoimentos.map((depoimento) => (
-          <figure key={depoimento.id} className="cartao p-6">
-            <blockquote className="font-serif text-lg leading-relaxed whitespace-pre-line text-tinta/90">
-              {depoimento.texto}
-            </blockquote>
-            <figcaption className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-suave">
-              <span>
-                <span className="font-medium text-tinta">{depoimento.autor.nome}</span> · {formatarData(depoimento.criadoEm)}
-              </span>
+          <figure key={depoimento.id} className={"cortejo-perfil-depoimento"}>
+            <blockquote>{depoimento.texto}</blockquote>
+            <figcaption>
+              <span><strong>{depoimento.autor.nome}</strong> · <time dateTime={depoimento.criadoEm.toISOString()}>{formatarData(depoimento.criadoEm)}</time></span>
               {usuario && usuario.id !== depoimento.autorId && !depoimento.denunciado && (
-                <details className="text-xs">
-                  <summary className="cursor-pointer list-none text-suave hover:text-coral-700 [&::-webkit-details-marker]:hidden">
-                    Denunciar
-                  </summary>
-                  <form action={denunciarDepoimento} className="mt-2 flex gap-2">
+                <details className={"cortejo-perfil-denuncia"}>
+                  <summary>Denunciar</summary>
+                  <form action={denunciarDepoimento}>
                     <input type="hidden" name="depoimentoId" value={depoimento.id} />
-                    <input name="motivo" placeholder="O que há de errado?" className="campo py-1.5 sm:text-xs" maxLength={300} />
-                    <button type="submit" className="botao-claro botao-pequeno">
-                      Enviar
-                    </button>
+                    <input name="motivo" aria-label="Motivo da denúncia" placeholder="O que há de errado?" className="campo" maxLength={300} />
+                    <button type="submit" className="botao-claro botao-pequeno">Enviar</button>
                   </form>
                 </details>
               )}
             </figcaption>
             {depoimento.resposta && (
-              <div className="mt-4 rounded-2xl bg-papel p-4 text-sm leading-relaxed">
-                <p className="mb-1 font-semibold text-tinta">Resposta de {empresa.nome}</p>
-                <p className="whitespace-pre-line text-suave">{depoimento.resposta}</p>
+              <div className={"cortejo-perfil-resposta"}>
+                <p>Resposta de {empresa.nome}</p>
+                <p>{depoimento.resposta}</p>
               </div>
             )}
           </figure>
@@ -351,20 +288,5 @@ function Depoimentos({
 }
 
 function PerfilCarregando() {
-  return (
-    <div className="mx-auto max-w-3xl animate-pulse px-4 pt-12 sm:px-6" aria-busy="true">
-      <div className="flex items-center gap-6">
-        <div className="h-24 w-24 rounded-full bg-superficie" />
-        <div className="flex-1 space-y-3">
-          <div className="h-5 w-40 rounded-full bg-superficie" />
-          <div className="h-10 w-3/4 rounded-full bg-superficie" />
-        </div>
-      </div>
-      <div className="mt-10 space-y-3">
-        <div className="h-4 rounded-full bg-superficie" />
-        <div className="h-4 w-5/6 rounded-full bg-superficie" />
-        <div className="h-4 w-2/3 rounded-full bg-superficie" />
-      </div>
-    </div>
-  );
+  return <div className={`cortejo-perfil-conteudo cortejo-perfil-carregando`} aria-busy="true" aria-label="Carregando perfil"><div /></div>;
 }

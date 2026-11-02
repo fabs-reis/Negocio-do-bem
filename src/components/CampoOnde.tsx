@@ -82,7 +82,7 @@ export function CampoOnde({ cidades, valorInicial }: { cidades: CidadeComNegocio
         id={lista}
         role="listbox"
         aria-label={texto.trim() ? "Cidades e estados" : "Onde já temos negócios"}
-        className={`absolute z-30 mt-2.5 max-h-96 w-full min-w-72 overflow-auto rounded-3xl border border-linha bg-superficie p-2 shadow-2xl shadow-tinta/15 ${sugestoes.length > 0 ? "" : "hidden"}`}
+        className={`absolute z-30 mt-2.5 max-h-96 w-full min-w-72 overflow-auto rounded-3xl border border-borda-controle bg-superficie p-2 shadow-2xl shadow-tinta/15 ${sugestoes.length > 0 ? "" : "hidden"}`}
       >
         {!texto.trim() && (
           <li role="presentation" className="px-3 pt-2 pb-1.5 text-xs font-semibold tracking-wide text-suave uppercase">
@@ -117,7 +117,7 @@ export function CampoOnde({ cidades, valorInicial }: { cidades: CidadeComNegocio
         ))}
       </ul>
       {nenhuma && (
-        <p className="absolute z-30 mt-2.5 w-full rounded-3xl border border-linha bg-superficie px-4 py-3 text-sm text-suave shadow-2xl shadow-tinta/15">
+        <p className="absolute z-30 mt-2.5 w-full rounded-3xl border border-borda-controle bg-superficie px-4 py-3 text-sm text-suave shadow-2xl shadow-tinta/15">
           Ainda não temos negócios num lugar com esse nome.
         </p>
       )}

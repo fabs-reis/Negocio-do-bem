@@ -3,7 +3,7 @@ export function SeloStatus({ status }: { status: string }) {
     return (
       <span
         title="O dono assumiu este perfil e a moderação conferiu os dados do negócio"
-        className="inline-flex items-center gap-1 rounded-full bg-folha-50 px-2.5 py-1 text-xs font-semibold text-folha"
+        className="inline-flex items-center gap-1.5 rounded-full bg-verde-escuro py-1 pr-3 pl-2 text-xs font-semibold text-sobre-verde-escuro"
       >
         <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" aria-hidden="true">
           <path
@@ -18,9 +18,11 @@ export function SeloStatus({ status }: { status: string }) {
   return (
     <span
       title="Indicado por alguém da comunidade; o dono ainda não reivindicou o perfil"
-      className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800"
+      className="inline-flex items-center gap-1.5 rounded-full bg-amarelo py-1 pr-3 pl-2 text-xs font-semibold text-sobre-amarelo"
     >
-      <span aria-hidden="true">✦</span>
+      <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden="true">
+        <path fill="currentColor" d="M6 .5c.4 2.9 1.6 4.1 5.5 5.5-3.9 1.4-5.1 2.6-5.5 5.5C5.6 8.6 4.4 7.4.5 6 4.4 4.6 5.6 3.4 6 .5Z" />
+      </svg>
       Indicado pela comunidade
     </span>
   );

@@ -1,0 +1,85 @@
+.cortejo-perfil { --tinta-negocio: var(--color-azul); --texto-negocio: var(--color-azul-texto); }
+.cortejo-perfil-cabecalho { border-bottom: 1px solid var(--color-linha); }
+.cortejo-perfil-abertura, .cortejo-perfil-conteudo { width: min(100% - 3rem, 64rem); margin-inline: auto; }
+.cortejo-perfil-abertura { padding-block: 2rem 3.5rem; }
+.cortejo-perfil-voltar { display: inline-flex; align-items: center; gap: .5rem; font-size: .875rem; font-weight: 650; color: var(--color-suave); }
+.cortejo-perfil-voltar:hover { color: var(--color-tinta); }
+.cortejo-perfil-voltar svg { width: 1rem; height: 1rem; }
+.cortejo-perfil-avisos { margin-top: 1.5rem; }
+.cortejo-perfil-avisos:empty { display: none; }
+.cortejo-perfil-restrito { padding: 1rem 0; border-block: 1px dashed var(--color-linha); color: var(--color-suave); line-height: 1.6; }
+.cortejo-perfil-identidade { display: grid; grid-template-columns: 12rem minmax(0, 1fr); align-items: center; gap: 2.5rem; margin-top: 2.5rem; }
+.cortejo-perfil-retrato { width: 12rem; height: 12rem; position: relative; }
+.cortejo-perfil-retrato::after { content: ""; position: absolute; left: .8rem; right: -.8rem; bottom: -.8rem; height: .35rem; background: var(--tinta-negocio); }
+.cortejo-perfil-retrato > img, .cortejo-perfil-retrato > span { width: 100%; height: 100%; border-radius: .3rem; box-shadow: none; --tw-ring-shadow: 0 0 #0000; }
+.cortejo-perfil-retrato > span { font-size: 3rem; }
+.cortejo-perfil-nome { min-width: 0; }
+.cortejo-perfil-nome h1 { margin-top: .75rem; font-family: var(--font-display); font-variation-settings: "wdth" 75; font-size: 3.75rem; font-weight: 800; letter-spacing: -.035em; line-height: 1.02; text-wrap: balance; overflow-wrap: anywhere; }
+.cortejo-perfil-metadados { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem 1rem; margin-top: .9rem; font-size: .9rem; line-height: 1.5; color: var(--color-suave); }
+.cortejo-perfil-metadados > * { min-width: 0; overflow-wrap: anywhere; }
+.cortejo-perfil-metadados a:hover { color: var(--texto-negocio); text-decoration: underline; text-underline-offset: .25em; }
+.cortejo-perfil-resumo { max-width: 48rem; margin-top: 2.5rem; font-size: 1.5rem; line-height: 1.55; text-wrap: pretty; overflow-wrap: anywhere; }
+.cortejo-perfil-contatos { display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.5rem; margin-top: 1.5rem; }
+.cortejo-perfil-contatos a { max-width: 100%; overflow-wrap: anywhere; }
+.cortejo-perfil-contatos a:not(:first-child) { font-size: .9rem; font-weight: 650; text-decoration: underline; text-underline-offset: .25em; }
+.cortejo-perfil-causas { margin-top: 2.5rem; }
+.cortejo-perfil-causas h2 { margin-bottom: .85rem; font-size: .9rem; font-weight: 700; }
+.cortejo-perfil-causas > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+.cortejo-perfil-causas a { border-radius: 999px; }
+.cortejo-perfil-editar { margin-top: 1.5rem; }
+.cortejo-perfil-conteudo { max-width: 46rem; padding-block: 3.5rem 1rem; }
+.cortejo-perfil-historia { overflow-wrap: anywhere; }
+.cortejo-perfil-historia h2, .cortejo-perfil-depoimentos > h2 { font-family: var(--font-display); font-variation-settings: "wdth" 75; font-size: 2.3rem; line-height: 1.12; font-weight: 800; letter-spacing: -.025em; text-wrap: balance; }
+.cortejo-perfil-dadosHistoria { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; margin-top: .6rem; margin-bottom: 2rem; color: var(--color-suave); font-size: .8rem; }
+.cortejo-perfil-dadosHistoria time { white-space: nowrap; }
+.cortejo-perfil-bilhete { padding-block: .5rem 1rem; }
+.cortejo-perfil-bilhete h2 { color: var(--texto-negocio); }
+.cortejo-perfil-bilhete blockquote { margin-top: 1.5rem; font-size: 1.65rem; line-height: 1.55; text-wrap: pretty; overflow-wrap: anywhere; }
+.cortejo-perfil-bilhete figcaption { margin-top: 1rem; color: var(--color-suave); font-size: .9rem; }
+.cortejo-perfil-conviteHistoria { padding-block: 1rem 2rem; }
+.cortejo-perfil-conviteHistoria p { margin-top: .75rem; color: var(--color-suave); line-height: 1.7; }
+.cortejo-perfil-conviteHistoria a { margin-top: 1.25rem; }
+.cortejo-perfil-semHistoria { color: var(--color-suave); font-size: 1.25rem; line-height: 1.6; }
+.cortejo-perfil-assumir { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem; margin-top: 2.5rem; padding-block: 1.75rem; border-top: 1px solid var(--color-linha); }
+.cortejo-perfil-assumir > div { flex: 1 1 16rem; }
+.cortejo-perfil-assumir p:first-child { font-weight: 750; }
+.cortejo-perfil-assumir p + p { margin-top: .35rem; color: var(--color-suave); line-height: 1.6; font-size: .9rem; }
+.cortejo-perfil-depoimentos { margin-top: 3rem; padding-top: 3rem; border-top: 1px solid var(--color-linha); scroll-margin-top: 6rem; overflow-wrap: anywhere; }
+.cortejo-perfil-depoimentos > p { margin-top: .5rem; color: var(--color-suave); line-height: 1.6; }
+.cortejo-perfil-formularioDepoimento { margin-top: 1.75rem; }
+.cortejo-perfil-formularioDepoimento > form { border-radius: .4rem; box-shadow: none; }
+.cortejo-perfil-entrar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; margin-top: 1.5rem; }
+.cortejo-perfil-entrar p { color: var(--color-suave); font-size: .875rem; }
+.cortejo-perfil-listaDepoimentos { margin-top: 2rem; }
+.cortejo-perfil-depoimento { padding-block: 1.75rem; border-top: 1px dashed var(--color-linha); }
+.cortejo-perfil-depoimento blockquote { font-size: 1.15rem; line-height: 1.8; white-space: pre-line; }
+.cortejo-perfil-depoimento figcaption { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; margin-top: 1rem; color: var(--color-suave); font-size: .8rem; line-height: 1.6; }
+.cortejo-perfil-depoimento figcaption strong { color: var(--color-tinta); font-weight: 650; }
+.cortejo-perfil-depoimento time { white-space: nowrap; }
+.cortejo-perfil-denuncia { max-width: 100%; }
+.cortejo-perfil-denuncia summary { cursor: pointer; list-style: none; text-decoration: underline; text-underline-offset: .2em; }
+.cortejo-perfil-denuncia summary::-webkit-details-marker { display: none; }
+.cortejo-perfil-denuncia form { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+.cortejo-perfil-denuncia input { min-width: 0; flex: 1 1 12rem; }
+.cortejo-perfil-resposta { margin-top: 1.25rem; padding: 1rem 1.25rem; border-radius: .3rem; background: var(--color-superficie); line-height: 1.7; font-size: .9rem; }
+.cortejo-perfil-resposta p:first-child { font-weight: 700; }
+.cortejo-perfil-resposta p + p { margin-top: .35rem; color: var(--color-suave); white-space: pre-line; }
+.cortejo-perfil-disputa { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-linha); color: var(--color-suave); font-size: .8rem; line-height: 1.7; }
+.cortejo-perfil-carregando { min-height: 75vh; padding-block: 3rem; }
+.cortejo-perfil-carregando > div { height: 12rem; background: var(--color-superficie); }
+.cortejo-perfil a:focus-visible, .cortejo-perfil summary:focus-visible { outline: 3px solid var(--texto-negocio); outline-offset: 4px; }
+@media (max-width: 639px) {
+  .cortejo-perfil-abertura, .cortejo-perfil-conteudo { width: calc(100% - 2rem); }
+  .cortejo-perfil-abertura { padding-block: 1.5rem 2.5rem; }
+  .cortejo-perfil-identidade { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; margin-top: 1.75rem; }
+  .cortejo-perfil-retrato { width: 9rem; height: 9rem; }
+  .cortejo-perfil-nome h1 { font-size: 2.75rem; }
+  .cortejo-perfil-metadados { gap: .35rem .8rem; }
+  .cortejo-perfil-resumo { margin-top: 1.5rem; font-size: 1.2rem; }
+  .cortejo-perfil-contatos { gap: .8rem 1rem; }
+  .cortejo-perfil-causas { margin-top: 1.75rem; }
+  .cortejo-perfil-conteudo { padding-top: 2.5rem; }
+  .cortejo-perfil-historia h2, .cortejo-perfil-depoimentos > h2 { font-size: 1.85rem; }
+  .cortejo-perfil-bilhete blockquote { font-size: 1.35rem; }
+  .cortejo-perfil-depoimentos { margin-top: 2rem; padding-top: 2rem; }
+}

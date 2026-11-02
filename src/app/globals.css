@@ -3,9 +3,21 @@
 /* escuro:… aplica uma classe só no modo escuro (ver AlternarTema.tsx). */
 @custom-variant escuro (&:where([data-tema="escuro"], [data-tema="escuro"] *));
 
-@theme {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Newsreader Variable", ui-serif, Georgia, serif;
+/*
+ * Cortejo do bem: papel quente, tinta escura e as "cores caipiras" como tintas.
+ * Cada tinta tem três nomes: a cor (fundos e desenhos), <tinta>-texto (texto
+ * sobre papel e superfície, com contraste AA) e sobre-<tinta> (texto em cima de
+ * um fundo dessa cor). O static garante as variáveis no CSS mesmo quando só um
+ * style={{ ... var(--color-azul) }} usa a cor.
+ */
+@theme static {
+  /* Título: Bricolage Grotesque estreita (wdth 75), forte como letra de cartaz. */
+  --font-display: "Bricolage Grotesque Variable", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+  --font-display--font-variation-settings: "wdth" 75;
+  /* Texto: Figtree, redonda e calma, boa de ler também nas histórias longas. */
+  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
+  /* O nome antigo segue para o texto, para as histórias continuarem fáceis de ler. */
+  --font-serif: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
 
   /* Cores do manual da marca (src/lib/marca.ts). Não mudam no modo escuro: o
      logo troca o marrom pelo creme com escuro:, como na versão para fundo escuro. */
@@ -14,63 +26,99 @@
   --color-marca-marrom: #2d251d;
   --color-marca-creme: #f9f3eb;
 
-  /* Tema: o creme da marca como papel, o marrom como tinta e o laranja (coral) como destaque. */
-  --color-papel: #f9f3eb;
+  --color-papel: #f7f0e3;
   /* Fundo de cards, campos e menus: quase branco no claro, quase preto no escuro. */
-  --color-superficie: #fffdf9;
-  --color-tinta: #2d251d;
-  --color-suave: #6e6357;
-  --color-linha: #eadfd0;
-  --color-coral-50: #fdefe8;
-  --color-coral-100: #fbdccd;
-  --color-coral: #e45c32;
-  --color-coral-700: #b9401d;
-  --color-folha-50: #e8f3ec;
-  --color-folha: #2b7e53;
+  --color-superficie: #fffaf2;
+  --color-tinta: #1e1a16;
+  --color-suave: #5e564c;
+  --color-linha: #e6dccb;
+  /* Contorno funcional: as linhas decorativas não delimitam campos com contraste suficiente. */
+  --color-borda-controle: #8b7867;
+
+  --color-azul: #2f63c8;
+  --color-azul-texto: #2856b0;
+  --color-sobre-azul: #fffaf2;
+  --color-rosa: #d27ea0;
+  --color-rosa-texto: #9b3a64;
+  --color-sobre-rosa: #1e1a16;
+  --color-amarelo: #f2c230;
+  --color-amarelo-texto: #7d5c08;
+  --color-sobre-amarelo: #1e1a16;
+  --color-verde: #3f9a5c;
+  --color-verde-texto: #276f40;
+  --color-sobre-verde: #1e1a16;
+  --color-terracota: #b4502c;
+  --color-terracota-texto: #a64624;
+  --color-sobre-terracota: #fffaf2;
+  --color-verde-escuro: #1f5a3c;
+  --color-sobre-verde-escuro: #fffaf2;
+
+  /* Nomes antigos, usados pelas telas que só herdam as cores (painel, moderação,
+     reivindicação): o coral vira terracota e a folha vira o verde. */
+  --color-coral: var(--color-terracota);
+  --color-coral-700: var(--color-terracota-texto);
+  --color-coral-50: #f8e4da;
+  --color-coral-100: #f2cdbb;
+  --color-folha: var(--color-verde-texto);
+  --color-folha-50: #e1efe4;
+
+  /* Tons usados em avisos e na moderação: sky → azul, amber → amarelo. */
+  --color-sky-50: #e5ecf9;
+  --color-sky-200: #b8cbef;
+  --color-sky-900: #1e4590;
+  --color-amber-50: #fbf0cc;
+  --color-amber-200: #f2d272;
+  --color-amber-800: #7d5c08;
+  --color-amber-900: #5c4306;
 }
 
 /*
  * Modo escuro: as mesmas cores com outros valores, então as classes não mudam.
- * Inclui os tons da paleta do Tailwind usados em selos, avisos e monogramas,
- * com claro e escuro trocados.
+ * As tintas de fundo quase não mudam; os textos de cada tinta clareiam.
  */
 [data-tema="escuro"] {
   color-scheme: dark;
-  --color-papel: #17120e;
-  --color-superficie: #221b15;
-  --color-tinta: #f9f3eb;
-  --color-suave: #a99c8e;
-  --color-linha: #3a3029;
-  --color-coral-50: #331f18;
-  --color-coral-100: #4a2a1f;
-  --color-coral: #ec6a43;
-  --color-coral-700: #f4936f;
-  --color-folha-50: #17281e;
-  --color-folha: #74c493;
+  --color-papel: #17130f;
+  --color-superficie: #221c17;
+  --color-tinta: #f7f0e3;
+  --color-suave: #b5a998;
+  --color-linha: #3a3129;
+  --color-borda-controle: #9d8b78;
 
-  --color-sky-50: #0f2230;
-  --color-sky-100: #163246;
-  --color-sky-200: #1f4560;
-  --color-sky-800: #a9d8f5;
-  --color-sky-900: #cfe9fa;
-  --color-violet-50: #1f1832;
-  --color-violet-100: #2c2148;
-  --color-violet-800: #cdbdfb;
-  --color-emerald-50: #0f261c;
-  --color-emerald-100: #153626;
-  --color-emerald-800: #9ee3c0;
-  --color-amber-50: #2b2010;
-  --color-amber-100: #3b2c14;
-  --color-amber-200: #4d3a1a;
-  --color-amber-800: #f5d08a;
-  --color-amber-900: #fae3b4;
-  --color-rose-100: #3b1c22;
-  --color-rose-800: #f8b4bf;
-  --color-lime-50: #1a2412;
-  --color-indigo-50: #191c33;
-  --color-pink-50: #2e1724;
-  --color-yellow-50: #2a2510;
-  --color-orange-50: #2e1c10;
+  --color-azul: #3a6cd2;
+  --color-azul-texto: #9db9f2;
+  --color-sobre-azul: #fffaf2;
+  --color-rosa: #d885a7;
+  --color-rosa-texto: #f0a8c6;
+  --color-sobre-rosa: #1e1a16;
+  --color-amarelo: #f2c230;
+  --color-amarelo-texto: #f2c230;
+  --color-sobre-amarelo: #1e1a16;
+  --color-verde: #45a364;
+  --color-verde-texto: #86d39e;
+  --color-sobre-verde: #1e1a16;
+  --color-terracota: #b4502c;
+  --color-terracota-texto: #f0956d;
+  --color-sobre-terracota: #fffaf2;
+  --color-verde-escuro: #1f5a3c;
+  --color-sobre-verde-escuro: #fffaf2;
+
+  --color-coral-50: #3a2219;
+  --color-coral-100: #4e2b1e;
+  --color-folha-50: #16291d;
+
+  --color-sky-50: #142036;
+  --color-sky-200: #263b61;
+  --color-sky-900: #c6d6f8;
+  --color-amber-50: #2a2110;
+  --color-amber-200: #4c3b17;
+  --color-amber-800: #f2c230;
+  --color-amber-900: #f7d873;
+}
+
+html {
+  accent-color: var(--color-terracota);
+  scrollbar-color: color-mix(in oklab, var(--color-tinta) 28%, transparent) var(--color-papel);
 }
 
 body {
@@ -80,19 +128,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Seleção como marca-texto amarelo; o cursor dos campos na cor da terracota. */
 ::selection {
-  background: var(--color-coral-100);
+  background: var(--color-amarelo);
+  color: var(--color-sobre-amarelo);
+}
+input,
+textarea,
+[contenteditable] {
+  caret-color: var(--color-terracota);
 }
 
 @layer components {
   .botao {
     @apply inline-flex items-center justify-center gap-2 rounded-full bg-tinta px-5 py-2.5 text-sm font-semibold text-papel transition hover:bg-tinta/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:cursor-not-allowed disabled:opacity-60;
   }
+  /* O hover escurece a terracota (e não clareia), para o texto claro seguir legível no modo escuro. */
   .botao-coral {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-coral px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-coral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-coral px-5 py-2.5 text-sm font-semibold text-sobre-terracota transition hover:bg-[color-mix(in_oklab,var(--color-terracota)_84%,black)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:cursor-not-allowed disabled:opacity-60;
   }
   .botao-claro {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-linha bg-superficie px-5 py-2.5 text-sm font-semibold text-tinta transition hover:border-tinta/30 hover:bg-papel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-borda-controle bg-superficie px-5 py-2.5 text-sm font-semibold text-tinta transition hover:border-tinta hover:bg-papel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:cursor-not-allowed disabled:opacity-60;
   }
   .botao-pequeno {
     @apply px-3.5 py-1.5 text-xs;
@@ -108,7 +164,7 @@ body {
   }
   /* 16px no celular: com letra menor, o Safari do iPhone dá zoom ao tocar no campo. */
   .campo {
-    @apply block w-full rounded-2xl border border-linha bg-superficie px-4 py-2.5 text-base sm:text-[15px] text-tinta placeholder:text-suave/70 transition focus:border-coral focus:ring-4 focus:ring-coral-100 focus:outline-none;
+    @apply block w-full rounded-2xl border border-borda-controle bg-superficie px-4 py-2.5 text-base sm:text-[15px] text-tinta placeholder:text-suave transition focus:border-coral focus:ring-4 focus:ring-coral-100 focus:outline-none;
   }
   .erro-campo {
     @apply mt-1.5 text-xs font-medium text-coral-700;
@@ -181,11 +237,16 @@ body {
   margin: 2.4em auto;
   text-align: center;
 }
+/* Três pontos nas tintas do cortejo, no lugar de um separador de texto. */
 .historia hr::after {
-  content: "✦ ✦ ✦";
-  color: var(--color-coral);
-  letter-spacing: 0.6em;
-  font-size: 0.8rem;
+  content: "";
+  display: inline-block;
+  width: 3.25rem;
+  height: 0.5rem;
+  background:
+    radial-gradient(circle at 0.25rem 50%, var(--color-azul) 0.22rem, transparent 0.25rem),
+    radial-gradient(circle at 50% 50%, var(--color-amarelo) 0.22rem, transparent 0.25rem),
+    radial-gradient(circle at calc(100% - 0.25rem) 50%, var(--color-terracota) 0.22rem, transparent 0.25rem);
 }
 .historia img {
   border-radius: 1rem;
@@ -265,4 +326,69 @@ body {
   background: var(--color-papel);
   border-radius: 0.35rem;
   padding: 0.1em 0.35em;
+}
+
+/* O logo se desenha durante a abertura; as folhas ficam em cortina/cortina.css. */
+/* Cada pessoa: um traço provisório desenha o contorno, depois a cor preenche e o traço some. */
+.la-pessoa > * {
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: 0;
+  /* Traço de 1 (o contorno inteiro, pelo pathLength) e vão de 2: com o deslocamento
+     acima de 1 nada aparece, nem o ponto da ponta redonda. */
+  stroke-dasharray: 1 2;
+}
+html[data-abertura] .la-pessoa > * {
+  animation:
+    la-traco 0.5s cubic-bezier(0.6, 0, 0.3, 1) var(--atraso) both,
+    la-cor 0.3s ease-out calc(var(--atraso) + 0.42s) both;
+}
+html[data-abertura] .la-pessoa > circle {
+  animation-delay: calc(var(--atraso) + 0.12s), calc(var(--atraso) + 0.42s);
+}
+/* "Negócio" e depois "do Bem" aparecem da esquerda para a direita, como quem escreve. */
+.la-linha {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+}
+html[data-abertura] .la-linha {
+  animation: la-escreve 0.5s cubic-bezier(0.45, 0, 0.2, 1) 0.85s both;
+}
+html[data-abertura] .la-linha-2 {
+  animation-delay: 1.08s;
+}
+html[data-abertura="pulada"] .la-pessoa > *,
+html[data-abertura="pulada"] .la-linha {
+  animation: none;
+}
+
+@keyframes la-traco {
+  from {
+    stroke-dashoffset: 1.02;
+    stroke-opacity: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+    stroke-opacity: 1;
+  }
+}
+@keyframes la-cor {
+  from {
+    fill-opacity: 0;
+    stroke-opacity: 1;
+  }
+  to {
+    fill-opacity: 1;
+    stroke-opacity: 0;
+  }
+}
+@keyframes la-escreve {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
