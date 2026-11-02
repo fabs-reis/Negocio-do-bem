@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import type { EstadoFavorito } from "@/components/CoracaoFavorito";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
 import { db, type Prisma } from "@/lib/db";
 import { interpretarLocal, slugCidade, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
@@ -181,6 +182,7 @@ export async function buscarPerfil(username: string) {
       causas: { select: { causa: true } },
       membros: { select: { usuarioId: true } },
       indicadaPor: { select: { nome: true } },
+      _count: { select: { favoritos: true } },
       depoimentos: {
         where: { status: "publicado" },
         orderBy: { criadoEm: "desc" },
@@ -188,6 +190,53 @@ export async function buscarPerfil(username: string) {
       },
     },
   });
+}
+
+/**
+ * O coração de cada negócio de uma lista, com uma consulta só para a lista toda. Quem não
+ * entrou vê o convite para entrar, e o dono não vê o coração nos próprios negócios
+ * (`undefined`). `voltar` é a página a que o login devolve a pessoa.
+ */
+export async function coracoesDaLista(
+  usuario: UsuarioSessao | null,
+  empresaIds: string[],
+  voltar: string,
+): Promise<(empresaId: string) => EstadoFavorito | undefined> {
+  if (!usuario) return (empresaId) => ({ empresaId, logado: false, favorito: false, voltar });
+  const [favoritas, proprias] = await Promise.all([
+    db.empresaFavorita.findMany({ where: { usuarioId: usuario.id, empresaId: { in: empresaIds } }, select: { empresaId: true } }),
+    db.empresaMembro.findMany({ where: { usuarioId: usuario.id, empresaId: { in: empresaIds } }, select: { empresaId: true } }),
+  ]);
+  const favoritos = new Set(favoritas.map((f) => f.empresaId));
+  const dono = new Set(proprias.map((m) => m.empresaId));
+  return (empresaId) => (dono.has(empresaId) ? undefined : { empresaId, logado: true, favorito: favoritos.has(empresaId), voltar });
+}
+
+/**
+ * Uma página dos favoritos da pessoa, do favoritado mais recentemente ao mais antigo.
+ * Os que saíram do diretório não aparecem, mas continuam favoritos: se voltarem, voltam à lista.
+ */
+export async function buscarFavoritos(usuarioId: string, paginaPedida: number) {
+  const onde = { usuarioId, empresa: NO_DIRETORIO } satisfies Prisma.EmpresaFavoritaWhereInput;
+  const total = await db.empresaFavorita.count({ where: onde });
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  // Uma página além da última (depois de tirar favoritos, por exemplo) mostra a última.
+  const pagina = Math.min(paginaPedida, paginas);
+  const itens = await db.empresaFavorita.findMany({
+    where: onde,
+    orderBy: { criadoEm: "desc" },
+    skip: (pagina - 1) * POR_PAGINA,
+    take: POR_PAGINA,
+    include: {
+      empresa: {
+        include: {
+          causas: { select: { causa: true } },
+          _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+        },
+      },
+    },
+  });
+  return { total, paginas, pagina, empresas: itens.map((item) => item.empresa) };
 }
 
 type EmpresaVisivel = {

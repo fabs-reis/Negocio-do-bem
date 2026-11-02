@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { denunciarDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { CausaBadge } from "@/components/CausaBadge";
+import { CoracaoFavorito } from "@/components/CoracaoFavorito";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { Historia } from "@/components/Historia";
 import { JsonLd } from "@/components/JsonLd";
@@ -14,14 +15,14 @@ import { LinkInstagram } from "@/components/LinkInstagram";
 import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { buscarCausa, filtrarCausas } from "@/lib/causas";
-import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
+import { buscarPerfil, coracoesDaLista, ehDono, podeVerPerfil } from "@/lib/consultas";
 import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { linkPerfil, normalizarEndereco } from "@/lib/instagram";
 import { medirContato, type CanalDeContato } from "@/lib/medicao";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
-import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
+import { formatarData, formatarFavoritos, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
@@ -59,6 +60,10 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   const publico = empresa.moderacao === "aprovada" && !empresa.oculta;
   // Os cliques nos contatos contam no Analytics só quando vêm do público, não do dono.
   const contato = publico && !dono ? empresa : undefined;
+  // Só um negócio do diretório pode ser favoritado, e o dono não favorita o próprio (sem coração).
+  const coracao = publico
+    ? (await coracoesDaLista(usuario, [empresa.id], `/empresas/${empresa.instagramUsername}`))(empresa.id)
+    : undefined;
 
   return (
     <article>
@@ -126,14 +131,24 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
           )}
 
           {dono ? (
-            <Link href={`/painel/${empresa.instagramUsername}`} className="botao mt-8">
-              Editar meu perfil
-            </Link>
-          ) : (
-            usuario?.moderador && (
-              <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao mt-8">
-                Editar perfil (moderação)
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href={`/painel/${empresa.instagramUsername}`} className="botao">
+                Editar meu perfil
               </Link>
+              {publico && empresa._count.favoritos > 0 && (
+                <span className="text-sm text-suave">{formatarFavoritos(empresa._count.favoritos)}</span>
+              )}
+            </div>
+          ) : (
+            (coracao || usuario?.moderador) && (
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                {coracao && <CoracaoFavorito estado={coracao} nome={empresa.nome} comTexto total={empresa._count.favoritos} />}
+                {usuario?.moderador && (
+                  <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao">
+                    Editar perfil (moderação)
+                  </Link>
+                )}
+              </div>
             )
           )}
         </div>

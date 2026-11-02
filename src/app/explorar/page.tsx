@@ -7,7 +7,8 @@ import { EmpresaLinha } from "@/components/EmpresaLinha";
 import { IconeCategoria } from "@/components/IconeCategoria";
 import { Paginacao } from "@/components/Paginacao";
 import { buscarCausa, CAUSAS, GRUPOS, type GrupoCausa } from "@/lib/causas";
-import { buscarDiretorio } from "@/lib/consultas";
+import { usuarioAtual } from "@/lib/auth/sessao";
+import { buscarDiretorio, coracoesDaLista } from "@/lib/consultas";
 import {
   alternar,
   hrefDiretorio,
@@ -64,6 +65,7 @@ export default function Explorar(props: PageProps<"/explorar">) {
 async function Diretorio({ searchParams }: Pick<PageProps<"/explorar">, "searchParams">) {
   const filtros = lerFiltros(await searchParams);
   const resultado = await buscarDiretorio(filtros);
+  const coracoes = await coracoesDaLista(await usuarioAtual(), resultado.itens.map((empresa) => empresa.id), hrefDiretorio(filtros));
   const ativos = filtrosAtivos(filtros, resultado.local);
   const marcados = filtros.tipos.length + filtros.causas.length + (filtros.verificados ? 1 : 0);
 
@@ -142,13 +144,13 @@ async function Diretorio({ searchParams }: Pick<PageProps<"/explorar">, "searchP
             filtros.vista === "lista" ? (
               <div className="mt-5 flex flex-col gap-2">
                 {resultado.itens.map((empresa) => (
-                  <EmpresaLinha key={empresa.instagramUsername} empresa={empresa} />
+                  <EmpresaLinha key={empresa.instagramUsername} empresa={empresa} favorito={coracoes(empresa.id)} />
                 ))}
               </div>
             ) : (
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {resultado.itens.map((empresa) => (
-                  <EmpresaCard key={empresa.instagramUsername} empresa={empresa} />
+                  <EmpresaCard key={empresa.instagramUsername} empresa={empresa} favorito={coracoes(empresa.id)} />
                 ))}
               </div>
             )

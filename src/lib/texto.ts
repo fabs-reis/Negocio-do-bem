@@ -62,6 +62,12 @@ export function formatarTelefone(digitos: string): string {
   return `(${ddd}) ${numero.slice(0, corte)}-${numero.slice(corte)}`;
 }
 
+/** "Ninguém favoritou ainda", "1 pessoa favoritou", "1.234 pessoas favoritaram". */
+export function formatarFavoritos(total: number): string {
+  if (total === 0) return "Ninguém favoritou ainda";
+  return total === 1 ? "1 pessoa favoritou" : `${total.toLocaleString("pt-BR")} pessoas favoritaram`;
+}
+
 export function formatarData(data: Date): string {
   return new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", year: "numeric" }).format(data);
 }

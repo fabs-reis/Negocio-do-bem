@@ -40,6 +40,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | Indicação | criação de uma `Empresa` | Alguém da comunidade (ou o próprio dono) cadastra um negócio. |
 | Reivindicação | `Reivindicacao` | O pedido de uma pessoa para virar dona de um negócio. |
 | Depoimento | `Depoimento` | O relato de alguém da comunidade sobre um negócio. |
+| Favorito | `EmpresaFavorita` | Um negócio que uma conta guardou com o coração, para achar de novo na página Favoritos. É a primeira parte do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)). |
 | Denúncia | campos `denunciado`, `motivoDenuncia` e `denunciadoPorId` do `Depoimento` | O aviso de que um depoimento tem algo errado. |
 | Causa | `EmpresaCausa` + lista em `src/lib/causas.ts` | Um valor que o negócio pratica, como "Escala 5x2" ou "Antirracista". Vira selo no perfil e filtro na busca. |
 | Auditoria | `RegistroAuditoria` | O registro de quem fez o quê nas ações importantes. |
@@ -604,6 +605,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - site, que mostra o domínio sem `www`;
   - e-mail, que abre `mailto:`.
 - **Resumo** e **causas** como selos.
+- **O coração com "Favoritar",** num negócio do diretório, para quem não é dono (veja [Favoritos](#favoritos)).
 - **"Nossa história",** com "N min de leitura · atualizada em …". Sem história:
   - para o dono, um convite para escrever;
   - para os outros, o motivo da indicação e o nome de quem indicou, se houver;
@@ -633,6 +635,28 @@ Para todo o resto, a página responde 404. Quem pode ver encontra um aviso no to
 - **rejeitado:** a mesma frase, começando com "Não publicada";
 - **oculto:** "Este perfil está oculto pelo dono e não aparece no diretório."
 
+### Favoritos
+
+Código: `favoritar` em `src/acoes/favoritos.ts`, o coração em `src/components/CoracaoFavorito.tsx`, `coracoesDaLista` em `src/lib/consultas.ts` e a página em `src/app/favoritos/`.
+
+- **O coração** aparece:
+  - no perfil, embaixo das causas, com o texto "Favoritar";
+  - no canto de cada card do diretório (`/explorar`, nas duas vistas, e nas páginas de cidade, causa e tipo) e da página Favoritos.
+- **Só num negócio do diretório** (publicado e não oculto), com ou sem dono. O dono não vê o coração nos próprios negócios.
+- **Precisa de login.** Sem login, o coração leva a `/entrar` e volta para a página em que a pessoa estava. Não pede o e-mail confirmado, porque favoritar não publica nada.
+- **Um toque põe ou tira dos favoritos, sem sair da página.** O coração fica cheio na hora, enquanto o servidor grava. No perfil, aparece também "Está nos seus favoritos", com o link para a página Favoritos, e o número de favoritos já conta o toque.
+- **Uma vez só:** cada pessoa favorita cada negócio uma vez (chave `empresaId` + `usuarioId`). Dois toques seguidos gravam uma linha e contam um evento no Analytics.
+- **A ação confere tudo de novo:** recusa favoritar um negócio fora do diretório ou do qual a pessoa é dona, mesmo chamada direto.
+- **Tirar dos favoritos vale sempre,** mesmo depois que o negócio saiu do diretório.
+- **A página `/favoritos`** (no menu da conta, "Favoritos") lista os favoritos, do mais recente ao mais antigo, 18 por página. Tirar um negócio pelo coração deixa o card na tela, com o coração vazio, para dar para voltar atrás; ele some da lista na próxima visita. Um negócio que sai do diretório também some, mas continua favorito: se voltar, volta à lista.
+- **Quem vê o quê:**
+  - só a própria pessoa vê os favoritos dela;
+  - **o perfil mostra quantas pessoas favoritaram** ("1 pessoa favoritou", "12 pessoas favoritaram"), para todo mundo, ao lado do coração. Com zero, nada aparece, para um negócio novo não ficar exposto com "0";
+  - o dono vê o mesmo número no perfil, ao lado de "Editar meu perfil", e no `/painel` e no `/painel/<@>`, mas não quem favoritou;
+  - o número não aparece nos cards nem muda a ordem do diretório, porque o site não tem ranking.
+- **Sem e-mail:** o dono não é avisado quando alguém favorita.
+- **Clube do Bem:** favoritar vai ser a condição para gerar cupom ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)).
+
 ### Buscadores e prévia do link
 
 Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/opengraph-image.tsx`, `src/app/empresas/[usuario]/opengraph-image.tsx`, `src/app/cidades/[cidade]/opengraph-image.tsx` e `src/lib/previa-da-cidade.tsx`.
@@ -643,7 +667,7 @@ Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/o
 - **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Verificado pelo dono". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
 - **Prévia das outras páginas:** a página de cada cidade tem a sua (ver [seção 11](#páginas-de-cidade-causa-e-tipo)). As outras páginas públicas (início, `/sobre`, `/explorar`, `/cidades`, `/participar`, causas e tipos) levam a imagem geral do site, com o logo e o lema.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
-- **Fora da busca:** login, cadastro, painel, reivindicação e moderação levam `noindex`. `/painel`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
+- **Fora da busca:** login, cadastro, painel, Favoritos, reivindicação e moderação levam `noindex`. `/painel`, `/favoritos`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
 - **Previews** (`DEPLOY_ENV=preview`) bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
 
 ### Painel do dono
@@ -651,12 +675,12 @@ Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/o
 Código: `src/app/painel/`.
 
 - **`/painel`** mostra:
-  - os negócios de que a pessoa é dona, com avisos de "Oculto do diretório" e "Falta contar a história";
+  - os negócios de que a pessoa é dona, com quantas pessoas o favoritaram e os avisos de "Oculto do diretório" e "Falta contar a história";
   - as solicitações de reivindicação;
   - as indicações dela, com a situação de cada uma na moderação;
   - a seção "Minha conta", com a troca de senha, ou o link para criar uma na conta sem senha (veja [Cadastro e login](#cadastro-e-login));
   - o aviso da ação anterior (`?aviso=`), como "Senha trocada".
-- **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). Nele, o dono:
+- **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). No topo, aparece quantas pessoas favoritaram o negócio. Nele, o dono:
   - **edita o perfil:** foto, informações, contatos, causas e história. O @ não muda;
   - **responde depoimentos:** até 1.000 caracteres. A resposta pode ser trocada a qualquer momento, e apagar o texto tira a resposta;
   - **oculta ou mostra o negócio no diretório.**
@@ -1015,6 +1039,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
+| Os favoritos de cada pessoa | `EmpresaFavorita` | Só a própria pessoa, na página Favoritos. O perfil mostra a todos quantas pessoas favoritaram o negócio, nunca quem. |
 | Quem denunciou e o motivo | `Depoimento` | Só a moderação. |
 | Auditoria | `RegistroAuditoria` | Só a moderação. |
 | Tentativas de login e cadastro | `TentativaAcesso` | Ninguém vê o IP nem o e-mail: só o sha256 deles e a contagem são guardados. A moderação vê só quantos contadores existem. |
@@ -1044,6 +1069,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
   | `negocio_cadastrado` | Negócio publicado no diretório | `tipo` (`indicacao` ou `dono`), `categoria`, `uf`, `cidade`, `com_instagram` (`sim` ou `nao`) |
   | `perfil_reivindicado` | Pedido de dono enviado | `method` (`documento` ou `instagram`), `resultado` (`verificada` ou `em_analise`) |
   | `depoimento_publicado` | Depoimento publicado | `categoria` |
+  | `negocio_favoritado` | Alguém pôs um negócio nos favoritos. Quem já tinha favoritado não conta de novo | `categoria`, `uf` |
   | `contato_negocio` | Clique em Ligar, WhatsApp, Instagram, site ou e-mail no perfil de um negócio público, menos do próprio dono | `canal` (`telefone`, `whatsapp`, `instagram`, `site` ou `email`), `categoria`, `uf` |
   | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
   | `app_instalado` | Site instalado como app pelo Chrome ou pelo Edge. O Safari não avisa quando alguém instala | — |
@@ -1098,6 +1124,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Foto vinda do Instagram | 600×600, WebP | `scripts/fotos-instagram.ts` |
 | Negócios por rodada da rotina de fotos | 100, com 1,5 s entre consultas à Meta | `scripts/fotos-instagram.ts` |
 | Negócios por página no diretório | 18 | `src/lib/consultas.ts` |
+| Negócios por página em Favoritos | 18 | `src/lib/consultas.ts` |
 | Tipos de negócio visíveis nos filtros | 8 (o resto em "Ver todos") | `src/app/explorar/page.tsx` |
 | Sugestões do "Onde?" | até 8 | `src/lib/diretorio.ts` |
 | Itens por fila da moderação | 50 | `src/app/moderacao/page.tsx` |
@@ -1166,6 +1193,10 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 - A validade de 30 dias dos pedidos por dados do negócio é só informativa.
 - Quando um pedido é aprovado, os pedidos pendentes de outras pessoas para o mesmo negócio continuam na fila.
 - **Duas pessoas pedindo o mesmo negócio sem dono ao mesmo tempo** podem virar donas juntas: a aprovação na hora não trava o negócio entre a conferência e a aprovação.
+
+**Favoritos**
+
+- Quem favorita um negócio e depois vira dono dele continua com o favorito, que entra na conta de quantas pessoas favoritaram.
 
 **Depoimentos**
 
