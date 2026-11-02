@@ -31,7 +31,7 @@ const PROMESSAS: { titulo: string; texto: ReactNode }[] = [
   { titulo: "Ninguém compra destaque.", texto: "Não tem anúncio nem ranking." },
   { titulo: "Você pode editar o perfil.", texto: "Após assumir o perfil, você pode editar os dados e ocultar o negócio no painel, respeitando as regras de moderação." },
   { titulo: "Não pedimos a senha do seu Instagram.", texto: "Da sua conta, guardamos o nome, o e-mail e a senha protegida." },
-  { titulo: "Tem gente cuidando.", texto: "A moderação pode retirar perfis falsos do ar; as decisões tomadas ficam registradas." },
+  { titulo: "Tem gente cuidando.", texto: "A moderação pode retirar perfis falsos do ar. As decisões tomadas ficam registradas." },
   {
     titulo: "O código é aberto.",
     texto: (

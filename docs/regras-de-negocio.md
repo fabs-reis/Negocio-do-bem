@@ -600,9 +600,10 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
 
 - **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @.
 - **Selo:**
-  - **"Perfil oficial"** quando `status = "verificada"` e `oficial = true`;
-  - **"Perfil assumido"** quando `status = "verificada"` e `oficial = false`;
+  - **"Perfil oficial"** quando `status = "verificada"` e `oficial = true`. O texto de ajuda explica que o controle da conta do Instagram foi confirmado. Não certifica a identidade legal nem as causas do negócio.
+  - **"Perfil assumido"** quando `status = "verificada"` e `oficial = false`. O acesso por uma conta não certifica identidade nem causas.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
+- **Convite ao cadastro (`/participar`):** explica que assumir o perfil permite editar os dados e ocultar o negócio no painel, respeitando a moderação. Consultar o perfil e solicitar acesso não substituem a confirmação pelo Instagram, que é um processo separado.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
 - **Botões de contato** (só os preenchidos). WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
   - telefone comercial, "Ligar", que abre `tel:`;
