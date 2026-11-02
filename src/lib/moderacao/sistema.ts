@@ -1,8 +1,11 @@
 import "server-only";
-import { usaBlob } from "@/lib/armazenamento";
+import { ambienteDeDeploy } from "@/lib/ambiente";
+import { usaArmazenamentoCloudflare } from "@/lib/armazenamento";
+import { configGoogle } from "@/lib/auth/google";
 import { db } from "@/lib/db";
+import { envioLigado } from "@/lib/email";
 import { tokenDasFotos } from "@/lib/fotos-instagram";
-import { configLogin, configWebhook, perfilOficial } from "@/lib/instagram";
+import { configLogin, perfilOficial } from "@/lib/instagram";
 import { ENDERECO_DO_SITE, INDEXAVEL } from "@/lib/seo";
 
 // A aba "Sistema" do painel da moderação. Diz só se cada integração está ligada:
@@ -13,16 +16,22 @@ export type Integracao = { nome: string; ligada: boolean; ligadaTexto: string; d
 export function integracoes(): Integracao[] {
   return [
     {
-      nome: "Fotos no Vercel Blob",
-      ligada: usaBlob(),
-      ligadaTexto: "As fotos vão para o Vercel Blob deste ambiente.",
+      nome: "Fotos no Cloudflare R2",
+      ligada: usaArmazenamentoCloudflare(),
+      ligadaTexto: "As fotos vão para o bucket R2 deste ambiente.",
       desligadaTexto: "As fotos ficam em public/enviados, o que só serve no computador de quem desenvolve.",
     },
     {
-      nome: "Código por DM",
+      nome: "Instagram do projeto",
       ligada: perfilOficial() !== null,
-      ligadaTexto: `Quem reivindica pode mandar um código por DM para @${perfilOficial()}.`,
-      desligadaTexto: "Sem INSTAGRAM_PERFIL_OFICIAL, a reivindicação é só pelos dados do negócio.",
+      ligadaTexto: `Os dados estruturados do site apontam para @${perfilOficial()}.`,
+      desligadaTexto: "Sem INSTAGRAM_PERFIL_OFICIAL, o site não indica o Instagram do projeto.",
+    },
+    {
+      nome: "Entrar com o Google",
+      ligada: configGoogle() !== null,
+      ligadaTexto: "/entrar e /cadastrar mostram o botão “Continuar com o Google”.",
+      desligadaTexto: "Faltam GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET ou APP_URL.",
     },
     {
       nome: "Entrar com Instagram",
@@ -31,16 +40,16 @@ export function integracoes(): Integracao[] {
       desligadaTexto: "Faltam INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET ou APP_URL.",
     },
     {
-      nome: "Confirmação automática da DM",
-      ligada: configWebhook() !== null,
-      ligadaTexto: "O webhook da Meta aprova sozinho o pedido quando a DM chega da conta certa.",
-      desligadaTexto: "Faltam INSTAGRAM_APP_SECRET, INSTAGRAM_ACCESS_TOKEN ou INSTAGRAM_WEBHOOK_VERIFY_TOKEN.",
-    },
-    {
       nome: "Rotina de fotos do Instagram",
       ligada: tokenDasFotos() !== null,
       ligadaTexto: "A rota /api/fotos-instagram aceita o script local que busca as fotos.",
       desligadaTexto: "Sem FOTOS_TOKEN (de pelo menos 32 caracteres), a rota responde 404.",
+    },
+    {
+      nome: "Avisos por e-mail",
+      ligada: envioLigado(),
+      ligadaTexto: "Donos e moderação recebem os avisos por e-mail, enviados pelo Resend.",
+      desligadaTexto: "Sem RESEND_API_KEY e EMAIL_REMETENTE, ou fora da produção, ninguém recebe e-mail.",
     },
     {
       nome: "Google Analytics",
@@ -57,10 +66,10 @@ export function integracoes(): Integracao[] {
   ];
 }
 
-/** Em que ambiente o site está rodando e de qual commit ele veio, quando o Vercel informa. */
+/** Em que ambiente o site está rodando e de qual commit ele veio, quando o host informa. */
 export function ambiente() {
   return {
-    nome: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "desconhecido",
+    nome: ambienteDeDeploy() ?? process.env.NODE_ENV ?? "desconhecido",
     endereco: ENDERECO_DO_SITE,
     indexavel: INDEXAVEL,
     branch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
@@ -81,7 +90,7 @@ export async function migracoesAplicadas(): Promise<Migracao[]> {
 
 /** Quantas linhas cada tabela tem. */
 export async function linhasPorTabela() {
-  const [contas, sessoes, negocios, causas, donos, reivindicacoes, depoimentos, auditoria] = await Promise.all([
+  const [contas, sessoes, negocios, causas, donos, reivindicacoes, depoimentos, auditoria, tentativas] = await Promise.all([
     db.usuario.count(),
     db.sessao.count(),
     db.empresa.count(),
@@ -90,6 +99,7 @@ export async function linhasPorTabela() {
     db.reivindicacao.count(),
     db.depoimento.count(),
     db.registroAuditoria.count(),
+    db.tentativaAcesso.count(),
   ]);
   return [
     { tabela: "Usuario", rotulo: "Contas", total: contas },
@@ -100,5 +110,6 @@ export async function linhasPorTabela() {
     { tabela: "Reivindicacao", rotulo: "Pedidos de reivindicação", total: reivindicacoes },
     { tabela: "Depoimento", rotulo: "Depoimentos", total: depoimentos },
     { tabela: "RegistroAuditoria", rotulo: "Registros da auditoria", total: auditoria },
+    { tabela: "TentativaAcesso", rotulo: "Contadores de tentativas de acesso", total: tentativas },
   ];
 }

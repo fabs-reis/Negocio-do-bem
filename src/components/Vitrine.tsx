@@ -8,12 +8,15 @@ import type { Migalha } from "@/lib/seo";
  * Página fixa de uma cidade, causa ou tipo de negócio (src/app/cidades, causas e
  * tipos): título, introdução, os primeiros negócios e links para continuar no
  * diretório. Os filtros ficam no /explorar; aqui é a porta de entrada da busca.
+ * A `capa` (a foto da cidade) fica ao lado do título na tela larga e em cima dele
+ * no celular.
  */
 export function Vitrine({
   migalhas,
   rotulo,
   titulo,
   introducao,
+  capa,
   total,
   itens,
   hrefNoDiretorio,
@@ -24,12 +27,21 @@ export function Vitrine({
   rotulo: ReactNode;
   titulo: string;
   introducao: ReactNode;
+  capa?: ReactNode;
   total: number;
   itens: EmpresaResumo[];
   hrefNoDiretorio: string;
   jsonLd: object;
   children?: ReactNode;
 }) {
+  const cabecalho = (
+    <div>
+      <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">{rotulo}</p>
+      <h1 className="mt-2 font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">{titulo}</h1>
+      <div className="mt-4 max-w-2xl text-lg leading-relaxed text-pretty text-suave">{introducao}</div>
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-6xl px-4 pt-7 sm:px-6">
       <JsonLd dados={jsonLd} />
@@ -51,9 +63,14 @@ export function Vitrine({
         )}
       </nav>
 
-      <p className="mt-6 text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">{rotulo}</p>
-      <h1 className="mt-2 font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">{titulo}</h1>
-      <div className="mt-4 max-w-2xl text-lg leading-relaxed text-pretty text-suave">{introducao}</div>
+      {capa ? (
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-center lg:gap-12">
+          <div className="lg:order-2">{capa}</div>
+          {cabecalho}
+        </div>
+      ) : (
+        <div className="mt-6">{cabecalho}</div>
+      )}
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-b border-linha pb-3.5">
         <p className="text-suave">
@@ -77,7 +94,7 @@ export function Vitrine({
         <div className="cartao mt-5 px-6 py-14 text-center">
           <p className="font-serif text-2xl">Ainda não há negócios aqui no diretório.</p>
           <p className="mx-auto mt-2 max-w-md text-suave">Conhece algum? Indique e ajude a comunidade a encontrá-lo.</p>
-          <Link href="/indicar" className="botao-coral mt-6">
+          <Link href="/participar" className="botao-coral mt-6">
             Indicar um negócio
           </Link>
         </div>
