@@ -38,7 +38,7 @@ export default function Embaixadores(props: PageProps<"/embaixadores">) {
             comunidade para comprar de quem faz o bem. Siga cada um no Instagram e veja os negócios de onde moram.
           </p>
         </div>
-        <Suspense fallback={<div className="min-h-64 flex-[1_1_20rem] animate-pulse rounded-[2rem] bg-superficie" aria-busy="true" />}>
+        <Suspense fallback={<div className="min-h-64 flex-[1_1_24rem] animate-pulse rounded-[2rem] bg-superficie" aria-busy="true" />}>
           <Alcance />
         </Suspense>
       </div>
@@ -74,7 +74,7 @@ async function Alcance() {
   const estados = new Set(embaixadores.filter((e) => !e.cidade).map((e) => e.uf)).size;
 
   return (
-    <div className="flex flex-[1_1_20rem] flex-col justify-between gap-7 rounded-[2rem] bg-tinta p-8 text-papel escuro:bg-superficie escuro:text-tinta escuro:ring-1 escuro:ring-linha">
+    <div className="flex flex-[1_1_24rem] flex-col justify-between gap-7 rounded-[2rem] bg-tinta p-8 text-papel escuro:bg-superficie escuro:text-tinta escuro:ring-1 escuro:ring-linha">
       {seguidores > 0 ? (
         <div>
           <p className="text-xs font-semibold tracking-[0.08em] text-papel/70 uppercase escuro:text-suave">Alcance somado</p>
