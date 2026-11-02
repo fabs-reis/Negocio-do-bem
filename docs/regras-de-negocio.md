@@ -411,7 +411,8 @@ Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderaca
   - **Publicar** → `moderacao = "aprovada"`, e o negócio entra no diretório;
   - **Não publicar** → `moderacao = "rejeitada"`, e o negócio some para o público;
   - **Editar perfil** → abre a edição pela moderação antes de decidir, por exemplo para corrigir um nome ou tirar uma causa duvidosa.
-- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes.
+- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes. A mudança e o registro estão na mesma transação.
+- **Duas pessoas da moderação ao mesmo tempo:** cada botão leva a situação que a pessoa viu na tela, e a decisão só vale se o negócio ainda estiver nela (código em `src/lib/moderacao/decisoes.ts`). Se outra pessoa decidiu antes, nada muda, nada é registrado e aparece o aviso "Outra pessoa da moderação já tinha decidido isso. A lista mostra como ficou".
 - **O que muda num negócio tirado do ar:**
   - o @ continua ocupado, então ninguém consegue indicar de novo;
   - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação.
@@ -516,15 +517,15 @@ O que a moderação confere: se o CNPJ, o site e o contato batem com o @ do Inst
 
 **O que a aprovação faz,** tudo numa transação só:
 
-1. Cria o vínculo de dono (ou mantém, se já existia).
-2. No modo "transferir", remove todos os outros donos.
-3. Marca o negócio como `verificada` e `aprovada`, o que também o publica.
-4. Liga os IDs do Instagram ao negócio, se o pedido trouxe algum. Se a mesma conta do Instagram estava ligada a outro perfil, a ligação sai de lá.
-5. Marca o pedido como `aprovada`, com quem aprovou e quando.
+1. Marca o pedido como `aprovada`, com quem aprovou e quando, se ele ainda estiver `pendente`. Se não estiver, para aqui.
+2. Cria o vínculo de dono (ou mantém, se já existia).
+3. No modo "transferir", remove todos os outros donos.
+4. Marca o negócio como `verificada` e `aprovada`, o que também o publica.
+5. Liga os IDs do Instagram ao negócio e ao pedido, se o pedido trouxe algum. Se a mesma conta do Instagram estava ligada a outro perfil, a ligação sai de lá.
 6. Cancela os **outros pedidos pendentes da mesma pessoa** para o mesmo negócio. Pedidos de **outras pessoas** para o mesmo negócio continuam pendentes, e a moderação decide cada um.
 7. Registra na auditoria `reivindicacao.aprovada` ou `reivindicacao.aprovada_com_transferencia`.
 
-**Duas pessoas da moderação ao mesmo tempo:** se um pedido já foi decidido, a segunda decisão é recusada com o aviso "Esta solicitação já tinha sido decidida por outra pessoa da moderação".
+**Duas pessoas da moderação ao mesmo tempo:** só a primeira decisão vale, mesmo quando as duas chegam juntas. A decisão começa marcando o pedido como decidido, com a condição de ele ainda estar `pendente`, e o banco segura o pedido até o fim da transação. A aprovação antes disso trava o negócio, para que toda aprovação do mesmo negócio siga a mesma ordem e duas aprovações simultâneas de pedidos da mesma pessoa nunca se travem uma na outra. A segunda decisão é recusada com o aviso "Esta solicitação já tinha sido decidida por outra pessoa da moderação", e nada dela é aplicado nem registrado na auditoria.
 
 **Depois da decisão,** a pessoa recebe um e-mail com o resultado ([seção 14](#14-avisos-por-e-mail)) e acompanha em `/painel`, em "Minhas solicitações de reivindicação". Aparecem as 20 mais recentes, menos as canceladas, com o status e, se recusada, o motivo.
 
@@ -783,6 +784,7 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 - **Decisões:**
   - **Manter no ar:** limpa a denúncia, e o depoimento pode ser denunciado de novo no futuro. Registra `depoimento.mantido`.
   - **Remover:** o depoimento passa a `removido` e sai do site. Registra `depoimento.removido`. Não existe botão para desfazer.
+- **Duas pessoas da moderação ao mesmo tempo:** a decisão só vale se o depoimento ainda está publicado e com a denúncia aberta. Se outra pessoa decidiu antes, nada muda e aparece o aviso "Outra pessoa da moderação já tinha decidido isso. A lista mostra como ficou".
 
 ---
 
