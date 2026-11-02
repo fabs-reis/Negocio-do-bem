@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CapaDaCidade } from "@/components/CapaDaCidade";
+import { EmbaixadoresDaCidade } from "@/components/Embaixadores";
 import { Atalhos, Vitrine, VitrineCarregando } from "@/components/Vitrine";
 import { CAUSAS } from "@/lib/causas";
 import { buscarDiretorio, cidadeDoSlug, listarCidades } from "@/lib/consultas";
 import { hrefCidade, hrefDiretorio, SEM_FILTROS, slugCidade, type CidadeComNegocios } from "@/lib/diretorio";
 import { CATEGORIAS, NOMES_UF, type Uf } from "@/lib/dominio";
+import { embaixadoresDaCidade, embaixadoresNoSite } from "@/lib/embaixadores";
 import { fotoDaCidade } from "@/lib/fotos-das-cidades";
 import { jsonLdDaVitrine, metadadosDaPagina, type Migalha } from "@/lib/seo";
 
@@ -58,7 +60,11 @@ async function Cidade({ params }: Pick<PageProps<"/cidades/[cidade]">, "params">
   const cidade = await cidadeDoSlug((await params).cidade);
   if (!cidade) notFound();
   const { onde, titulo, descricao, migalhas } = textos(cidade);
-  const [resultado, cidades] = await Promise.all([buscarDiretorio({ ...SEM_FILTROS, onde }), listarCidades()]);
+  const [resultado, cidades, embaixadores] = await Promise.all([
+    buscarDiretorio({ ...SEM_FILTROS, onde }),
+    listarCidades(),
+    embaixadoresNoSite(),
+  ]);
   const estado = NOMES_UF[cidade.uf as Uf];
   const foto = fotoDaCidade(cidade.cidade, cidade.uf);
   const vizinhas = cidades
@@ -77,6 +83,7 @@ async function Cidade({ params }: Pick<PageProps<"/cidades/[cidade]">, "params">
         </p>
       }
       capa={foto && <CapaDaCidade foto={foto} />}
+      destaque={<EmbaixadoresDaCidade embaixadores={embaixadoresDaCidade(embaixadores, cidade.cidade, cidade.uf)} />}
       total={resultado.total}
       itens={resultado.itens}
       hrefNoDiretorio={hrefDiretorio({ onde })}

@@ -8,6 +8,7 @@ Um diretório de negócios com consciência social e conexão com a comunidade. 
 - **Causas** como Pet friendly, Antirracista, Escala 5x2, Escala 4x3 e outras (lista em `src/lib/causas.ts`).
 - **Indicação** pela comunidade, publicada na hora. A moderação tira do ar o que for impróprio.
 - **Reivindicação de propriedade** pelo dono, explicada abaixo.
+- **Embaixadores do bem**: influenciadores de cada cidade ou estado, numa faixa da página inicial, em `/embaixadores` e na página da cidade, com o @ e os seguidores atualizados pela API da Meta.
 - **Painel do dono** para editar o perfil, responder depoimentos, ocultar o negócio e trocar a senha.
 - **Moderação** com um painel próprio: os números do projeto, a atividade das últimas semanas e a saúde dos dados; filas de disputas de reivindicação e de denúncias; todos os negócios, contas e depoimentos, com a ficha de cada conta; botão para tirar um negócio do ar; edição de qualquer perfil (foto, contatos, textos e causas); e o registro de auditoria, com filtros.
 
