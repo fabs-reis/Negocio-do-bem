@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { favoritar } from "@/acoes/favoritos";
+import { formatarFavoritos } from "@/lib/texto";
 
 /** O que o coração de um negócio precisa saber (veja `coracoesDaLista`). */
 export type EstadoFavorito = {
@@ -31,32 +32,45 @@ function Coracao({ cheio }: { cheio: boolean }) {
 
 const ICONE = "grid h-10 w-10 place-items-center rounded-full border border-linha bg-superficie shadow-sm transition hover:border-coral/40";
 
+/** "12 pessoas favoritaram", ao lado do coração do perfil. Com zero, nada aparece. */
+function Total({ total }: { total: number }) {
+  return total > 0 ? <span className="text-sm text-suave">{formatarFavoritos(total)}</span> : null;
+}
+
 /**
  * O coração que põe um negócio nos favoritos ou tira dele, sem sair da página. Enquanto o
  * servidor responde, ele já mostra a escolha nova. Sem login, leva a `/entrar` e volta
- * para `estado.voltar`. `comTexto` é a versão do perfil, com o texto "Favoritar" ao lado.
+ * para `estado.voltar`. `comTexto` é a versão do perfil, com o texto "Favoritar" e, com
+ * `total`, quantas pessoas favoritaram, contando o toque de quem está vendo.
  */
 export function CoracaoFavorito({
   estado,
   nome,
   comTexto = false,
+  total,
   className = "",
 }: {
   estado: EstadoFavorito;
   nome: string;
   comTexto?: boolean;
+  total?: number;
   className?: string;
 }) {
   const [favorito, acao, pendente] = useActionState(favoritar, estado.favorito);
   const mostrado = pendente ? !favorito : favorito;
+  // O total veio do servidor com a escolha que a pessoa tinha ao abrir a página.
+  const totalAgora = total === undefined ? undefined : total - (estado.favorito ? 1 : 0) + (mostrado ? 1 : 0);
 
   if (!estado.logado) {
     const entrar = `/entrar?voltar=${encodeURIComponent(estado.voltar)}`;
     return comTexto ? (
-      <Link href={entrar} className={`botao-claro ${className}`}>
-        <Coracao cheio={false} />
-        Favoritar
-      </Link>
+      <div className={`flex flex-wrap items-center gap-3 ${className}`}>
+        <Link href={entrar} className="botao-claro">
+          <Coracao cheio={false} />
+          Favoritar
+        </Link>
+        {totalAgora !== undefined && <Total total={totalAgora} />}
+      </div>
     ) : (
       <Link href={entrar} aria-label={`Entre para favoritar ${nome}`} className={`${ICONE} text-suave hover:text-coral ${className}`}>
         <Coracao cheio={false} />
@@ -82,14 +96,16 @@ export function CoracaoFavorito({
             </span>
             Favoritar
           </button>
-          {mostrado && (
+          {mostrado ? (
             <span className="text-sm text-suave">
+              {!!totalAgora && `${formatarFavoritos(totalAgora)} · `}
               Está nos seus{" "}
               <Link href="/favoritos" className="link">
                 favoritos
               </Link>
-              .
             </span>
+          ) : (
+            totalAgora !== undefined && <Total total={totalAgora} />
           )}
         </>
       ) : (

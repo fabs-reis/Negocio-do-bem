@@ -22,7 +22,7 @@ import { temInstagram } from "@/lib/endereco";
 import { linkPerfil, normalizarEndereco } from "@/lib/instagram";
 import { medirContato, type CanalDeContato } from "@/lib/medicao";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
-import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
+import { formatarData, formatarFavoritos, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
@@ -131,13 +131,18 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
           )}
 
           {dono ? (
-            <Link href={`/painel/${empresa.instagramUsername}`} className="botao mt-8">
-              Editar meu perfil
-            </Link>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href={`/painel/${empresa.instagramUsername}`} className="botao">
+                Editar meu perfil
+              </Link>
+              {publico && empresa._count.favoritos > 0 && (
+                <span className="text-sm text-suave">{formatarFavoritos(empresa._count.favoritos)}</span>
+              )}
+            </div>
           ) : (
             (coracao || usuario?.moderador) && (
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                {coracao && <CoracaoFavorito estado={coracao} nome={empresa.nome} comTexto />}
+                {coracao && <CoracaoFavorito estado={coracao} nome={empresa.nome} comTexto total={empresa._count.favoritos} />}
                 {usuario?.moderador && (
                   <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao">
                     Editar perfil (moderação)

@@ -182,6 +182,7 @@ export async function buscarPerfil(username: string) {
       causas: { select: { causa: true } },
       membros: { select: { usuarioId: true } },
       indicadaPor: { select: { nome: true } },
+      _count: { select: { favoritos: true } },
       depoimentos: {
         where: { status: "publicado" },
         orderBy: { criadoEm: "desc" },

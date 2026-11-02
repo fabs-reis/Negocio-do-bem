@@ -644,15 +644,16 @@ Código: `favoritar` em `src/acoes/favoritos.ts`, o coração em `src/components
   - no canto de cada card do diretório (`/explorar`, nas duas vistas, e nas páginas de cidade, causa e tipo) e da página Favoritos.
 - **Só num negócio do diretório** (publicado e não oculto), com ou sem dono. O dono não vê o coração nos próprios negócios.
 - **Precisa de login.** Sem login, o coração leva a `/entrar` e volta para a página em que a pessoa estava. Não pede o e-mail confirmado, porque favoritar não publica nada.
-- **Um toque põe ou tira dos favoritos, sem sair da página.** O coração fica cheio na hora, enquanto o servidor grava. No perfil, aparece também "Está nos seus favoritos", com o link para a página Favoritos.
+- **Um toque põe ou tira dos favoritos, sem sair da página.** O coração fica cheio na hora, enquanto o servidor grava. No perfil, aparece também "Está nos seus favoritos", com o link para a página Favoritos, e o número de favoritos já conta o toque.
 - **Uma vez só:** cada pessoa favorita cada negócio uma vez (chave `empresaId` + `usuarioId`). Dois toques seguidos gravam uma linha e contam um evento no Analytics.
 - **A ação confere tudo de novo:** recusa favoritar um negócio fora do diretório ou do qual a pessoa é dona, mesmo chamada direto.
 - **Tirar dos favoritos vale sempre,** mesmo depois que o negócio saiu do diretório.
 - **A página `/favoritos`** (no menu da conta, "Favoritos") lista os favoritos, do mais recente ao mais antigo, 18 por página. Tirar um negócio pelo coração deixa o card na tela, com o coração vazio, para dar para voltar atrás; ele some da lista na próxima visita. Um negócio que sai do diretório também some, mas continua favorito: se voltar, volta à lista.
 - **Quem vê o quê:**
   - só a própria pessoa vê os favoritos dela;
-  - o dono vê quantas pessoas favoritaram o negócio, no `/painel` e no `/painel/<@>`, mas não quem são;
-  - o número não aparece no perfil público nem no diretório, porque o site não tem ranking.
+  - **o perfil mostra quantas pessoas favoritaram** ("1 pessoa favoritou", "12 pessoas favoritaram"), para todo mundo, ao lado do coração. Com zero, nada aparece, para um negócio novo não ficar exposto com "0";
+  - o dono vê o mesmo número no perfil, ao lado de "Editar meu perfil", e no `/painel` e no `/painel/<@>`, mas não quem favoritou;
+  - o número não aparece nos cards nem muda a ordem do diretório, porque o site não tem ranking.
 - **Sem e-mail:** o dono não é avisado quando alguém favorita.
 - **Clube do Bem:** favoritar vai ser a condição para gerar cupom ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)).
 
@@ -1038,7 +1039,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
-| Os favoritos de cada pessoa | `EmpresaFavorita` | Só a própria pessoa, na página Favoritos. O dono vê só quantas pessoas favoritaram o negócio, nunca quem. O número não aparece no perfil público. |
+| Os favoritos de cada pessoa | `EmpresaFavorita` | Só a própria pessoa, na página Favoritos. O perfil mostra a todos quantas pessoas favoritaram o negócio, nunca quem. |
 | Quem denunciou e o motivo | `Depoimento` | Só a moderação. |
 | Auditoria | `RegistroAuditoria` | Só a moderação. |
 | Tentativas de login e cadastro | `TentativaAcesso` | Ninguém vê o IP nem o e-mail: só o sha256 deles e a contagem são guardados. A moderação vê só quantos contadores existem. |
