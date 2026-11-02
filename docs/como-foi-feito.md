@@ -682,6 +682,8 @@ Erros que podem ser mostrados para a pessoa usam uma classe própria (`ErroReivi
 - Toque, clique, roda do mouse ou tecla pulam a abertura. Menos movimento a desativa.
 - A cortina dupla cobre a troca entre páginas internas. Ela não cobre filtros, âncoras nem envios de formulários.
 - Links externos, downloads e cliques modificados mantêm a navegação nativa.
+- Regiões com `data-sem-cortina`, `inert` ou `aria-disabled="true"` preservam a navegação nativa dos links descendentes.
+- Conteúdo editável não aciona a cortina. Uma ilha com `contenteditable="false"` pode acionar a transição normalmente.
 - Escape e voltar liberam a cortina. Menos movimento desativa a transição.
 - O cortejo mantém suas figuras em SVG, com quatro técnicas e um controle de pausa.
 - `npm run cortejo:ciclos` executa `scripts/gerar-ciclos.mjs` e gera `src/components/cortejo/ciclos.css`.

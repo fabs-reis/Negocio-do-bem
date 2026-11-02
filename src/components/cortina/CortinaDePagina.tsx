@@ -51,7 +51,7 @@ export function CortinaDePagina() {
         evento.defaultPrevented ||
         alvo.closest('[data-sem-cortina], [inert], [aria-disabled="true"]') ||
         alvo.isContentEditable ||
-        (evento.target instanceof Element && evento.target.closest("[contenteditable]"))
+        (evento.target instanceof Element && evento.target.closest<HTMLElement>("[contenteditable]")?.isContentEditable)
       ) return;
       const destino = destinoDaCortina({
         atual: location.href,
