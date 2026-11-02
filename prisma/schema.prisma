@@ -127,7 +127,7 @@ model Empresa {
   // Contato de quem cadastrou o negócio como dono. Só o dono e a moderação veem.
   emailDoDono       String?
   telefoneDoDono    String?
-  // "indicada" (sem dono) | "verificada" (tem dono que provou controlar o @)
+  // "indicada" (sem dono) | "verificada" (perfil assumido por uma conta; não certifica a identidade)
   status            String   @default("indicada")
   // "pendente" | "aprovada" | "rejeitada" — só "aprovada" aparece no diretório
   moderacao         String   @default("pendente")
@@ -185,7 +185,7 @@ model Reivindicacao {
   codigo          String?   @unique
   // "pendente" | "aprovada" | "recusada" | "expirada" | "cancelada"
   status          String    @default("pendente")
-  // Método "documento" (dados do negócio conferidos pela moderação)
+  // Método "documento" (dados do negócio enviados pela pessoa; a moderação só revisa os pedidos que não são aprovados na hora)
   cnpj            String?
   site            String?
   relacao         String?

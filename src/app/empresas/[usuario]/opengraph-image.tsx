@@ -46,7 +46,7 @@ export default async function Imagem({ params }: { params: Promise<{ usuario: st
           <LogoNaImagem largura={290} />
           {empresa.status === "verificada" && (
             <Etiqueta fundo="#e8f3ec" cor={CORES_DA_MARCA.verde}>
-              Verificado pelo dono
+              Perfil assumido
             </Etiqueta>
           )}
         </div>
