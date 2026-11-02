@@ -631,7 +631,7 @@ Cada formulário chama uma função em `src/acoes/`, sempre na mesma ordem:
    Nunca confie em um botão escondido: a conferência é sempre no servidor.
 2. **Valida os dados com Zod.** Os campos reaproveitáveis (`campoSite`, `campoWhatsapp`, `campoEmail`) estão em `src/lib/formulario.ts`.
 3. **Faz a mudança no banco.** Use uma transação quando mais de uma tabela muda junto.
-4. **Registra na auditoria** se for uma decisão ou edição importante.
+4. **Registra na auditoria** se for uma decisão ou edição importante, dentro da mesma transação da alteração no banco. Use `registrarAuditoria(tx, ...)`, para uma falha no registro também desfazer a alteração.
 5. **Redireciona com um aviso:** `?aviso=codigo`, com o texto em `src/lib/avisos.ts`.
 
 Quando há erro de validação, a ação devolve um `EstadoFormulario` com os erros por campo e os valores enviados. Assim o formulário mostra o erro sem perder o que a pessoa digitou.
@@ -702,7 +702,15 @@ npm run typecheck
 - **O banco de teste é separado** (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`).
   - Ele é criado na primeira execução e as tabelas são limpas entre os testes.
   - A suíte se recusa a rodar se o nome do banco não tiver "test", para nunca apagar dados de desenvolvimento.
-- **No GitHub,** o CI roda lint, tipos e testes num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
+- **No GitHub,** o CI roda lint, tipos, testes, build de produção e integração num Postgres temporário em todo PR e a cada push na `stage` e na `main`.
+- **`npm run test:integracao`:** depois de `npm run build`, inicia o Next real em uma porta local. Usa contas e sessões fictícias no banco de teste para verificar a moderação compilada. Cada Server Action de `src/acoes/moderacao.ts` é enviada como visitante e como membro e precisa terminar em `/404` sem gravar nada. As três páginas exclusivas da moderação (a fila e as duas de detalhe) são abertas pelos mesmos papéis e pela moderação, que serve de controle. Uma ação nova em `src/acoes/moderacao.ts` faz a prova falhar até ser incluída na lista do teste. O servidor encerra ao terminar, e apenas os dados criados pela prova são removidos. Qualquer erro escrito pelo servidor faz a prova falhar, com o caminho do log completo, que fica na pasta temporária do sistema.
+- A configuração comum descobre apenas `tests/unit/` e `tests/db/`. A integração tem configuração própria, não depende de variável de ativação e falha se não encontrar testes. Ela não cria rota de teste no produto nem depende de um navegador ou de um serviço externo.
+- The test setup removes inherited Blob selectors and the public R2 URL. Unit tests enable external storage only with a replacement SDK. The HTTP proof does not upload photos. In CI, Next uses the disposable PostgreSQL database that the database tests prepare.
+- **`npm run test:cloudflare`:** runs a separate Cloudflare proof. Set `TEST_DATABASE_URL` to a disposable PostgreSQL server at `127.0.0.1`. Include an explicit port, user, password, and database name that contains `test`. Do not include query parameters or a fragment. The account must have permission to create databases.
+- The command creates a separate database with a random name. It runs preview migrations and seed through `scripts/cloudflare-build.sh`, then builds the Worker with OpenNext. It prepares the local R2 cache with `opennextjs-cloudflare populateCache local`. The cache state stays in the temporary directory. It starts `wrangler dev --local` on a free loopback port.
+- The public route must render the seeded business and its structured data. Anonymous access to `/moderacao` must return the Next 404 refusal without action forms. Worker errors fail the command. The Next HTTP tests still check authorized writes and denied writes against the database.
+- The command creates a temporary Wrangler configuration without production routes or the upload binding. The R2 cache is local only. `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, and Hyperdrive use the same separate database. Child processes receive only explicit test settings. Local `.env*` and `.dev.vars*` files stop execution before migration, except `.example` templates. The command does not read these files.
+- On success or failure, the command stops its Worker and removes its database, temporary configuration, and local cache. It does not publish resources.
   - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
   - A auditoria só falha com vulnerabilidade alta ou crítica (`--audit-level=high`).
     - Os `overrides` do `package.json` levam ao `glob` 14 o `@opennextjs/cloudflare` (que pede o 13) e o `@node-minify/core`, que entra pelo `@opennextjs/aws` e fixa o 10.3.3. Os dois tinham avisos de segurança que o OpenNext ainda não corrigiu, e só chamam `glob()` e `globSync()`, que não mudaram no 14. Quando o OpenNext pedir um `glob` corrigido, tire os overrides.
@@ -850,7 +858,7 @@ A remoção confirmada não é desfeita ao retirar o código. Não recrie sessõ
 ### Criar uma ação de moderação
 
 1. Crie a Server Action em `src/acoes/moderacao.ts`, começando por `exigirModerador()`.
-2. Registre na auditoria com `registrarAuditoria`, com uma ação no formato `alvo.verbo` (por exemplo, `empresa.despublicada`), e acrescente a descrição dela em `ACOES_AUDITORIA` (`src/lib/dominio.ts`).
+2. Registre na auditoria com `registrarAuditoria(tx, ...)`, dentro da mesma transação da decisão (nunca com `db`, para uma falha no registro também desfazer a decisão), com uma ação no formato `alvo.verbo` (por exemplo, `empresa.despublicada`), e acrescente a descrição dela em `ACOES_AUDITORIA` (`src/lib/dominio.ts`).
 3. Volte para a aba certa com um aviso: `redirect("/moderacao?aba=…&aviso=feito")`. Se o botão fica numa lista com busca, filtro ou página, mande a lista num campo `voltar` e redirecione com `destinoNaModeracao` e `comAviso`, como em `moderarEmpresa`.
 4. Atualize a [tabela da auditoria](regras-de-negocio.md#13-auditoria).
 
