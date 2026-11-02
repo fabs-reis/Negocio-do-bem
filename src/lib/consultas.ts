@@ -190,6 +190,39 @@ export async function buscarPerfil(username: string) {
   });
 }
 
+/** Se a pessoa segue o negócio. */
+export async function segueNegocio(empresaId: string, usuarioId: string): Promise<boolean> {
+  const seguidor = await db.empresaSeguidor.findUnique({ where: { empresaId_usuarioId: { empresaId, usuarioId } } });
+  return seguidor !== null;
+}
+
+/**
+ * Uma página dos negócios que a pessoa segue, do seguido mais recentemente ao mais antigo.
+ * Os que saíram do diretório não aparecem, mas continuam seguidos: se voltarem, voltam à lista.
+ */
+export async function buscarSeguindo(usuarioId: string, paginaPedida: number) {
+  const onde = { usuarioId, empresa: NO_DIRETORIO } satisfies Prisma.EmpresaSeguidorWhereInput;
+  const total = await db.empresaSeguidor.count({ where: onde });
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  // Ao deixar de seguir o último negócio da última página, a pessoa volta para a página anterior.
+  const pagina = Math.min(paginaPedida, paginas);
+  const itens = await db.empresaSeguidor.findMany({
+    where: onde,
+    orderBy: { criadoEm: "desc" },
+    skip: (pagina - 1) * POR_PAGINA,
+    take: POR_PAGINA,
+    include: {
+      empresa: {
+        include: {
+          causas: { select: { causa: true } },
+          _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+        },
+      },
+    },
+  });
+  return { total, paginas, pagina, empresas: itens.map((item) => item.empresa) };
+}
+
 type EmpresaVisivel = {
   moderacao: string;
   oculta: boolean;

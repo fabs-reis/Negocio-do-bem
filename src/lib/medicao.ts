@@ -22,7 +22,8 @@ export type Evento =
       params: { tipo: TipoDeCadastro; categoria: string; uf: string; cidade: string; com_instagram: "sim" | "nao" };
     }
   | { nome: "perfil_reivindicado"; params: { method: "documento" | "instagram"; resultado: "verificada" | "em_analise" } }
-  | { nome: "depoimento_publicado"; params: { categoria: string } };
+  | { nome: "depoimento_publicado"; params: { categoria: string } }
+  | { nome: "negocio_seguido"; params: { categoria: string; uf: string } };
 
 type EventoLido = { nome: string; params: Record<string, string> };
 

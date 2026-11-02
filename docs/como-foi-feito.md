@@ -507,6 +507,17 @@ Desde a mudança para o Cloudflare, em 31/10, o site não carregava o Google Ana
 - **A variável era lida no build.** O `NEXT_PUBLIC_GA_ID` estava só na Vercel. O Next põe as variáveis `NEXT_PUBLIC_` no código durante o build, e a casca estática do layout também é gerada ali. No Cloudflare, ela precisa estar nas variáveis de build da produção (Workers Builds), e não nas de runtime do Worker.
 - **Os previews continuam sem Analytics.** As variáveis de build dos previews ficam em outra aba do painel, sem o ID.
 
+### 1º de novembro: seguir negócios ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248))
+
+É a primeira parte do Clube do Bem, em que negócios vão oferecer cupons por pouco tempo a quem chega pelo site. Seguir o negócio vai ser a condição para gerar o cupom, então ele veio primeiro. As regras estão em [Seguir um negócio](regras-de-negocio.md#seguir-um-negócio).
+
+- **Seguir é dentro do site, não no Instagram.** O site não lê o Instagram, então não teria como saber quem segue quem lá. Dentro do site, a condição do cupom pode ser conferida.
+- **Um botão só, sem coração.** "Favoritar" e "seguir" seriam dois jeitos de dizer a mesma coisa. Os avisos de ofertas, quando vierem, ficam num sininho à parte e desligado por padrão: quem segue só pelo desconto não passa a receber notificação sem pedir.
+- **O número é só do dono.** O perfil público não mostra quantos seguem, para não virar ranking, e o dono vê o número, mas não quem são: o clube não entrega lista de clientes.
+- **Negócio sem dono também pode ser seguido.** Quando o dono assumir o perfil, já encontra seguidores, e isso é um bom motivo para ele reivindicar.
+- **Sem e-mail confirmado.** Seguir não publica nada, então só precisa de login.
+- **A página é `/seguindo`, e não `/painel/seguindo`.** Dentro de `/painel`, um caminho fixo esconderia o painel de um negócio cujo @ fosse `seguindo`, porque `/painel/<@>` é o painel de cada negócio.
+
 ---
 
 ## 4. Arquitetura
@@ -588,6 +599,8 @@ erDiagram
     Usuario ||--o{ Sessao : "tem"
     Usuario ||--o{ EmpresaMembro : "é dono via"
     Empresa ||--o{ EmpresaMembro : "tem donos"
+    Usuario ||--o{ EmpresaSeguidor : "segue via"
+    Empresa ||--o{ EmpresaSeguidor : "tem seguidores"
     Empresa ||--o{ EmpresaCausa : "abraça"
     Empresa ||--o{ Depoimento : "recebe"
     Empresa ||--o{ Reivindicacao : "é pedida em"
@@ -607,10 +620,11 @@ Decisões do esquema:
   - uma conta do Google por conta do site (`googleId`);
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;
+  - um seguidor por pessoa por negócio;
   - um código de DM único (só nos pedidos antigos).
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
-  - **uma conta:** apaga as sessões, os vínculos de dono, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
-  - **um negócio:** apaga as causas, os donos, os depoimentos e os pedidos ligados a ele.
+  - **uma conta:** apaga as sessões, os vínculos de dono, os negócios que ela segue, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
+  - **um negócio:** apaga as causas, os donos, os seguidores, os depoimentos e os pedidos ligados a ele.
 
 ---
 

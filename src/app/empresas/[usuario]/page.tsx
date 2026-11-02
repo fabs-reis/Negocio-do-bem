@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { denunciarDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
+import { BotaoSeguir } from "@/components/BotaoSeguir";
 import { CausaBadge } from "@/components/CausaBadge";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { Historia } from "@/components/Historia";
@@ -14,7 +15,7 @@ import { LinkInstagram } from "@/components/LinkInstagram";
 import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { buscarCausa, filtrarCausas } from "@/lib/causas";
-import { buscarPerfil, ehDono, podeVerPerfil } from "@/lib/consultas";
+import { buscarPerfil, ehDono, podeVerPerfil, segueNegocio } from "@/lib/consultas";
 import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
@@ -59,6 +60,9 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   const publico = empresa.moderacao === "aprovada" && !empresa.oculta;
   // Os cliques nos contatos contam no Analytics só quando vêm do público, não do dono.
   const contato = publico && !dono ? empresa : undefined;
+  // Só um negócio do diretório pode ser seguido, e o dono não segue o próprio.
+  const podeSeguir = publico && !dono;
+  const seguindo = podeSeguir && !!usuario && (await segueNegocio(empresa.id, usuario.id));
 
   return (
     <article>
@@ -130,10 +134,23 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
               Editar meu perfil
             </Link>
           ) : (
-            usuario?.moderador && (
-              <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao mt-8">
-                Editar perfil (moderação)
-              </Link>
+            (podeSeguir || usuario?.moderador) && (
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                {podeSeguir && (
+                  <BotaoSeguir
+                    empresaId={empresa.id}
+                    nome={empresa.nome}
+                    logado={!!usuario}
+                    seguindo={seguindo}
+                    voltar={`/empresas/${empresa.instagramUsername}`}
+                  />
+                )}
+                {usuario?.moderador && (
+                  <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao">
+                    Editar perfil (moderação)
+                  </Link>
+                )}
+              </div>
             )
           )}
         </div>

@@ -3,7 +3,7 @@ import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { campoEmail, campoSite, campoTelefone, campoWhatsapp } from "@/lib/formulario";
-import { formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
+import { formatarSeguidores, formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
 
 describe("cnpjValido", () => {
   it("aceita CNPJ numérico válido, com ou sem pontuação", () => {
@@ -140,5 +140,13 @@ describe("tempoDeLeitura", () => {
 
   it("nunca dá zero", () => {
     expect(tempoDeLeitura("")).toBe(1);
+  });
+});
+
+describe("formatarSeguidores", () => {
+  it("diz quantos seguidores, no singular e no plural", () => {
+    expect(formatarSeguidores(0)).toBe("Nenhum seguidor ainda");
+    expect(formatarSeguidores(1)).toBe("1 seguidor");
+    expect(formatarSeguidores(1234)).toBe("1.234 seguidores");
   });
 });

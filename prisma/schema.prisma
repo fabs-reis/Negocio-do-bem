@@ -36,6 +36,7 @@ model Usuario {
   depoimentos         Depoimento[]     @relation("AutorDepoimento")
   denuncias           Depoimento[]     @relation("DenunciadoPor")
   empresas            EmpresaMembro[]
+  seguindo            EmpresaSeguidor[]
   reivindicacoes      Reivindicacao[]  @relation("Solicitante")
   revisoes            Reivindicacao[]  @relation("Revisor")
   registrosAuditoria  RegistroAuditoria[]
@@ -144,6 +145,7 @@ model Empresa {
   causas         EmpresaCausa[]
   depoimentos    Depoimento[]
   membros        EmpresaMembro[]
+  seguidores     EmpresaSeguidor[]
   reivindicacoes Reivindicacao[]
 
   @@index([moderacao, oculta, status])
@@ -171,6 +173,19 @@ model EmpresaMembro {
 
   @@id([empresaId, usuarioId])
   @@index([usuarioId])
+}
+
+// Quem segue um negócio no site (Clube do Bem, #248). Só a própria pessoa vê quem
+// ela segue; o dono vê só quantos são.
+model EmpresaSeguidor {
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  criadoEm  DateTime @default(now())
+
+  @@id([empresaId, usuarioId])
+  @@index([usuarioId, criadoEm])
 }
 
 model Reivindicacao {

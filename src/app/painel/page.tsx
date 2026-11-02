@@ -11,7 +11,7 @@ import { exigirUsuario } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, MODERACAO_EMPRESA, STATUS_REIVINDICACAO } from "@/lib/dominio";
 import { rotuloDoInstagram } from "@/lib/endereco";
-import { formatarData } from "@/lib/texto";
+import { formatarData, formatarSeguidores } from "@/lib/texto";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 
 export const metadata: Metadata = { title: "Meu painel", robots: FORA_DA_BUSCA };
@@ -46,7 +46,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
   const [empresas, reivindicacoes, indicacoes, conta] = await Promise.all([
     db.empresaMembro.findMany({
       where: { usuarioId: usuario.id },
-      include: { empresa: true },
+      include: { empresa: { include: { _count: { select: { seguidores: true } } } } },
       orderBy: { criadoEm: "asc" },
     }),
     db.reivindicacao.findMany({
@@ -95,7 +95,9 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
                   <Monograma nome={empresa.nome} chave={empresa.instagramUsername} />
                   <div className="min-w-0">
                     <p className="truncate font-serif text-xl font-semibold">{empresa.nome}</p>
-                    <p className="text-sm text-suave">{rotuloDoInstagram(empresa.instagramUsername)}</p>
+                    <p className="text-sm text-suave">
+                      {rotuloDoInstagram(empresa.instagramUsername)} · {formatarSeguidores(empresa._count.seguidores)}
+                    </p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">

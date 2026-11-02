@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { rotuloDoInstagram } from "@/lib/endereco";
 import { normalizarEndereco } from "@/lib/instagram";
-import { formatarData } from "@/lib/texto";
+import { formatarData, formatarSeguidores } from "@/lib/texto";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 
@@ -36,6 +36,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
     include: {
       membros: { select: { usuarioId: true } },
       causas: { select: { causa: true } },
+      _count: { select: { seguidores: true } },
       depoimentos: {
         where: { status: "publicado" },
         orderBy: { criadoEm: "desc" },
@@ -56,7 +57,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
           <div>
             <h1 className="font-serif text-4xl font-semibold tracking-tight">{empresa.nome}</h1>
             <p className="text-suave">
-              {rotuloDoInstagram(empresa.instagramUsername)} · {empresa.oculta ? "Oculto do diretório" : MODERACAO_EMPRESA[empresa.moderacao]}
+              {rotuloDoInstagram(empresa.instagramUsername)} · {empresa.oculta ? "Oculto do diretório" : MODERACAO_EMPRESA[empresa.moderacao]} ·{" "}
+              {formatarSeguidores(empresa._count.seguidores)}
             </p>
           </div>
           <Link href={`/empresas/${empresa.instagramUsername}`} className="botao-claro botao-pequeno">

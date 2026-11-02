@@ -66,6 +66,8 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   depoimento_publicado: { tipo: "sucesso", texto: "Obrigado! Seu depoimento já está no ar." },
   resposta_publicada: { tipo: "sucesso", texto: "Resposta publicada." },
   denuncia_enviada: { tipo: "info", texto: "Denúncia enviada. A moderação vai avaliar." },
+  seguindo: { tipo: "sucesso", texto: "Pronto! Você está seguindo este negócio. Ele aparece na sua página Seguindo." },
+  deixou_de_seguir: { tipo: "info", texto: "Você deixou de seguir este negócio." },
   confirmar_email: {
     tipo: "erro",
     texto: "Antes, confirme o seu e-mail: abra o link que mandamos para você ou peça outro no seu painel.",

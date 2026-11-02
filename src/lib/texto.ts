@@ -62,6 +62,12 @@ export function formatarTelefone(digitos: string): string {
   return `(${ddd}) ${numero.slice(0, corte)}-${numero.slice(corte)}`;
 }
 
+/** "Nenhum seguidor ainda", "1 seguidor", "1.234 seguidores". */
+export function formatarSeguidores(total: number): string {
+  if (total === 0) return "Nenhum seguidor ainda";
+  return `${total.toLocaleString("pt-BR")} ${total === 1 ? "seguidor" : "seguidores"}`;
+}
+
 export function formatarData(data: Date): string {
   return new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", year: "numeric" }).format(data);
 }
