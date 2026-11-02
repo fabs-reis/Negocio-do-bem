@@ -1,5 +1,26 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { createElement } from "react";
+import { renderToReadableStream } from "react-dom/server";
+import { GET as retornoInstagram } from "@/app/api/instagram/retorno/route";
+import Painel from "@/app/painel/page";
+import * as notificacoes from "@/lib/notificacoes";
+
+const contexto = vi.hoisted(() => ({ usuario: null as null | { id: string; nome: string; email: string; emailConfirmado: boolean }, tarefas: [] as (() => unknown)[] }));
+vi.mock("@/lib/auth/sessao", async (original) => ({
+  ...(await original<typeof import("@/lib/auth/sessao")>()),
+  usuarioAtual: async () => contexto.usuario,
+  exigirUsuario: async () => contexto.usuario,
+}));
+vi.mock("next/server", async (original) => ({
+  ...(await original<typeof import("next/server")>()),
+  after: (tarefa: () => unknown) => contexto.tarefas.push(tarefa),
+}));
+import { GET as iniciarInstagram } from "@/app/api/instagram/entrar/route";
 import { db, type Prisma } from "@/lib/db";
+import * as instagram from "@/lib/instagram";
 import {
   aprovar,
   aprovarPendentesSemDono,
@@ -76,6 +97,108 @@ describe("pedidos antigos por código de DM", () => {
 });
 
 describe("Entrar com Instagram", () => {
+  it("bloqueia a rota direta para negócio retirado do ar", async () => {
+    const dono = await criarUsuario();
+    const empresa = await criarEmpresa("rota.rejeitada");
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+    await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });
+    const config = vi.spyOn(instagram, "configLogin");
+    try {
+      const resposta = await iniciarInstagram(new NextRequest(`http://localhost/api/instagram/entrar?empresa=${empresa.id}`));
+      expect(resposta.headers.get("location")).toBe("http://localhost/");
+      expect(config).not.toHaveBeenCalled();
+      expect(await db.reivindicacao.count()).toBe(0);
+      await expect(processarLoginInstagram({ empresaId: empresa.id, usuarioId: dono.id,
+        conta: { userId: "id-rejeitada", username: empresa.instagramUsername } })).rejects.toBeInstanceOf(ErroReivindicacao);
+      expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ moderacao: "rejeitada", oficial: false });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("não aprova automaticamente se a moderação retirar o negócio após o início", async () => {
+    const dono = await criarUsuario();
+    const empresa = await criarEmpresa("mudou.moderacao");
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+    const transacionar = db.$transaction.bind(db);
+    let transacoes = 0;
+    vi.spyOn(db, "$transaction").mockImplementation(async (operacao, opcoes) => {
+      const resultado = await transacionar(operacao, opcoes);
+      if (++transacoes === 1) {
+        await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });
+      }
+      return resultado;
+    });
+    try {
+      await expect(processarLoginInstagram({ empresaId: empresa.id, usuarioId: dono.id,
+        conta: { userId: "id-mudou", username: empresa.instagramUsername } })).resolves.toEqual({ tipo: "em_analise_fora_do_ar" });
+      expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ moderacao: "rejeitada", oficial: false });
+      expect(await db.reivindicacao.findFirstOrThrow({ where: { empresaId: empresa.id } })).toMatchObject({ status: "pendente" });
+    } finally {
+      vi.restoreAllMocks();
+    }
+    const moderador = await criarUsuario("Moderação");
+    const pedido = await db.reivindicacao.findFirstOrThrow({ where: { empresaId: empresa.id } });
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ moderacao: "aprovada", oficial: true });
+  });
+
+  it("no retorno do Instagram mantém o pedido e avisa quando a moderação retira o negócio", async () => {
+    const pessoa = await criarUsuario();
+    const empresa = await criarEmpresa("retorno.moderacao");
+    contexto.usuario = { id: pessoa.id, nome: pessoa.nome, email: pessoa.email, emailConfirmado: true };
+    contexto.tarefas = [];
+    vi.spyOn(instagram, "configLogin").mockReturnValue({ appId: "app", appSecret: "teste", redirectUri: "http://localhost/api/instagram/retorno" });
+    vi.spyOn(instagram, "trocarCodigoPorToken").mockResolvedValue("token");
+    vi.spyOn(instagram, "buscarContaConectada").mockResolvedValue({ userId: "id-retorno", username: empresa.instagramUsername });
+    const aviso = vi.spyOn(notificacoes, "avisarNovaReivindicacao").mockResolvedValue(undefined);
+    const transacionar = db.$transaction.bind(db);
+    let transacoes = 0;
+    vi.spyOn(db, "$transaction").mockImplementation(async (operacao, opcoes) => {
+      const resultado = await transacionar(operacao, opcoes);
+      if (++transacoes === 1) await db.empresa.update({ where: { id: empresa.id }, data: { moderacao: "rejeitada" } });
+      return resultado;
+    });
+    try {
+      const requisicao = new NextRequest("http://localhost/api/instagram/retorno?state=estado&code=codigo", {
+        headers: { cookie: `${instagram.COOKIE_ESTADO}=estado.${empresa.id}` },
+      });
+      const resposta = await retornoInstagram(requisicao);
+      expect(resposta.headers.get("location")).toBe("http://localhost/painel?aviso=em_analise");
+      expect(await db.reivindicacao.findMany({ where: { empresaId: empresa.id } })).toMatchObject([{ usuarioId: pessoa.id, status: "pendente" }]);
+      expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ moderacao: "rejeitada", oficial: false, instagramUserId: null });
+      expect(await donos(empresa.id)).toEqual([]);
+      expect(contexto.tarefas).toHaveLength(1);
+      await contexto.tarefas[0]();
+      expect(aviso).toHaveBeenCalledOnce();
+      expect(aviso).toHaveBeenCalledWith(empresa.id);
+      const pagina = createElement(Painel, { params: Promise.resolve({}), searchParams: Promise.resolve({ aviso: "em_analise" }) });
+      const stream = await renderToReadableStream(pagina);
+      const html = await new Response(stream).text();
+      expect(html).toContain("Recebemos sua solicitação. A moderação vai analisar");
+      expect(html).toContain("Minhas solicitações");
+      expect(html).toContain(empresa.nome);
+    } finally {
+      vi.restoreAllMocks();
+      contexto.usuario = null;
+      contexto.tarefas = [];
+    }
+  });
+
+  it("confirma pelo Instagram o perfil já assumido pelo mesmo dono", async () => {
+    const dono = await criarUsuario();
+    const empresa = await criarEmpresa("perfil.assumido");
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+
+    expect(await processarLoginInstagram({
+      empresaId: empresa.id, usuarioId: dono.id,
+      conta: { userId: "id-perfil-assumido", username: empresa.instagramUsername },
+    })).toEqual({ tipo: "verificada" });
+    expect(await db.reivindicacao.findFirst({ where: { empresaId: empresa.id, usuarioId: dono.id } }))
+      .toMatchObject({ metodo: "instagram_login", status: "aprovada" });
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ oficial: true });
+  });
+
   it("aprova na hora quando a conta é a do negócio", async () => {
     const dono = await criarUsuario();
     const empresa = await criarEmpresa("casa.do_bem");
@@ -522,5 +645,76 @@ describe("documento e moderação", () => {
     await expect(solicitarPorDocumento({ empresaId: empresa.id, usuarioId: dono.id, ...dadosDoNegocio })).rejects.toThrow(
       /já é dono/,
     );
+  });
+});
+
+describe("selo de perfil oficial", () => {
+  it("a moderação aprova pedido antigo por DM e mantém o selo ao adicionar um dono", async () => {
+    const [confirmou, socia, moderador] = await Promise.all([criarUsuario(), criarUsuario(), criarUsuario()]);
+    const empresa = await criarEmpresa("selo.dm");
+    const antigo = await db.reivindicacao.create({
+      data: { empresaId: empresa.id, usuarioId: confirmou.id, metodo: "codigo_dm", expiraEm: new Date() },
+    });
+    await aprovar({ reivindicacaoId: antigo.id, revisorId: moderador.id });
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ oficial: true });
+    const pedido = await solicitarPorDocumento({
+      empresaId: empresa.id, usuarioId: socia.id, cnpj: null, site: null, relacao: "Sócia", contato: "contato", mensagem: null,
+    });
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ oficial: true });
+  });
+
+  it("a transferência por dados retira o selo de quem saiu", async () => {
+    const [confirmou, novo, moderador] = await Promise.all([criarUsuario(), criarUsuario(), criarUsuario()]);
+    const empresa = await criarEmpresa("selo.transferencia");
+    await processarLoginInstagram({ empresaId: empresa.id, usuarioId: confirmou.id,
+      conta: { userId: "selo-id", username: empresa.instagramUsername } });
+    const pedido = await solicitarPorDocumento({
+      empresaId: empresa.id, usuarioId: novo.id, cnpj: null, site: null, relacao: "Dono", contato: "contato", mensagem: null,
+    });
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id, modo: "transferir" });
+    expect(await donos(empresa.id)).toEqual([novo.id]);
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ oficial: false });
+  });
+});
+
+describe("migração do perfil oficial", () => {
+  /** O UPDATE da migração que liga o selo nos negócios que já existiam. */
+  function sqlDoPreenchimento(): string {
+    const pasta = join("prisma", "migrations");
+    const migracao = readdirSync(pasta).find((nome) => nome.endsWith("_perfil_oficial"));
+    if (!migracao) throw new Error("A migração do perfil oficial não existe.");
+    const sql = readFileSync(join(pasta, migracao, "migration.sql"), "utf8");
+    const inicio = sql.indexOf('UPDATE "Empresa"');
+    if (inicio < 0) throw new Error("A migração do perfil oficial não preenche os negócios que já existem.");
+    return sql.slice(inicio, sql.indexOf(";", inicio) + 1);
+  }
+
+  it("liga o selo só onde quem confirmou pelo Instagram continua dono", async () => {
+    const [dm, login, documento, saiu, ficou] = await Promise.all(
+      ["Dm", "Login", "Documento", "Saiu", "Ficou"].map((nome) => criarUsuario(nome)),
+    );
+    const porDm = await criarEmpresa("migra.dm");
+    const porLogin = await criarEmpresa("migra.login");
+    const porDocumento = await criarEmpresa("migra.documento");
+    const transferida = await criarEmpresa("migra.transferida");
+    const aprovada = (empresaId: string, usuarioId: string, metodo: string) =>
+      db.reivindicacao.create({ data: { empresaId, usuarioId, metodo, status: "aprovada", expiraEm: new Date() } });
+    const dono = (empresaId: string, usuarioId: string) => db.empresaMembro.create({ data: { empresaId, usuarioId } });
+    await aprovada(porDm.id, dm.id, "codigo_dm");
+    await dono(porDm.id, dm.id);
+    await aprovada(porLogin.id, login.id, "instagram_login");
+    await dono(porLogin.id, login.id);
+    await aprovada(porDocumento.id, documento.id, "documento");
+    await dono(porDocumento.id, documento.id);
+    // Quem confirmou pelo Instagram saiu numa transferência para quem enviou os dados.
+    await aprovada(transferida.id, saiu.id, "codigo_dm");
+    await aprovada(transferida.id, ficou.id, "documento");
+    await dono(transferida.id, ficou.id);
+
+    await db.$executeRawUnsafe(sqlDoPreenchimento());
+
+    const oficiais = await db.empresa.findMany({ where: { oficial: true }, select: { instagramUsername: true } });
+    expect(oficiais.map((e) => e.instagramUsername).sort()).toEqual(["migra.dm", "migra.login"]);
   });
 });

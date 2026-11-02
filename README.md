@@ -75,7 +75,7 @@ As fotos enviadas no seu computador ficam em `public/enviados/` (fora do Git). N
 
 ## Como o dono reivindica o negócio
 
-Tudo começa no botão "Sou o dono" do perfil (`/empresas/<@>/reivindicar`). Por enquanto, o caminho é um só: a pessoa envia os **dados do negócio**. Se o negócio ainda não tem dono, ela vira dona na hora. Se já tem, o pedido vira uma disputa, e a moderação decide com estes dados:
+Tudo começa no botão "É meu negócio" do perfil (`/empresas/<@>/reivindicar`). Por enquanto, o caminho é um só: a pessoa envia os **dados do negócio**. Se o negócio ainda não tem dono, ela vira dona na hora. Se já tem, o pedido vira uma disputa, e a moderação decide com estes dados:
 
 - **CNPJ ou MEI** (opcional): a moderação vê o CNPJ formatado e os dados da Receita ao lado.
 - **Site** (opcional): aparece como link na ficha da moderação.

@@ -105,7 +105,7 @@ async function Numeros() {
       <dl className="grid grid-cols-3 gap-3 border-t border-papel/15 pt-4 escuro:border-linha">
         <Numero valor={resumo.cidades} rotulo={resumo.cidades === 1 ? "cidade" : "cidades"} />
         <Numero valor={resumo.estados} rotulo={resumo.estados === 1 ? "estado" : "estados"} />
-        <Numero valor={resumo.verificados} rotulo="verificados pelo dono" />
+        <Numero valor={resumo.verificados} rotulo="perfis assumidos" />
       </dl>
       <Link href="/participar" className="botao-coral w-full py-3 text-base">
         Cadastrar empresa
@@ -207,7 +207,8 @@ function ComoFunciona() {
     {
       emoji: "🔑",
       titulo: "O dono assume o perfil",
-      texto: "Quem cuida do negócio envia CNPJ, site e contato e já passa a contar a própria história no perfil.",
+      texto:
+        "Quem cuida do negócio confirma pelo Instagram ou envia os dados e já passa a contar a própria história no perfil.",
     },
     {
       emoji: "🤝",
@@ -235,7 +236,7 @@ function ComoFunciona() {
           <p className="font-serif text-3xl font-semibold">Tem um negócio do bem?</p>
           <p className="mt-1 text-papel/70">Cadastre, mostre as causas que você abraça e conte a sua história.</p>
         </div>
-        <Link href="/sobre#dono" className="botao-coral shrink-0 px-6 py-3 text-base">
+        <Link href="/participar" className="botao-coral shrink-0 px-6 py-3 text-base">
           Sou dono de um negócio
         </Link>
       </div>

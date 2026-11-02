@@ -45,10 +45,10 @@ export async function GET(request: NextRequest) {
       await medir({ nome: "perfil_reivindicado", params: { method: "instagram", resultado: "verificada" } });
       return voltar("verificada", {}, `/empresas/${empresa.instagramUsername}`);
     }
-    if (resultado.tipo === "em_analise") {
+    if (resultado.tipo === "em_analise" || resultado.tipo === "em_analise_fora_do_ar") {
       await medir({ nome: "perfil_reivindicado", params: { method: "instagram", resultado: "em_analise" } });
       after(() => avisarNovaReivindicacao(empresaId!));
-      return voltar("em_analise");
+      return voltar("em_analise", {}, resultado.tipo === "em_analise_fora_do_ar" ? "/painel" : caminho);
     }
     return voltar("ig_conta_diferente", { conectada: resultado.conectada });
   } catch (erro) {

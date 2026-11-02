@@ -8,7 +8,7 @@ import { CATEGORIAS, NOMES_UF, UFS, type Uf } from "@/lib/dominio";
 import { normalizarTexto } from "@/lib/texto";
 
 export const ORDENS = {
-  verificados: "Verificados primeiro",
+  verificados: "Perfis assumidos primeiro",
   recentes: "Mais recentes",
   az: "Nome (A–Z)",
 } as const;
