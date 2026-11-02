@@ -820,6 +820,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
   - aceita um estado ("PE", "Pernambuco" ou "Pernambuco (estado)"), "Cidade, UF" ou só o nome da cidade, sem diferenciar acentos e maiúsculas;
   - um nome que é de estado e de cidade (São Paulo) sem a UF vale como estado, que inclui a cidade;
   - um nome de cidade que existe em vários estados, sem a UF, vale para todos eles;
+  - um nome de cidade com negócios vale como cidade mesmo quando termina com uma sigla de UF: "Sento Sé" é a cidade da Bahia, e não "Sento" em Sergipe;
   - um lugar sem negócios mostra "Ainda não há negócios do bem em … no diretório".
 - **Filtros ao lado** (no celular, recolhidos em "Filtros"):
   - **tipo de negócio:** vários de uma vez, mostrando negócios de **qualquer** um deles. Os 8 com mais negócios aparecem direto, e o resto fica em "Ver todos os 16 tipos";
