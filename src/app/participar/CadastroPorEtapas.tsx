@@ -23,6 +23,7 @@ import { enviarSemLimpar } from "@/components/envio";
 import { Monograma } from "@/components/Monograma";
 import { SeletorCausas } from "@/components/SeletorCausas";
 import { CATEGORIAS } from "@/lib/dominio";
+import { enviarEvento, type TipoDeCadastro } from "@/lib/medicao";
 import { lerRascunho, type Rascunho } from "@/lib/rascunho-do-cadastro";
 
 // O cadastro por etapas: uma pergunta por vez. Todas as etapas ficam montadas num
@@ -37,6 +38,9 @@ const SEQUENCIA: Record<Ramo, Etapa[]> = {
   indicar: ["arroba", "escolha", "nome", "onde", "causas", "fim"],
   dono: ["arroba", "escolha", "nome", "onde", "causas", "contatos", "voce", "fim"],
 };
+
+/** O ramo como o Analytics o chama, igual ao `tipo` do evento `negocio_cadastrado`. */
+const TIPO_DO_RAMO: Record<Ramo, TipoDeCadastro> = { indicar: "indicacao", dono: "dono" };
 
 /** Onde cada campo fica: um erro do servidor leva a pessoa de volta à etapa certa. */
 const ETAPA_DO_CAMPO: Record<string, Etapa> = {
@@ -158,7 +162,8 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       return resto;
     });
 
-  function irPara(destino: Etapa) {
+  /** O ramo vem junto quando acabou de ser escolhido: o estado só muda na próxima renderização. */
+  function irPara(destino: Etapa, ramoDaEtapa = ramo) {
     mexeu.current = true;
     if (formulario.current) {
       const valores = valoresDo(formulario.current);
@@ -167,6 +172,8 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       if (destino === "fim" && conta.logado && !conta.emailConfirmado) guardarNoAparelho(valores);
     }
     setEtapa(destino);
+    // Cada etapa é um passo do funil no Analytics: mostra onde as pessoas desistem.
+    enviarEvento("cadastro_etapa", { etapa: destino, tipo: ramoDaEtapa ? TIPO_DO_RAMO[ramoDaEtapa] : undefined });
   }
 
   function procurar() {
@@ -191,7 +198,7 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       setSitePrevia(previa?.site ?? "");
       if (resultado.caso === "indicar" && donoInicial) {
         setRamo("dono");
-        irPara("nome");
+        irPara("nome", "dono");
       } else {
         irPara("escolha");
       }
@@ -211,7 +218,7 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
 
   function escolher(novo: Ramo) {
     setRamo(novo);
-    irPara("nome");
+    irPara("nome", novo);
   }
 
   /** Confere só os campos da etapa atual. O servidor confere tudo de novo no envio. */

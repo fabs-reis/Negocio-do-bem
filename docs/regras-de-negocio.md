@@ -24,7 +24,8 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 14. [Avisos por e-mail](#14-avisos-por-e-mail)
 15. [Privacidade: o que guardamos e quem vê](#15-privacidade-o-que-guardamos-e-quem-vê)
 16. [Números e limites](#16-números-e-limites)
-17. [Comportamentos atuais que valem conhecer](#17-comportamentos-atuais-que-valem-conhecer)
+17. [O site como app](#17-o-site-como-app)
+18. [Comportamentos atuais que valem conhecer](#18-comportamentos-atuais-que-valem-conhecer)
 
 ---
 
@@ -634,12 +635,13 @@ Para todo o resto, a página responde 404. Quem pode ver encontra um aviso no to
 
 ### Buscadores e prévia do link
 
-Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts` e `src/app/empresas/[usuario]/opengraph-image.tsx`.
+Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/opengraph-image.tsx`, `src/app/empresas/[usuario]/opengraph-image.tsx`, `src/app/cidades/[cidade]/opengraph-image.tsx` e `src/lib/previa-da-cidade.tsx`.
 
 - **Só perfis do diretório vão para os buscadores.** O sitemap lista os negócios aprovados e não ocultos, lido do banco a cada pedido: um negócio aprovado entra na hora, e um oculto sai na hora. Ele também lista as páginas de cidade, causa e tipo que têm negócios (ver [seção 11](#páginas-de-cidade-causa-e-tipo)).
 - **Título do perfil na busca:** "Nome — Categoria em Cidade, UF". Na categoria "Outros", só "Nome em Cidade, UF". A descrição é o resumo.
 - **Dados estruturados:** o perfil público leva a ficha do negócio (`LocalBusiness`) com nome, resumo, foto, cidade, UF, WhatsApp, e-mail, Instagram, site, categoria e causas. São os mesmos dados que a página já mostra. O caminho até o perfil passa pela página da cidade: "Início › Recife, PE › Padaria Florescer".
 - **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Perfil assumido". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
+- **Prévia das outras páginas:** a página de cada cidade tem a sua (ver [seção 11](#páginas-de-cidade-causa-e-tipo)). As outras páginas públicas (início, `/sobre`, `/explorar`, `/cidades`, `/participar`, causas e tipos) levam a imagem geral do site, com o logo e o lema.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
 - **Fora da busca:** login, cadastro, painel, reivindicação e moderação levam `noindex`. `/painel`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
 - **Previews** (`DEPLOY_ENV=preview`) bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
@@ -738,7 +740,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
   - no computador de quem desenvolve, sem URL R2 configurada, em `public/enviados/`, fora do Git;
   - em produção sem o binding ou a URL pública R2, a pessoa vê uma mensagem de erro em vez de o site quebrar.
 
-**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado, endereços antigos do Vercel Blob durante a transição, ou da pasta `/enviados/`. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
+**O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado ou da pasta `/enviados/`. As fotos antigas do Vercel Blob foram copiadas para o R2, e um endereço do Blob também não aparece. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
 
 ---
 
@@ -770,7 +772,9 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 - **A moderação recebe um e-mail** com o negócio e o link da fila, sem dizer quem denunciou.
 - **Uma denúncia aberta por vez:**
   - enquanto há uma denúncia aberta, o botão "Denunciar" some para todos;
-  - uma segunda denúncia não substitui a primeira.
+  - uma segunda denúncia não substitui a primeira, mesmo quando duas pessoas enviam ao mesmo tempo: a gravação só acontece se o depoimento ainda estiver publicado e não houver denúncia aberta.
+  - um depoimento removido não recebe nova denúncia nem gera aviso à moderação, mesmo se a remoção ocorrer durante o envio.
+  - a segunda pessoa volta ao perfil com o aviso "Denúncia enviada", mas nada é gravado: o motivo e a autoria da primeira ficam, e a moderação não recebe um segundo e-mail.
 - **A fila "Denúncias"** mostra:
   - o negócio;
   - o autor do depoimento (nome e e-mail) e a data;
@@ -830,7 +834,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 ### Páginas de cidade, causa e tipo
 
-Código: `src/app/cidades/`, `src/app/causas/[causa]/`, `src/app/tipos/[tipo]/`, o componente `src/components/Vitrine.tsx`, os endereços em `src/lib/diretorio.ts` e as consultas `cidadeDoSlug` e `cidadesCom` em `src/lib/consultas.ts`.
+Código: `src/app/cidades/`, `src/app/causas/[causa]/`, `src/app/tipos/[tipo]/`, os componentes `src/components/Vitrine.tsx` e `src/components/CapaDaCidade.tsx`, os endereços em `src/lib/diretorio.ts`, as consultas `cidadeDoSlug` e `cidadesCom` em `src/lib/consultas.ts` e as fotos em `src/lib/fotos-das-cidades.ts`.
 
 São as páginas que respondem às buscas mais comuns, como "negócios do bem em Salvador" ou "negócios liderados por mulheres".
 
@@ -847,6 +851,16 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
   - na causa: as cidades e os tipos que têm a causa, que abrem o diretório com os dois filtros, e as outras causas do mesmo grupo;
   - no tipo: as cidades e as causas desse tipo, que abrem o diretório com os dois filtros, e os outros tipos.
 - **A cidade vai pelo nome oficial do IBGE,** como no "Onde?". O endereço não tem acento nem maiúscula, e a UF vai no final. Grafias diferentes da mesma cidade ("Sao Paulo", "São Paulo", "Tubarão-SC") levam à mesma página, inclusive pelos links do perfil e do sitemap. Nas listas de cidades de uma causa ou de um tipo, elas contam juntas. Uma cidade fora da lista do IBGE fica com a grafia mais usada.
+- **Foto da cidade:** as cidades de `src/lib/fotos-das-cidades.json` mostram uma foto de cartão-postal do Wikimedia Commons ao lado do título (em cima dele, no celular). A lista começou com as capitais, os 100 municípios mais populosos do Censo 2022 e as cidades com 3 ou mais negócios no diretório.
+  - **Crédito:** embaixo da foto vão o autor, a licença (com link para ela) e o link para a página da foto no Commons.
+  - **Só fotos que pedem apenas o crédito:** domínio público, CC0, CC BY e CC BY-SA. O `npm run cidades:fotos` e os testes recusam as outras.
+  - **A foto não cria página:** uma cidade da lista sem negócios no diretório continua sem página. Quando entra o primeiro negócio, a página já aparece com a foto.
+  - **Cidade fora da lista:** a página fica como era, sem foto.
+- **Prévia do link da cidade:** a foto com o logo e "Negócios do bem em Salvador, BA", num JPEG feito de antemão pelo `npm run cidades:fotos`.
+  - **Leve para o WhatsApp,** que não mostra prévia acima de 600 KB: cada uma fica entre 30 e 120 KB.
+  - **Sem o número de negócios,** porque a imagem pronta não acompanha o diretório. O número continua na descrição do link.
+  - **Cidade sem foto:** o mesmo texto no creme da marca, com quantos negócios há no diretório, gerado na hora.
+- **Foto para os buscadores:** a foto vai no sitemap e nos dados estruturados como imagem principal da página (`primaryImageOfPage`), com o autor e a licença, que o Google Imagens mostra.
 - **Cidade sem negócios no diretório** mostra "Não encontramos esta página", com `noindex`. Isso inclui cidades que só têm negócios pendentes, rejeitados ou ocultos. Endereço de causa ou tipo que não existe, e o `/tipos/outros`, também.
   - Como no perfil, o status HTTP é 200: o Next já mandou o começo da página quando descobre que ela não existe. Para os buscadores, o `noindex` basta.
 - **Causa ou tipo sem negócios:** a página existe, com um convite para indicar, mas leva `noindex` e fica fora do sitemap.
@@ -1021,7 +1035,23 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
   - rolagem;
   - cliques para outros sites;
   - buscas no diretório (o parâmetro `q` da URL).
-- O Analytics usa cookies e não recebe nome nem e-mail.
+- O site manda também estes eventos (`src/lib/medicao.ts`):
+
+  | Evento | Quando | Parâmetros |
+  | --- | --- | --- |
+  | `sign_up` | Conta criada | `method`: `senha` ou `google` |
+  | `login` | Entrou numa conta que já existia | `method`: `senha`, `google` ou `link` |
+  | `negocio_cadastrado` | Negócio publicado no diretório | `tipo` (`indicacao` ou `dono`), `categoria`, `uf`, `cidade`, `com_instagram` (`sim` ou `nao`) |
+  | `perfil_reivindicado` | Pedido de dono enviado | `method` (`documento` ou `instagram`), `resultado` (`verificada` ou `em_analise`) |
+  | `depoimento_publicado` | Depoimento publicado | `categoria` |
+  | `contato_negocio` | Clique em Ligar, WhatsApp, Instagram, site ou e-mail no perfil de um negócio público, menos do próprio dono | `canal` (`telefone`, `whatsapp`, `instagram`, `site` ou `email`), `categoria`, `uf` |
+  | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
+  | `app_instalado` | Site instalado como app pelo Chrome ou pelo Edge. O Safari não avisa quando alguém instala | — |
+  | `app_aberto` | Site aberto pelo ícone do app instalado, uma vez por abertura | — |
+  | `instalacao_aparelho` | Escolha do celular em `/instalacao` | `aparelho` (`iphone` ou `android`) |
+
+- Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
+- O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
 - Por decisão do projeto, o site não mostra aviso de cookies. A página "Como funciona" explica a medição na seção de privacidade.
 
 ### Proteções da interface
@@ -1080,10 +1110,45 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Leitura da história | 200 palavras por minuto | `src/lib/texto.ts` |
 | Espera pela resposta do Resend | 10 segundos | `src/lib/email.ts` |
 | E-mails pelo plano gratuito do Resend | 100 por dia, 3.000 por mês | Conta do Resend |
+| Arquivos do site guardados no aparelho pelo service worker | 200 | `public/sw.js` |
 
 ---
 
-## 17. Comportamentos atuais que valem conhecer
+## 17. O site como app
+
+O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `src/app/manifest.ts`. Ao segurar o ícone, aparecem os atalhos Explorar, Cadastrar e Painel.
+
+**A página de instalação** (`src/app/instalacao/`)
+
+- `/instalacao` pergunta qual é o celular, com dois cartões: iPhone, com o ícone da Apple, e Android, com o do Android. Cada um leva ao seu passo a passo.
+- Depois que a página carrega, o cartão do aparelho de quem visita ganha o selo "Este celular". Num computador, nenhum cartão ganha o selo.
+- `/instalacao/android` ensina o caminho pelo menu do Chrome. Quando o navegador oferece a instalação, aparece também o botão "Instalar agora", que abre a janela de instalação.
+- `/instalacao/iphone` ensina o caminho pelo Compartilhar do Safari e avisa que o app do iPhone pede o login de novo.
+- Com o site aberto como app, as três páginas avisam "Você já está usando o app instalado".
+- As três estão no sitemap e no `llms.txt`.
+
+**O convite para instalar** (`src/components/InstalarApp.tsx`)
+
+- O botão "Instalar o app", com um ícone de download, fica em destaque no rodapé, logo abaixo da descrição do site, e leva a `/instalacao`, em qualquer navegador.
+- No painel, o cartão "Use como app", embaixo de "Minha conta", faz o convite quando o navegador oferece a instalação (botão "Instalar") ou no iPhone ("Ver como instalar", que leva a `/instalacao/iphone`). "Agora não" o esconde naquele navegador (fica no `localStorage`).
+- Com o site aberto como app, nenhum convite aparece.
+
+**Sem conexão**
+
+- Uma página que não abre por falta de internet mostra "Sem conexão" (`public/offline.html`), com "Tentar de novo". Ela recarrega sozinha quando a conexão volta. Um erro do servidor não mostra essa página.
+- As páginas nunca ficam guardadas no aparelho, para os dados virem sempre atualizados. Sem internet, nada do diretório aparece. O service worker (`public/sw.js`) guarda só os arquivos do site (JS, CSS e fontes) e a página "Sem conexão".
+- Se a conexão cai com o site aberto, o pé da tela avisa "Sem conexão. O que você pediu continua assim que a internet voltar." A página ou o formulário pedidos seguem sozinhos quando ela volta (`experimental.useOffline` do Next).
+- Se a conexão cair depois que o servidor recebeu um formulário, mas antes da resposta, o Next o manda de novo quando ela volta. É o mesmo que aconteceria se a pessoa, vendo o erro, enviasse de novo: o segundo envio de um @ ou de um depoimento é recusado, mesmo com o primeiro salvo, e um negócio sem Instagram pode sair repetido, com `-2` no endereço.
+
+**Links por e-mail no app do iPhone**
+
+- O app instalado no iPhone e no iPad não divide o login com o Safari, e o link do e-mail sempre abre no Safari.
+- Por isso, só no app do iPhone, `/entrar/link` avisa que o login fica no Safari e sugere o Google ou o e-mail e a senha. `/esqueci-a-senha` sugere criar a senha nova no Safari e voltar ao app para entrar com ela.
+- No Android, o app divide o login com o Chrome, então o link do e-mail vale também no app.
+
+---
+
+## 18. Comportamentos atuais que valem conhecer
 
 O sistema funciona hoje assim. Algumas destas situações podem ser intencionais e outras são lacunas. Antes de mudar qualquer uma, abra uma issue para combinar o caminho.
 

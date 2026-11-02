@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { FormTrocarSenha, PedirLinkDeSenhaNova } from "@/components/FormulariosConta";
+import { ConviteParaInstalar } from "@/components/InstalarApp";
 import { Monograma } from "@/components/Monograma";
 import { SeloStatus } from "@/components/SeloStatus";
 import { exigirUsuario } from "@/lib/auth/sessao";
@@ -187,6 +188,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
             </>
           )}
         </div>
+        <ConviteParaInstalar className="mt-4" />
       </section>
     </div>
   );

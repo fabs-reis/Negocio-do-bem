@@ -10,7 +10,7 @@ import { hrefCidade, hrefDiretorio } from "@/lib/diretorio";
 import { CATEGORIAS } from "@/lib/dominio";
 import { DESCRICAO_DO_SITE, jsonLdDoSite, metadadosDaPagina } from "@/lib/seo";
 
-export const metadata: Metadata = metadadosDaPagina({ descricao: DESCRICAO_DO_SITE, caminho: "/" });
+export const metadata: Metadata = metadadosDaPagina({ descricao: DESCRICAO_DO_SITE, caminho: "/", imagemPropria: true });
 
 const CIDADES_NA_INICIAL = 12;
 

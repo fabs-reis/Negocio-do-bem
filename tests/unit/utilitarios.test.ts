@@ -134,7 +134,7 @@ describe("tempoDeLeitura", () => {
   });
 
   it("não conta o endereço das fotos e dos links", () => {
-    const foto = "![legenda](https://abc.public.blob.vercel-storage.com/historias/x.jpg)";
+    const foto = "![legenda](https://fotos.exemplo.com/historias/x.jpg)";
     expect(tempoDeLeitura(`${foto}\n\n[site](https://exemplo.com)`)).toBe(1);
   });
 
