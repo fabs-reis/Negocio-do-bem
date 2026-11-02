@@ -185,7 +185,8 @@ Detalhes da moderação:
 
 - **Só o papel no banco dá moderação.** O e-mail nunca dá acesso, nem confirmado: se desse, quem se cadastrasse primeiro com o endereço certo levaria a moderação, e as contas antigas nem confirmaram o e-mail.
 - Quem cuida do projeto dá e tira a moderação com `npm run moderacao`, que roda com a conexão direta do banco e registra na auditoria. Vale a partir da próxima página aberta, sem precisar sair e entrar.
-- Para quem não é moderação, `/moderacao`, `/moderacao/negocios/<@>` e `/moderacao/contas/<id>` respondem 404: a área simplesmente não existe.
+- Para quem não é moderação, `/moderacao`, `/moderacao/negocios/<@>` e `/moderacao/contas/<id>` mostram a página 404, sem conteúdo privado. A guarda chama `notFound()`. Se o HTML já começou a chegar por streaming, o Next pode manter o status HTTP 200.
+- **Envio de uma ação sem moderação:** a mesma guarda recusa antes de qualquer escrita e redireciona para `/404`. Em um formulário sem JavaScript, o POST responde 303 e o destino público responde 404. Sem o redirecionamento, o Next 16.4.3 falha com "Couldn't find all resumable slots" quando `notFound()` vem de um POST sem JavaScript. O erro aparece no servidor, e a pessoa vê só um 404.
 - A moderação **não** responde depoimentos nem oculta negócios dos outros. Isso é só do dono.
 - A moderação **não** dá nem tira a moderação pela tela, não suspende nem apaga contas: o painel só consulta.
 
@@ -411,7 +412,7 @@ Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderaca
   - **Publicar** → `moderacao = "aprovada"`, e o negócio entra no diretório;
   - **Não publicar** → `moderacao = "rejeitada"`, e o negócio some para o público;
   - **Editar perfil** → abre a edição pela moderação antes de decidir, por exemplo para corrigir um nome ou tirar uma causa duvidosa.
-- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes.
+- **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes. A decisão e a auditoria são confirmadas juntas: se a auditoria falhar, o negócio continua como estava.
 - **O que muda num negócio tirado do ar:**
   - o @ continua ocupado, então ninguém consegue indicar de novo;
   - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação.
@@ -668,9 +669,9 @@ Código: `src/app/painel/`.
 - Enquanto oculto, ninguém deixa depoimento.
 - O perfil fica guardado, e o dono pode voltar a mostrar quando quiser.
 - É a resposta para "meu negócio foi indicado e eu não quero aparecer": a pessoa reivindica o perfil e oculta.
-- **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`.
+- **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`. Se a auditoria falhar, a visibilidade não muda.
 
-**Toda edição** atualiza o texto de busca do negócio e fica na auditoria (`empresa.editada`, `empresa.foto_trocada`, `empresa.foto_removida`).
+**Toda edição** atualiza o texto de busca do negócio e fica na auditoria (`empresa.editada`, `empresa.foto_trocada`, `empresa.foto_removida`). Se a auditoria falhar, a edição, a troca e a remoção da foto não são gravadas. A foto antiga só é apagada depois da confirmação.
 
 ---
 
@@ -720,7 +721,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
 - **Preparo, no computador:** a foto é recortada no centro, em quadrado de 600×600, e convertida para WebP. O Worker só recebe o arquivo pronto.
 - **Gravação, no site:** a rota `/api/fotos-instagram` exige o token `FOTOS_TOKEN` e confere a foto como qualquer outra. Ela **só grava se o negócio continuar sem foto**: a foto enviada pelo dono ou pela moderação nunca é trocada, nem se chegar no meio do envio.
 - **Sem `FOTOS_TOKEN` configurado,** a rota responde 404.
-- **Auditoria:** cada foto gravada registra `empresa.foto_do_instagram`, como "sistema".
+- **Auditoria:** cada foto gravada registra `empresa.foto_do_instagram`, como "sistema". A foto e a auditoria são gravadas juntas: se a auditoria falhar, o negócio fica sem a foto importada.
 - **Quando roda:** todo dia às 7h, pelo agendador do macOS (`npm run fotos:agendar`). Se o Mac estiver desligado, roda quando ele ligar.
 - **Quando para:** a rodada inteira para se o token da Meta vencer, perder permissão ou bater no limite de consultas. Os negócios que faltaram ficam para o dia seguinte.
 
@@ -781,8 +782,8 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
   - o texto;
   - quem denunciou e o motivo.
 - **Decisões:**
-  - **Manter no ar:** limpa a denúncia, e o depoimento pode ser denunciado de novo no futuro. Registra `depoimento.mantido`.
-  - **Remover:** o depoimento passa a `removido` e sai do site. Registra `depoimento.removido`. Não existe botão para desfazer.
+  - **Manter no ar:** limpa a denúncia, e o depoimento pode ser denunciado de novo no futuro. Registra `depoimento.mantido`. A denúncia só é limpa junto com a auditoria.
+  - **Remover:** o depoimento passa a `removido` e sai do site. Registra `depoimento.removido`. A remoção só vale junto com a auditoria. Não existe botão para desfazer.
 
 ---
 
@@ -942,6 +943,12 @@ A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 
 - cada ação aparece com uma descrição em português (`ACOES_AUDITORIA`, em `src/lib/dominio.ts`) e com o código embaixo;
 - quem fez leva à ficha da conta, e o alvo leva ao negócio, à conta ou ao perfil do depoimento, enquanto ele existir. Alvo apagado aparece como "removido";
 - **filtros:** por ação (a lista mostra quantas vezes cada uma aparece), por quem fez (inclusive "sistema") e por alvo. O link "histórico" de cada linha, o "Histórico" da aba Negócios e o "Tudo o que esta conta fez" da ficha usam esses filtros.
+
+Nas Server Actions de indicação, edição do perfil, visibilidade, foto do perfil e decisões de moderação, e na gravação da foto importada do Instagram, a alteração no banco e sua auditoria são confirmadas na mesma transação. Se o registro de auditoria falhar, a alteração no banco também é desfeita. Na foto importada, a escrita continua condicional: a foto enviada pelo dono sempre vale mais do que a importada.
+
+O armazenamento das fotos não participa da transação do banco. A foto antiga só é apagada depois de confirmar a alteração e a auditoria. Se o envio da foto nova funcionar e a transação falhar, o perfil mantém a foto antiga, mas o arquivo novo pode ficar sem referência no armazenamento. Se o resultado da confirmação for incerto, nenhum arquivo é apagado. A foto importada só é apagada quando a transação confirma que o dono já tinha uma foto.
+
+These tests use a real PostgreSQL database and mock external storage. They do not verify the behavior of a live R2 bucket. [Issue #82](https://github.com/fabs-reis/Negocio-do-bem/issues/82) and [PR #94](https://github.com/fabs-reis/Negocio-do-bem/pull/94) cover safe reconciliation of files without database references. That work is separate from the audit transaction guarantee.
 
 | Ação registrada | Quando |
 | --- | --- |
