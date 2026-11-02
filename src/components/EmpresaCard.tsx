@@ -14,6 +14,7 @@ export type EmpresaResumo = {
   cidade: string;
   uf: string;
   status: string;
+  oficial: boolean;
   causas: { causa: string }[];
   _count: { depoimentos: number };
 };
@@ -57,7 +58,7 @@ export function EmpresaCard({ empresa }: { empresa: EmpresaResumo }) {
       )}
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-5">
-        <SeloStatus status={empresa.status} />
+        <SeloStatus status={empresa.status} oficial={empresa.oficial} />
         {depoimentos > 0 && (
           <span className="text-xs text-suave">
             {depoimentos} {depoimentos === 1 ? "depoimento" : "depoimentos"}

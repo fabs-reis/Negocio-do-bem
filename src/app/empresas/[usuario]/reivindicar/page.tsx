@@ -44,6 +44,9 @@ async function Reivindicar({
 
   const caminho = `/empresas/${username}/reivindicar`;
   const conectada = normalizarUsername(busca.conectada);
+  const ehDono = !!usuario && empresa.membros.some((m) => m.usuarioId === usuario.id);
+  const loginDisponivel = temInstagram(username) && !!configLogin();
+  const podeConfirmar = ehDono && !empresa.oficial && loginDisponivel;
 
   const cabecalho = (
     <div className="mb-8 space-y-4">
@@ -51,12 +54,12 @@ async function Reivindicar({
         ← Voltar para o perfil
       </Link>
       <h1 className="font-serif text-4xl leading-tight font-semibold tracking-tight">
-        Este negócio é seu?
+        {podeConfirmar ? "Confirme seu perfil" : "Este negócio é seu?"}
       </h1>
       <p className="text-lg leading-relaxed text-suave">
-        Envie os dados do negócio para assumir o perfil de{" "}
-        <strong className="font-semibold text-tinta">{temInstagram(username) ? `@${username}` : empresa.nome}</strong>. Depois disso, você conta a sua história,
-        escolhe as causas e responde à comunidade.
+        {podeConfirmar ? "Confirme pelo Instagram que você cuida de " : "Envie os dados do negócio para assumir o perfil de "}
+        <strong className="font-semibold text-tinta">{temInstagram(username) ? `@${username}` : empresa.nome}</strong>.
+        {!podeConfirmar && " Depois disso, você conta a sua história, escolhe as causas e responde à comunidade."}
       </p>
       <AvisoDaUrl codigo={busca.aviso} />
       {busca.aviso === "ig_conta_diferente" && conectada && (
@@ -87,7 +90,7 @@ async function Reivindicar({
     );
   }
 
-  if (empresa.membros.some((m) => m.usuarioId === usuario.id)) {
+  if (ehDono && !podeConfirmar) {
     return (
       <>
         {cabecalho}
@@ -117,14 +120,12 @@ async function Reivindicar({
   });
   const pendentes = solicitacoes.filter((r) => r.status === "pendente");
   const dadosEmAnalise = pendentes.some((r) => r.metodo === "documento");
-  // Sem Instagram, o único caminho é enviar os dados do negócio.
-  const loginDisponivel = temInstagram(username) && !!configLogin();
 
   return (
     <>
       {cabecalho}
 
-      {empresa.membros.length > 0 && (
+      {!ehDono && empresa.membros.length > 0 && (
         <div className="mb-6">
           <Aviso tipo="info">
             Este perfil já tem um dono. Se você também cuida deste negócio ou se houve troca de responsáveis, envie
@@ -170,7 +171,7 @@ async function Reivindicar({
           </section>
         )}
 
-        {dadosEmAnalise ? (
+        {!ehDono && (dadosEmAnalise ? (
           <Aviso tipo="info">
             Seus dados estão com a moderação. O resultado aparece no{" "}
             <Link href="/painel" className="font-semibold underline">
@@ -201,7 +202,7 @@ async function Reivindicar({
             </p>
             <FormDocumento empresaId={empresa.id} />
           </section>
-        )}
+        ))}
       </div>
 
       <p className="mt-10 text-center text-sm leading-relaxed text-suave">

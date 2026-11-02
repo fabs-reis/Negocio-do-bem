@@ -16,13 +16,14 @@ const empresa: EmpresaResumo = {
   cidade: "Recife",
   uf: "PE",
   status: "verificada",
+  oficial: false,
   causas: [],
   _count: { depoimentos: 0 },
 };
 
 describe("rótulos de perfil assumido", () => {
   it("não apresenta a aprovação automática como conferência da moderação", () => {
-    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "verificada" }));
+    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "verificada", oficial: false }));
 
     expect(selo).toContain("Perfil assumido");
     expect(selo).toContain("O selo não certifica a identidade nem as causas do negócio.");
@@ -31,14 +32,14 @@ describe("rótulos de perfil assumido", () => {
   });
 
   it("mantém o selo de indicação sem afirmar que o perfil já foi assumido", () => {
-    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "indicada" }));
+    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "indicada", oficial: false }));
 
     expect(selo).toContain("Indicado pela comunidade");
     expect(selo).not.toContain("Perfil assumido");
   });
 
   it("usa um marcador neutro no selo do perfil assumido e no card", () => {
-    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "verificada" }));
+    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "verificada", oficial: false }));
     const card = renderToStaticMarkup(createElement(EmpresaCard, { empresa }));
 
     expect(selo).toMatch(/<span\b[^>]*aria-hidden="true"[^>]*>•<\/span>/);

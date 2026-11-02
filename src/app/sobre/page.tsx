@@ -51,7 +51,7 @@ export default function Sobre() {
         </h2>
         <p>
           Procure seu negócio no{" "}
-          <Link href="/explorar">diretório</Link> e clique em <strong>&ldquo;Sou o dono&rdquo;</strong>. Se ele ainda não
+          <Link href="/explorar">diretório</Link> e clique em <strong>&ldquo;É meu negócio&rdquo;</strong>. Se ele ainda não
           estiver lá, <Link href="/participar?dono=sim">cadastre</Link> pelo @ do Instagram e escolha &ldquo;Sou dono
           deste negócio&rdquo;. Sem Instagram também dá.
         </p>
