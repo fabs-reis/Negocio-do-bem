@@ -55,6 +55,14 @@ const nextConfig: NextConfig = {
     useOffline: true,
   },
   partialPrefetching: true,
+  async redirects() {
+    return ["q", "causa", "uf", "pagina"].map((chave) => ({
+      source: "/",
+      has: [{ type: "query" as const, key: chave }],
+      destination: "/explorar",
+      permanent: false,
+    }));
+  },
   turbopack: {
     rules: {
       "*.css": {

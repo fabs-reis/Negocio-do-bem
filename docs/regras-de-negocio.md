@@ -829,7 +829,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 - **Filtros em uso** aparecem acima dos resultados, cada um com um "✕" para tirar.
 - **Grade ou lista:** a lista mostra um negócio por linha, com resumo, categoria e cidade.
 - **Paginação:** 18 negócios por página, até a página 500, com os números das páginas. Com mais de 7 páginas, aparecem a primeira, a última e as vizinhas da atual.
-- **Os filtros ficam na URL** (`/explorar?q=…&onde=…&tipo=…&causa=…&verificados=sim&ordem=…&vista=lista&pagina=…`), então dá para compartilhar uma busca. O tipo vai como slug (`cafe-e-padaria`). Links antigos com `?uf=PE` viram "Pernambuco (estado)".
+- **Os filtros ficam na URL** (`/explorar?q=…&onde=…&tipo=…&causa=…&verificados=sim&ordem=…&vista=lista&pagina=…`), então dá para compartilhar uma busca. O tipo vai como slug (`cafe-e-padaria`). Links antigos com `?uf=PE` viram "Pernambuco (estado)". Os links da página inicial de antes do diretório (`/?q=…`, `/?causa=…`, `/?uf=…`, `/?pagina=…`) são redirecionados para `/explorar` com os mesmos filtros (`redirects` em `next.config.ts`).
 - **Com qualquer filtro, o endereço canônico continua `/explorar`:** as combinações de filtros não entram na busca do Google. Quem busca por cidade, causa ou tipo cai nas páginas fixas abaixo.
 
 ### Páginas de cidade, causa e tipo
