@@ -10,7 +10,7 @@ import { hrefCidade, hrefDiretorio } from "@/lib/diretorio";
 import { CATEGORIAS } from "@/lib/dominio";
 import { DESCRICAO_DO_SITE, jsonLdDoSite, metadadosDaPagina } from "@/lib/seo";
 
-export const metadata: Metadata = metadadosDaPagina({ descricao: DESCRICAO_DO_SITE, caminho: "/" });
+export const metadata: Metadata = metadadosDaPagina({ descricao: DESCRICAO_DO_SITE, caminho: "/", imagemPropria: true });
 
 const CIDADES_NA_INICIAL = 12;
 
@@ -105,7 +105,7 @@ async function Numeros() {
       <dl className="grid grid-cols-3 gap-3 border-t border-papel/15 pt-4 escuro:border-linha">
         <Numero valor={resumo.cidades} rotulo={resumo.cidades === 1 ? "cidade" : "cidades"} />
         <Numero valor={resumo.estados} rotulo={resumo.estados === 1 ? "estado" : "estados"} />
-        <Numero valor={resumo.verificados} rotulo="verificados pelo dono" />
+        <Numero valor={resumo.verificados} rotulo="perfis assumidos" />
       </dl>
       <Link href="/participar" className="botao-coral w-full py-3 text-base">
         Cadastrar empresa

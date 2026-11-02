@@ -79,16 +79,16 @@ export async function denunciarDepoimento(dados: FormData): Promise<void> {
   if (depoimento.autorId === usuario.id) redirect(`${voltar}#depoimentos`);
   if (!usuario.emailConfirmado) redirect(`${voltar}?aviso=confirmar_email#depoimentos`);
 
-  if (!depoimento.denunciado) {
-    await db.depoimento.update({
-      where: { id: depoimento.id },
-      data: {
-        denunciado: true,
-        motivoDenuncia: texto(dados, "motivo").trim().slice(0, 300) || "Sem motivo informado",
-        denunciadoPorId: usuario.id,
-      },
-    });
-    after(() => avisarNovaDenuncia(depoimento.id));
-  }
+  // A condição `denunciado: false` fica no próprio UPDATE: com dois envios ao
+  // mesmo tempo, só o primeiro grava e só ele avisa a moderação.
+  const { count } = await db.depoimento.updateMany({
+    where: { id: depoimento.id, denunciado: false, status: "publicado" },
+    data: {
+      denunciado: true,
+      motivoDenuncia: texto(dados, "motivo").trim().slice(0, 300) || "Sem motivo informado",
+      denunciadoPorId: usuario.id,
+    },
+  });
+  if (count > 0) after(() => avisarNovaDenuncia(depoimento.id));
   redirect(`${voltar}?aviso=denuncia_enviada#depoimentos`);
 }
