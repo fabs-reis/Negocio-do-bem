@@ -31,7 +31,7 @@ export async function FaixaEmbaixadores() {
             Siga quem leva o Negócio do Bem para a própria cidade, e veja os negócios de lá.
           </p>
           <Link href="/embaixadores" className="botao-coral mt-5 px-5 py-3 text-[15px]">
-            {todos.length === 1 ? "Conhecer o embaixador" : `Conhecer todos os ${todos.length}`} <span aria-hidden="true">→</span>
+            {todos.length === 1 ? "Ver os embaixadores" : `Conhecer todos os ${todos.length}`} <span aria-hidden="true">→</span>
           </Link>
         </div>
         <FaixaRolante className="min-w-0 flex-[999_1_32rem]" itens={naFaixa.map((e) => <Rosto key={e.id} embaixador={e} />)} />
@@ -43,7 +43,7 @@ export async function FaixaEmbaixadores() {
 function Rosto({ embaixador }: { embaixador: EmbaixadorNoSite }) {
   const semNegocios = embaixador.destino.href === "/participar";
   return (
-    <li className="flex w-36 shrink-0 flex-col items-center gap-1 text-center">
+    <li className="flex w-40 shrink-0 flex-col items-center gap-1 text-center">
       <RostoDoEmbaixador
         embaixador={embaixador}
         className="mb-2.5 h-21 w-21 text-[1.75rem] ring-2 ring-coral ring-offset-[3px] ring-offset-tinta escuro:ring-offset-superficie"

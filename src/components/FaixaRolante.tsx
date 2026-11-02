@@ -8,9 +8,10 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
  * esquerda, a cópia está no mesmo lugar e a animação recomeça sem salto. A cópia
  * fica fora do leitor de tela e do Tab.
  *
- * Só anda quando os itens não cabem na largura. Para com o mouse em cima, com o
- * foco do teclado e com o botão "Pausar", e fica parada para quem pede menos
- * movimento no aparelho. Sem JavaScript, é uma lista que rola para o lado.
+ * Só anda quando os itens não cabem na largura; cabendo, eles ficam parados e no
+ * centro. Para com o mouse em cima, com o foco do teclado e com o botão "Pausar",
+ * e fica parada para quem pede menos movimento no aparelho. Sem JavaScript, é uma
+ * lista que rola para o lado.
  */
 export function FaixaRolante({ itens, segundosPorItem = 5, className = "" }: { itens: ReactNode[]; segundosPorItem?: number; className?: string }) {
   const janela = useRef<HTMLDivElement>(null);
@@ -32,7 +33,7 @@ export function FaixaRolante({ itens, segundosPorItem = 5, className = "" }: { i
     <div className={`flex flex-col gap-2.5 ${className}`}>
       <div ref={janela} className={`faixa-janela py-2 ${rolando ? "faixa-mascara overflow-hidden motion-reduce:overflow-x-auto" : "overflow-x-auto"}`}>
         <div
-          className={`flex w-max ${rolando ? "faixa-rolando" : ""}`}
+          className={`flex w-max ${rolando ? "faixa-rolando" : "mx-auto"}`}
           style={{ "--duracao-da-faixa": `${itens.length * segundosPorItem}s` } as CSSProperties}
           data-pausada={pausada || undefined}
         >

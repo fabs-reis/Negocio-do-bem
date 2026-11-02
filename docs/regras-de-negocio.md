@@ -1220,7 +1220,7 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 ### Onde aparece
 
 - **Página inicial:** a faixa escura entre "Explore por cidade" e "Como funciona", só com os marcados para ela. Sem nenhum marcado, a faixa não aparece.
-  - Os rostos passam sozinhos num loop, 5 segundos por embaixador, quando não cabem na largura. Cabendo, ficam parados.
+  - Os rostos passam sozinhos num loop, 5 segundos por embaixador, quando não cabem na largura. Cabendo, ficam parados e no centro.
   - A faixa para com o mouse em cima, com o foco do teclado e com o botão "Pausar". Para quem pede menos movimento no aparelho, fica parada e rola para o lado.
   - O loop usa uma cópia dos rostos, que fica fora do leitor de tela e do Tab.
 - **`/embaixadores`:**
