@@ -53,8 +53,9 @@ export const viewport: Viewport = {
   ],
 };
 
-// Só a produção do Vercel define o ID; no seu computador e em cópias do projeto
-// o Analytics não carrega.
+// O ID vem das variáveis de build da produção no Cloudflare: o Next põe o valor
+// no código durante o build. No seu computador, nos previews e em cópias do
+// projeto o Analytics não carrega.
 const ID_ANALYTICS = process.env.NEXT_PUBLIC_GA_ID;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
