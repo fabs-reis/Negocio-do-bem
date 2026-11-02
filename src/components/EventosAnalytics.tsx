@@ -67,5 +67,5 @@ export function EventosAnalytics({ consentimento }: { consentimento: string }) {
   // O quadro é recriado em cada rota para descartar listeners e filas do provedor.
   }, [caminho, consentimento, pagina?.caminho]);
 
-  return pagina ? <iframe key={caminho} ref={quadro} src="/api/analytics" title="Medição opcional" hidden referrerPolicy="no-referrer" sandbox="allow-scripts" /> : null;
+  return pagina ? <iframe key={`${caminho}:${consentimento}`} ref={quadro} src="/api/analytics" title="Medição opcional" hidden referrerPolicy="no-referrer" sandbox="allow-scripts" /> : null;
 }

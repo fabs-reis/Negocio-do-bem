@@ -47,8 +47,15 @@
   assert.equal(loaders(), 0, "nova visita recusada não carrega Google");
   await pagina.getByRole("button", { name: "Preferências de privacidade", exact: true }).click();
   await pagina.evaluate(() => { document.cookie = 'ndb_eventos=%5B%7B%22nome%22%3A%22login%22%7D%5D; Path=/'; });
+  await pagina.evaluate(() => {
+    window.__ndbProntoRecebido = false;
+    addEventListener("message", evento => {
+      const frame = document.querySelector('iframe[title="Medição opcional"]');
+      if (evento.origin === "null" && evento.source === frame?.contentWindow && evento.data?.tipo === "ndb:pronto") window.__ndbProntoRecebido = true;
+    });
+  });
   await pagina.getByRole("button", { name: "Aceitar medição", exact: true }).click();
-  await pagina.waitForFunction(() => !!document.querySelector('iframe[title="Medição opcional"]'));
+  await pagina.waitForFunction(() => window.__ndbProntoRecebido === true);
   await esperar();
   assert.ok(loaders() > 0, "aceitação permite somente o carregador interceptado");
   assert.ok(externas.filter(item => item.url.includes("googletagmanager.com")).every(item => !item.referrer), "carregador sem referrer");
@@ -71,6 +78,21 @@
   assert.ok(!JSON.stringify(await eventos()).includes("busca-sintetica"));
   assert.ok(!JSON.stringify(await eventos()).includes("sintetico@example.invalid"));
   assert.ok(!JSON.stringify(await eventos()).includes("fragmento-sintetico"));
+
+  const escolhaAntes = (await cookie("ndb_consentimento")).value;
+  await pagina.evaluate(() => { window.__ndbReaceitacao = "sem-navegacao"; });
+  await pagina.getByRole("button", { name: "Preferências de privacidade", exact: true }).click();
+  await pagina.getByRole("button", { name: "Aceitar medição", exact: true }).click();
+  await esperar();
+  assert.notEqual((await cookie("ndb_consentimento")).value, escolhaAntes, "reaceitação grava uma escolha nova");
+  await pagina.evaluate(() => {
+    const alvo = document.createElement("button");
+    alvo.dataset.medir = "contato_negocio"; alvo.dataset.canal = "telefone"; alvo.dataset.uf = "BA";
+    document.body.append(alvo); alvo.click(); alvo.remove();
+  });
+  await esperar();
+  assert.equal(await pagina.evaluate(() => window.__ndbReaceitacao), "sem-navegacao", "reaceitação não navega nem recarrega o documento principal");
+  assert.ok((await eventos()).some(item => item[0] === "event" && item[1] === "contato_negocio" && item[2].canal === "telefone"), "reaceitação na mesma rota mantém o envio de uma interação permitida");
 
   await pagina.evaluate(() => { window.__documentoConsentimento = "mesmo-documento"; });
   await pagina.getByRole("link", { name: "Cadastrar", exact: true }).click();
@@ -112,6 +134,6 @@
   await paginaFalha.getByRole("alert").filter({ hasText: "Não foi possível guardar sua escolha" }).waitFor();
   assert.equal(await paginaFalha.locator('iframe[title="Medição opcional"]').count(), 0, "falha de armazenamento não autoriza");
 
-  console.log(JSON.stringify({ resultado: "PASS", casos: ["inicial", "recusa", "nova visita recusada", "aceitação", "fila antiga descartada", "listas de parâmetros", "navegação cliente privada", "nova visita aceita", "revogação", "nova visita revogada", "armazenamento bloqueado", "cookies funcionais e rascunho preservados", "desktop e celular"], tentativasExternasInterceptadas: externas, limite: "O script Google foi abortado. As asserções verificam a aplicação e sua dataLayer, não o recebimento na propriedade Google nem login real." }, null, 2));
+  console.log(JSON.stringify({ resultado: "PASS", casos: ["inicial", "recusa", "nova visita recusada", "aceitação", "fila antiga descartada", "listas de parâmetros", "reaceitação na mesma rota", "navegação cliente privada", "nova visita aceita", "revogação", "nova visita revogada", "armazenamento bloqueado", "cookies funcionais e rascunho preservados", "desktop e celular"], tentativasExternasInterceptadas: externas, limite: "O script Google foi abortado. As asserções verificam a aplicação e sua dataLayer, não o recebimento na propriedade Google nem login real." }, null, 2));
   await browser.close();
 })().catch(erro => { console.error(erro); process.exit(1); });
