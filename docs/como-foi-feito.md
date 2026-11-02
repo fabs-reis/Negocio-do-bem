@@ -507,16 +507,18 @@ Desde a mudança para o Cloudflare, em 31/10, o site não carregava o Google Ana
 - **A variável era lida no build.** O `NEXT_PUBLIC_GA_ID` estava só na Vercel. O Next põe as variáveis `NEXT_PUBLIC_` no código durante o build, e a casca estática do layout também é gerada ali. No Cloudflare, ela precisa estar nas variáveis de build da produção (Workers Builds), e não nas de runtime do Worker.
 - **Os previews continuam sem Analytics.** As variáveis de build dos previews ficam em outra aba do painel, sem o ID.
 
-### 1º de novembro: seguir negócios ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248))
+### 1º de novembro: favoritos ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248))
 
-É a primeira parte do Clube do Bem, em que negócios vão oferecer cupons por pouco tempo a quem chega pelo site. Seguir o negócio vai ser a condição para gerar o cupom, então ele veio primeiro. As regras estão em [Seguir um negócio](regras-de-negocio.md#seguir-um-negócio).
+É a primeira parte do Clube do Bem, em que negócios vão oferecer cupons por pouco tempo a quem chega pelo site. Favoritar o negócio vai ser a condição para gerar o cupom, então veio primeiro. As regras estão em [Favoritos](regras-de-negocio.md#favoritos).
 
-- **Seguir é dentro do site, não no Instagram.** O site não lê o Instagram, então não teria como saber quem segue quem lá. Dentro do site, a condição do cupom pode ser conferida.
-- **Um botão só, sem coração.** "Favoritar" e "seguir" seriam dois jeitos de dizer a mesma coisa. Os avisos de ofertas, quando vierem, ficam num sininho à parte e desligado por padrão: quem segue só pelo desconto não passa a receber notificação sem pedir.
-- **O número é só do dono.** O perfil público não mostra quantos seguem, para não virar ranking, e o dono vê o número, mas não quem são: o clube não entrega lista de clientes.
-- **Negócio sem dono também pode ser seguido.** Quando o dono assumir o perfil, já encontra seguidores, e isso é um bom motivo para ele reivindicar.
-- **Sem e-mail confirmado.** Seguir não publica nada, então só precisa de login.
-- **A página é `/seguindo`, e não `/painel/seguindo`.** Dentro de `/painel`, um caminho fixo esconderia o painel de um negócio cujo @ fosse `seguindo`, porque `/painel/<@>` é o painel de cada negócio.
+- **Dentro do site, não no Instagram.** O site não lê o Instagram, então não teria como saber quem segue quem lá. Dentro do site, a condição do cupom pode ser conferida.
+- **Coração, e não "Seguir".** O PR começou com um botão "Seguir" e trocou pelo coração antes do merge: ele combina com o tom do projeto ("gosto deste negócio e quero apoiar") e cabe no canto dos cards, então dá para favoritar direto do diretório. No perfil, o coração vem com o texto "Favoritar", para não ser lido como "curtir", que faria esperar um número de curtidas. Os avisos de ofertas, quando vierem, ficam num sininho à parte e desligado por padrão: quem favorita só pelo desconto não passa a receber notificação sem pedir.
+- **Sem sair da página.** O coração é um formulário com `useActionState`: o toque não recarrega a página nem a leva para o topo, o que importa no meio do diretório. Como a ação é uma Server Action, o React envia o formulário mesmo antes de o JavaScript da página carregar.
+- **O número é só do dono.** O perfil público não mostra quantas pessoas favoritaram, para não virar ranking, e o dono vê o número, mas não quem são: o clube não entrega lista de clientes.
+- **Negócio sem dono também pode ser favoritado.** Quando o dono assumir o perfil, já encontra pessoas que gostam do negócio, e isso é um bom motivo para ele reivindicar.
+- **Sem e-mail confirmado.** Favoritar não publica nada, então só precisa de login.
+- **A página é `/favoritos`, e não `/painel/favoritos`.** Dentro de `/painel`, um caminho fixo esconderia o painel de um negócio cujo @ fosse `favoritos`, porque `/painel/<@>` é o painel de cada negócio.
+- **Duas migrações.** A tabela nasceu como `EmpresaSeguidor` e já tinha chegado ao banco dos previews quando virou `EmpresaFavorita`. Por isso a segunda migração só renomeia a tabela, em vez de editar a primeira.
 
 ---
 
@@ -599,8 +601,8 @@ erDiagram
     Usuario ||--o{ Sessao : "tem"
     Usuario ||--o{ EmpresaMembro : "é dono via"
     Empresa ||--o{ EmpresaMembro : "tem donos"
-    Usuario ||--o{ EmpresaSeguidor : "segue via"
-    Empresa ||--o{ EmpresaSeguidor : "tem seguidores"
+    Usuario ||--o{ EmpresaFavorita : "favorita"
+    Empresa ||--o{ EmpresaFavorita : "é favorita de"
     Empresa ||--o{ EmpresaCausa : "abraça"
     Empresa ||--o{ Depoimento : "recebe"
     Empresa ||--o{ Reivindicacao : "é pedida em"
@@ -620,11 +622,11 @@ Decisões do esquema:
   - uma conta do Google por conta do site (`googleId`);
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;
-  - um seguidor por pessoa por negócio;
+  - um favorito por pessoa por negócio;
   - um código de DM único (só nos pedidos antigos).
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
-  - **uma conta:** apaga as sessões, os vínculos de dono, os negócios que ela segue, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
-  - **um negócio:** apaga as causas, os donos, os seguidores, os depoimentos e os pedidos ligados a ele.
+  - **uma conta:** apaga as sessões, os vínculos de dono, os favoritos dela, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
+  - **um negócio:** apaga as causas, os donos, os favoritos, os depoimentos e os pedidos ligados a ele.
 
 ---
 

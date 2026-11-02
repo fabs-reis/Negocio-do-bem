@@ -62,10 +62,10 @@ export function formatarTelefone(digitos: string): string {
   return `(${ddd}) ${numero.slice(0, corte)}-${numero.slice(corte)}`;
 }
 
-/** "Nenhum seguidor ainda", "1 seguidor", "1.234 seguidores". */
-export function formatarSeguidores(total: number): string {
-  if (total === 0) return "Nenhum seguidor ainda";
-  return `${total.toLocaleString("pt-BR")} ${total === 1 ? "seguidor" : "seguidores"}`;
+/** "Ninguém favoritou ainda", "1 pessoa favoritou", "1.234 pessoas favoritaram". */
+export function formatarFavoritos(total: number): string {
+  if (total === 0) return "Ninguém favoritou ainda";
+  return total === 1 ? "1 pessoa favoritou" : `${total.toLocaleString("pt-BR")} pessoas favoritaram`;
 }
 
 export function formatarData(data: Date): string {

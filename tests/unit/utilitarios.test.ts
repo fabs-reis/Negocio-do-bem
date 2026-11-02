@@ -3,7 +3,7 @@ import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { campoEmail, campoSite, campoTelefone, campoWhatsapp } from "@/lib/formulario";
-import { formatarSeguidores, formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
+import { formatarFavoritos, formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
 
 describe("cnpjValido", () => {
   it("aceita CNPJ numérico válido, com ou sem pontuação", () => {
@@ -143,10 +143,10 @@ describe("tempoDeLeitura", () => {
   });
 });
 
-describe("formatarSeguidores", () => {
-  it("diz quantos seguidores, no singular e no plural", () => {
-    expect(formatarSeguidores(0)).toBe("Nenhum seguidor ainda");
-    expect(formatarSeguidores(1)).toBe("1 seguidor");
-    expect(formatarSeguidores(1234)).toBe("1.234 seguidores");
+describe("formatarFavoritos", () => {
+  it("diz quantas pessoas favoritaram, no singular e no plural", () => {
+    expect(formatarFavoritos(0)).toBe("Ninguém favoritou ainda");
+    expect(formatarFavoritos(1)).toBe("1 pessoa favoritou");
+    expect(formatarFavoritos(1234)).toBe("1.234 pessoas favoritaram");
   });
 });

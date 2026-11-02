@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { EmpresaCard, type EmpresaResumo } from "@/components/EmpresaCard";
 import { JsonLd } from "@/components/JsonLd";
+import { usuarioAtual } from "@/lib/auth/sessao";
+import { coracoesDaLista } from "@/lib/consultas";
 import type { Migalha } from "@/lib/seo";
 
 /**
@@ -9,9 +11,10 @@ import type { Migalha } from "@/lib/seo";
  * tipos): título, introdução, os primeiros negócios e links para continuar no
  * diretório. Os filtros ficam no /explorar; aqui é a porta de entrada da busca.
  * A `capa` (a foto da cidade) fica ao lado do título na tela larga e em cima dele
- * no celular.
+ * no celular. O login devolve quem favoritar sem ter entrado para esta mesma página,
+ * a última das migalhas.
  */
-export function Vitrine({
+export async function Vitrine({
   migalhas,
   rotulo,
   titulo,
@@ -34,6 +37,7 @@ export function Vitrine({
   jsonLd: object;
   children?: ReactNode;
 }) {
+  const coracoes = await coracoesDaLista(await usuarioAtual(), itens.map((empresa) => empresa.id), migalhas.at(-1)?.caminho ?? "/explorar");
   const cabecalho = (
     <div>
       <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">{rotulo}</p>
@@ -87,7 +91,7 @@ export function Vitrine({
       {itens.length > 0 ? (
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {itens.map((empresa) => (
-            <EmpresaCard key={empresa.instagramUsername} empresa={empresa} />
+            <EmpresaCard key={empresa.instagramUsername} empresa={empresa} favorito={coracoes(empresa.id)} />
           ))}
         </div>
       ) : (

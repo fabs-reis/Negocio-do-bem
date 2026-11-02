@@ -19,7 +19,7 @@ export default function robots(): MetadataRoute.Robots {
     return { rules: { userAgent: "*", disallow: "/" } };
   }
   return {
-    rules: { userAgent: "*", allow: "/", disallow: ["/painel", "/seguindo", "/moderacao", "/api/", "/explorar?"] },
+    rules: { userAgent: "*", allow: "/", disallow: ["/painel", "/favoritos", "/moderacao", "/api/", "/explorar?"] },
     sitemap: urlAbsoluta("/sitemap.xml"),
   };
 }

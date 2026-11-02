@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import type { EstadoFavorito } from "@/components/CoracaoFavorito";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
 import { db, type Prisma } from "@/lib/db";
 import { interpretarLocal, slugCidade, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
@@ -190,23 +191,37 @@ export async function buscarPerfil(username: string) {
   });
 }
 
-/** Se a pessoa segue o negócio. */
-export async function segueNegocio(empresaId: string, usuarioId: string): Promise<boolean> {
-  const seguidor = await db.empresaSeguidor.findUnique({ where: { empresaId_usuarioId: { empresaId, usuarioId } } });
-  return seguidor !== null;
+/**
+ * O coração de cada negócio de uma lista, com uma consulta só para a lista toda. Quem não
+ * entrou vê o convite para entrar, e o dono não vê o coração nos próprios negócios
+ * (`undefined`). `voltar` é a página a que o login devolve a pessoa.
+ */
+export async function coracoesDaLista(
+  usuario: UsuarioSessao | null,
+  empresaIds: string[],
+  voltar: string,
+): Promise<(empresaId: string) => EstadoFavorito | undefined> {
+  if (!usuario) return (empresaId) => ({ empresaId, logado: false, favorito: false, voltar });
+  const [favoritas, proprias] = await Promise.all([
+    db.empresaFavorita.findMany({ where: { usuarioId: usuario.id, empresaId: { in: empresaIds } }, select: { empresaId: true } }),
+    db.empresaMembro.findMany({ where: { usuarioId: usuario.id, empresaId: { in: empresaIds } }, select: { empresaId: true } }),
+  ]);
+  const favoritos = new Set(favoritas.map((f) => f.empresaId));
+  const dono = new Set(proprias.map((m) => m.empresaId));
+  return (empresaId) => (dono.has(empresaId) ? undefined : { empresaId, logado: true, favorito: favoritos.has(empresaId), voltar });
 }
 
 /**
- * Uma página dos negócios que a pessoa segue, do seguido mais recentemente ao mais antigo.
- * Os que saíram do diretório não aparecem, mas continuam seguidos: se voltarem, voltam à lista.
+ * Uma página dos favoritos da pessoa, do favoritado mais recentemente ao mais antigo.
+ * Os que saíram do diretório não aparecem, mas continuam favoritos: se voltarem, voltam à lista.
  */
-export async function buscarSeguindo(usuarioId: string, paginaPedida: number) {
-  const onde = { usuarioId, empresa: NO_DIRETORIO } satisfies Prisma.EmpresaSeguidorWhereInput;
-  const total = await db.empresaSeguidor.count({ where: onde });
+export async function buscarFavoritos(usuarioId: string, paginaPedida: number) {
+  const onde = { usuarioId, empresa: NO_DIRETORIO } satisfies Prisma.EmpresaFavoritaWhereInput;
+  const total = await db.empresaFavorita.count({ where: onde });
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
-  // Ao deixar de seguir o último negócio da última página, a pessoa volta para a página anterior.
+  // Uma página além da última (depois de tirar favoritos, por exemplo) mostra a última.
   const pagina = Math.min(paginaPedida, paginas);
-  const itens = await db.empresaSeguidor.findMany({
+  const itens = await db.empresaFavorita.findMany({
     where: onde,
     orderBy: { criadoEm: "desc" },
     skip: (pagina - 1) * POR_PAGINA,

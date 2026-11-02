@@ -23,7 +23,7 @@ export type Evento =
     }
   | { nome: "perfil_reivindicado"; params: { method: "documento" | "instagram"; resultado: "verificada" | "em_analise" } }
   | { nome: "depoimento_publicado"; params: { categoria: string } }
-  | { nome: "negocio_seguido"; params: { categoria: string; uf: string } };
+  | { nome: "negocio_favoritado"; params: { categoria: string; uf: string } };
 
 type EventoLido = { nome: string; params: Record<string, string> };
 

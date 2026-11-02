@@ -36,7 +36,7 @@ model Usuario {
   depoimentos         Depoimento[]     @relation("AutorDepoimento")
   denuncias           Depoimento[]     @relation("DenunciadoPor")
   empresas            EmpresaMembro[]
-  seguindo            EmpresaSeguidor[]
+  favoritas           EmpresaFavorita[]
   reivindicacoes      Reivindicacao[]  @relation("Solicitante")
   revisoes            Reivindicacao[]  @relation("Revisor")
   registrosAuditoria  RegistroAuditoria[]
@@ -145,7 +145,7 @@ model Empresa {
   causas         EmpresaCausa[]
   depoimentos    Depoimento[]
   membros        EmpresaMembro[]
-  seguidores     EmpresaSeguidor[]
+  favoritos      EmpresaFavorita[]
   reivindicacoes Reivindicacao[]
 
   @@index([moderacao, oculta, status])
@@ -175,9 +175,9 @@ model EmpresaMembro {
   @@index([usuarioId])
 }
 
-// Quem segue um negócio no site (Clube do Bem, #248). Só a própria pessoa vê quem
-// ela segue; o dono vê só quantos são.
-model EmpresaSeguidor {
+// Os negócios que cada pessoa favoritou (Clube do Bem, #248). Só a própria pessoa
+// vê os favoritos dela; o dono vê só quantas pessoas favoritaram o negócio.
+model EmpresaFavorita {
   empresaId String
   empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   usuarioId String
