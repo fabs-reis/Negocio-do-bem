@@ -33,12 +33,12 @@ Daí saem as três peças do produto:
 
 Quase toda regra do sistema sai de um destes princípios. Diante de uma decisão nova, comece por eles.
 
-### A comunidade indica, o dono confirma, a moderação garante
+### A comunidade indica, o dono assume, a moderação corrige depois
 
 O diretório cresce sem precisar que os donos se cadastrem primeiro: qualquer pessoa indica. Isso traz um risco, que é alguém se passar pelo dono ou cadastrar um perfil falso. A resposta tem três partes:
 
 - **A moderação corrige depois.** Indicações entram no ar na hora, e a moderação tira do ar o que for spam ou perfil falso. Até a [issue #20](https://github.com/fabs-reis/Negocio-do-bem/issues/20), cada indicação esperava a revisão, mas a fila cresceu mais rápido do que dava para revisar.
-- **O selo diz quem falou.** "Indicado pela comunidade" e "Verificado pelo dono" são selos diferentes, então quem visita sabe se o perfil foi confirmado.
+- **O selo informa se o perfil foi assumido.** "Indicado pela comunidade" e "Perfil assumido" são selos diferentes. Uma aprovação automática também recebe "Perfil assumido", sem afirmar que a moderação conferiu os dados. O selo não certifica identidade nem causas.
 - **Quem chega primeiro num negócio sem dono vira dono.** O pedido pelos dados do negócio é aprovado na hora quando ninguém assumiu o perfil. Disputas, quando o negócio já tem dono, continuam com a moderação.
 
 ### O @ do Instagram é a identidade do negócio
@@ -74,7 +74,7 @@ Assim, um depoimento negativo e honesto não some só porque incomodou o dono, e
 
 ### Sem ranking e sem anúncio pago
 
-A ordem do diretório é simples e transparente: verificados primeiro, depois os atualizados mais recentemente. Não existe nota, destaque pago nem algoritmo de relevância.
+A ordem do diretório é simples e transparente: perfis assumidos primeiro, depois os atualizados mais recentemente. Não existe nota, destaque pago nem algoritmo de relevância.
 
 ### Funcionar sem depender de terceiros
 
@@ -259,7 +259,7 @@ A cidade era digitada à mão, com o estado num seletor à parte. A mesma cidade
 A página inicial juntava apresentação, busca, filtros de causas e a lista de negócios, e achar um negócio era confuso. Três variações foram desenhadas num protótipo. A escolhida juntou a página inicial de uma com o diretório de outra.
 
 - **A página inicial ficou para começar:** o número de negócios cadastrados em destaque, a busca "O que você procura?" + "Onde?", atalhos e os tipos de negócio com seus totais.
-- **O diretório ganhou endereço próprio, `/explorar`.** Ele abre ao buscar ou ao escolher um tipo, com os filtros ao lado (tipo, causas, só verificados), grade ou lista e paginação numerada.
+- **O diretório ganhou endereço próprio, `/explorar`.** Ele abre ao buscar ou ao escolher um tipo, com os filtros ao lado (tipo, causas, só perfis assumidos), grade ou lista e paginação numerada.
 - **Os filtros são links, não um formulário.** Cada opção é um link para a URL com aquele filtro trocado (`mudarFiltro`, em `src/lib/diretorio.ts`). Assim funciona sem JavaScript e toda busca pode ser compartilhada. Só a ordenação usa um `<select>` com JavaScript.
 - **Cada opção mostra quantos negócios aparecem ao marcá-la.** São poucas consultas por página: um `groupBy` por categoria ignorando os tipos marcados, e um `groupBy` das causas entre os resultados.
 - **O "Onde?" sugere só lugares com negócios** (`listarCidades`). A lista é pequena e vai pronta para o navegador. O texto escolhido ("Recife, PE") vai na URL e o servidor o interpreta, então digitar à mão também funciona.
@@ -972,6 +972,7 @@ O PR só conflita se a `main` recebeu algo que não passou pela `stage`. Nesse c
 - **Filtros no endereço multiplicam as páginas para os robôs.** Uma página nova que monta links com filtros no endereço (`?tipo=...&causa=...`) precisa entrar no `disallow` do `src/app/robots.ts`, como o `/explorar?`. Sem isso, um robô abre cada combinação e cada uma consulta o banco ([#141](https://github.com/fabs-reis/Negocio-do-bem/issues/141)).
 - **Status 200 não quer dizer que a página abriu.** Com o Cache Components, a página chega com status 200 e o erro do banco vem dentro do conteúdo. Para saber se o site está no ar, confira se a lista de negócios aparece, e não só o status.
 - **O log do Worker perde a mensagem de um erro passado como objeto.** `console.error("Falhou:", erro)` aparece no Observability só com a pilha, sem a mensagem. Escreva a mensagem no texto: `` console.error(`Falhou: ${erro.message}`) `` ([#198](https://github.com/fabs-reis/Negocio-do-bem/issues/198)). Para achar a função de uma linha da pilha (`worker.js:100013`), abra "Editar código" no painel do Worker e vá até a linha, sem implantar nada.
+- **O `glob` do `@node-minify/core` é forçado para a 10.5.0 pelo `overrides` do `package.json`.** O `@opennextjs/aws` usa o `@node-minify/core` 9, que fixa o `glob` 10.3.3, e ele deixava o `npm audit` com aviso alto em todo PR ([#217](https://github.com/fabs-reis/Negocio-do-bem/issues/217)): a falha da linha de comando do `glob` ([GHSA-5j98](https://github.com/advisories/GHSA-5j98-mcp5-4vw2)), que o projeto nem usa. A 10.5.0 é a mesma versão grande, publicada em 11/2025, e corrige o aviso. O override vale só dentro do `@node-minify/core`, para não alcançar dependências novas que tragam o `glob`. Ficam avisos moderados: o [GHSA-3g3m](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), corrigido só no `glob` 14.0.2, publicado em 28/10/2026 (dentro da quarentena de 30 dias do `dependabot.yml`), e o `minimatch` antigo que vem com o ESLint: forçar a versão 11 quebra o `eslint-plugin-react`, o `eslint-plugin-import` e o `eslint-plugin-jsx-a11y`, que chamam `require("minimatch")` como função. Para saber se o override ainda faz falta, tire-o e rode `npm install` e `npm audit --audit-level=high`.
 
 ---
 
