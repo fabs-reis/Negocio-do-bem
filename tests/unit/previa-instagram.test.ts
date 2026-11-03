@@ -26,18 +26,20 @@ describe("prévia do Instagram", () => {
   it("devolve o nome, o site e a foto em data URL", async () => {
     const fetch = vi.fn(async (url: URL | string) =>
       String(url).startsWith("https://graph.facebook.com/")
-        ? respostaJson({ business_discovery: { name: " Padaria Flor ", website: "https://padariaflor.com.br", profile_picture_url: FOTO } })
+        ? respostaJson({
+            business_discovery: { name: " Padaria Flor ", website: "https://padariaflor.com.br", profile_picture_url: FOTO, followers_count: 48231 },
+          })
         : respostaImagem(100),
     );
     vi.stubGlobal("fetch", fetch);
 
     const previa = await buscarPreviaDoInstagram("padaria.flor");
 
-    expect(previa).toMatchObject({ nome: "Padaria Flor", site: "https://padariaflor.com.br" });
+    expect(previa).toMatchObject({ nome: "Padaria Flor", site: "https://padariaflor.com.br", seguidores: 48231 });
     expect(previa?.foto).toMatch(/^data:image\/jpeg;base64,/);
     const consulta = new URL(String(fetch.mock.calls[0]![0]));
     expect(consulta.pathname).toBe("/v26.0/17841400000000000");
-    expect(consulta.searchParams.get("fields")).toBe("business_discovery.username(padaria.flor){name,website,profile_picture_url}");
+    expect(consulta.searchParams.get("fields")).toBe("business_discovery.username(padaria.flor){name,website,profile_picture_url,followers_count}");
   });
 
   it("sem as variáveis, não chama a Meta", async () => {
@@ -57,6 +59,11 @@ describe("prévia do Instagram", () => {
       throw new TypeError("fetch failed");
     }));
     expect(await buscarPreviaDoInstagram("meta.fora")).toBeNull();
+  });
+
+  it("sem um número de seguidores que faça sentido, fica sem número", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => respostaJson({ business_discovery: { name: "Padaria Flor", followers_count: "muitos" } })));
+    expect((await buscarPreviaDoInstagram("padaria.flor"))?.seguidores).toBeNull();
   });
 
   it("guarda a resposta de cada @ por um tempo, para não gastar o limite da Meta", async () => {

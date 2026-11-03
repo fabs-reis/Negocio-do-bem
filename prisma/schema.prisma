@@ -127,7 +127,7 @@ model Empresa {
   // Contato de quem cadastrou o negócio como dono. Só o dono e a moderação veem.
   emailDoDono       String?
   telefoneDoDono    String?
-  // "indicada" (sem dono) | "verificada" (tem dono que provou controlar o @)
+  // "indicada" (sem dono) | "verificada" (perfil assumido por uma conta; não certifica a identidade)
   status            String   @default("indicada")
   // "pendente" | "aprovada" | "rejeitada" — só "aprovada" aparece no diretório
   moderacao         String   @default("pendente")
@@ -185,7 +185,7 @@ model Reivindicacao {
   codigo          String?   @unique
   // "pendente" | "aprovada" | "recusada" | "expirada" | "cancelada"
   status          String    @default("pendente")
-  // Método "documento" (dados do negócio conferidos pela moderação)
+  // Método "documento" (dados do negócio enviados pela pessoa; a moderação só revisa os pedidos que não são aprovados na hora)
   cnpj            String?
   site            String?
   relacao         String?
@@ -230,6 +230,40 @@ model Depoimento {
   @@unique([empresaId, autorId])
   @@index([empresaId, status, criadoEm])
   @@index([denunciado])
+}
+
+// Embaixador do bem (#250): quem leva o projeto para uma cidade ou um estado inteiro.
+// Só a moderação cadastra. Aparece na página inicial, em /embaixadores e na página da cidade.
+model Embaixador {
+  id                String    @id @default(cuid())
+  // Nome que aparece no site.
+  nome              String
+  // @ atual do Instagram, minúsculo e sem "@".
+  instagramUsername String    @unique
+  // Como a página da cidade chama a pessoa: chave de TITULOS_EMBAIXADOR (src/lib/dominio.ts).
+  titulo            String    @default("embaixadora")
+  // Nome oficial do IBGE. Vazio quando a pessoa cobre o estado inteiro.
+  cidade            String?
+  uf                String
+  // Foto do perfil, enviada pela moderação ou vinda do Instagram (ver src/lib/embaixadores.ts).
+  fotoUrl           String?
+  seguidores        Int?
+  // O número foi digitado pela moderação (conta pessoal ou privada): a consulta ao Instagram não mexe nele.
+  seguidoresManual  Boolean   @default(false)
+  // Quando o número veio do Instagram pela última vez.
+  seguidoresEm      DateTime?
+  // A última consulta ao Instagram, com ou sem resposta: no máximo uma por dia.
+  consultadoEm      DateTime?
+  // Ordem na página inicial e em /embaixadores, do menor para o maior; empate vai pelo nome.
+  ordem             Int       @default(0)
+  // Entra na faixa da página inicial.
+  naInicial         Boolean   @default(true)
+  // Fora do ar, não aparece em lugar nenhum do site.
+  ativo             Boolean   @default(true)
+  criadoEm          DateTime  @default(now())
+  atualizadoEm      DateTime  @updatedAt
+
+  @@index([ativo, uf])
 }
 
 model RegistroAuditoria {

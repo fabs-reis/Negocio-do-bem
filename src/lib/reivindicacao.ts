@@ -219,7 +219,7 @@ async function conflitosDeVerificacao(params: {
   const conflitos: string[] = [];
 
   if (empresa.membros.some((m) => m.usuarioId !== usuarioId)) {
-    conflitos.push("O negócio já tem dono verificado: decida entre adicionar como co-dono ou transferir.");
+    conflitos.push("O negócio já tem dono: decida entre adicionar como co-dono ou transferir.");
   }
   if (empresa.instagramUserId && empresa.instagramUserId !== instagramUserId) {
     conflitos.push("A conta do Instagram é diferente da registrada antes: o @ pode ter mudado de dono.");
@@ -237,7 +237,7 @@ async function conflitosDeVerificacao(params: {
 export type ModoAprovacao = "adicionar" | "transferir";
 
 /**
- * Aprova a reivindicação: a pessoa vira dona e o negócio fica verificado.
+ * Aprova a reivindicação: a pessoa vira dona e o perfil fica marcado como assumido.
  * `revisorId` null significa aprovação automática.
  * `transferir` remove os donos anteriores (usado em disputas).
  */
