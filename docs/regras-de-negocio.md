@@ -947,7 +947,7 @@ A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 
 - quem fez leva à ficha da conta, e o alvo leva ao negócio, à conta, ao perfil do depoimento ou ao embaixador, enquanto ele existir. Alvo apagado aparece como "removido";
 - **filtros:** por ação (a lista mostra quantas vezes cada uma aparece), por quem fez (inclusive "sistema") e por alvo. O link "histórico" de cada linha, o "Histórico" da aba Negócios e o "Tudo o que esta conta fez" da ficha usam esses filtros.
 
-Nas Server Actions de indicação, edição do perfil, visibilidade, foto do perfil e decisões de moderação, e na gravação da foto importada do Instagram, a alteração no banco e sua auditoria são confirmadas na mesma transação. Se o registro de auditoria falhar, a alteração no banco também é desfeita. Na foto importada, a escrita continua condicional: a foto enviada pelo dono sempre vale mais do que a importada.
+Nas Server Actions de indicação, edição do perfil, visibilidade, foto do perfil, decisões de moderação e cadastro dos embaixadores, e na gravação da foto importada do Instagram (dos negócios e dos embaixadores), a alteração no banco e sua auditoria são confirmadas na mesma transação. Se o registro de auditoria falhar, a alteração no banco também é desfeita. Na foto importada, a escrita continua condicional: a foto enviada pelo dono sempre vale mais do que a importada.
 
 O armazenamento das fotos não participa da transação do banco. A foto antiga só é apagada depois de confirmar a alteração e a auditoria. Se o envio da foto nova funcionar e a transação falhar, o perfil mantém a foto antiga, mas o arquivo novo pode ficar sem referência no armazenamento. Se o resultado da confirmação for incerto, nenhum arquivo é apagado. A foto importada só é apagada quando a transação confirma que o dono já tinha uma foto.
 
@@ -1223,7 +1223,7 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 - **Ordem:** de 0 a 999, do menor para o maior, na faixa e em `/embaixadores`. O empate vai pelo nome.
 - **"Na faixa da página inicial"** e **"Aparece no site":** fora do site, o embaixador não aparece em lugar nenhum.
 - **Excluir** apaga o cadastro e a foto, e pede para marcar "Confirmo". Para só tirar do site, basta desmarcar "Aparece no site".
-- Cada cadastro, edição, troca de foto e exclusão vai para a [auditoria](#13-auditoria).
+- Cada cadastro, edição, troca de foto e exclusão vai para a [auditoria](#13-auditoria), na mesma transação: se a auditoria falhar, nada muda. A foto antiga só é apagada depois disso.
 
 ### Onde aparece
 

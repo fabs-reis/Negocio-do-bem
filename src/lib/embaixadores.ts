@@ -200,9 +200,13 @@ async function gravarFotoDoInstagram(id: string, foto: string): Promise<void> {
   if (!conferida || "erro" in conferida) return;
   const fotoUrl = await guardarFoto(conferida, "perfis");
   // A moderação pode ter enviado uma foto enquanto esta subia: vale a dela.
-  const { count } = await db.embaixador.updateMany({ where: { id, fotoUrl: null }, data: { fotoUrl } });
-  if (count === 0) return apagarFoto(fotoUrl);
-  await registrarAuditoria(db, { usuarioId: null, acao: "embaixador.foto_do_instagram", alvoTipo: "embaixador", alvoId: id });
+  const gravada = await db.$transaction(async (tx) => {
+    const { count } = await tx.embaixador.updateMany({ where: { id, fotoUrl: null }, data: { fotoUrl } });
+    if (count === 0) return false;
+    await registrarAuditoria(tx, { usuarioId: null, acao: "embaixador.foto_do_instagram", alvoTipo: "embaixador", alvoId: id });
+    return true;
+  });
+  if (!gravada) await apagarFoto(fotoUrl);
 }
 
 export type ResultadoDoInstagram = "atualizado" | "sem_resposta";

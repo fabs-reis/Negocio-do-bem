@@ -44,20 +44,23 @@ export async function salvarEmbaixador(_estado: EstadoFormulario, dados: FormDat
 
   let id: string;
   try {
-    ({ id } = anterior
-      ? await db.embaixador.update({ where: { id: anterior.id }, data, select: { id: true } })
-      : await db.embaixador.create({ data, select: { id: true } }));
+    id = await db.$transaction(async (tx) => {
+      const { id } = anterior
+        ? await tx.embaixador.update({ where: { id: anterior.id }, data, select: { id: true } })
+        : await tx.embaixador.create({ data, select: { id: true } });
+      await registrarAuditoria(tx, {
+        usuarioId: usuario.id,
+        acao: anterior ? "embaixador.editado" : "embaixador.criado",
+        alvoTipo: "embaixador",
+        alvoId: id,
+        detalhes: `@${campos.instagramUsername}`,
+      });
+      return id;
+    });
   } catch (erro) {
     if (violouUnicidade(erro)) return { erros: { instagram: "Esse @ já é de outro embaixador." }, valores };
     throw erro;
   }
-  await registrarAuditoria(db, {
-    usuarioId: usuario.id,
-    acao: anterior ? "embaixador.editado" : "embaixador.criado",
-    alvoTipo: "embaixador",
-    alvoId: id,
-    detalhes: `@${campos.instagramUsername}`,
-  });
 
   let aviso = "embaixador_salvo";
   if (trocouArroba) {
@@ -94,18 +97,22 @@ export async function trocarFotoDoEmbaixador(_estado: EstadoFormulario, dados: F
     console.error("Falha ao guardar a foto do embaixador", erro);
     return { erro: "Não conseguimos guardar a foto agora. Tente de novo em instantes." };
   }
-  await db.embaixador.update({ where: { id: embaixador.id }, data: { fotoUrl } });
+  await db.$transaction(async (tx) => {
+    await tx.embaixador.update({ where: { id: embaixador.id }, data: { fotoUrl } });
+    await registrarAuditoria(tx, { usuarioId: usuario.id, acao: "embaixador.foto_trocada", alvoTipo: "embaixador", alvoId: embaixador.id });
+  });
   await apagarFoto(embaixador.fotoUrl);
-  await registrarAuditoria(db, { usuarioId: usuario.id, acao: "embaixador.foto_trocada", alvoTipo: "embaixador", alvoId: embaixador.id });
   redirect(paginaDoEmbaixador(embaixador.id, "foto_salva"));
 }
 
 export async function removerFotoDoEmbaixador(dados: FormData): Promise<void> {
   const usuario = await exigirModerador();
   const embaixador = await embaixadorDoFormulario(dados);
-  await db.embaixador.update({ where: { id: embaixador.id }, data: { fotoUrl: null } });
+  await db.$transaction(async (tx) => {
+    await tx.embaixador.update({ where: { id: embaixador.id }, data: { fotoUrl: null } });
+    await registrarAuditoria(tx, { usuarioId: usuario.id, acao: "embaixador.foto_removida", alvoTipo: "embaixador", alvoId: embaixador.id });
+  });
   await apagarFoto(embaixador.fotoUrl);
-  await registrarAuditoria(db, { usuarioId: usuario.id, acao: "embaixador.foto_removida", alvoTipo: "embaixador", alvoId: embaixador.id });
   redirect(paginaDoEmbaixador(embaixador.id, "foto_removida"));
 }
 
@@ -113,14 +120,16 @@ export async function removerFotoDoEmbaixador(dados: FormData): Promise<void> {
 export async function excluirEmbaixador(dados: FormData): Promise<void> {
   const usuario = await exigirModerador();
   const embaixador = await embaixadorDoFormulario(dados);
-  await db.embaixador.delete({ where: { id: embaixador.id } });
-  await apagarFoto(embaixador.fotoUrl);
-  await registrarAuditoria(db, {
-    usuarioId: usuario.id,
-    acao: "embaixador.excluido",
-    alvoTipo: "embaixador",
-    alvoId: embaixador.id,
-    detalhes: `${embaixador.nome} (@${embaixador.instagramUsername})`,
+  await db.$transaction(async (tx) => {
+    await tx.embaixador.delete({ where: { id: embaixador.id } });
+    await registrarAuditoria(tx, {
+      usuarioId: usuario.id,
+      acao: "embaixador.excluido",
+      alvoTipo: "embaixador",
+      alvoId: embaixador.id,
+      detalhes: `${embaixador.nome} (@${embaixador.instagramUsername})`,
+    });
   });
+  await apagarFoto(embaixador.fotoUrl);
   redirect("/moderacao?aba=embaixadores&aviso=embaixador_excluido");
 }
