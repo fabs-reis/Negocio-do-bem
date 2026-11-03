@@ -594,25 +594,34 @@ Até a [issue #193](https://github.com/fabs-reis/Negocio-do-bem/issues/193), hav
 
 Código: `src/app/empresas/[usuario]/page.tsx`.
 
-- **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @.
+- **Capa.** Uma faixa no topo, sem foto do negócio (cada negócio só tem a foto de perfil):
+  - a foto da cidade (`fotoDaCidade`, a mesma da página da cidade), com o crédito de autor e licença do Commons;
+  - sem foto da cidade, o banner da marca: o ícone em creme sobre o laranja e "Compre de quem faz o bem.".
+- **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @. Fica sobre a capa.
 - **Selo:**
   - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
-- **Botões de contato** (só os preenchidos). WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
-  - telefone comercial, "Ligar", que abre `tel:`;
-  - WhatsApp, com o ícone, que abre `wa.me`;
-  - Instagram, com o ícone, que abre o perfil (só para quem tem Instagram);
+- **Ação principal e "Compartilhar".** O botão grande é "Chamar no WhatsApp"; sem WhatsApp, "Ver no Instagram" (só para quem tem Instagram); sem nenhum dos dois, não há botão. "Compartilhar" copia o endereço do perfil e só aparece para perfis do diretório.
+- **Cartão de contato** (coluna da direita no computador, logo abaixo do topo no celular), só com o que está preenchido. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
+  - telefone comercial, que abre `tel:`;
+  - WhatsApp, que abre `wa.me`;
+  - Instagram (só para quem tem Instagram);
   - site, que mostra o domínio sem `www`;
-  - e-mail, que abre `mailto:`.
-- **Resumo** e **causas** como selos.
+  - e-mail, que abre `mailto:`;
+  - cidade, com link para a página da cidade nos perfis do diretório.
+- **Resumo.**
 - **"Nossa história",** com "N min de leitura · atualizada em …". Sem história:
   - para o dono, um convite para escrever;
   - para os outros, o motivo da indicação e o nome de quem indicou, se houver;
   - senão, "A história deste negócio ainda vai ser contada."
+- **"O que este negócio defende":** as causas como selos, separadas nos grupos do filtro do diretório (trabalho digno, diversidade e respeito, comunidade e planeta). Só os grupos com causas aparecem, e cada selo leva à página da causa nos perfis do diretório.
 - **"Este negócio é seu? Sou o dono",** se o perfil ainda não foi assumido e quem vê não é dono.
-- **Depoimentos** (ver [seção 10](#10-depoimentos-e-denúncias)).
+- **Depoimentos** (ver [seção 10](#10-depoimentos-e-denúncias)). A lista vem antes do formulário. O dono vê um botão para copiar o link dos depoimentos e mandar a clientes.
 - **"Este perfil é seu e outra pessoa assumiu? Fale com a moderação",** se o perfil já foi assumido e quem vê não é dono. O link leva à página de reivindicação.
+- **"Mais negócios do bem em {cidade}":** até 4 outros negócios do diretório na mesma cidade e UF (`negociosParecidos`), os do mesmo tipo primeiro e, em cada grupo, os assumidos antes. Só nos perfis do diretório e só quando há outro negócio na cidade.
+
+**Campo vazio não deixa bloco em branco:** cada bloco só aparece quando o dado existe.
 
 **Botões de edição:**
 

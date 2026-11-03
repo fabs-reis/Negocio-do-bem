@@ -174,6 +174,25 @@ export async function listarParaSitemap() {
   });
 }
 
+/**
+ * Outros negócios do diretório na mesma cidade, para o fim do perfil. Os do mesmo
+ * tipo vêm primeiro; dentro de cada grupo, a ordem do diretório (assumidos primeiro).
+ */
+export async function negociosParecidos(empresa: { id: string; cidade: string; uf: string; categoria: string }, limite = 4) {
+  const candidatos = await db.empresa.findMany({
+    where: { ...NO_DIRETORIO, cidade: empresa.cidade, uf: empresa.uf, id: { not: empresa.id } },
+    orderBy: ORDENACAO.verificados,
+    take: 24,
+    include: {
+      causas: { select: { causa: true } },
+      _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+    },
+  });
+  const mesmoTipo = candidatos.filter((c) => c.categoria === empresa.categoria);
+  const outros = candidatos.filter((c) => c.categoria !== empresa.categoria);
+  return [...mesmoTipo, ...outros].slice(0, limite);
+}
+
 export async function buscarPerfil(username: string) {
   return db.empresa.findUnique({
     where: { instagramUsername: username },
