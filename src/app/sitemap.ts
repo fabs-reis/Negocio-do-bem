@@ -40,6 +40,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: urlAbsoluta("/"), lastModified: ultimaMudanca },
     { url: urlAbsoluta("/explorar"), lastModified: ultimaMudanca },
     { url: urlAbsoluta("/cidades"), lastModified: ultimaMudanca },
+    { url: urlAbsoluta("/embaixadores") },
     { url: urlAbsoluta("/sobre") },
     { url: urlAbsoluta("/participar") },
     { url: urlAbsoluta("/instalacao") },

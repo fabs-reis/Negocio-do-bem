@@ -16,6 +16,8 @@ export type PreviaInstagram = {
   site: string | null;
   /** A foto em data URL: o site baixa a imagem, porque a política de conteúdo não libera o CDN da Meta. */
   foto: string | null;
+  /** Quantos seguem a conta. Usado nos embaixadores (src/lib/embaixadores.ts). */
+  seguidores: number | null;
 };
 
 /**
@@ -71,7 +73,7 @@ async function consultar(username: string): Promise<PreviaInstagram | null> {
   if (!config) return null;
   const url = new URL(`https://graph.facebook.com/${config.versao}/${config.igUserId}`);
   // O @ já passou por normalizarUsername: só letras, números, ponto e sublinhado.
-  url.searchParams.set("fields", `business_discovery.username(${username}){name,website,profile_picture_url}`);
+  url.searchParams.set("fields", `business_discovery.username(${username}){name,website,profile_picture_url,followers_count}`);
   try {
     const resposta = await fetch(url, {
       headers: { Authorization: `Bearer ${config.token}` },
@@ -86,6 +88,7 @@ async function consultar(username: string): Promise<PreviaInstagram | null> {
       nome: texto(perfil.name, 80),
       site: texto(perfil.website, 200),
       foto: foto ? await baixarFoto(foto) : null,
+      seguidores: Number.isSafeInteger(perfil.followers_count) && Number(perfil.followers_count) >= 0 ? Number(perfil.followers_count) : null,
     };
   } catch {
     return null;

@@ -23,6 +23,7 @@ import { formatarDataHora, formatarTelefone } from "@/lib/texto";
 import { Auditoria } from "./Auditoria";
 import { Contas } from "./Contas";
 import { Depoimentos } from "./Depoimentos";
+import { Embaixadores } from "./Embaixadores";
 import { MenuModeracao } from "./MenuModeracao";
 import { Negocios } from "./Negocios";
 import { Sistema } from "./Sistema";
@@ -69,6 +70,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
         {filtros.aba === "negocios" && <Negocios filtros={filtros} />}
         {filtros.aba === "contas" && <Contas filtros={filtros} />}
         {filtros.aba === "depoimentos" && <Depoimentos filtros={filtros} />}
+        {filtros.aba === "embaixadores" && <Embaixadores />}
         {filtros.aba === "auditoria" && <Auditoria filtros={filtros} />}
         {filtros.aba === "sistema" && <Sistema />}
       </div>
@@ -130,7 +132,7 @@ async function Reivindicacoes() {
                 </Link>
                 <p className="text-sm text-suave">
                   <LinkInstagram endereco={r.empresa.instagramUsername} />{" "}
-                  · {r.empresa.status === "verificada" ? "já verificado" : "sem dono"}
+                  · {r.empresa.status === "verificada" ? "perfil já assumido" : "sem dono"}
                 </p>
               </div>
               <div className="text-right text-sm">

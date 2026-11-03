@@ -11,8 +11,9 @@ import type { Migalha } from "@/lib/seo";
  * tipos): título, introdução, os primeiros negócios e links para continuar no
  * diretório. Os filtros ficam no /explorar; aqui é a porta de entrada da busca.
  * A `capa` (a foto da cidade) fica ao lado do título na tela larga e em cima dele
- * no celular. O login devolve quem favoritar sem ter entrado para esta mesma página,
- * a última das migalhas.
+ * no celular. O `destaque` (os embaixadores da cidade) vem logo abaixo da introdução.
+ * O login devolve quem favoritar sem ter entrado para esta mesma página, a última
+ * das migalhas.
  */
 export async function Vitrine({
   migalhas,
@@ -20,6 +21,7 @@ export async function Vitrine({
   titulo,
   introducao,
   capa,
+  destaque,
   total,
   itens,
   hrefNoDiretorio,
@@ -31,6 +33,7 @@ export async function Vitrine({
   titulo: string;
   introducao: ReactNode;
   capa?: ReactNode;
+  destaque?: ReactNode;
   total: number;
   itens: EmpresaResumo[];
   hrefNoDiretorio: string;
@@ -43,6 +46,7 @@ export async function Vitrine({
       <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">{rotulo}</p>
       <h1 className="mt-2 font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">{titulo}</h1>
       <div className="mt-4 max-w-2xl text-lg leading-relaxed text-pretty text-suave">{introducao}</div>
+      {destaque && <div className="mt-6 max-w-2xl">{destaque}</div>}
     </div>
   );
 
