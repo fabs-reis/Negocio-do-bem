@@ -9,7 +9,7 @@ import { FormFoto } from "@/components/FormFoto";
 import { fotoDe } from "@/components/FotoEmpresa";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
-import { formatarSeguidores, lugarDoEmbaixador } from "@/lib/embaixadores";
+import { formatarSeguidores, hrefDoEmbaixador, lugarDoEmbaixador } from "@/lib/embaixadores";
 import { linkPerfil } from "@/lib/instagram";
 import { lerId } from "@/lib/moderacao/filtros";
 import { formatarDataHora, formatarMunicipio } from "@/lib/texto";
@@ -51,9 +51,15 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/emb
               · {lugarDoEmbaixador(embaixador)} · {embaixador.ativo ? "no site" : "fora do site"}
             </p>
           </div>
-          <Link href="/embaixadores" className="botao-claro botao-pequeno">
-            Ver /embaixadores ↗
-          </Link>
+          {embaixador.ativo ? (
+            <Link href={hrefDoEmbaixador(embaixador.instagramUsername)} className="botao-claro botao-pequeno">
+              Ver a página no site ↗
+            </Link>
+          ) : (
+            <Link href="/embaixadores" className="botao-claro botao-pequeno">
+              Ver /embaixadores ↗
+            </Link>
+          )}
         </div>
         <AvisoDaUrl codigo={aviso} />
       </div>
@@ -88,7 +94,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/emb
           {!embaixador.seguidoresManual && embaixador.consultadoEm && ` Última consulta: ${formatarDataHora(embaixador.consultadoEm)}.`}
         </p>
         <p className="text-sm text-suave">
-          O site consulta o Instagram uma vez por dia, quando alguém abre a página inicial ou /embaixadores.
+          O site consulta o Instagram uma vez por dia, quando alguém abre a página inicial, /embaixadores ou a página de um
+          embaixador. O botão abaixo também traz a bio para o “Sobre”, se ele estiver vazio.
         </p>
         <form action={atualizarEmbaixadorAgora}>
           <input type="hidden" name="embaixadorId" value={embaixador.id} />
@@ -104,6 +111,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/emb
           instagram: embaixador.instagramUsername,
           nome: embaixador.nome,
           titulo: embaixador.titulo,
+          sobre: embaixador.sobre ?? "",
           municipio: embaixador.cidade ? formatarMunicipio(embaixador.cidade, embaixador.uf) : "",
           uf: embaixador.uf,
           seguidoresManual: embaixador.seguidoresManual,

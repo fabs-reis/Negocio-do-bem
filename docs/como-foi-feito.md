@@ -517,6 +517,16 @@ Influenciadores que levam o projeto para a cidade ou o estado deles ganharam uma
 - **Os seguidores aparecem, mas não ordenam.** A ordem é a que a moderação escolhe, e o número é o do Instagram, não uma nota do site: o princípio de [sem ranking](#sem-ranking-e-sem-anúncio-pago) continua valendo para os negócios.
 - **Embaixador não é conta do site.** Só a moderação cadastra, e quem cobre o estado inteiro aparece em todas as cidades dele. Ligar o embaixador a uma conta, para mostrar quantos negócios ele indicou, ficou para depois.
 
+### 3 de novembro: a página de cada embaixador ([#259](https://github.com/fabs-reis/Negocio-do-bem/issues/259))
+
+Faltava um link de cada embaixador para divulgar no Instagram, na bio e nos stories. O nome e o @ levavam direto ao Instagram, e o site não tinha uma página que fosse da pessoa. Agora `/embaixadores/<@>` mostra quem é, o "Sobre" e os negócios da região, e a faixa, os cartões e a página da cidade levam para lá.
+
+- **O endereço é o @.** Quem divulga já conhece o próprio @, e o link fica igual ao do Instagram: `negociodobem.com/embaixadores/alodiario_literario`.
+- **A página reaproveita a da cidade.** O `Vitrine` já tinha a introdução, a capa ao lado e a lista de negócios com os atalhos. A capa virou o perfil do Instagram, e o `Vitrine` ganhou só o título da lista ("Negócios do bem em Curitiba, PR").
+- **O "Sobre" começa com a bio, mas é da moderação.** A bio vem na mesma consulta à Meta dos seguidores (`biography`) e só entra num "Sobre" vazio, quando a moderação cadastra ou clica em "Atualizar pelo Instagram agora". A consulta do dia nunca mexe nele: o texto ajustado pela moderação não volta a ser a bio.
+- **O Instagram ficou num botão só,** "Seguir no Instagram", na página do embaixador. Os outros links ficam dentro do site, onde estão os negócios.
+- **A prévia do link é própria,** com a foto e o nome, porque é ela que aparece quando o link é colado no Instagram ou no WhatsApp.
+
 ---
 
 ## 4. Arquitetura

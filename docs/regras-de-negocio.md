@@ -1114,6 +1114,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Negócios por rodada da rotina de fotos | 100, com 1,5 s entre consultas à Meta | `scripts/fotos-instagram.ts` |
 | Negócios por página no diretório | 18 | `src/lib/consultas.ts` |
 | Nome do embaixador | 2 a 60 caracteres | `src/lib/embaixadores.ts` |
+| Sobre do embaixador | até 600 caracteres | `src/lib/embaixadores.ts` |
 | Ordem dos embaixadores | 0 a 999 | `src/lib/embaixadores.ts` |
 | Consulta ao Instagram de cada embaixador | no máximo 1 a cada 24 horas | `src/lib/embaixadores.ts` |
 | Embaixadores consultados por visita | até 25 | `src/lib/embaixadores.ts` |
@@ -1210,7 +1211,7 @@ Os [próximos passos do README](../README.md#próximos-passos-sugeridos) listam 
 
 ## 19. Embaixadores do bem
 
-Código: `src/lib/embaixadores.ts` (regras, consultas e a consulta ao Instagram), `src/acoes/embaixadores.ts`, `src/app/embaixadores/`, `src/app/moderacao/embaixadores/`, `src/components/Embaixadores.tsx`, `src/components/FaixaEmbaixadores.tsx` e `src/components/FaixaRolante.tsx`, com testes em `tests/unit/embaixadores.test.ts` e `tests/db/embaixadores.test.ts`. Decidida na [issue #250](https://github.com/fabs-reis/Negocio-do-bem/issues/250).
+Código: `src/lib/embaixadores.ts` (regras, consultas e a consulta ao Instagram), `src/acoes/embaixadores.ts`, `src/app/embaixadores/`, `src/app/moderacao/embaixadores/`, `src/app/embaixadores/[usuario]/` (a página de cada um, #259), `src/components/Embaixadores.tsx`, `src/components/FaixaEmbaixadores.tsx` e `src/components/FaixaRolante.tsx`, com testes em `tests/unit/embaixadores.test.ts` e `tests/db/embaixadores.test.ts`. Decidida na [issue #250](https://github.com/fabs-reis/Negocio-do-bem/issues/250).
 
 Embaixadores são pessoas, em geral influenciadores, que levam o projeto para uma cidade ou um estado inteiro. Eles não são contas do site: só a moderação cadastra, na aba "Embaixadores".
 
@@ -1219,6 +1220,10 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 - **@ do Instagram:** um por embaixador, normalizado como o @ dos negócios.
 - **Nome que aparece no site:** 2 a 60 caracteres.
 - **Como chamar:** "Embaixadora", "Embaixador" ou "Pessoa embaixadora". É o texto da página da cidade ("Embaixadora em Salvador").
+- **Sobre:** até 600 caracteres, na página do embaixador. Os espaços das pontas saem, e mais de uma linha em branco seguida vira uma só.
+  - Deixado em branco no cadastro (ou ao trocar o @), recebe a bio do Instagram. A moderação ajusta o texto depois.
+  - Vazio numa edição, recebe a bio quando a moderação clica em "Atualizar pelo Instagram agora".
+  - A consulta do dia nunca mexe nele, e a bio nunca substitui um texto escrito.
 - **Onde atua:** uma cidade da lista do IBGE ou um estado inteiro.
 - **Ordem:** de 0 a 999, do menor para o maior, na faixa e em `/embaixadores`. O empate vai pelo nome.
 - **"Na faixa da página inicial"** e **"Aparece no site":** fora do site, o embaixador não aparece em lugar nenhum.
@@ -1231,13 +1236,23 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
   - Os rostos passam sozinhos num loop, 5 segundos por embaixador, quando não cabem na largura. Cabendo, ficam parados e no centro.
   - A faixa para com o mouse em cima, com o foco do teclado e com o botão "Pausar". Para quem pede menos movimento no aparelho, fica parada e rola para o lado.
   - O loop usa uma cópia dos rostos, que fica fora do leitor de tela e do Tab.
+  - O rosto e o @ levam à página do embaixador; o botão da cidade, aos negócios de lá.
 - **`/embaixadores`:**
   - todos os que estão no site;
   - o alcance somado: seguidores, cidades e estados inteiros;
   - o filtro por estado (`?estado=BA`; só vale uma UF de verdade), que aparece quando há embaixadores em mais de um estado;
   - o convite "Quer ser embaixador do bem?", que abre um e-mail para ola@negociodobem.com.
   - Está no rodapé, no sitemap e no `llms.txt`.
-- **Página da cidade:** abaixo da introdução, quem cobre a cidade ("Embaixadora em Salvador") e, numa linha embaixo, quem cobre o estado inteiro ("Embaixadora de todo o estado"). A cidade é comparada sem acentos e maiúsculas.
+  - O nome e o @ de cada cartão levam à página do embaixador.
+- **Página da cidade:** abaixo da introdução, quem cobre a cidade ("Embaixadora em Salvador") e, numa linha embaixo, quem cobre o estado inteiro ("Embaixadora de todo o estado"). A cidade é comparada sem acentos e maiúsculas. O botão "Ver a página" e os nomes levam à página de cada um.
+- **Página do embaixador (`/embaixadores/<@>`):** o link para divulgar no Instagram. O @ aceita maiúsculas e "@" no começo.
+  - em cima, o rótulo ("Embaixadora do bem · Curitiba, PR"), o nome e o Sobre. Sem Sobre, uma frase padrão diz para onde a pessoa leva o projeto;
+  - ao lado (em cima, no celular), a foto, o @, os seguidores e o botão "Seguir no Instagram", o único link para fora;
+  - abaixo, os negócios da região, como na página da cidade: os da cidade, ou os do estado para quem cobre o estado inteiro, com "Ver todos no diretório", os tipos de negócio e as causas de lá;
+  - no fim, os links para os outros embaixadores;
+  - a prévia do link mostra a foto, o nome, o @, onde atua e os seguidores;
+  - embaixador fora do site, ou @ que não é de embaixador, mostra "Não encontramos esta página";
+  - está no sitemap.
 
 ### Para onde leva o cartão
 
@@ -1255,11 +1270,11 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
   - abaixo de 1 milhão, sem casa ("131 mil");
   - daí em diante, em milhões ("1,2 mi").
   - Sem número, o cartão aparece sem os seguidores.
-- **De onde vem:** da API oficial da Meta (Business Discovery, `followers_count`), a mesma da prévia do cadastro, com as variáveis `META_ACCESS_TOKEN` e `META_IG_USER_ID`. Ela só lê contas comerciais e de criador.
+- **De onde vem:** da API oficial da Meta (Business Discovery, `followers_count`; a bio vem de `biography`), a mesma da prévia do cadastro, com as variáveis `META_ACCESS_TOKEN` e `META_IG_USER_ID`. Ela só lê contas comerciais e de criador.
 - **Quando atualiza:**
   - ao cadastrar o embaixador ou trocar o @;
   - pelo botão "Atualizar pelo Instagram agora", na página do embaixador;
-  - uma vez por dia, depois que alguém abre a página inicial ou `/embaixadores`. A consulta roda depois da resposta (`after`), sem fazer a pessoa esperar.
+  - uma vez por dia, depois que alguém abre a página inicial, `/embaixadores` ou a página de um embaixador. A consulta roda depois da resposta (`after`), sem fazer a pessoa esperar.
 - **Na consulta do dia:**
   - cada embaixador no site é consultado no máximo uma vez a cada 24 horas, com ou sem resposta, até 25 por visita;
   - duas visitas ao mesmo tempo não consultam o mesmo @: cada uma marca o embaixador antes de consultar, e só uma consegue.

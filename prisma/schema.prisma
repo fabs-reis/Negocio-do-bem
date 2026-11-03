@@ -247,6 +247,8 @@ model Embaixador {
   uf                String
   // Foto do perfil, enviada pela moderação ou vinda do Instagram (ver src/lib/embaixadores.ts).
   fotoUrl           String?
+  // Texto da página do embaixador. Começa com a bio do Instagram, e a moderação ajusta.
+  sobre             String?
   seguidores        Int?
   // O número foi digitado pela moderação (conta pessoal ou privada): a consulta ao Instagram não mexe nele.
   seguidoresManual  Boolean   @default(false)

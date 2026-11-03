@@ -25,7 +25,7 @@ async function embaixadorDoFormulario(dados: FormData) {
 
 const paginaDoEmbaixador = (id: string, aviso: string) => `/moderacao/embaixadores/${id}?aviso=${aviso}`;
 
-/** Cria ou edita um embaixador. Cadastro novo ou @ trocado já busca a foto e os seguidores no Instagram. */
+/** Cria ou edita um embaixador. Cadastro novo ou @ trocado já busca a foto, os seguidores e a bio no Instagram. */
 export async function salvarEmbaixador(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
   const usuario = await exigirModerador();
   const valores = valoresDoFormulario(dados);
@@ -64,7 +64,7 @@ export async function salvarEmbaixador(_estado: EstadoFormulario, dados: FormDat
 
   let aviso = "embaixador_salvo";
   if (trocouArroba) {
-    const resultado = await atualizarPeloInstagram(id).catch((erro) => {
+    const resultado = await atualizarPeloInstagram(id, undefined, { comBio: true }).catch((erro) => {
       console.error("Falha ao buscar o embaixador no Instagram", id, erro);
       return "sem_resposta" as const;
     });
@@ -73,11 +73,11 @@ export async function salvarEmbaixador(_estado: EstadoFormulario, dados: FormDat
   redirect(paginaDoEmbaixador(id, aviso));
 }
 
-/** Busca agora os seguidores (e a foto, se faltar), sem esperar a consulta do dia. */
+/** Busca agora os seguidores (e a foto e o "Sobre", se faltarem), sem esperar a consulta do dia. */
 export async function atualizarEmbaixadorAgora(dados: FormData): Promise<void> {
   await exigirModerador();
   const embaixador = await embaixadorDoFormulario(dados);
-  const resultado = await atualizarPeloInstagram(embaixador.id).catch((erro) => {
+  const resultado = await atualizarPeloInstagram(embaixador.id, undefined, { comBio: true }).catch((erro) => {
     console.error("Falha ao buscar o embaixador no Instagram", embaixador.id, erro);
     return "sem_resposta" as const;
   });
