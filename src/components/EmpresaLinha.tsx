@@ -12,7 +12,7 @@ export function EmpresaLinha({ empresa }: { empresa: EmpresaResumo }) {
       <FotoEmpresa empresa={empresa} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="truncate font-serif text-lg leading-tight font-semibold group-hover:text-coral-700">{empresa.nome}</span>
+          <span className="line-clamp-2 min-w-0 break-words font-serif text-lg leading-tight font-semibold group-hover:text-coral-700">{empresa.nome}</span>
           {empresa.status === "verificada" && (
             <span
               role="img"

@@ -94,7 +94,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
                 <div className="flex items-center gap-3">
                   <Monograma nome={empresa.nome} chave={empresa.instagramUsername} />
                   <div className="min-w-0">
-                    <p className="truncate font-serif text-xl font-semibold">{empresa.nome}</p>
+                    <p className="line-clamp-2 break-words font-serif text-xl font-semibold">{empresa.nome}</p>
                     <p className="text-sm text-suave">{rotuloDoInstagram(empresa.instagramUsername)}</p>
                   </div>
                 </div>

@@ -31,7 +31,7 @@ export function EmpresaCard({ empresa }: { empresa: EmpresaResumo }) {
       <div className="flex items-start gap-3">
         <FotoEmpresa empresa={empresa} />
         <div className="min-w-0">
-          <h3 className="truncate font-serif text-xl font-semibold leading-tight group-hover:text-coral-700">
+          <h3 className="line-clamp-2 break-words font-serif text-xl font-semibold leading-tight group-hover:text-coral-700">
             {empresa.nome}
           </h3>
           {temInstagram(empresa.instagramUsername) && <p className="truncate text-sm text-suave">@{empresa.instagramUsername}</p>}
