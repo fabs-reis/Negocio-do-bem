@@ -3,8 +3,11 @@ import {
   destinoDoEmbaixador,
   embaixadoresDaCidade,
   formatarSeguidores,
+  hrefDoEmbaixador,
   lerEmbaixador,
   lugarDoEmbaixador,
+  ondeDoEmbaixador,
+  tituloComLugar,
   tituloNaCidade,
 } from "@/lib/embaixadores";
 
@@ -46,6 +49,14 @@ describe("lugar e título", () => {
     expect(tituloNaCidade({ titulo: "embaixador", cidade: null })).toBe("Embaixador de todo o estado");
     expect(tituloNaCidade({ titulo: "pessoa-embaixadora", cidade: "Recife" })).toBe("Pessoa embaixadora em Recife");
     expect(tituloNaCidade({ titulo: "outro", cidade: "Recife" })).toBe("Embaixadora em Recife");
+  });
+
+  it("dá à página do embaixador o rótulo, o link pelo @ e a região dos negócios", () => {
+    expect(tituloComLugar({ titulo: "embaixadora", cidade: "Curitiba", uf: "PR" })).toBe("Embaixadora do bem · Curitiba, PR");
+    expect(tituloComLugar({ titulo: "embaixador", cidade: null, uf: "PA" })).toBe("Embaixador do bem · Pará (todo o estado)");
+    expect(hrefDoEmbaixador("alodiario_literario")).toBe("/embaixadores/alodiario_literario");
+    expect(ondeDoEmbaixador({ cidade: "Curitiba", uf: "PR" })).toBe("Curitiba, PR");
+    expect(ondeDoEmbaixador({ cidade: null, uf: "PA" })).toBe("Pará (estado)");
   });
 });
 
@@ -96,6 +107,7 @@ describe("lerEmbaixador", () => {
         instagramUsername: "marina.lopes",
         nome: "Marina Lopes",
         titulo: "embaixadora",
+        sobre: null,
         cidade: "Salvador",
         uf: "BA",
         seguidoresManual: false,
@@ -131,6 +143,17 @@ describe("lerEmbaixador", () => {
       formulario({ instagram: "não é @", nome: "M", titulo: "rainha", ordem: "-1", abrangencia: "cidade", municipio: "Cidade Inventada, ZZ", seguidoresManual: "sim", seguidores: "" }),
     );
     expect("erros" in lido && Object.keys(lido.erros).sort()).toEqual(["instagram", "municipio", "nome", "ordem", "seguidores", "titulo"]);
+  });
+
+  it("lê o Sobre sem espaços sobrando, e vazio fica sem texto", () => {
+    const sobre = "  Clássicos e mitologia.\r\n\r\n\r\n\r\nProfessora e pesquisadora.  ";
+    expect(lerEmbaixador(formulario({ ...BASICO, abrangencia: "estado", uf: "PR", sobre }))).toMatchObject({
+      dados: { sobre: "Clássicos e mitologia.\n\nProfessora e pesquisadora." },
+    });
+    expect(lerEmbaixador(formulario({ ...BASICO, abrangencia: "estado", uf: "PR", sobre: "  \n " }))).toMatchObject({ dados: { sobre: null } });
+    expect(lerEmbaixador(formulario({ ...BASICO, abrangencia: "estado", uf: "PR", sobre: "a".repeat(601) }))).toEqual({
+      erros: { sobre: "Use até 600 caracteres." },
+    });
   });
 
   it("quem cobre o estado precisa escolher um estado", () => {
