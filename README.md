@@ -8,6 +8,7 @@ Um diretório de negócios com consciência social e conexão com a comunidade. 
 - **Causas** como Pet friendly, Antirracista, Escala 5x2, Escala 4x3 e outras (lista em `src/lib/causas.ts`).
 - **Indicação** pela comunidade, publicada na hora. A moderação tira do ar o que for impróprio.
 - **Reivindicação de propriedade** pelo dono, explicada abaixo.
+- **Embaixadores do bem**: influenciadores de cada cidade ou estado, numa faixa da página inicial, em `/embaixadores`, na página da cidade e numa página própria (`/embaixadores/<@>`) com o "Sobre" e os negócios da região, com o @ e os seguidores atualizados pela API da Meta.
 - **Painel do dono** para editar o perfil, responder depoimentos, ocultar o negócio e trocar a senha.
 - **Moderação** com um painel próprio: os números do projeto, a atividade das últimas semanas e a saúde dos dados; filas de disputas de reivindicação e de denúncias; todos os negócios, contas e depoimentos, com a ficha de cada conta; botão para tirar um negócio do ar; edição de qualquer perfil (foto, contatos, textos e causas); e o registro de auditoria, com filtros.
 
@@ -165,7 +166,11 @@ Com a confirmação de e-mail ligada e sem o envio ligado em produção, ningué
 npm test          # testes unitários e de banco (precisa do Postgres rodando)
 npm run lint
 npm run typecheck
+npm run build
+npm run test:integracao  # Next real em porta local, depois do build
 ```
+
+A integração usa configuração própria. O `npm test` comum não inicia servidores nem o build.
 
 Os testes usam um banco separado (`negocio_do_bem_teste`, ou o de `TEST_DATABASE_URL`). Ele é criado na primeira execução e as tabelas são limpas entre os testes. Por segurança, a suíte só roda se o nome do banco tiver "test".
 

@@ -77,7 +77,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
         <h2 className="font-serif text-2xl font-semibold">Meus negócios</h2>
         {empresas.length === 0 ? (
           <div className="cartao mt-4 p-6 text-suave">
-            Você ainda não tem um negócio verificado.{" "}
+            Você ainda não assumiu um perfil de negócio.{" "}
             <Link href="/participar?dono=sim" className="link">
               Cadastrar meu negócio
             </Link>{" "}
@@ -94,7 +94,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
                 <div className="flex items-center gap-3">
                   <Monograma nome={empresa.nome} chave={empresa.instagramUsername} />
                   <div className="min-w-0">
-                    <p className="truncate font-serif text-xl font-semibold">{empresa.nome}</p>
+                    <p className="line-clamp-2 break-words font-serif text-xl font-semibold">{empresa.nome}</p>
                     <p className="text-sm text-suave">{rotuloDoInstagram(empresa.instagramUsername)}</p>
                   </div>
                 </div>

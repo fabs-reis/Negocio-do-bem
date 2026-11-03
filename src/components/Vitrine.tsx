@@ -5,11 +5,12 @@ import { JsonLd } from "@/components/JsonLd";
 import type { Migalha } from "@/lib/seo";
 
 /**
- * Página fixa de uma cidade, causa ou tipo de negócio (src/app/cidades, causas e
- * tipos): título, introdução, os primeiros negócios e links para continuar no
- * diretório. Os filtros ficam no /explorar; aqui é a porta de entrada da busca.
- * A `capa` (a foto da cidade) fica ao lado do título na tela larga e em cima dele
- * no celular.
+ * Página fixa de uma cidade, causa, tipo de negócio ou embaixador (src/app/cidades,
+ * causas, tipos e embaixadores): título, introdução, os primeiros negócios e links
+ * para continuar no diretório. Os filtros ficam no /explorar; aqui é a porta de
+ * entrada da busca. A `capa` (a foto da cidade, o perfil do embaixador) fica ao lado
+ * do título na tela larga e em cima dele no celular. O `destaque` (os embaixadores
+ * da cidade) vem logo abaixo da introdução, e o `tituloDaLista`, acima dos negócios.
  */
 export function Vitrine({
   migalhas,
@@ -17,6 +18,8 @@ export function Vitrine({
   titulo,
   introducao,
   capa,
+  destaque,
+  tituloDaLista,
   total,
   itens,
   hrefNoDiretorio,
@@ -28,6 +31,8 @@ export function Vitrine({
   titulo: string;
   introducao: ReactNode;
   capa?: ReactNode;
+  destaque?: ReactNode;
+  tituloDaLista?: string;
   total: number;
   itens: EmpresaResumo[];
   hrefNoDiretorio: string;
@@ -39,6 +44,7 @@ export function Vitrine({
       <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">{rotulo}</p>
       <h1 className="mt-2 font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">{titulo}</h1>
       <div className="mt-4 max-w-2xl text-lg leading-relaxed text-pretty text-suave">{introducao}</div>
+      {destaque && <div className="mt-6 max-w-2xl">{destaque}</div>}
     </div>
   );
 
@@ -72,7 +78,8 @@ export function Vitrine({
         <div className="mt-6">{cabecalho}</div>
       )}
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-b border-linha pb-3.5">
+      {tituloDaLista && <h2 className="mt-12 font-serif text-3xl font-semibold tracking-tight text-balance">{tituloDaLista}</h2>}
+      <div className={`${tituloDaLista ? "mt-3" : "mt-8"} flex flex-wrap items-center justify-between gap-3 border-b border-linha pb-3.5`}>
         <p className="text-suave">
           <strong className="font-serif text-2xl font-semibold text-tinta">{total.toLocaleString("pt-BR")}</strong>{" "}
           {total === 1 ? "negócio no diretório" : "negócios no diretório"}
