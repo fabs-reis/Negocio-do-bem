@@ -775,6 +775,7 @@ npm run typecheck
 **Segurança dos previews:**
 
 - Configure o Worker Previews com `DATABASE_URL` e `DATABASE_URL_UNPOOLED` do projeto Neon de teste, e bindings R2 separados. Nunca deixe preview ler ou alterar dados e fotos de produção.
+- **Deploy manual, só em emergência.** Se o Workers Builds não disparar para um merge na `main`, o deploy manual é `npm run cf:build` seguido de `npx opennextjs-cloudflare deploy`, mas o build precisa das variáveis `NEXT_PUBLIC_*` da produção na linha de comando (`NEXT_PUBLIC_R2_PUBLIC_URL=https://fotos.negociodobem.com` e `NEXT_PUBLIC_GA_ID`). Elas são embutidas no build: a `Content-Security-Policy` do `next.config.ts` só libera o domínio das fotos se a primeira existir na hora do build, e sem ela todas as fotos somem (aconteceu em 3 de novembro). As variáveis em tempo de execução do Worker não bastam. Confira depois com `curl -sI https://www.negociodobem.com | grep -i content-security` e veja `img-src`.
 - Os previews precisam de `DEPLOY_ENV=preview`, `CLOUDFLARE_DEPLOY=1` e `NEXT_PUBLIC_R2_PUBLIC_URL` do bucket de teste. Para POC sem domínio próprio, habilite Public Development URL no bucket de uploads de teste e use a URL `r2.dev`; os objetos ficam acessíveis publicamente, então não use arquivos privados. E-mail fica desligado fora de produção, e páginas de preview ficam fora dos buscadores.
 - A `stage` e PRs podem compartilhar os recursos de teste. Uma migração de PR que apaga ou renomeia coluna pode quebrar a homologação até o PR entrar. Um PR fechado sem merge pode deixar migração aplicada no banco de preview; recrie o banco de teste e publique `stage` para reconstruir os dados.
 - O seed só preenche banco vazio. Nunca o execute com credenciais de produção: cria contas de demonstração com senha conhecida.
@@ -1014,7 +1015,7 @@ O fluxo completo está no [CONTRIBUTING](../CONTRIBUTING.md). Em resumo:
 2. **Uma branch por issue,** criada a partir da `stage`, no formato `tipo/numero-da-issue-descricao-curta`. Exemplo: `bug/12-erro-no-login`.
 3. **Pull request para a `stage`,** com `Closes #N` ou `Refs #N`, explicando o que muda e por quê, com print se mexeu na interface.
 4. **A checagem "Lint, tipos e testes"** antes do merge, sempre por squash na `stage`. A publicação na `main` também precisa de uma aprovação.
-5. **Deploy só pelo merge.** A `stage` é a homologação, e um PR da `stage` para a `main`, com merge commit, publica em produção. Nada de deploy manual.
+5. **Deploy só pelo merge.** A `stage` é a homologação, e um PR da `stage` para a `main`, com merge commit, publica em produção. Nada de deploy manual, salvo o caso de emergência descrito na seção de deploy.
 
 E dois combinados que mantêm esta documentação útil:
 
