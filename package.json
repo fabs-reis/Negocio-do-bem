@@ -72,11 +72,11 @@
     "wrangler": "4.156.0"
   },
   "overrides": {
-    "@opennextjs/cloudflare": {
-      "glob": "14.0.3"
+    "@opennextjs/cloudflare@1.20.14": {
+      "glob@^13.0.6": "14.0.3"
     },
-    "@node-minify/core": {
-      "glob": "14.0.3"
+    "@node-minify/core@9.0.2": {
+      "glob@10.3.3": "14.0.3"
     }
   },
   "engines": {
