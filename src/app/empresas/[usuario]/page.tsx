@@ -80,17 +80,22 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
 
         <CapaDoNegocio cidade={empresa.cidade} uf={empresa.uf} />
 
-        <header className="flex flex-col gap-5 px-1 sm:flex-row sm:items-end sm:px-6">
+        <header className="flex flex-col gap-5 px-1 sm:flex-row sm:items-start sm:px-6">
           {/* No celular a foto fica abaixo do crédito da capa; a partir do sm, sobre a capa, e o crédito vai para a direita. */}
-          <div className="mt-4 shrink-0 self-start sm:-mt-12 sm:self-auto">
+          <div className="mt-4 shrink-0 self-start sm:-mt-12">
             <FotoEmpresa empresa={empresa} tamanho="lg" />
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <SeloStatus status={empresa.status} />
-            <h1 className="font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">{empresa.nome}</h1>
+            <h1 className="font-serif text-[clamp(1.75rem,5vw,2.625rem)] leading-[1.1] font-semibold tracking-tight text-balance">{empresa.nome}</h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-suave">
-              <LinkInstagram endereco={empresa.instagramUsername} icone contato={contato} />
-              <span aria-hidden="true">·</span>
+              {/* Sem WhatsApp, o botão principal já leva ao Instagram: não repete o link aqui. */}
+              {(empresa.whatsapp || !temInstagram(empresa.instagramUsername)) && (
+                <>
+                  <LinkInstagram endereco={empresa.instagramUsername} icone contato={contato} />
+                  <span aria-hidden="true">·</span>
+                </>
+              )}
               {publico && temPaginaDeTipo(empresa.categoria) ? (
                 <Link href={hrefTipo(empresa.categoria)} className="hover:text-tinta hover:underline">
                   {empresa.categoria}
@@ -109,11 +114,11 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
                 </span>
               )}
             </p>
+            <Acoes empresa={empresa} medir={!!contato} compartilhar={publico} />
           </div>
-          <Acoes empresa={empresa} medir={!!contato} compartilhar={publico} />
         </header>
 
-        <p className="mt-8 max-w-3xl px-1 font-serif text-2xl leading-snug text-tinta/80 italic text-pretty sm:px-6">{empresa.resumo}</p>
+        <p className="mx-1 mt-8 max-w-[52ch] border-l-[3px] border-coral py-0.5 pl-4 font-serif text-[1.375rem] leading-snug font-medium text-tinta italic text-pretty sm:mx-6">{empresa.resumo}</p>
 
         {(dono || usuario?.moderador) && (
           <div className="mt-6 px-1 sm:px-6">
@@ -190,13 +195,13 @@ function Acoes({ empresa, medir, compartilhar }: { empresa: Perfil; medir: boole
   const medida = (canal: CanalDeContato) => (medir ? medirContato(canal, empresa) : {});
   if (!empresa.whatsapp && !instagram && !compartilhar) return null;
   return (
-    <div className="flex flex-wrap items-start gap-2 sm:pb-1">
+    <div className="flex flex-wrap items-center gap-2 pt-3">
       {empresa.whatsapp ? (
         <a
           href={`https://wa.me/${empresa.whatsapp}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="botao-coral px-6 py-3"
+          className="botao-coral px-5 py-2.5"
           {...medida("whatsapp")}
         >
           <WhatsAppIcone />
@@ -208,7 +213,7 @@ function Acoes({ empresa, medir, compartilhar }: { empresa: Perfil; medir: boole
             href={linkPerfil(empresa.instagramUsername)}
             target="_blank"
             rel="noopener noreferrer"
-            className="botao-coral px-6 py-3"
+            className="botao-coral px-5 py-2.5"
             {...medida("instagram")}
           >
             <InstagramIcone />
@@ -217,7 +222,7 @@ function Acoes({ empresa, medir, compartilhar }: { empresa: Perfil; medir: boole
         )
       )}
       {compartilhar && (
-        <BotaoCopiarLink caminho={`/empresas/${empresa.instagramUsername}`} className="botao-claro px-5 py-3">
+        <BotaoCopiarLink caminho={`/empresas/${empresa.instagramUsername}`} className="botao-claro px-5 py-2.5">
           Compartilhar
         </BotaoCopiarLink>
       )}

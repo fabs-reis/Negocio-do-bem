@@ -602,7 +602,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
-- **Ação principal e "Compartilhar".** O botão grande é "Chamar no WhatsApp"; sem WhatsApp, "Ver no Instagram" (só para quem tem Instagram); sem nenhum dos dois, não há botão. "Compartilhar" copia o endereço do perfil e só aparece para perfis do diretório.
+- **Ação principal e "Compartilhar".** O botão grande é "Chamar no WhatsApp"; sem WhatsApp, "Ver no Instagram" (só para quem tem Instagram); sem nenhum dos dois, não há botão. Quando o botão já leva ao Instagram, o @ não repete o link abaixo do nome; com WhatsApp, o @ continua com link ali. "Compartilhar" copia o endereço do perfil e só aparece para perfis do diretório.
 - **Cartão de contato** (coluna da direita no computador, logo abaixo do topo no celular), só com o que está preenchido. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
   - telefone comercial, que abre `tel:`;
   - WhatsApp, que abre `wa.me`;
