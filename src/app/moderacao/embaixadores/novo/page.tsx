@@ -26,13 +26,14 @@ async function Conteudo() {
       <div>
         <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Moderação</p>
         <h1 className="mt-1 font-serif text-4xl font-semibold tracking-tight">Novo embaixador</h1>
-        <p className="mt-2 text-suave">Ao cadastrar, o site já busca a foto e os seguidores no Instagram.</p>
+        <p className="mt-2 text-suave">Ao cadastrar, o site já busca a foto, os seguidores e a bio no Instagram.</p>
       </div>
       <FormEmbaixador
         embaixador={{
           instagram: "",
           nome: "",
           titulo: "embaixadora",
+          sobre: "",
           municipio: "",
           uf: "",
           seguidoresManual: false,

@@ -2,11 +2,12 @@ import Link from "next/link";
 import { paletaDe } from "@/components/Monograma";
 import { tituloNaCidade, type EmbaixadorNoSite } from "@/lib/embaixadores";
 import { ehFotoDoSite } from "@/lib/fotos";
-import { linkPerfil } from "@/lib/instagram";
 import { iniciais } from "@/lib/texto";
 
 // Peças dos embaixadores do bem: o rosto, o cartão de /embaixadores e o bloco da
-// página da cidade. A faixa da página inicial fica em FaixaEmbaixadores.tsx.
+// página da cidade. A faixa da página inicial fica em FaixaEmbaixadores.tsx, e a
+// página de cada embaixador, em src/app/embaixadores/[usuario]. Os links do nome
+// e do @ levam a essa página; o Instagram fica no botão "Seguir" de lá.
 
 type Rosto = { nome: string; instagramUsername: string; fotoUrl: string | null };
 
@@ -38,26 +39,17 @@ export function IconeLugar({ className }: { className: string }) {
   );
 }
 
-/** O @ (e, se pedir, o nome) com o link do perfil, numa aba nova. */
-function LinkDoPerfil({ embaixador, comNome = false, className }: { embaixador: Rosto; comNome?: boolean; className: string }) {
-  return (
-    <a href={linkPerfil(embaixador.instagramUsername)} target="_blank" rel="noopener noreferrer" className={className}>
-      {comNome && `${embaixador.nome}, `}@{embaixador.instagramUsername} <span aria-hidden="true">↗</span>
-    </a>
-  );
-}
-
 /** O cartão de /embaixadores: rosto, @, seguidores e o link para os negócios de onde a pessoa vive. */
 export function CartaoEmbaixador({ embaixador }: { embaixador: EmbaixadorNoSite }) {
   return (
     <article className="cartao flex flex-col gap-4 p-5 sm:p-6">
-      <div className="flex items-center gap-4">
+      <Link href={embaixador.href} className="group flex items-center gap-4">
         <RostoDoEmbaixador embaixador={embaixador} className="h-16 w-16 text-xl ring-2 ring-coral ring-offset-[3px] ring-offset-superficie" />
         <div className="min-w-0">
-          <h2 className="font-serif text-xl leading-tight font-semibold">{embaixador.nome}</h2>
-          <LinkDoPerfil embaixador={embaixador} className="mt-0.5 inline-block text-sm break-all text-suave hover:text-tinta" />
+          <h2 className="font-serif text-xl leading-tight font-semibold group-hover:text-coral-700">{embaixador.nome}</h2>
+          <p className="mt-0.5 text-sm break-all text-suave">@{embaixador.instagramUsername}</p>
         </div>
-      </div>
+      </Link>
       {embaixador.seguidores && (
         <p className="text-sm text-suave">
           <strong className="font-serif text-2xl font-semibold text-tinta">{embaixador.seguidores}</strong> seguidores no Instagram
@@ -98,9 +90,9 @@ export function EmbaixadoresDaCidade({ embaixadores }: { embaixadores: Embaixado
             {principal.seguidores && ` · ${principal.seguidores} seguidores`}
           </p>
         </div>
-        <a href={linkPerfil(principal.instagramUsername)} target="_blank" rel="noopener noreferrer" className="botao-claro">
-          Seguir no Instagram <span aria-hidden="true">↗</span>
-        </a>
+        <Link href={principal.href} className="botao-claro">
+          Ver a página <span aria-hidden="true">→</span>
+        </Link>
       </div>
       {outros.length > 0 && (
         <ul className="mt-4 space-y-2.5 border-t border-linha pt-4">
@@ -109,7 +101,9 @@ export function EmbaixadoresDaCidade({ embaixadores }: { embaixadores: Embaixado
               <RostoDoEmbaixador embaixador={e} className="h-8 w-8 text-xs" />
               <p>
                 {tituloNaCidade(e)}:{" "}
-                <LinkDoPerfil embaixador={e} comNome className="font-semibold text-tinta hover:text-coral-700" />
+                <Link href={e.href} className="font-semibold text-tinta hover:text-coral-700">
+                  {e.nome}, @{e.instagramUsername}
+                </Link>
                 {e.seguidores && ` · ${e.seguidores} seguidores`}
               </p>
             </li>

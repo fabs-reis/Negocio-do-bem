@@ -8,11 +8,14 @@ import { CampoMunicipio } from "@/components/CampoMunicipio";
 import { enviarSemLimpar } from "@/components/envio";
 import { NOMES_UF, TITULOS_EMBAIXADOR, UFS } from "@/lib/dominio";
 
+const MAXIMO_DO_SOBRE = 600; // o mesmo de src/lib/embaixadores.ts, que é só do servidor
+
 export type ValoresDoEmbaixador = {
   id?: string;
   instagram: string;
   nome: string;
   titulo: string;
+  sobre: string;
   /** "Cidade, UF", ou vazio para quem cobre o estado. */
   municipio: string;
   uf: string;
@@ -28,7 +31,7 @@ export function FormEmbaixador({ embaixador }: { embaixador: ValoresDoEmbaixador
   const [estado, acao, pendente] = useActionState(salvarEmbaixador, undefined);
   const erros = estado?.erros ?? {};
   const valores = estado?.valores;
-  const valor = (campo: "instagram" | "nome" | "titulo" | "municipio" | "uf" | "seguidores" | "ordem") => {
+  const valor = (campo: "instagram" | "nome" | "titulo" | "sobre" | "municipio" | "uf" | "seguidores" | "ordem") => {
     const v = valores?.[campo];
     return typeof v === "string" ? v : embaixador[campo];
   };
@@ -62,6 +65,19 @@ export function FormEmbaixador({ embaixador }: { embaixador: ValoresDoEmbaixador
           </select>
         </Campo>
       </div>
+
+      <Campo
+        id="sobre"
+        rotulo="Sobre"
+        erro={erros.sobre}
+        ajuda={
+          embaixador.id
+            ? "Aparece na página do embaixador. Vazio, a bio do Instagram entra no lugar ao clicar em “Atualizar pelo Instagram agora”."
+            : "Aparece na página do embaixador. Deixe em branco para começar com a bio do Instagram e ajustar depois."
+        }
+      >
+        <textarea id="sobre" name="sobre" rows={4} maxLength={MAXIMO_DO_SOBRE} defaultValue={valor("sobre")} className="campo" />
+      </Campo>
 
       <fieldset className="space-y-3">
         <legend className="rotulo">Onde atua</legend>

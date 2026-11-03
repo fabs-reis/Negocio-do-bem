@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apagarFoto } from "@/lib/armazenamento";
 import { db } from "@/lib/db";
-import { atualizarPeloInstagram, atualizarSeguidoresDoDia, embaixadoresNoSite } from "@/lib/embaixadores";
+import { atualizarPeloInstagram, atualizarSeguidoresDoDia, embaixadorDoEndereco, embaixadoresNoSite } from "@/lib/embaixadores";
 import { esquecerPrevias } from "@/lib/previa-instagram";
 
 const AGORA = new Date("2026-11-02T12:00:00Z");
@@ -18,8 +18,8 @@ function criarEmbaixador(username: string, extra: Partial<Parameters<typeof db.e
   return db.embaixador.create({ data: { instagramUsername: username, nome: `Pessoa ${username}`, cidade: "Recife", uf: "PE", ...extra } });
 }
 
-/** A Meta de mentira: responde os seguidores de cada @ e a foto. Sem o @ na lista, a conta "é pessoal". */
-function metaCom(seguidores: Record<string, number>, foto = false) {
+/** A Meta de mentira: responde os seguidores de cada @, a foto e a bio. Sem o @ na lista, a conta "é pessoal". */
+function metaCom(seguidores: Record<string, number>, foto = false, bio?: string) {
   const fetch = vi.fn(async (url: URL | string) => {
     const endereco = String(url);
     if (!endereco.startsWith("https://graph.facebook.com/")) {
@@ -27,7 +27,9 @@ function metaCom(seguidores: Record<string, number>, foto = false) {
     }
     const username = /username\(([^)]+)\)/.exec(decodeURIComponent(new URL(endereco).searchParams.get("fields") ?? ""))?.[1] ?? "";
     if (!(username in seguidores)) return Response.json({ error: { code: 110 } }, { status: 400 });
-    return Response.json({ business_discovery: { name: username, followers_count: seguidores[username], ...(foto && { profile_picture_url: FOTO }) } });
+    return Response.json({
+      business_discovery: { name: username, followers_count: seguidores[username], ...(foto && { profile_picture_url: FOTO }), ...(bio && { biography: bio }) },
+    });
   });
   vi.stubGlobal("fetch", fetch);
   return fetch;
@@ -131,6 +133,27 @@ describe("atualizarPeloInstagram", () => {
       consultadoEm: AGORA,
     });
   });
+
+  it("a pedido da moderação, a bio entra no Sobre vazio, e nunca no lugar do texto dela", async () => {
+    const vazio = await criarEmbaixador("sem.sobre");
+    const escrito = await criarEmbaixador("com.sobre", { sobre: "Texto da moderação." });
+    metaCom({ "sem.sobre": 10, "com.sobre": 10 }, false, "Clássicos e mitologia.");
+
+    await atualizarPeloInstagram(vazio.id, AGORA, { comBio: true });
+    await atualizarPeloInstagram(escrito.id, AGORA, { comBio: true });
+
+    expect((await db.embaixador.findUniqueOrThrow({ where: { id: vazio.id } })).sobre).toBe("Clássicos e mitologia.");
+    expect((await db.embaixador.findUniqueOrThrow({ where: { id: escrito.id } })).sobre).toBe("Texto da moderação.");
+  });
+
+  it("a consulta do dia não mexe no Sobre", async () => {
+    const embaixador = await criarEmbaixador("do.dia");
+    metaCom({ "do.dia": 10 }, false, "Bio do Instagram.");
+
+    expect(await atualizarSeguidoresDoDia(AGORA)).toBe(1);
+
+    expect(await db.embaixador.findUniqueOrThrow({ where: { id: embaixador.id } })).toMatchObject({ seguidores: 10, sobre: null });
+  });
 });
 
 describe("embaixadoresNoSite", () => {
@@ -150,5 +173,19 @@ describe("embaixadoresNoSite", () => {
 
     expect(embaixador).toMatchObject({ seguidores: "48,2 mil", numeroDeSeguidores: 48231, fotoUrl: null, lugar: "Recife, PE" });
     expect(embaixador?.destino).toEqual({ href: "/participar", detalhe: "Indique o primeiro negócio" });
+    expect(embaixador?.href).toBe("/embaixadores/formatada");
+  });
+});
+
+describe("embaixadorDoEndereco", () => {
+  it("acha a página pelo @, com maiúsculas ou \"@\", só de quem está no site", async () => {
+    await criarEmbaixador("alodiario_literario", { sobre: "Clássicos e mitologia." });
+    await criarEmbaixador("fora.do.site", { ativo: false });
+
+    expect(await embaixadorDoEndereco("alodiario_literario")).toMatchObject({ instagramUsername: "alodiario_literario", sobre: "Clássicos e mitologia." });
+    expect(await embaixadorDoEndereco("@Alodiario_Literario")).toMatchObject({ instagramUsername: "alodiario_literario" });
+    expect(await embaixadorDoEndereco("fora.do.site")).toBeNull();
+    expect(await embaixadorDoEndereco("ninguem")).toBeNull();
+    expect(await embaixadorDoEndereco("não é @")).toBeNull();
   });
 });
