@@ -1,10 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { criarSenhaComLink, entrar, mandarLinkDeSenhaNova, pedirRedefinicaoDeSenha, usarLinkDoEmail } from "@/acoes/conta";
 import { COOKIE_LINK, criarLink, enviarLink, LIMITE_LINKS_POR_HORA, lerLink, redefinirSenhaComLink } from "@/lib/auth/links";
-import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
+import { verificarSenha } from "@/lib/auth/senha";
 import { LIMITE_POR_EMAIL, LIMITE_POR_IP, reservarTentativaDoEmail } from "@/lib/auth/tentativas";
 import { db } from "@/lib/db";
 import { enviarEmail, type Email } from "@/lib/email";
+import { dadosDeContaComSenha } from "../fixtures/autenticacao";
 
 // "Esqueci minha senha" e o link de senha nova do painel. Passa pelas ações de verdade:
 // só o que precisa de uma requisição do Next fica de mentira (cabeçalhos, cookies,
@@ -74,7 +75,7 @@ function dadosSenha(novaSenha: string, confirmarSenha = novaSenha) {
 
 async function criarConta(email = "ana@exemplo.com", senha: string | null = "senha-antiga-123") {
   return db.usuario.create({
-    data: { nome: "Ana Souza", email, senhaHash: senha ? await gerarHashSenha(senha) : null },
+    data: await dadosDeContaComSenha({ nome: "Ana Souza", email, senha }),
     select: { id: true, nome: true, email: true },
   });
 }

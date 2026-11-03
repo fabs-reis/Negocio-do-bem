@@ -743,9 +743,21 @@ npm run typecheck
 - The command creates a separate database with a random name. It runs preview migrations and seed through `scripts/cloudflare-build.sh`, then builds the Worker with OpenNext. It prepares the local R2 cache with `opennextjs-cloudflare populateCache local`. The cache state stays in the temporary directory. It starts `wrangler dev --local` on a free loopback port.
 - The public route must render the seeded business and its structured data. Anonymous access to `/moderacao` must return the Next 404 refusal without action forms. Worker errors fail the command. The Next HTTP tests still check authorized writes and denied writes against the database.
 - The command creates a temporary Wrangler configuration without production routes or the upload binding. The R2 cache is local only. `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, and Hyperdrive use the same separate database. Child processes receive only explicit test settings. Local `.env*` and `.dev.vars*` files stop execution before migration, except `.example` templates. The command does not read these files.
+- O ambiente fechado da prova fixa `CLOUDFLARE_CF_FETCH_ENABLED=false`, a opção oficial do Miniflare que impede a busca externa de `Request.cf`. Isso mantém a prova local sem rede externa. A detecção de erros do Worker continua ativa, sem filtros para ocultar falhas de rede.
 - On success or failure, the command stops its Worker and removes its database, temporary configuration, and local cache. It does not publish resources.
   - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
   - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
+
+### Preparação da autenticação: B1 da #208
+
+A B1 (#229) prepara os testes e o seed para a troca futura do motor. Não muda regras de autenticação nem o esquema.
+
+- `tests/fixtures/autenticacao.ts` concentra a criação dos dados de contas com senha real. Cada chamada informa nome, e-mail e senha, inclusive `null` para conta sem senha. O helper não confirma e-mail nem acrescenta telefone, papel ou Google.
+- Os testes mantêm suas asserções de comportamento. Hashes inválidos, sessões sintéticas, contas legadas sem telefone e vínculos Google sem confirmação continuam explícitos nos casos que precisam deles.
+- `prisma/contas-exemplo.ts` concentra as cinco contas do seed. Elas continuam confirmadas, com a mesma senha de demonstração e sem telefone. Uma delas continua com o papel de moderação.
+- `tests/db/seed.test.ts` executa o seed real no Postgres de teste. Confere contas, senha, indicações, donos, causas, depoimentos e reivindicação. Repetir o seed preserva os dados existentes. A presença de `moderacao@exemplo.com` ainda encerra o seed. Em deploy, qualquer conta existente impede o preenchimento. Produção continua recusada.
+
+A B2 ainda precisa tratar o esquema aditivo e a cópia dos dados. A B3 troca cadastro, login, saída e sessão. A B4 integra links, redefinição de senha e Google. A B5 remove o código e as colunas antigos depois do período de observação. Nenhuma dessas etapas faz parte da B1. O aceite da A1 não autoriza a B2 nem uma migração de produção.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
 
