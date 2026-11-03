@@ -527,6 +527,18 @@ Faltava um link de cada embaixador para divulgar no Instagram, na bio e nos stor
 - **O Instagram ficou num botão só,** "Seguir no Instagram", na página do embaixador. Os outros links ficam dentro do site, onde estão os negócios.
 - **A prévia do link é própria,** com a foto e o nome, porque é ela que aparece quando o link é colado no Instagram ou no WhatsApp.
 
+### 3 de novembro: o perfil do negócio ganha capa e duas colunas ([#260](https://github.com/fabs-reis/Negocio-do-bem/issues/260))
+
+O perfil só contava quem é o negócio, em texto simples e com os botões todos iguais. A página passou a ajudar a pessoa a decidir ir ao local e a voltar, **sem migração**: usa só dados que já existem.
+
+- **Capa:** o negócio só tem a foto de perfil, então a capa é a foto da cidade (com o crédito do Commons) ou, sem ela, um banner da marca. Um mosaico de fotos do negócio exigiria uma tabela e um envio novos, e ficou para depois.
+- **Topo com ação:** o botão principal é o WhatsApp (ou o Instagram, sem WhatsApp) e há "Compartilhar", que copia o link.
+- **Duas colunas no computador:** história e depoimentos à esquerda; o cartão de contato fica fixo à direita.
+- **Causas por grupo,** os mesmos do filtro do diretório, em vez de uma fila de selos iguais.
+- **Depoimentos antes do formulário,** com um botão para o dono copiar o link e pedir depoimentos.
+- **Negócios parecidos** da mesma cidade no fim da página (`negociosParecidos`).
+- **O que está vazio some:** nenhum bloco em branco para o visitante.
+
 ---
 
 ## 4. Arquitetura
