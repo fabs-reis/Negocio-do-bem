@@ -1,3 +1,6 @@
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
+
 // Validação de CNPJ, incluindo o formato alfanumérico que a Receita Federal
 // passou a emitir em julho de 2026 (12 caracteres de A-Z/0-9 + 2 dígitos).
 
@@ -37,20 +40,14 @@ export type DadosCnpj = {
   uf: string | null;
 };
 
-/**
- * Consulta pública na BrasilAPI, para a moderação conferir o nome registrado.
- * Retorna null se a consulta falhar: é só um apoio, nunca bloqueia a análise.
- */
-export async function consultarCnpj(valor: string): Promise<DadosCnpj | null> {
-  const cnpj = limparCnpj(valor);
-  if (!cnpjValido(cnpj)) return null;
-  try {
+/** Persiste só a projeção pública bem-sucedida. O React compartilha a consulta durante a renderização. */
+const consultarCnpjNormalizado = cache(unstable_cache(
+  async (cnpj: string): Promise<DadosCnpj> => {
     const resposta = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, {
-      // Sem um User-Agent próprio, a BrasilAPI recusa o pedido (403).
       headers: { "User-Agent": "NegocioDoBem/1.0 (+https://github.com/fabs-reis/Negocio-do-bem)" },
       signal: AbortSignal.timeout(5000),
     });
-    if (!resposta.ok) return null;
+    if (!resposta.ok) throw new Error("A consulta à BrasilAPI falhou.");
     const dados = (await resposta.json()) as Record<string, unknown>;
     const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
     return {
@@ -60,6 +57,21 @@ export async function consultarCnpj(valor: string): Promise<DadosCnpj | null> {
       municipio: texto(dados.municipio),
       uf: texto(dados.uf),
     };
+  },
+  ["brasilapi-cnpj-v1"],
+  { revalidate: 86400 },
+));
+
+/**
+ * Consulta pública na BrasilAPI, para a moderação conferir o nome registrado.
+ * Normaliza antes de compartilhar. Converte falhas fora do cache persistente para permitir nova tentativa.
+ * Retorna null se a consulta falhar: é só um apoio, nunca bloqueia a análise.
+ */
+export async function consultarCnpj(valor: string): Promise<DadosCnpj | null> {
+  const cnpj = limparCnpj(valor);
+  if (!cnpjValido(cnpj)) return null;
+  try {
+    return await consultarCnpjNormalizado(cnpj);
   } catch {
     return null;
   }

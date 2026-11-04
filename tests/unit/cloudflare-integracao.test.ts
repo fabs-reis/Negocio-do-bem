@@ -1,12 +1,24 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-import { configuracaoLocal, erroServidor, ocultarConexao, validarBanco } from "../../scripts/testar-cloudflare";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ambienteDaProva, configuracaoLocal, erroServidor, ocultarConexao, validarBanco } from "../../scripts/testar-cloudflare";
+
+afterEach(() => vi.unstubAllEnvs());
 
 const banco = "postgresql://postgres:postgres@127.0.0.1:5432/negocio_do_bem_cf_test";
 
 describe("isolamento da prova Cloudflare", () => {
+  it("mantém a prova offline mesmo quando o ambiente externo pede Request.cf remoto", () => {
+    vi.stubEnv("CLOUDFLARE_CF_FETCH_ENABLED", "true");
+    const ambiente = ambienteDaProva(banco, "/tmp/projeto", "/tmp/prova-local");
+    expect(ambiente.CLOUDFLARE_CF_FETCH_ENABLED).toBe("false");
+    expect(ambiente.WRANGLER_SEND_METRICS).toBe("false");
+    expect(ambiente.DATABASE_URL).toBe(banco);
+    expect(ambiente.TEST_DATABASE_URL).toBe(banco);
+    expect(ambiente.HOME).toBe("/tmp/prova-local");
+  });
+
   it.each([
     "postgresql://postgres:postgres@banco.example/negocio_test",
     "postgresql://postgres:postgres@127.0.0.1:5432/negocio_do_bem",
