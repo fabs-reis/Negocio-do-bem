@@ -1,8 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { criarSenhaComLink, entrar, mandarLinkDeSenhaNova, pedirRedefinicaoDeSenha, usarLinkDoEmail } from "@/acoes/conta";
+import { criarSenhaComLink, entrar, mandarLinkDeSenhaNova, pedirRedefinicaoDeSenha, trocarSenha, usarLinkDoEmail } from "@/acoes/conta";
 import { COOKIE_LINK, criarLink, enviarLink, LIMITE_LINKS_POR_HORA, lerLink, redefinirSenhaComLink } from "@/lib/auth/links";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
-import { LIMITE_POR_EMAIL, LIMITE_POR_IP, reservarTentativaDoEmail } from "@/lib/auth/tentativas";
+import { LIMITE_POR_EMAIL, LIMITE_POR_IP, reservarTentativaDoEmail, tentativaDoIpLiberada } from "@/lib/auth/tentativas";
 import { db } from "@/lib/db";
 import { enviarEmail, type Email } from "@/lib/email";
 
@@ -102,6 +102,75 @@ beforeEach(async () => {
 afterAll(async () => {
   await limparBanco();
   await db.$disconnect();
+});
+
+describe("IP Cloudflare nas ações de senha", () => {
+  it("aceita IP válido nas três ações e usa a cota desse IP", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CLOUDFLARE_DEPLOY", "1");
+    contexto.cabecalhos = { "cf-connecting-ip": "203.0.113.7" };
+    const ana = await criarConta();
+    contexto.usuario = ana;
+    contexto.cookies.set(COOKIE_LINK, (await criarLink(ana, "redefinir"))!);
+    const dados = dadosSenha("senha-nova-456");
+    dados.set("senhaAtual", "senha-antiga-123");
+    try {
+      expect(await redirecionou(pedirRedefinicaoDeSenha({}, dadosEmail(ana.email)))).toBe("redirecionado:/entrar?aviso=redefinicao_pedida");
+      expect(await redirecionou(trocarSenha({}, dados))).toBe("redirecionado:/painel?aviso=senha_trocada");
+      contexto.cookies.set(COOKIE_LINK, (await criarLink(ana, "redefinir"))!);
+      expect(await redirecionou(criarSenhaComLink({}, dados))).toBe("redirecionado:/painel?aviso=senha_trocada");
+      expect(await db.tentativaAcesso.count()).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("mostra limite esgotado nas três ações com IP Cloudflare válido", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CLOUDFLARE_DEPLOY", "1");
+    contexto.cabecalhos = { "cf-connecting-ip": "203.0.113.7" };
+    const ana = await criarConta();
+    contexto.usuario = ana;
+    const dados = dadosSenha("senha-nova-456");
+    dados.set("senhaAtual", "senha-antiga-123");
+    try {
+      for (let i = 0; i < LIMITE_POR_IP; i++) await tentativaDoIpLiberada("203.0.113.7");
+      const respostas = await Promise.all([
+        pedirRedefinicaoDeSenha({}, dadosEmail(ana.email)),
+        criarSenhaComLink({}, dados),
+        trocarSenha({}, dados),
+      ]);
+      for (const resposta of respostas) expect(resposta?.erro).toBe("Muitas tentativas seguidas. Espere alguns minutos e tente de novo.");
+      expect(contexto.depois).toHaveLength(0);
+      expect(await senhaConfere(ana.id, "senha-antiga-123")).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it.each(["ausente", "inválido"])("recusa as três ações com IP %s sem consumir cota", async (tipo) => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CLOUDFLARE_DEPLOY", "1");
+    vi.stubEnv("AUTENTICACAO_PROXY_CONFIAVEL", "1");
+    contexto.cabecalhos = { "x-vercel-forwarded-for": "203.0.113.7", "x-forwarded-for": "203.0.113.7", ...(tipo === "inválido" ? { "cf-connecting-ip": "inválido" } : {}) };
+    const ana = await criarConta();
+    contexto.usuario = ana;
+    const dados = dadosSenha("senha-nova-456");
+    dados.set("senhaAtual", "senha-antiga-123");
+    try {
+      const respostas = await Promise.all([
+        pedirRedefinicaoDeSenha({}, dadosEmail(ana.email)),
+        criarSenhaComLink({}, dados),
+        trocarSenha({}, dados),
+      ]);
+      for (const resposta of respostas) expect(resposta?.erro).toBe("Não foi possível continuar agora. Tente de novo mais tarde.");
+      expect(await db.tentativaAcesso.count()).toBe(0);
+      expect(contexto.depois).toHaveLength(0);
+      expect(await senhaConfere(ana.id, "senha-antiga-123")).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe("redefinirSenhaComLink", () => {
