@@ -30,7 +30,7 @@ const CAMPOS: Record<Acao, (alvos: Alvos) => Record<string, string>> = {
   publicarIndicacoesPendentes: () => ({}),
   aprovarReivindicacao: ({ reivindicacaoId }) => ({ reivindicacaoId, modo: "adicionar" }),
   recusarReivindicacao: ({ reivindicacaoId }) => ({ reivindicacaoId, motivo: "Prova de runtime" }),
-  moderarEmpresa: ({ empresaId }) => ({ empresaId, decisao: "rejeitar", aba: "negocios" }),
+  moderarEmpresa: ({ empresaId }) => ({ empresaId, de: "aprovada", decisao: "rejeitar", aba: "negocios" }),
   decidirDenuncia: ({ depoimentoId }) => ({ depoimentoId, decisao: "remover" }),
 };
 
@@ -310,7 +310,7 @@ describe("Next em produção", () => {
 
     it("executa moderarEmpresa e grava a decisão e a auditoria", async () => {
       log!.write("\nPROVA: POST moderarEmpresa como moderador\n");
-      const resposta = await enviar("moderarEmpresa", cookieModerador, { empresaId, decisao: "rejeitar", aba: "negocios" });
+      const resposta = await enviar("moderarEmpresa", cookieModerador, { empresaId, de: "aprovada", decisao: "rejeitar", aba: "negocios" });
       await resposta.text();
       expect(resposta.status).toBe(303);
       expect(resposta.headers.get("location")).toContain("aviso=feito");
