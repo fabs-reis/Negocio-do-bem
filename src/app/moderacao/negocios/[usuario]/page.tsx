@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { rotuloDoInstagram } from "@/lib/endereco";
 import { normalizarEndereco } from "@/lib/instagram";
+import { FormMotivo } from "./FormMotivo";
 
 export const metadata: Metadata = { title: "Editar perfil · Moderação", robots: { index: false } };
 
@@ -62,6 +63,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/neg
       </div>
 
       <EdicaoEmpresa empresa={empresa} voltar={`/moderacao/negocios/${empresa.instagramUsername}`} />
+      <FormMotivo empresaId={empresa.id} motivo={empresa.motivoIndicacao} />
     </div>
   );
 }

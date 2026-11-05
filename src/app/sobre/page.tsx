@@ -46,6 +46,13 @@ export default function Sobre() {
           </li>
         </ol>
 
+        <p>
+          Encontrou um dado errado num perfil que ainda não tem dono? Use <strong>“Algo errado? Avise a moderação”</strong>
+          {" "}no próprio perfil. Entre na sua conta, conte o problema e indique o dado certo ou peça a remoção.
+          O aviso e quem o enviou ficam visíveis apenas para a moderação, que confere e corrige os dados.
+          Não é preciso assumir o negócio para avisar um erro.
+        </p>
+
         <h2 id="dono" className="scroll-mt-24">
           Para donos de negócio
         </h2>

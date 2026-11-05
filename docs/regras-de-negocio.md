@@ -203,7 +203,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 | Grupo | Seção | O que mostra |
 | --- | --- | --- |
 | Painel | **Visão geral** (abre primeiro) | As filas que esperam a moderação, os números do projeto, a atividade das últimas semanas, o diretório por estado, tipo e causa, e a saúde dos dados. |
-| Filas | **Reivindicações**, **Indicações**, **Denúncias** | As filas que já existiam ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)). O menu mostra quantos itens esperam em cada uma. |
+| Filas | **Reivindicações**, **Indicações**, **Denúncias**, **Correções** | Pedidos e avisos que esperam análise ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)). O menu mostra quantos itens esperam em cada uma. |
 | Cadastros | **Negócios** | Todos os negócios, com filtros por situação ([seção 5](#editar-qualquer-perfil)). |
 | Cadastros | **Contas** | Todas as contas, com busca e filtros, e a ficha de cada uma. |
 | Cadastros | **Depoimentos** | Todos os depoimentos, publicados e removidos. |
@@ -378,7 +378,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
 - **Dados pedidos:** o @ do Instagram (ou "sem Instagram"), nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Causas e "por que você indica" são opcionais.
 - **Quem indica não publica contatos** (#105): site, WhatsApp, e-mail, telefone comercial e contato do dono ficam vazios numa indicação, mesmo que o envio traga algum. Quem cuida dos contatos é o dono.
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa. Sem Instagram, não há recusa: o endereço ganha `-2`, `-3`….
-- **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
+- **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história. Só a moderação pode corrigir ou apagar esse texto depois; cada alteração fica na auditoria.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
 - **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
 - **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
@@ -421,6 +421,20 @@ Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderaca
   - o @ continua ocupado, então ninguém consegue indicar de novo;
   - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação.
 
+### Avisos de correção de perfis sem dono
+
+Código: `src/acoes/correcoes.ts`, `/empresas/<endereço>/corrigir` e fila **Correções**.
+
+- Um perfil público sem vínculo de dono mostra “Dados enviados pela comunidade, ainda não confirmados pelo negócio” e “Algo errado? Avise a moderação”.
+- O aviso exige login. Pede o problema (10 a 1.000 caracteres), o dado certo ou pedido de remoção (2 a 1.000) e um link opcional (até 1.000, somente HTTP/HTTPS, sem credenciais). Não depende da confirmação do e-mail.
+- Só recebe aviso o negócio publicado, não oculto e sem dono no momento da conferência do envio. Não é preciso assumir o perfil para avisar.
+- Cada conta pode enviar **10 avisos em 24 horas**, contando também os encerrados. A cota e o envio usam a mesma transação, com trava na conta, inclusive para envios simultâneos.
+- O aviso, a fonte e a identidade de quem avisou são privados, visíveis só para a moderação. Enviar não altera o perfil nem concede propriedade.
+- A fila mostra os 50 pendentes mais antigos. A moderação abre **Editar perfil**, corrige o que for necessário e encerra o aviso como **corrigido** ou **sem mudança**. Se o negócio ganhar dono depois do aviso, a moderação ainda pode analisá-lo.
+- Duas decisões simultâneas não sobrescrevem uma à outra: só a primeira encerra; a outra recebe “já tinha sido decidida”. A decisão guarda revisor e data.
+- A edição pela moderação permite editar ou apagar o motivo da indicação de qualquer negócio, com limite de 600 caracteres. Vazio remove o texto.
+- Envio, decisão e edição do motivo gravam auditoria na mesma transação; falha na auditoria desfaz a operação. A auditoria referencia o aviso, sem copiar o conteúdo privado.
+
 ### Editar qualquer perfil
 
 Código: aba "Negócios" e `src/app/moderacao/negocios/[usuario]/page.tsx`.
@@ -433,7 +447,7 @@ Código: aba "Negócios" e `src/app/moderacao/negocios/[usuario]/page.tsx`.
   - Um aviso lembra que a edição é pela moderação e que fica registrada.
   - Se o negócio tem dono, o aviso pede para mudar só o necessário.
 - **No perfil público,** quem é da moderação (e não é dono) vê o botão **"Editar perfil (moderação)"**.
-- **Na auditoria,** toda edição da moderação ganha o sufixo `_pela_moderacao`. Exemplos: `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`.
+- **Na auditoria,** as edições gerais da moderação ganham o sufixo `_pela_moderacao`. Exemplos: `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`.
 
 ---
 
@@ -594,6 +608,8 @@ Até a [issue #193](https://github.com/fabs-reis/Negocio-do-bem/issues/193), hav
 ## 7. Perfil público e painel do dono
 
 ### O que o perfil mostra
+
+- Perfis públicos sem dono identificam os dados como enviados pela comunidade e oferecem o formulário privado de aviso à moderação (seção 5).
 
 Código: `src/app/empresas/[usuario]/page.tsx`.
 
@@ -973,6 +989,9 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `empresa.foto_trocada` / `empresa.foto_removida` | O dono trocou ou removeu a foto do perfil. |
 | `empresa.foto_do_instagram` | A rotina de fotos colocou a foto do Instagram num negócio sem foto. Os detalhes trazem o @. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
+| `empresa.motivo_editado` | A moderação corrigiu ou apagou o motivo da indicação. |
+| `correcao.enviada` | Uma conta enviou um aviso privado de erro no perfil. |
+| `correcao.corrigido` / `correcao.sem_mudanca` | A moderação encerrou o aviso, com revisor e data. |
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
 | `reivindicacao.recusada` | Um pedido foi recusado. Os detalhes trazem o motivo. |
@@ -1043,6 +1062,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
 | Quem denunciou e o motivo | `Depoimento` | Só a moderação. |
+| Aviso de correção, fonte, autoria e decisão | `CorrecaoPerfil` | Só a moderação. |
 | Auditoria | `RegistroAuditoria` | Só a moderação. |
 | Embaixadores: nome, @, cidade ou estado, foto e seguidores | `Embaixador` | **Público** na página inicial, em `/embaixadores` e na página da cidade, enquanto "Aparece no site" estiver marcado. A foto e os seguidores vêm do perfil público no Instagram, pela API oficial da Meta. |
 | Tentativas de login e cadastro | `TentativaAcesso` | Ninguém vê o IP nem o e-mail: só o sha256 deles e a contagem são guardados. A moderação vê só quantos contadores existem. |
@@ -1114,6 +1134,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Resumo | 10 a 160 caracteres | `src/acoes/empresas.ts` |
 | Sugestões do campo de cidade | até 8, a partir de 2 letras | `src/lib/municipios.ts` |
 | Motivo da indicação | até 600 caracteres | `src/acoes/empresas.ts` |
+| Avisos de correção por conta | 10 em 24 horas | `src/acoes/correcoes.ts` |
 | História | até 20 mil caracteres | `src/acoes/empresas.ts` |
 | Depoimento | 20 a 1.500 caracteres | `src/acoes/depoimentos.ts` |
 | Resposta do dono | até 1.000 caracteres | `src/acoes/depoimentos.ts` |
@@ -1183,6 +1204,8 @@ O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `
 ---
 
 ## 18. Comportamentos atuais que valem conhecer
+
+- **Correção de dados sem assumir o negócio:** uma conta pode avisar erros em perfis públicos sem dono. A moderação decide na fila Correções e pode também corrigir ou apagar o motivo da indicação.
 
 O sistema funciona hoje assim. Algumas destas situações podem ser intencionais e outras são lacunas. Antes de mudar qualquer uma, abra uma issue para combinar o caminho.
 

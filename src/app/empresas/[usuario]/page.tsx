@@ -87,6 +87,12 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <SeloStatus status={empresa.status} />
+            {publico && empresa.membros.length === 0 && (
+              <p className="text-sm text-suave">
+                Dados enviados pela comunidade, ainda não confirmados pelo negócio.{" "}
+                <Link href={`/empresas/${empresa.instagramUsername}/corrigir`} className="link">Algo errado? Avise a moderação</Link>
+              </p>
+            )}
             <h1 className="font-serif text-[clamp(1.75rem,5vw,2.625rem)] leading-[1.1] font-semibold tracking-tight text-balance">{empresa.nome}</h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-suave">
               {/* Sem WhatsApp, o botão principal já leva ao Instagram: não repete o link aqui. */}

@@ -39,6 +39,8 @@ model Usuario {
   reivindicacoes      Reivindicacao[]  @relation("Solicitante")
   revisoes            Reivindicacao[]  @relation("Revisor")
   registrosAuditoria  RegistroAuditoria[]
+  correcoes           CorrecaoPerfil[] @relation("AutorCorrecao")
+  correcoesRevisadas   CorrecaoPerfil[] @relation("RevisorCorrecao")
 }
 
 model Sessao {
@@ -145,9 +147,32 @@ model Empresa {
   depoimentos    Depoimento[]
   membros        EmpresaMembro[]
   reivindicacoes Reivindicacao[]
+  correcoes      CorrecaoPerfil[]
 
   @@index([moderacao, oculta, status])
   @@index([uf])
+}
+
+// Avisos privados: só a moderação pode consultar e decidir uma correção.
+model CorrecaoPerfil {
+  id            String   @id @default(cuid())
+  empresaId     String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  autorId       String?
+  autor         Usuario? @relation("AutorCorrecao", fields: [autorId], references: [id], onDelete: SetNull)
+  problema      String
+  correcao      String
+  fonte         String?
+  // "pendente" | "corrigido" | "sem_mudanca"
+  status        String   @default("pendente")
+  revisadoPorId String?
+  revisadoPor   Usuario? @relation("RevisorCorrecao", fields: [revisadoPorId], references: [id], onDelete: SetNull)
+  revisadoEm    DateTime?
+  criadoEm      DateTime @default(now())
+
+  @@index([status, criadoEm])
+  @@index([autorId, criadoEm])
+  @@index([empresaId])
 }
 
 model EmpresaCausa {

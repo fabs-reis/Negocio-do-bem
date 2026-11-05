@@ -694,6 +694,10 @@ No cliente, os formulários com `useActionState` usam `enviarSemLimpar` (`src/co
 
   Nenhuma das três consulta o banco. A página com erro continua respondendo com status 200: o erro aparece quando o navegador processa a página.
 
+### Correções de perfis (#176)
+
+Os avisos ficam em `CorrecaoPerfil`, separados dos dados públicos. A primeira entrega usa login, a cota transacional de dez avisos por conta em 24 horas e decisão manual na fila Correções. O formulário preserva os campos em erros; o aviso não aplica mudanças sozinho. A moderação usa a edição existente e um formulário próprio para o motivo da indicação. Decisões usam escrita condicional para que só uma vença; gravação e auditoria compartilham transação. `tests/db/correcoes.test.ts` exercita sessões reais no PostgreSQL, permissões, concorrência, validação e reversão se a auditoria falhar.
+
 ### Regras de negócio fora da interface
 
 Regra que decide algo importante vai para `src/lib/`, separada da tela e da Server Action. Assim ela pode ser testada sem navegador.
