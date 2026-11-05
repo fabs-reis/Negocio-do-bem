@@ -86,6 +86,11 @@ describe("jsonLdDoNegocio", () => {
     expect(ficha({ whatsapp: "5581999990000", telefoneComercial: "558133334444" }).telephone).toBe("+558133334444");
   });
 
+  it("inclui o mapa somente quando preenchido", () => {
+    expect(ficha({})).not.toHaveProperty("hasMap");
+    expect(ficha({ mapaUrl: "https://maps.app.goo.gl/exemplo" }).hasMap).toBe("https://maps.app.goo.gl/exemplo");
+  });
+
   it("negócio sem Instagram não aponta para o Instagram", () => {
     expect(ficha({ instagramUsername: "padaria-florescer-recife" }).sameAs).toEqual([]);
     expect(ficha({ instagramUsername: "padaria-florescer-recife", site: "https://padaria.exemplo" }).sameAs).toEqual([

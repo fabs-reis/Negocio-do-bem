@@ -15,6 +15,7 @@ const CAMPOS_DO_RASCUNHO = {
   site: 200,
   whatsapp: 30,
   emailContato: 200,
+  mapaUrl: 1000,
   emailDoDono: 200,
   telefoneDoDono: 30,
 } as const;

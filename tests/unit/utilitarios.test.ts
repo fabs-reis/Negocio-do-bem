@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
-import { campoEmail, campoSite, campoTelefone, campoWhatsapp } from "@/lib/formulario";
+import { campoEmail, campoMapa, campoSite, campoTelefone, campoWhatsapp } from "@/lib/formulario";
 import { formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
 
 describe("cnpjValido", () => {
@@ -140,5 +140,49 @@ describe("tempoDeLeitura", () => {
 
   it("nunca dá zero", () => {
     expect(tempoDeLeitura("")).toBe(1);
+  });
+});
+
+describe("campoMapa", () => {
+  it("limita também a URL normalizada e permite editar de novo a URL aceita", () => {
+    expect(campoMapa.safeParse(`maps.google.com/?q=${"a".repeat(975)}`).success).toBe(false);
+    const prefixo = "https://maps.google.com/?q=";
+    const noLimite = `${prefixo}${"a".repeat(1000 - prefixo.length)}`;
+    expect(noLimite).toHaveLength(1000);
+    expect(campoMapa.parse(noLimite)).toBe(noLimite);
+    expect(campoMapa.parse(campoMapa.parse("maps.google.com/?q=padaria"))).toBe("https://maps.google.com/?q=padaria");
+  });
+
+  it.each(["google.com", "www.google.com.br", "goo.gl"])("aceita somente o segmento maps em %s", (host) => {
+    expect(campoMapa.safeParse(`https://${host}/mapsfoo`).success).toBe(false);
+    expect(campoMapa.safeParse(`https://${host}/maps?q=padaria`).success).toBe(true);
+    expect(campoMapa.safeParse(`https://${host}/maps/place/padaria`).success).toBe(true);
+  });
+
+  it("recusa credenciais e portas não padrão", () => {
+    expect(campoMapa.safeParse("https://usuario:senha@maps.google.com/maps").success).toBe(false);
+    expect(campoMapa.safeParse("https://maps.google.com:8080/maps").success).toBe(false);
+  });
+  it("aceita vazio e links do Google Maps e do Apple Maps, sempre com https", () => {
+    expect(campoMapa.parse("")).toBeNull();
+    expect(campoMapa.parse(" https://maps.app.goo.gl/AbC123 ")).toBe("https://maps.app.goo.gl/AbC123");
+    expect(campoMapa.parse("maps.app.goo.gl/AbC123")).toBe("https://maps.app.goo.gl/AbC123");
+    expect(campoMapa.parse("https://www.google.com/maps/place/Padaria/@-8.05,-34.9,17z")).toBe(
+      "https://www.google.com/maps/place/Padaria/@-8.05,-34.9,17z",
+    );
+    expect(campoMapa.parse("https://www.google.com.br/maps?q=padaria")).toBe("https://www.google.com.br/maps?q=padaria");
+    expect(campoMapa.parse("http://maps.google.com/?q=padaria")).toBe("https://maps.google.com/?q=padaria");
+    expect(campoMapa.parse("https://goo.gl/maps/AbC123")).toBe("https://goo.gl/maps/AbC123");
+    expect(campoMapa.parse("https://maps.apple.com/?q=Padaria&ll=-8.05,-34.9")).toBe("https://maps.apple.com/?q=Padaria&ll=-8.05,-34.9");
+    expect(campoMapa.parse("https://maps.apple/p/AbC123")).toBe("https://maps.apple/p/AbC123");
+  });
+
+  it("recusa links que não são de mapa", () => {
+    expect(campoMapa.safeParse("https://www.google.com/search?q=padaria").success).toBe(false);
+    expect(campoMapa.safeParse("https://goo.gl/AbC123").success).toBe(false);
+    expect(campoMapa.safeParse("https://maps.google.com.golpe.example/").success).toBe(false);
+    expect(campoMapa.safeParse("https://meusite.com.br/maps").success).toBe(false);
+    expect(campoMapa.safeParse("javascript:alert(1)").success).toBe(false);
+    expect(campoMapa.safeParse("Rua das Flores, 10").success).toBe(false);
   });
 });

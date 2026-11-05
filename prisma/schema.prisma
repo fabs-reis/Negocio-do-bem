@@ -122,6 +122,8 @@ model Empresa {
   // Só dígitos, com o 55 do Brasil (ex.: 5511991488052).
   whatsapp          String?
   emailContato      String?
+  // Link do Google Maps ou Apple Maps, publicado pelo dono ou pela moderação.
+  mapaUrl           String?
   // Telefone do negócio, no mesmo formato do WhatsApp. Aparece no perfil.
   telefoneComercial String?
   // Contato de quem cadastrou o negócio como dono. Só o dono e a moderação veem.

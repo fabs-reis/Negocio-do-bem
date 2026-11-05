@@ -23,6 +23,7 @@ type DadosEmpresa = {
   site: string;
   whatsapp: string;
   emailContato: string;
+  mapaUrl: string;
   telefoneComercial: string;
   emailDoDono: string;
   telefoneDoDono: string;
@@ -78,6 +79,9 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
         </div>
         <Campo id="telefoneComercial" rotulo="Telefone comercial" erro={erros.telefoneComercial}>
           <input id="telefoneComercial" name="telefoneComercial" type="tel" maxLength={30} placeholder="(11) 3333-4444" defaultValue={valor("telefoneComercial")} className="campo" />
+        </Campo>
+        <Campo id="mapaUrl" rotulo="Link do mapa" erro={erros.mapaUrl} ajuda="No Google Maps ou no Apple Maps, abra o negócio, toque em Compartilhar e cole o link aqui.">
+          <input id="mapaUrl" name="mapaUrl" maxLength={1000} placeholder="https://maps.app.goo.gl/..." defaultValue={valor("mapaUrl")} className="campo" />
         </Campo>
         <Campo id="site" rotulo="Site" erro={erros.site}>
           <input id="site" name="site" maxLength={200} placeholder="www.meunegocio.com.br" defaultValue={valor("site")} className="campo" />
