@@ -20,7 +20,7 @@ import { buscarCausa, filtrarCausas, GRUPOS, type GrupoCausa } from "@/lib/causa
 import { buscarPerfil, ehDono, negociosParecidos, podeVerPerfil } from "@/lib/consultas";
 import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
-import { temInstagram } from "@/lib/endereco";
+import { temInstagram, formatarLocalizacao, enderecoPostalPublico } from "@/lib/endereco";
 import { linkPerfil, normalizarEndereco } from "@/lib/instagram";
 import { medirContato, type CanalDeContato } from "@/lib/medicao";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
@@ -117,6 +117,13 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
             <Acoes empresa={empresa} medir={!!contato} compartilhar={publico} />
           </div>
         </header>
+
+        {(empresa.bairro || empresa.localidade || empresa.regiaoAdministrativa || enderecoPostalPublico(empresa)) && (
+          <address className="mx-1 mt-6 text-sm break-words not-italic text-suave sm:mx-6">
+            <p>{formatarLocalizacao(empresa)}</p>
+            {enderecoPostalPublico(empresa) && <p className="mt-1">{enderecoPostalPublico(empresa)}</p>}
+          </address>
+        )}
 
         <p className="mx-1 mt-8 max-w-[52ch] border-l-[3px] border-coral py-0.5 pl-4 font-serif text-[1.375rem] leading-snug font-medium text-tinta italic text-pretty sm:mx-6">{empresa.resumo}</p>
 
