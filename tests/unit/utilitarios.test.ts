@@ -3,7 +3,7 @@ import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { campoEmail, campoSite, campoTelefone, campoWhatsapp } from "@/lib/formulario";
-import { formatarFavoritos, formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura, textoDoPrazo } from "@/lib/texto";
+import { comPontoFinal, formatarFavoritos, formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura, textoDoPrazo } from "@/lib/texto";
 
 describe("cnpjValido", () => {
   it("aceita CNPJ numérico válido, com ou sem pontuação", () => {
@@ -140,6 +140,15 @@ describe("tempoDeLeitura", () => {
 
   it("nunca dá zero", () => {
     expect(tempoDeLeitura("")).toBe(1);
+  });
+});
+
+describe("comPontoFinal", () => {
+  it("fecha a frase com ponto, sem dobrar o que já tem pontuação", () => {
+    expect(comPontoFinal("O contato do perfil mudou")).toBe("O contato do perfil mudou.");
+    expect(comPontoFinal("Golpe confirmado. ")).toBe("Golpe confirmado.");
+    expect(comPontoFinal("Vendeu o negócio?")).toBe("Vendeu o negócio?");
+    expect(comPontoFinal("  ")).toBe("");
   });
 });
 

@@ -4,7 +4,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { quemBateComAConta } from "@/lib/clube";
 import { cnpjValido, consultarCnpj, formatarCnpj, limparCnpj, type DadosCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
-import { formatarDataCurta, formatarTelefone, normalizarTexto } from "@/lib/texto";
+import { comPontoFinal, formatarDataCurta, formatarTelefone, normalizarTexto } from "@/lib/texto";
 
 type Negocio = { id: string; instagramUsername: string; cidade: string; uf: string };
 
@@ -79,7 +79,8 @@ export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: Negocio; c
                   ) : (
                     <p className="text-coral-700">
                       Suspenso em {formatarDataCurta(liberacao.decididoEm)}
-                      {liberacao.decididoPor && ` por ${liberacao.decididoPor.nome}`}. Motivo: {liberacao.motivo}
+                      {liberacao.decididoPor ? ` por ${liberacao.decididoPor.nome}` : " pelo sistema"}.
+                      {liberacao.motivo && ` Motivo: ${comPontoFinal(liberacao.motivo)}`}
                     </p>
                   )}
                 </li>
