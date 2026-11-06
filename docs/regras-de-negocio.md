@@ -1358,6 +1358,8 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 
 O clube é a [issue #248](https://github.com/fabs-reis/Negocio-do-bem/issues/248): negócios oferecem descontos por pouco tempo a quem chega pelo site. Os [favoritos](#favoritos) são a primeira parte; esta seção junta as próximas.
 
+A página pública `/clube-do-bem` explica o clube com prints, para quem compra e para o dono, e repete as proteções contra golpe e as dúvidas comuns. Ela está no sitemap e é ligada pelo cartão do clube no perfil ("Como funciona"), por Meus cupons, pelo painel do clube, pela página Como funciona e pelo rodapé. Quando uma regra desta seção mudar, confira se o texto da página e os prints ainda valem.
+
 ### Liberação para o clube
 
 Código: regras em `src/lib/clube.ts` (com testes em `tests/db/clube.test.ts`), ações em `src/acoes/clube.ts` e a tela em `src/app/moderacao/negocios/[usuario]/Clube.tsx`.

@@ -63,6 +63,10 @@ export default function Sobre() {
           Se outra pessoa já assumiu o seu perfil, use a mesma página para pedir a revisão. Qualquer disputa vai para a
           moderação, e todas as decisões ficam registradas.
         </p>
+        <p>
+          Negócios com CNPJ também podem oferecer cupons de desconto no <strong>Clube do Bem</strong>, de graça.{" "}
+          <Link href="/clube-do-bem">Veja como funciona</Link>.
+        </p>
 
         <h2 id="privacidade" className="scroll-mt-24">
           Privacidade e remoção

@@ -117,6 +117,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Para negócios</p>
               <Link href="/sobre#dono" className="block hover:text-tinta">Reivindicar meu perfil</Link>
+              <Link href="/clube-do-bem" className="block hover:text-tinta">Clube do Bem</Link>
               <Link href="/sobre#privacidade" className="block hover:text-tinta">Privacidade e remoção</Link>
             </div>
           </div>

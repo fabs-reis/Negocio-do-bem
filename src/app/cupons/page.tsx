@@ -43,7 +43,10 @@ async function Conteudo() {
   return (
     <div className="mt-2 space-y-8">
       <p className="text-suave">
-        Mostre o código na hora da compra. O Negócio do Bem nunca pede Pix nem pagamento para liberar cupom.
+        Mostre o código na hora da compra. O Negócio do Bem nunca pede Pix nem pagamento para liberar cupom.{" "}
+        <Link href="/clube-do-bem#para-quem-compra" className="link">
+          Como funciona
+        </Link>
       </p>
 
       {cupons.length === 0 ? (

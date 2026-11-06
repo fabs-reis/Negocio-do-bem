@@ -354,7 +354,10 @@ function OfertaDoClube({
       )}
       <p className="text-xs leading-relaxed text-suave">
         O Negócio do Bem nunca pede Pix nem pagamento para liberar cupom. O desconto vale na hora da compra, e quem garante é o
-        negócio.
+        negócio.{" "}
+        <Link href="/clube-do-bem" className="link">
+          Como funciona
+        </Link>
       </p>
     </div>
   );

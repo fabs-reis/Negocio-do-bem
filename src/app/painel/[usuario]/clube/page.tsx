@@ -89,6 +89,9 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         <div>
           <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Clube do Bem</p>
           <h1 className="mt-1 font-serif text-4xl font-semibold tracking-tight">Ofertas e cupons</h1>
+          <Link href="/clube-do-bem#para-negocios" className="link mt-2 inline-block text-sm">
+            Como funciona o Clube do Bem
+          </Link>
         </div>
         {/* Os avisos da validação aparecem junto do cupom, para onde a página volta. */}
         {!avisoDaValidacao && <AvisoDaUrl codigo={aviso} />}
