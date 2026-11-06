@@ -18,6 +18,8 @@ export type PreviaInstagram = {
   foto: string | null;
   /** Quantos seguem a conta. Usado nos embaixadores (src/lib/embaixadores.ts). */
   seguidores: number | null;
+  /** A bio do perfil. Vira o primeiro texto da página de um embaixador. */
+  bio: string | null;
 };
 
 /**
@@ -73,7 +75,7 @@ async function consultar(username: string): Promise<PreviaInstagram | null> {
   if (!config) return null;
   const url = new URL(`https://graph.facebook.com/${config.versao}/${config.igUserId}`);
   // O @ já passou por normalizarUsername: só letras, números, ponto e sublinhado.
-  url.searchParams.set("fields", `business_discovery.username(${username}){name,website,profile_picture_url,followers_count}`);
+  url.searchParams.set("fields", `business_discovery.username(${username}){name,website,profile_picture_url,followers_count,biography}`);
   try {
     const resposta = await fetch(url, {
       headers: { Authorization: `Bearer ${config.token}` },
@@ -89,6 +91,7 @@ async function consultar(username: string): Promise<PreviaInstagram | null> {
       site: texto(perfil.website, 200),
       foto: foto ? await baixarFoto(foto) : null,
       seguidores: Number.isSafeInteger(perfil.followers_count) && Number(perfil.followers_count) >= 0 ? Number(perfil.followers_count) : null,
+      bio: texto(perfil.biography, 300),
     };
   } catch {
     return null;

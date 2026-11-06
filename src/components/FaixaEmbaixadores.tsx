@@ -4,7 +4,6 @@ import { IconeLugar, RostoDoEmbaixador } from "@/components/Embaixadores";
 import { FaixaRolante } from "@/components/FaixaRolante";
 import { NOMES_UF, type Uf } from "@/lib/dominio";
 import { atualizarSeguidoresDoDia, embaixadoresNoSite, type EmbaixadorNoSite } from "@/lib/embaixadores";
-import { linkPerfil } from "@/lib/instagram";
 
 /**
  * A faixa escura da página inicial, com os rostos dos embaixadores marcados para
@@ -44,19 +43,13 @@ function Rosto({ embaixador }: { embaixador: EmbaixadorNoSite }) {
   const semNegocios = embaixador.destino.href === "/participar";
   return (
     <li className="flex w-40 shrink-0 flex-col items-center gap-1 text-center">
-      <RostoDoEmbaixador
-        embaixador={embaixador}
-        className="mb-2.5 h-21 w-21 text-[1.75rem] ring-2 ring-coral ring-offset-[3px] ring-offset-tinta escuro:ring-offset-superficie"
-      />
-      <a
-        href={linkPerfil(embaixador.instagramUsername)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="max-w-full truncate text-sm font-semibold hover:underline"
-        title={`${embaixador.nome} no Instagram`}
-      >
-        @{embaixador.instagramUsername}
-      </a>
+      <Link href={embaixador.href} className="group flex max-w-full flex-col items-center" title={`A página de ${embaixador.nome}`}>
+        <RostoDoEmbaixador
+          embaixador={embaixador}
+          className="mb-3.5 h-21 w-21 text-[1.75rem] ring-2 ring-coral ring-offset-[3px] ring-offset-tinta transition group-hover:ring-4 escuro:ring-offset-superficie"
+        />
+        <span className="max-w-full truncate text-sm font-semibold group-hover:underline">@{embaixador.instagramUsername}</span>
+      </Link>
       {embaixador.seguidores && <span className="text-[13px] text-papel/70 escuro:text-suave">{embaixador.seguidores} seguidores</span>}
       <Link
         href={embaixador.destino.href}

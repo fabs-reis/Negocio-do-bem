@@ -14,8 +14,9 @@ import { arquivoDaFoto, buscarPreviaDoInstagram, configPrevia } from "@/lib/prev
 import { normalizarTexto } from "@/lib/texto";
 
 // Embaixadores do bem (#250): quem leva o projeto para uma cidade ou um estado
-// inteiro. A moderação cadastra; o site mostra na página inicial, em /embaixadores
-// e na página da cidade. Os seguidores e a foto vêm da API oficial da Meta, a
+// inteiro. A moderação cadastra; o site mostra na página inicial, em /embaixadores,
+// na página da cidade e na página de cada um (/embaixadores/<@>, #259). Os
+// seguidores, a foto e a primeira versão do "Sobre" vêm da API oficial da Meta, a
 // mesma da prévia do cadastro (src/lib/previa-instagram.ts).
 
 /**
@@ -41,6 +42,22 @@ export function lugarDoEmbaixador({ cidade, uf }: Lugar): string {
 export function tituloNaCidade({ titulo, cidade }: { titulo: string; cidade: string | null }): string {
   const nome = TITULOS_EMBAIXADOR[titulo as TituloEmbaixador] ?? TITULOS_EMBAIXADOR.embaixadora;
   return cidade ? `${nome} em ${cidade}` : `${nome} de todo o estado`;
+}
+
+/** "Embaixadora do bem · Curitiba, PR": o rótulo da página do embaixador. */
+export function tituloComLugar(embaixador: { titulo: string } & Lugar): string {
+  const nome = TITULOS_EMBAIXADOR[embaixador.titulo as TituloEmbaixador] ?? TITULOS_EMBAIXADOR.embaixadora;
+  return `${nome} do bem · ${lugarDoEmbaixador(embaixador)}`;
+}
+
+/** A página do embaixador, pelo @: o link para divulgar no Instagram. */
+export function hrefDoEmbaixador(instagramUsername: string): string {
+  return `/embaixadores/${instagramUsername}`;
+}
+
+/** O "Onde?" do diretório para os negócios da região: a cidade, ou o estado inteiro. */
+export function ondeDoEmbaixador({ cidade, uf }: Lugar): string {
+  return cidade ? `${cidade}, ${uf}` : rotuloEstado(uf as Uf);
 }
 
 export type DestinoDoEmbaixador = { href: string; detalhe: string };
@@ -74,6 +91,9 @@ export type EmbaixadorNoSite = {
   lugar: string;
   naInicial: boolean;
   destino: DestinoDoEmbaixador;
+  /** A página do embaixador. */
+  href: string;
+  sobre: string | null;
 };
 
 /** Os embaixadores no ar, na ordem da moderação, com o lugar e o link de cada um. Lido uma vez por requisição. */
@@ -95,8 +115,17 @@ export const embaixadoresNoSite = cache(async (): Promise<EmbaixadorNoSite[]> =>
     lugar: lugarDoEmbaixador(e),
     naInicial: e.naInicial,
     destino: destinoDoEmbaixador(e, cidades),
+    href: hrefDoEmbaixador(e.instagramUsername),
+    sobre: e.sobre,
   }));
 });
+
+/** O embaixador da página /embaixadores/<@>, só se estiver no site. Aceita o @ com maiúsculas ou "@". */
+export async function embaixadorDoEndereco(endereco: string): Promise<EmbaixadorNoSite | null> {
+  const username = normalizarUsername(endereco);
+  if (!username) return null;
+  return (await embaixadoresNoSite()).find((e) => e.instagramUsername === username) ?? null;
+}
 
 /** Na página de uma cidade: quem cobre a cidade e, depois, quem cobre o estado inteiro. */
 export function embaixadoresDaCidade<T extends Lugar>(lista: T[], cidade: string, uf: string): T[] {
@@ -111,6 +140,7 @@ export type DadosEmbaixador = {
   instagramUsername: string;
   nome: string;
   titulo: TituloEmbaixador;
+  sobre: string | null;
   cidade: string | null;
   uf: Uf;
   seguidoresManual: boolean;
@@ -123,6 +153,7 @@ export type DadosEmbaixador = {
 
 const TITULOS = Object.keys(TITULOS_EMBAIXADOR) as [TituloEmbaixador, ...TituloEmbaixador[]];
 const MAXIMO_DE_SEGUIDORES = 1_000_000_000;
+export const MAXIMO_DO_SOBRE = 600;
 
 const esquema = z.object({
   instagram: z.string().transform((valor, ctx) => {
@@ -133,6 +164,12 @@ const esquema = z.object({
   }),
   nome: z.string().trim().min(2, "Qual nome aparece no site?").max(60, "Use até 60 caracteres."),
   titulo: z.enum(TITULOS, { error: "Escolha como chamar." }),
+  // Vazio no cadastro: a bio do Instagram entra no lugar (atualizarPeloInstagram).
+  sobre: z
+    .string()
+    .transform((valor) => valor.replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim())
+    .pipe(z.string().max(MAXIMO_DO_SOBRE, `Use até ${MAXIMO_DO_SOBRE} caracteres.`))
+    .transform((valor) => valor || null),
   ordem: z.coerce.number({ error: "Use um número." }).int("Use um número inteiro.").min(0, "Use 0 ou mais.").max(999, "Use até 999."),
 });
 
@@ -157,6 +194,7 @@ export function lerEmbaixador(dados: FormData): { dados: DadosEmbaixador } | { e
       instagram: texto(dados, "instagram"),
       nome: texto(dados, "nome"),
       titulo: texto(dados, "titulo"),
+      sobre: texto(dados, "sobre"),
       ordem: texto(dados, "ordem") || "0",
     }),
     porEstado ? esquemaEstado.safeParse({ uf: texto(dados, "uf") }) : esquemaCidade.safeParse({ municipio: texto(dados, "municipio") }),
@@ -172,6 +210,7 @@ export function lerEmbaixador(dados: FormData): { dados: DadosEmbaixador } | { e
       instagramUsername: comuns.data.instagram,
       nome: comuns.data.nome,
       titulo: comuns.data.titulo,
+      sobre: comuns.data.sobre,
       ...("municipio" in lugar.data ? { cidade: lugar.data.municipio.nome, uf: lugar.data.municipio.uf as Uf } : { cidade: null, uf: lugar.data.uf }),
       seguidoresManual,
       seguidores: numero?.success ? numero.data.seguidores : null,
@@ -214,10 +253,11 @@ export type ResultadoDoInstagram = "atualizado" | "sem_resposta";
 /**
  * Consulta o @ no Instagram e grava os seguidores, a menos que a moderação tenha
  * digitado o número. A foto só entra se o embaixador estiver sem: a enviada pela
- * moderação nunca é trocada. "sem_resposta": conta pessoal ou privada, @ errado,
- * token vencido ou a Meta fora do ar.
+ * moderação nunca é trocada. Com `comBio` (pedido da moderação, nunca a consulta
+ * do dia), a bio entra no "Sobre" vazio. "sem_resposta": conta pessoal ou privada,
+ * @ errado, token vencido ou a Meta fora do ar.
  */
-export async function atualizarPeloInstagram(id: string, agora = new Date()): Promise<ResultadoDoInstagram> {
+export async function atualizarPeloInstagram(id: string, agora = new Date(), { comBio = false } = {}): Promise<ResultadoDoInstagram> {
   const embaixador = await db.embaixador.update({
     where: { id },
     data: { consultadoEm: agora },
@@ -231,6 +271,7 @@ export async function atualizarPeloInstagram(id: string, agora = new Date()): Pr
       data: { seguidores: previa.seguidores, seguidoresEm: agora },
     });
   }
+  if (comBio && previa.bio) await db.embaixador.updateMany({ where: { id, sobre: null }, data: { sobre: previa.bio } });
   if (!embaixador.fotoUrl && previa.foto) await gravarFotoDoInstagram(id, previa.foto);
   return "atualizado";
 }

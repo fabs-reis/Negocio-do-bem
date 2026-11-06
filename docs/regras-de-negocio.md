@@ -64,7 +64,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
 - **Contas sem telefone:** as criadas antes do telefone ser obrigatório ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191)) continuam sem ele e funcionam igual. Ninguém é obrigado a informar depois.
 - **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?").
 - **Login** (`/entrar`): e-mail e senha.
-  - O erro é sempre o mesmo, "E-mail ou senha incorretos".
+  - Senha incorreta, conta inexistente e limite de tentativas mostram o mesmo erro, "E-mail ou senha incorretos". Sem IP confiável em produção, aparece o aviso temporário descrito abaixo.
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
   - A conta sem senha (criada pelo Google, ou ligada a ele com o e-mail sem confirmar) também é conferida contra o hash falso e recebe o mesmo "E-mail ou senha incorretos". Ela entra pelo Google ou por link no e-mail, e pode criar uma senha pelo link de senha nova (veja "Esqueci minha senha", abaixo).
   - Embaixo da senha, "Esqueceu a senha? Crie uma nova ou entre com um link por e-mail." leva a `/esqueci-a-senha` e a `/entrar/link`.
@@ -91,9 +91,9 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - **por IP:** 10 tentativas de login, cadastro, troca de senha no painel, pedido de senha nova em `/esqueci-a-senha` e senha nova pelo link, somadas, a cada 15 minutos;
   - **de onde vem o IP:** no Cloudflare, só do cabeçalho `cf-connecting-ip`, escrito pela rede, quando `CLOUDFLARE_DEPLOY=1`; no Vercel, só do cabeçalho `x-vercel-forwarded-for`, que o Vercel escreve. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
   - **IPv6:** o IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) conta como o IPv4. Os outros endereços IPv6 contam pelo prefixo /64, então todos os endereços da mesma rede dividem a cota;
-  - **sem IP conhecido** (fora do Vercel/Cloudflare sem proxy declarado, ou cabeçalho ausente ou inválido), todas as tentativas dividem um contador só, de 10 a cada 15 minutos. É o lado seguro: o cadastro não tem limite por e-mail, e sem esse contador o scrypt ficaria sem freio. O custo é que, sem o proxy declarado, quem tenta entrar pode ficar recusado por causa dos outros visitantes;
+  - **sem IP confiável:** em produção, login, cadastro, pedido de recuperação, envio de senha pelo link e troca no painel são recusados antes da senha e sem criar contador. O servidor registra um aviso de configuração. Em desenvolvimento e nos testes, essas ações seguem sem limite por IP, e o limite por e-mail continua valendo;
   - **por e-mail, em cada origem:** 5 tentativas de senha a cada 15 minutos para o mesmo e-mail, vindas do mesmo IP (ou do mesmo /64 no IPv6). Cada origem tem o próprio contador, então quem erra a senha de outra pessoa não a impede de entrar de outro lugar. Sem IP conhecido, as tentativas sem IP dividem um contador por e-mail. A tentativa é contada antes de a senha ser conferida, e não depois: assim, tentativas que chegam juntas não passam todas. A sexta já nem chega à conferência, mesmo com a senha certa. Vale também para a senha atual digitada na troca de senha do painel. Um login certo zera a contagem daquele e-mail naquela origem. Trocar a senha, no painel ou pelo link, zera a contagem daquele e-mail em todas as origens: quem esqueceu a senha costuma errar algumas vezes antes de pedir o link, e a senha nova não pode ficar recusada até a janela vencer;
-  - no login, a recusa pelo limite mostra o mesmo "E-mail ou senha incorretos", para não revelar quais e-mails existem. No cadastro, na troca de senha e nos pedidos de senha nova, aparece "Muitas tentativas seguidas. Espere alguns minutos e tente de novo";
+  - no login, a recusa pelo limite mostra o mesmo "E-mail ou senha incorretos", para não revelar quais e-mails existem. No cadastro, na troca de senha e nos pedidos de senha nova, aparece "Muitas tentativas seguidas. Espere alguns minutos e tente de novo". Sem IP confiável em produção, aparece uma mensagem de falha temporária;
   - o banco guarda só o hash (sha256) do IP e do e-mail, e as janelas vencidas são apagadas na tentativa seguinte. A linha do limite por e-mail guarda também o hash só do e-mail (`TentativaAcesso.email`), para a troca de senha achar as de todas as origens.
 - **Senha:**
   - guardada com scrypt (N=2^15, r=8, p=1, sal aleatório de 16 bytes) no formato `scrypt$N$r$p$sal$hash`;
@@ -119,6 +119,9 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - o cookie `ndb_sessao` é `httpOnly`, `sameSite=lax` e `secure` em produção, e guarda um token aleatório;
   - o banco guarda só o SHA-256 do token, então quem lê o banco não consegue se passar pela pessoa;
   - "Sair" apaga a sessão do banco e o cookie.
+  - sessões vencidas não autorizam acesso. A manutenção manual `npm run sessoes:limpar` conta essas sessões sem gravar. Com `-- --aplicar`, remove somente um lote de até 100 sessões por padrão. `--lote` aceita de 1 a 1000, sem repetir lotes automaticamente.
+  - cada execução fixa a referência UTC no menor instante entre o início local e a leitura do relógio do PostgreSQL. Assim, um computador de manutenção adiantado não antecipa a exclusão. Só entra no lote quem tem `expiraEm <= referência`. A exclusão confere esse vencimento novamente, preservando sessões renovadas depois da seleção.
+  - a limpeza não altera contas, links por e-mail, tentativas de acesso, negócios, pedidos, depoimentos ou auditoria. Não é executada no login, no build ou por agendamento. Não define retenção para outros dados nem apaga backups.
 - **Volta para onde a pessoa estava:**
   - páginas que exigem login mandam para `/entrar?voltar=<caminho>`;
   - o `voltar` só aceita caminhos internos (`caminhoSeguro`), para não virar um redirecionamento para outro site;
@@ -595,26 +598,35 @@ Até a [issue #193](https://github.com/fabs-reis/Negocio-do-bem/issues/193), hav
 
 Código: `src/app/empresas/[usuario]/page.tsx`.
 
-- **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @.
+- **Capa.** Uma faixa no topo, sem foto do negócio (cada negócio só tem a foto de perfil):
+  - a foto da cidade (`fotoDaCidade`, a mesma da página da cidade), com o crédito de autor e licença do Commons;
+  - sem foto da cidade, o banner da marca: o ícone em creme sobre o laranja e "Compre de quem faz o bem.".
+- **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @. Fica sobre a capa.
 - **Selo:**
   - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
-- **Botões de contato** (só os preenchidos). WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
-  - telefone comercial, "Ligar", que abre `tel:`;
-  - WhatsApp, com o ícone, que abre `wa.me`;
-  - Instagram, com o ícone, que abre o perfil (só para quem tem Instagram);
+- **Ação principal e "Compartilhar".** O botão grande é "Chamar no WhatsApp"; sem WhatsApp, "Ver no Instagram" (só para quem tem Instagram); sem nenhum dos dois, não há botão. Quando o botão já leva ao Instagram, o @ não repete o link abaixo do nome; com WhatsApp, o @ continua com link ali. "Compartilhar" copia o endereço do perfil e só aparece para perfis do diretório.
+- **"Favoritar",** com o coração, ao lado de "Compartilhar", num negócio do diretório, para quem não é dono, junto com quantas pessoas já favoritaram (veja [Favoritos](#favoritos)). O dono vê esse número ao lado de "Editar meu perfil".
+- **Cartão de contato** (coluna da direita no computador, logo abaixo do topo no celular), só com o que está preenchido. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
+  - telefone comercial, que abre `tel:`;
+  - WhatsApp, que abre `wa.me`;
+  - Instagram (só para quem tem Instagram);
   - site, que mostra o domínio sem `www`;
-  - e-mail, que abre `mailto:`.
-- **Resumo** e **causas** como selos.
-- **O coração com "Favoritar",** num negócio do diretório, para quem não é dono (veja [Favoritos](#favoritos)).
+  - e-mail, que abre `mailto:`;
+  - cidade, com link para a página da cidade nos perfis do diretório.
+- **Resumo.**
 - **"Nossa história",** com "N min de leitura · atualizada em …". Sem história:
   - para o dono, um convite para escrever;
   - para os outros, o motivo da indicação e o nome de quem indicou, se houver;
   - senão, "A história deste negócio ainda vai ser contada."
+- **"O que este negócio defende":** as causas como selos, separadas nos grupos do filtro do diretório (trabalho digno, diversidade e respeito, comunidade e planeta). Só os grupos com causas aparecem, e cada selo leva à página da causa nos perfis do diretório.
 - **"Este negócio é seu? Sou o dono",** se o perfil ainda não foi assumido e quem vê não é dono.
-- **Depoimentos** (ver [seção 10](#10-depoimentos-e-denúncias)).
+- **Depoimentos** (ver [seção 10](#10-depoimentos-e-denúncias)). A lista vem antes do formulário. O dono vê um botão para copiar o link dos depoimentos e mandar a clientes.
 - **"Este perfil é seu e outra pessoa assumiu? Fale com a moderação",** se o perfil já foi assumido e quem vê não é dono. O link leva à página de reivindicação.
+- **"Mais negócios do bem em {cidade}":** até 4 outros negócios do diretório na mesma cidade e UF (`negociosParecidos`), os do mesmo tipo primeiro e, em cada grupo, os assumidos antes. Só nos perfis do diretório e só quando há outro negócio na cidade.
+
+**Campo vazio não deixa bloco em branco:** cada bloco só aparece quando o dado existe.
 
 **Botões de edição:**
 
@@ -642,7 +654,7 @@ Para todo o resto, a página responde 404. Quem pode ver encontra um aviso no to
 Código: `favoritar` em `src/acoes/favoritos.ts`, o coração em `src/components/CoracaoFavorito.tsx`, `coracoesDaLista` em `src/lib/consultas.ts` e a página em `src/app/favoritos/`.
 
 - **O coração** aparece:
-  - no perfil, embaixo das causas, com o texto "Favoritar";
+  - no perfil, nas ações do topo, ao lado de "Compartilhar", com o texto "Favoritar";
   - no canto de cada card do diretório (`/explorar`, nas duas vistas, e nas páginas de cidade, causa e tipo) e da página Favoritos.
 - **Só num negócio do diretório** (publicado e não oculto), com ou sem dono. O dono não vê o coração nos próprios negócios.
 - **Precisa de login.** Sem login, o coração leva a `/entrar` e volta para a página em que a pessoa estava. Não pede o e-mail confirmado, porque favoritar não publica nada.
@@ -1002,6 +1014,7 @@ O que **não** vai para a auditoria hoje:
 - criação e cancelamento de pedidos de reivindicação (eles ficam na própria tabela de reivindicações);
 - depoimentos, respostas e denúncias;
 - envio de fotos da história.
+- limpeza manual de sessões vencidas. O comando mostra somente totais e a referência, sem guardar identificadores de sessão.
 
 Para uma ação nova de moderação, registre sempre na auditoria e dê a ela uma descrição em `ACOES_AUDITORIA`.
 
@@ -1141,6 +1154,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Negócios por página no diretório | 18 | `src/lib/consultas.ts` |
 | Negócios por página em Favoritos | 18 | `src/lib/consultas.ts` |
 | Nome do embaixador | 2 a 60 caracteres | `src/lib/embaixadores.ts` |
+| Sobre do embaixador | até 600 caracteres | `src/lib/embaixadores.ts` |
 | Ordem dos embaixadores | 0 a 999 | `src/lib/embaixadores.ts` |
 | Consulta ao Instagram de cada embaixador | no máximo 1 a cada 24 horas | `src/lib/embaixadores.ts` |
 | Embaixadores consultados por visita | até 25 | `src/lib/embaixadores.ts` |
@@ -1228,7 +1242,7 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 - Não há troca de nome ou e-mail, nem exclusão da conta. A confirmação de e-mail existe, mas está desligada (veja [E-mail confirmado e links por e-mail](#e-mail-confirmado-e-links-por-e-mail)).
 - Um link de senha nova aberto e não usado fica no cookie de `/link` até vencer (1 hora) ou até outro link substituí-lo. Quem usar o mesmo navegador nesse meio-tempo pode abrir `/link` e criar a senha. O mesmo vale para o link de entrar, por 15 minutos.
 - Não há registro do último acesso: "Sair" apaga a sessão, então o painel só sabe das sessões que continuam abertas.
-- Sessões vencidas deixam de valer, mas não são apagadas do banco.
+- Sessões vencidas deixam de valer e permanecem no banco até uma aplicação explícita do comando de limpeza. Não há descarte automático.
 - O e-mail da conta não é confirmado. Um aviso pode ir para um endereço digitado errado, e ninguém fica sabendo.
 
 **Fotos**
@@ -1241,7 +1255,7 @@ Os [próximos passos do README](../README.md#próximos-passos-sugeridos) listam 
 
 ## 19. Embaixadores do bem
 
-Código: `src/lib/embaixadores.ts` (regras, consultas e a consulta ao Instagram), `src/acoes/embaixadores.ts`, `src/app/embaixadores/`, `src/app/moderacao/embaixadores/`, `src/components/Embaixadores.tsx`, `src/components/FaixaEmbaixadores.tsx` e `src/components/FaixaRolante.tsx`, com testes em `tests/unit/embaixadores.test.ts` e `tests/db/embaixadores.test.ts`. Decidida na [issue #250](https://github.com/fabs-reis/Negocio-do-bem/issues/250).
+Código: `src/lib/embaixadores.ts` (regras, consultas e a consulta ao Instagram), `src/acoes/embaixadores.ts`, `src/app/embaixadores/`, `src/app/moderacao/embaixadores/`, `src/app/embaixadores/[usuario]/` (a página de cada um, #259), `src/components/Embaixadores.tsx`, `src/components/FaixaEmbaixadores.tsx` e `src/components/FaixaRolante.tsx`, com testes em `tests/unit/embaixadores.test.ts` e `tests/db/embaixadores.test.ts`. Decidida na [issue #250](https://github.com/fabs-reis/Negocio-do-bem/issues/250).
 
 Embaixadores são pessoas, em geral influenciadores, que levam o projeto para uma cidade ou um estado inteiro. Eles não são contas do site: só a moderação cadastra, na aba "Embaixadores".
 
@@ -1250,6 +1264,10 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 - **@ do Instagram:** um por embaixador, normalizado como o @ dos negócios.
 - **Nome que aparece no site:** 2 a 60 caracteres.
 - **Como chamar:** "Embaixadora", "Embaixador" ou "Pessoa embaixadora". É o texto da página da cidade ("Embaixadora em Salvador").
+- **Sobre:** até 600 caracteres, na página do embaixador. Os espaços das pontas saem, e mais de uma linha em branco seguida vira uma só.
+  - Deixado em branco no cadastro (ou ao trocar o @), recebe a bio do Instagram. A moderação ajusta o texto depois.
+  - Vazio numa edição, recebe a bio quando a moderação clica em "Atualizar pelo Instagram agora".
+  - A consulta do dia nunca mexe nele, e a bio nunca substitui um texto escrito.
 - **Onde atua:** uma cidade da lista do IBGE ou um estado inteiro.
 - **Ordem:** de 0 a 999, do menor para o maior, na faixa e em `/embaixadores`. O empate vai pelo nome.
 - **"Na faixa da página inicial"** e **"Aparece no site":** fora do site, o embaixador não aparece em lugar nenhum.
@@ -1262,13 +1280,23 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
   - Os rostos passam sozinhos num loop, 5 segundos por embaixador, quando não cabem na largura. Cabendo, ficam parados e no centro.
   - A faixa para com o mouse em cima, com o foco do teclado e com o botão "Pausar". Para quem pede menos movimento no aparelho, fica parada e rola para o lado.
   - O loop usa uma cópia dos rostos, que fica fora do leitor de tela e do Tab.
+  - O rosto e o @ levam à página do embaixador; o botão da cidade, aos negócios de lá.
 - **`/embaixadores`:**
   - todos os que estão no site;
   - o alcance somado: seguidores, cidades e estados inteiros;
   - o filtro por estado (`?estado=BA`; só vale uma UF de verdade), que aparece quando há embaixadores em mais de um estado;
   - o convite "Quer ser embaixador do bem?", que abre um e-mail para ola@negociodobem.com.
   - Está no rodapé, no sitemap e no `llms.txt`.
-- **Página da cidade:** abaixo da introdução, quem cobre a cidade ("Embaixadora em Salvador") e, numa linha embaixo, quem cobre o estado inteiro ("Embaixadora de todo o estado"). A cidade é comparada sem acentos e maiúsculas.
+  - O nome e o @ de cada cartão levam à página do embaixador.
+- **Página da cidade:** abaixo da introdução, quem cobre a cidade ("Embaixadora em Salvador") e, numa linha embaixo, quem cobre o estado inteiro ("Embaixadora de todo o estado"). A cidade é comparada sem acentos e maiúsculas. O botão "Ver a página" e os nomes levam à página de cada um.
+- **Página do embaixador (`/embaixadores/<@>`):** o link para divulgar no Instagram. O @ aceita maiúsculas e "@" no começo.
+  - em cima, o rótulo ("Embaixadora do bem · Curitiba, PR"), o nome e o Sobre. Sem Sobre, uma frase padrão diz para onde a pessoa leva o projeto;
+  - ao lado (em cima, no celular), a foto, o @, os seguidores e o botão "Seguir no Instagram", o único link para fora;
+  - abaixo, os negócios da região, como na página da cidade: os da cidade, ou os do estado para quem cobre o estado inteiro, com "Ver todos no diretório", os tipos de negócio e as causas de lá;
+  - no fim, os links para os outros embaixadores;
+  - a prévia do link mostra a foto, o nome, o @, onde atua e os seguidores;
+  - embaixador fora do site, ou @ que não é de embaixador, mostra "Não encontramos esta página";
+  - está no sitemap.
 
 ### Para onde leva o cartão
 
@@ -1286,11 +1314,11 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
   - abaixo de 1 milhão, sem casa ("131 mil");
   - daí em diante, em milhões ("1,2 mi").
   - Sem número, o cartão aparece sem os seguidores.
-- **De onde vem:** da API oficial da Meta (Business Discovery, `followers_count`), a mesma da prévia do cadastro, com as variáveis `META_ACCESS_TOKEN` e `META_IG_USER_ID`. Ela só lê contas comerciais e de criador.
+- **De onde vem:** da API oficial da Meta (Business Discovery, `followers_count`; a bio vem de `biography`), a mesma da prévia do cadastro, com as variáveis `META_ACCESS_TOKEN` e `META_IG_USER_ID`. Ela só lê contas comerciais e de criador.
 - **Quando atualiza:**
   - ao cadastrar o embaixador ou trocar o @;
   - pelo botão "Atualizar pelo Instagram agora", na página do embaixador;
-  - uma vez por dia, depois que alguém abre a página inicial ou `/embaixadores`. A consulta roda depois da resposta (`after`), sem fazer a pessoa esperar.
+  - uma vez por dia, depois que alguém abre a página inicial, `/embaixadores` ou a página de um embaixador. A consulta roda depois da resposta (`after`), sem fazer a pessoa esperar.
 - **Na consulta do dia:**
   - cada embaixador no site é consultado no máximo uma vez a cada 24 horas, com ou sem resposta, até 25 por visita;
   - duas visitas ao mesmo tempo não consultam o mesmo @: cada uma marca o embaixador antes de consultar, e só uma consegue.

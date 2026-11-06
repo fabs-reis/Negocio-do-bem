@@ -23,11 +23,17 @@ afterEach(() => {
 });
 
 describe("prévia do Instagram", () => {
-  it("devolve o nome, o site e a foto em data URL", async () => {
+  it("devolve o nome, o site, a bio e a foto em data URL", async () => {
     const fetch = vi.fn(async (url: URL | string) =>
       String(url).startsWith("https://graph.facebook.com/")
         ? respostaJson({
-            business_discovery: { name: " Padaria Flor ", website: "https://padariaflor.com.br", profile_picture_url: FOTO, followers_count: 48231 },
+            business_discovery: {
+              name: " Padaria Flor ",
+              website: "https://padariaflor.com.br",
+              profile_picture_url: FOTO,
+              followers_count: 48231,
+              biography: " Pão de fermentação natural\nNo Rio Vermelho ",
+            },
           })
         : respostaImagem(100),
     );
@@ -35,11 +41,16 @@ describe("prévia do Instagram", () => {
 
     const previa = await buscarPreviaDoInstagram("padaria.flor");
 
-    expect(previa).toMatchObject({ nome: "Padaria Flor", site: "https://padariaflor.com.br", seguidores: 48231 });
+    expect(previa).toMatchObject({
+      nome: "Padaria Flor",
+      site: "https://padariaflor.com.br",
+      seguidores: 48231,
+      bio: "Pão de fermentação natural\nNo Rio Vermelho",
+    });
     expect(previa?.foto).toMatch(/^data:image\/jpeg;base64,/);
     const consulta = new URL(String(fetch.mock.calls[0]![0]));
     expect(consulta.pathname).toBe("/v26.0/17841400000000000");
-    expect(consulta.searchParams.get("fields")).toBe("business_discovery.username(padaria.flor){name,website,profile_picture_url,followers_count}");
+    expect(consulta.searchParams.get("fields")).toBe("business_discovery.username(padaria.flor){name,website,profile_picture_url,followers_count,biography}");
   });
 
   it("sem as variáveis, não chama a Meta", async () => {

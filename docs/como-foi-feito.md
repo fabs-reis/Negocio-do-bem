@@ -530,6 +530,28 @@ Influenciadores que levam o projeto para a cidade ou o estado deles ganharam uma
 - **Os seguidores aparecem, mas não ordenam.** A ordem é a que a moderação escolhe, e o número é o do Instagram, não uma nota do site: o princípio de [sem ranking](#sem-ranking-e-sem-anúncio-pago) continua valendo para os negócios.
 - **Embaixador não é conta do site.** Só a moderação cadastra, e quem cobre o estado inteiro aparece em todas as cidades dele. Ligar o embaixador a uma conta, para mostrar quantos negócios ele indicou, ficou para depois.
 
+### 3 de novembro: a página de cada embaixador ([#259](https://github.com/fabs-reis/Negocio-do-bem/issues/259))
+
+Faltava um link de cada embaixador para divulgar no Instagram, na bio e nos stories. O nome e o @ levavam direto ao Instagram, e o site não tinha uma página que fosse da pessoa. Agora `/embaixadores/<@>` mostra quem é, o "Sobre" e os negócios da região, e a faixa, os cartões e a página da cidade levam para lá.
+
+- **O endereço é o @.** Quem divulga já conhece o próprio @, e o link fica igual ao do Instagram: `negociodobem.com/embaixadores/alodiario_literario`.
+- **A página reaproveita a da cidade.** O `Vitrine` já tinha a introdução, a capa ao lado e a lista de negócios com os atalhos. A capa virou o perfil do Instagram, e o `Vitrine` ganhou só o título da lista ("Negócios do bem em Curitiba, PR").
+- **O "Sobre" começa com a bio, mas é da moderação.** A bio vem na mesma consulta à Meta dos seguidores (`biography`) e só entra num "Sobre" vazio, quando a moderação cadastra ou clica em "Atualizar pelo Instagram agora". A consulta do dia nunca mexe nele: o texto ajustado pela moderação não volta a ser a bio.
+- **O Instagram ficou num botão só,** "Seguir no Instagram", na página do embaixador. Os outros links ficam dentro do site, onde estão os negócios.
+- **A prévia do link é própria,** com a foto e o nome, porque é ela que aparece quando o link é colado no Instagram ou no WhatsApp.
+
+### 3 de novembro: o perfil do negócio ganha capa e duas colunas ([#260](https://github.com/fabs-reis/Negocio-do-bem/issues/260))
+
+O perfil só contava quem é o negócio, em texto simples e com os botões todos iguais. A página passou a ajudar a pessoa a decidir ir ao local e a voltar, **sem migração**: usa só dados que já existem.
+
+- **Capa:** o negócio só tem a foto de perfil, então a capa é a foto da cidade (com o crédito do Commons) ou, sem ela, um banner da marca. Um mosaico de fotos do negócio exigiria uma tabela e um envio novos, e ficou para depois.
+- **Topo com ação:** o botão principal é o WhatsApp (ou o Instagram, sem WhatsApp) e há "Compartilhar", que copia o link.
+- **Duas colunas no computador:** história e depoimentos à esquerda; o cartão de contato fica fixo à direita.
+- **Causas por grupo,** os mesmos do filtro do diretório, em vez de uma fila de selos iguais.
+- **Depoimentos antes do formulário,** com um botão para o dono copiar o link e pedir depoimentos.
+- **Negócios parecidos** da mesma cidade no fim da página (`negociosParecidos`).
+- **O que está vazio some:** nenhum bloco em branco para o visitante.
+
 ---
 
 ## 4. Arquitetura
@@ -552,7 +574,7 @@ A autenticação é feita no próprio projeto (`src/lib/auth/`), com e-mail, sen
 
 O scrypt que protege as senhas custa ~32 MB de memória por conferência, então login e cadastro têm limite de tentativas por IP e por e-mail, conferido antes dele (`src/lib/auth/tentativas.ts`). A contagem fica numa tabela do Postgres (`TentativaAcesso`), e não na memória, porque no Vercel o site roda em várias instâncias. Cada tentativa é somada num `INSERT ... ON CONFLICT DO UPDATE` só, que também abre a janela nova quando a anterior venceu: assim, tentativas simultâneas não zeram a contagem umas das outras. Um serviço próprio para contadores (Upstash, Vercel KV) traria mais uma dependência e mais uma variável.
 
-O limite por IP só vale se o IP for de verdade. Fora do Vercel, o `x-forwarded-for` e o `x-real-ip` podem ser escritos por qualquer visitante: se o site confiasse neles, cada tentativa traria um IP novo, e o limite nunca agiria (além de dar para gastar a cota de outra pessoa). Por isso `ipDoCabecalho` (`src/lib/auth/tentativas.ts`) lê só o `x-vercel-forwarded-for` no Vercel (`VERCEL=1`), que o Vercel escreve e o visitante não consegue trocar. Em outra hospedagem, ignora todos os cabeçalhos, a menos que quem cuida do site declare `AUTENTICACAO_PROXY_CONFIAVEL=1`. Aí lê o último valor do `x-forwarded-for` e confere que é um IP. Quando não há IP confiável, todas as tentativas dividem um contador só, em vez de passarem sem limite: o cadastro não tem limite por e-mail, então liberar quem não tem IP deixaria o scrypt sem freio. O preço é que, numa hospedagem sem proxy declarado, os visitantes dividem as 10 tentativas por 15 minutos. Quando essa cota acaba, o login mostra "E-mail ou senha incorretos." até para quem digitou a senha certa, e nada aponta a causa. Fica a favor do site e é fácil de corrigir. Em desenvolvimento (`npm run dev`) também vale: 10 tentativas a cada 15 minutos para o computador todo. Para zerar, apague as linhas da tabela `TentativaAcesso`.
+O limite por IP só vale com um IP confiável. No Cloudflare, `ipDoCabecalho` usa apenas `cf-connecting-ip` quando `CLOUDFLARE_DEPLOY=1`. No Vercel, usa apenas `x-vercel-forwarded-for`. Em outra hospedagem, usa o último `x-forwarded-for` apenas com `AUTENTICACAO_PROXY_CONFIAVEL=1`. Quando não há IP confiável, em produção as ações de login, cadastro e senha são recusadas antes do scrypt e o log orienta a configuração. Em desenvolvimento e nos testes não há limite por IP, mas o limite por e-mail continua. Não há contador de IP compartilhado.
 
 O IP passa por `normalizarIp` antes de virar chave do contador. O IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) volta a ser IPv4. Os endereços IPv6 viram o prefixo /64, porque quem recebe uma rede IPv6 escolhe qualquer endereço dela a cada requisição: sem isso, cada endereço abriria um contador novo, e o limite por IP não valeria contra quem tem IPv6. A contrapartida é que uma rede /64 inteira, como a de uma casa, divide uma cota só. Um prefixo maior que /64 (como um /56) ainda tem um contador para cada /64, e o cadastro só tem o limite por IP.
 
@@ -739,6 +761,9 @@ npm run typecheck
 - The command creates a temporary Wrangler configuration without production routes or the upload binding. The R2 cache is local only. `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, and Hyperdrive use the same separate database. Child processes receive only explicit test settings. Local `.env*` and `.dev.vars*` files stop execution before migration, except `.example` templates. The command does not read these files.
 - On success or failure, the command stops its Worker and removes its database, temporary configuration, and local cache. It does not publish resources.
   - Dois workflows avisam sem bloquear o merge: a **auditoria de dependências** (`npm audit`, em todo PR e todo dia sobre a `stage`) e o **CodeQL** (análise estática do código, em todo PR, a cada push e toda segunda). Os alertas do CodeQL ficam na aba Security.
+  - A auditoria só falha com vulnerabilidade alta ou crítica (`--audit-level=high`).
+    - Os `overrides` do `package.json` levam ao `glob` 14 o `@opennextjs/cloudflare` (que pede o 13) e o `@node-minify/core`, que entra pelo `@opennextjs/aws` e fixa o 10.3.3. Os dois tinham avisos de segurança que o OpenNext ainda não corrigiu, e só chamam `glob()` e `globSync()`, que não mudaram no 14. Quando o OpenNext pedir um `glob` corrigido, tire os overrides.
+    - Fica uma exceção conhecida: o `minimatch` do ESLint e dos plugins dele ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), moderada). A correção só existe no `minimatch` 11, que não pode mais ser chamado como função, e os plugins do ESLint chamam o 3 assim. Ele só roda no lint, com padrões do próprio repositório. Some quando o ESLint e os plugins subirem o `minimatch`.
   - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
 
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
@@ -769,6 +794,7 @@ npm run typecheck
 **Segurança dos previews:**
 
 - Configure o Worker Previews com `DATABASE_URL` e `DATABASE_URL_UNPOOLED` do projeto Neon de teste, e bindings R2 separados. Nunca deixe preview ler ou alterar dados e fotos de produção.
+- **Deploy manual, só em emergência.** Se o Workers Builds não disparar para um merge na `main`, o deploy manual é `npm run cf:build` seguido de `npx opennextjs-cloudflare deploy`, mas o build precisa das variáveis `NEXT_PUBLIC_*` da produção na linha de comando (`NEXT_PUBLIC_R2_PUBLIC_URL=https://fotos.negociodobem.com` e `NEXT_PUBLIC_GA_ID`). Elas são embutidas no build: a `Content-Security-Policy` do `next.config.ts` só libera o domínio das fotos se a primeira existir na hora do build, e sem ela todas as fotos somem (aconteceu em 3 de novembro). As variáveis em tempo de execução do Worker não bastam. Confira depois com `curl -sI https://www.negociodobem.com | grep -i content-security` e veja `img-src`.
 - Os previews precisam de `DEPLOY_ENV=preview`, `CLOUDFLARE_DEPLOY=1` e `NEXT_PUBLIC_R2_PUBLIC_URL` do bucket de teste. Para POC sem domínio próprio, habilite Public Development URL no bucket de uploads de teste e use a URL `r2.dev`; os objetos ficam acessíveis publicamente, então não use arquivos privados. E-mail fica desligado fora de produção, e páginas de preview ficam fora dos buscadores.
 - A `stage` e PRs podem compartilhar os recursos de teste. Uma migração de PR que apaga ou renomeia coluna pode quebrar a homologação até o PR entrar. Um PR fechado sem merge pode deixar migração aplicada no banco de preview; recrie o banco de teste e publique `stage` para reconstruir os dados.
 - O seed só preenche banco vazio. Nunca o execute com credenciais de produção: cria contas de demonstração com senha conhecida.
@@ -847,6 +873,22 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 1. Rode `npm run cidades:corrigir`. Ele lista as cidades gravadas com outra grafia ("Sao Paulo" → São Paulo) e as que não estão na lista do IBGE, sem gravar nada.
 2. Confira a lista e rode de novo com `-- --aplicar` para gravar o nome oficial. Para a produção, passe a conexão do banco de produção na frente: `DATABASE_URL="postgresql://..." npm run cidades:corrigir -- --aplicar`.
 3. As cidades fora da lista do IBGE se corrigem uma a uma, editando o negócio pelo painel da moderação.
+
+### Limpar sessões vencidas
+
+A manutenção manual da #111 não muda o prazo de 30 dias da autenticação. O núcleo está em `src/lib/limpeza-sessoes.ts`, sem depender do Next. A CLI `scripts/limpar-sessoes.ts` abre seu próprio cliente Prisma e usa o banco configurado em `DATABASE_URL`.
+
+1. Confira qual banco está configurado e rode `npm run sessoes:limpar`. O diagnóstico informa o host e o nome do banco sem credenciais, a referência UTC, o limite e a contagem de sessões vencidas. Não altera tabelas.
+2. Confira o diagnóstico. Para remover um único lote, rode `npm run sessoes:limpar -- --aplicar`. O limite padrão é 100. Use `--lote 1` até `--lote 1000` para escolher o tamanho.
+3. Confira as quantidades selecionada e efetivamente removida. Faça outro diagnóstico antes de decidir sobre uma nova aplicação. O diagnóstico anterior não reserva as linhas e cada execução tem sua própria referência.
+
+A referência é o menor instante entre o início local e a leitura do relógio do PostgreSQL. Ela permanece fixa durante a execução. Relógios atrasados podem adiar a limpeza, mas o computador de manutenção adiantado não faz apagar sessões que o banco ainda considera futuras. As máquinas da aplicação e do banco precisam manter seus relógios sincronizados, como na autenticação existente.
+
+A seleção lê somente IDs, filtra `expiraEm <= referência`, ordena por vencimento e ID e aplica o limite. O DELETE inclui os IDs selecionados e confere novamente o vencimento. Uma renovação ou saída concorrente pode reduzir o total removido. Uma seleção vazia não dispara DELETE. Não há repetição automática, mudança de esquema, índice novo, rota pública ou agendamento.
+
+O comando não imprime IDs, hashes, e-mails ou a conexão completa, nem repassa mensagens brutas do driver. Opções inválidas falham antes de abrir conexão. Uma falha de leitura não solicita exclusão. Se a confirmação do DELETE falhar, o resultado é indeterminado. Faça novo diagnóstico antes de repetir. A conexão é encerrada em `finally`, inclusive em falha, antes de anunciar sucesso.
+
+A remoção confirmada não é desfeita ao retirar o código. Não recrie sessões apagadas. Contas, links por e-mail, tentativas, pedidos, conteúdo, mídia, auditoria e backups ficam fora desta operação. Este recorte não encerra a política de retenção da #111. As provas usam somente PostgreSQL descartável e dados sintéticos em `tests/db/limpeza-sessoes.test.ts` e `tests/unit/limpeza-sessoes.test.ts`.
 
 ### Pôr ou trocar a foto de uma cidade
 
@@ -996,7 +1038,7 @@ O PR só conflita se a `main` recebeu algo que não passou pela `stage`. Nesse c
 - **Filtros no endereço multiplicam as páginas para os robôs.** Uma página nova que monta links com filtros no endereço (`?tipo=...&causa=...`) precisa entrar no `disallow` do `src/app/robots.ts`, como o `/explorar?`. Sem isso, um robô abre cada combinação e cada uma consulta o banco ([#141](https://github.com/fabs-reis/Negocio-do-bem/issues/141)).
 - **Status 200 não quer dizer que a página abriu.** Com o Cache Components, a página chega com status 200 e o erro do banco vem dentro do conteúdo. Para saber se o site está no ar, confira se a lista de negócios aparece, e não só o status.
 - **O log do Worker perde a mensagem de um erro passado como objeto.** `console.error("Falhou:", erro)` aparece no Observability só com a pilha, sem a mensagem. Escreva a mensagem no texto: `` console.error(`Falhou: ${erro.message}`) `` ([#198](https://github.com/fabs-reis/Negocio-do-bem/issues/198)). Para achar a função de uma linha da pilha (`worker.js:100013`), abra "Editar código" no painel do Worker e vá até a linha, sem implantar nada.
-- **O `glob` do `@node-minify/core` é forçado para a 10.5.0 pelo `overrides` do `package.json`.** O `@opennextjs/aws` usa o `@node-minify/core` 9, que fixa o `glob` 10.3.3, e ele deixava o `npm audit` com aviso alto em todo PR ([#217](https://github.com/fabs-reis/Negocio-do-bem/issues/217)): a falha da linha de comando do `glob` ([GHSA-5j98](https://github.com/advisories/GHSA-5j98-mcp5-4vw2)), que o projeto nem usa. A 10.5.0 é a mesma versão grande, publicada em 11/2025, e corrige o aviso. O override vale só dentro do `@node-minify/core`, para não alcançar dependências novas que tragam o `glob`. Ficam avisos moderados: o [GHSA-3g3m](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), corrigido só no `glob` 14.0.2, publicado em 28/10/2026 (dentro da quarentena de 30 dias do `dependabot.yml`), e o `minimatch` antigo que vem com o ESLint: forçar a versão 11 quebra o `eslint-plugin-react`, o `eslint-plugin-import` e o `eslint-plugin-jsx-a11y`, que chamam `require("minimatch")` como função. Para saber se o override ainda faz falta, tire-o e rode `npm install` e `npm audit --audit-level=high`.
+- **O `glob` do OpenNext é forçado para a 14.0.3 pelo `overrides` do `package.json`.** O `@opennextjs/cloudflare` pede o `glob` 13, e o `@node-minify/core` 9, que entra pelo `@opennextjs/aws`, fixa o 10.3.3. O 10.3.3 deixava o `npm audit` com aviso alto em todo PR ([#217](https://github.com/fabs-reis/Negocio-do-bem/issues/217)): a falha da linha de comando do `glob` ([GHSA-5j98](https://github.com/advisories/GHSA-5j98-mcp5-4vw2)), que o projeto nem usa. Os dois ainda tinham o aviso moderado [GHSA-3g3m](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), corrigido só no `glob` 14.0.2 ([#227](https://github.com/fabs-reis/Negocio-do-bem/issues/227)), e nenhuma versão do OpenNext corrige. Os dois só chamam `glob()` e `globSync()`, que não mudaram no 14. O `glob` 14 saiu em 28/10/2026 e entrou antes dos 30 dias de quarentena que o `dependabot.yml` dá às versões grandes. Cada override vale só dentro do pacote dele, para não alcançar outras dependências que tragam o `glob`, e não leva a versão do pacote (`@opennextjs/cloudflare@1.20.14`): assim continua valendo quando o Dependabot sobe o OpenNext. Fica o aviso moderado do `minimatch` antigo que vem com o ESLint: forçar a versão 11 quebra o `eslint-plugin-react`, o `eslint-plugin-import` e o `eslint-plugin-jsx-a11y`, que chamam `require("minimatch")` como função. Quando o OpenNext pedir um `glob` corrigido, tire os overrides, rode `npm install` e confira no `npm audit` que os avisos do `glob` não voltaram. Não basta a checagem do CI passar, porque ela só falha com aviso alto.
 
 ---
 
@@ -1008,7 +1050,7 @@ O fluxo completo está no [CONTRIBUTING](../CONTRIBUTING.md). Em resumo:
 2. **Uma branch por issue,** criada a partir da `stage`, no formato `tipo/numero-da-issue-descricao-curta`. Exemplo: `bug/12-erro-no-login`.
 3. **Pull request para a `stage`,** com `Closes #N` ou `Refs #N`, explicando o que muda e por quê, com print se mexeu na interface.
 4. **A checagem "Lint, tipos e testes"** antes do merge, sempre por squash na `stage`. A publicação na `main` também precisa de uma aprovação.
-5. **Deploy só pelo merge.** A `stage` é a homologação, e um PR da `stage` para a `main`, com merge commit, publica em produção. Nada de deploy manual.
+5. **Deploy só pelo merge.** A `stage` é a homologação, e um PR da `stage` para a `main`, com merge commit, publica em produção. Nada de deploy manual, salvo o caso de emergência descrito na seção de deploy.
 
 E dois combinados que mantêm esta documentação útil:
 

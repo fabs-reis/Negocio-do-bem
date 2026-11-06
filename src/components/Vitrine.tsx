@@ -7,11 +7,12 @@ import { coracoesDaLista } from "@/lib/consultas";
 import type { Migalha } from "@/lib/seo";
 
 /**
- * Página fixa de uma cidade, causa ou tipo de negócio (src/app/cidades, causas e
- * tipos): título, introdução, os primeiros negócios e links para continuar no
- * diretório. Os filtros ficam no /explorar; aqui é a porta de entrada da busca.
- * A `capa` (a foto da cidade) fica ao lado do título na tela larga e em cima dele
- * no celular. O `destaque` (os embaixadores da cidade) vem logo abaixo da introdução.
+ * Página fixa de uma cidade, causa, tipo de negócio ou embaixador (src/app/cidades,
+ * causas, tipos e embaixadores): título, introdução, os primeiros negócios e links
+ * para continuar no diretório. Os filtros ficam no /explorar; aqui é a porta de
+ * entrada da busca. A `capa` (a foto da cidade, o perfil do embaixador) fica ao lado
+ * do título na tela larga e em cima dele no celular. O `destaque` (os embaixadores
+ * da cidade) vem logo abaixo da introdução, e o `tituloDaLista`, acima dos negócios.
  * O login devolve quem favoritar sem ter entrado para esta mesma página, a última
  * das migalhas.
  */
@@ -22,6 +23,7 @@ export async function Vitrine({
   introducao,
   capa,
   destaque,
+  tituloDaLista,
   total,
   itens,
   hrefNoDiretorio,
@@ -34,6 +36,7 @@ export async function Vitrine({
   introducao: ReactNode;
   capa?: ReactNode;
   destaque?: ReactNode;
+  tituloDaLista?: string;
   total: number;
   itens: EmpresaResumo[];
   hrefNoDiretorio: string;
@@ -80,7 +83,8 @@ export async function Vitrine({
         <div className="mt-6">{cabecalho}</div>
       )}
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-b border-linha pb-3.5">
+      {tituloDaLista && <h2 className="mt-12 font-serif text-3xl font-semibold tracking-tight text-balance">{tituloDaLista}</h2>}
+      <div className={`${tituloDaLista ? "mt-3" : "mt-8"} flex flex-wrap items-center justify-between gap-3 border-b border-linha pb-3.5`}>
         <p className="text-suave">
           <strong className="font-serif text-2xl font-semibold text-tinta">{total.toLocaleString("pt-BR")}</strong>{" "}
           {total === 1 ? "negócio no diretório" : "negócios no diretório"}
