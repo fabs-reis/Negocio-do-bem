@@ -91,7 +91,8 @@ export async function liberarParaClube({
 }
 
 /**
- * Suspende a liberação de um dono. Devolve o @ do negócio, para voltar à ficha, ou null se a
+ * Suspende a liberação de um dono, e as ofertas que estão valendo no negócio saem do ar (os
+ * cupons delas deixam de valer). Devolve o @ do negócio, para voltar à ficha, ou null se a
  * liberação não existe. Suspender duas vezes não grava de novo nem repete a auditoria.
  */
 export async function suspenderDoClube({
@@ -114,6 +115,7 @@ export async function suspenderDoClube({
     });
     if (!liberacao) return null;
     if (count > 0) {
+      await tx.oferta.updateMany({ where: { empresaId: liberacao.empresaId, status: "ativa" }, data: { status: "suspensa" } });
       await registrarAuditoria(tx, {
         usuarioId: moderadorId,
         acao: "clube.suspenso",

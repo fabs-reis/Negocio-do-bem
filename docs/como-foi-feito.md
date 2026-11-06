@@ -561,6 +561,20 @@ Para criar ofertas com cupom, ser dono não basta: qualquer conta assume um perf
 - **A ficha não é guardada.** É consultada na hora, a cada vez. A razão social do MEI traz o CPF da pessoa, então nem a auditoria leva a razão social: só o @, o nome da conta e o CNPJ.
 - **Por dono, e só enquanto for dono.** A liberação não passa para outro dono do mesmo negócio, e quem perde o perfil numa transferência perde a liberação sem precisar de outra ação.
 
+
+### 6 de novembro: ofertas e cupons do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248))
+
+Com a liberação pronta, o dono liberado cria uma oferta curta, quem visita gera o cupom e o dono valida no balcão. As regras estão em [Clube do Bem](regras-de-negocio.md#20-clube-do-bem).
+
+- **Prazo curto e sem edição.** Até 15 dias, terminando às 23h59 de Brasília. Uma oferta publicada obriga o negócio a cumprir (CDC, art. 30), então ela não muda depois de criada: o dono encerra e cria outra. Quem já gerou o cupom usa até o fim previsto.
+- **O texto não leva contato nem pagamento.** Link, telefone, e-mail, documento e "Pix" são recusados no título e nas condições, e todo cupom repete que o site nunca pede Pix. O golpe mais provável no clube é pedir pagamento antecipado "para garantir o desconto".
+- **Trocar o contato suspende o clube.** É o outro lado do golpe: assumir um perfil, trocar o WhatsApp e lançar um cupom. A suspensão automática usa a mesma liberação da moderação, que confere de novo antes de liberar.
+- **Concorrência pelo banco.** O último cupom e a validação dupla se resolvem com UPDATE condicional (`cuponsGerados < limite`, `usadoEm IS NULL`), e a oferta única por negócio com `SELECT ... FOR UPDATE` na linha do negócio. Os testes disparam os pedidos ao mesmo tempo.
+- **Gerar o cupom favorita.** É a condição combinada na issue, num toque só, e o botão avisa antes.
+- **O dono vê só o primeiro nome** de quem gerou o cupom, para conferir no balcão. O clube não entrega lista de clientes.
+- **O coração acompanha o servidor.** Gerar o cupom favorita o negócio e volta ao mesmo perfil, só com o `?aviso=`. O coração guardava o próprio estado (`useActionState`) e continuava vazio; agora ele recomeça quando o valor que vem do servidor muda (uma `key` com o estado).
+- **Ficou para depois:** o filtro "Com cupom" no diretório (o selo nos cards já mostra), o QR code, o e-mail com "Repetir oferta" e a denúncia de oferta.
+
 ---
 
 ## 4. Arquitetura

@@ -18,6 +18,8 @@ export type EmpresaResumo = {
   status: string;
   causas: { causa: string }[];
   _count: { depoimentos: number };
+  // A oferta do Clube do Bem que está valendo, se houver (o selo de cupom).
+  ofertas?: { id: string }[];
 };
 
 const MAX_BADGES = 3;
@@ -64,7 +66,12 @@ export function EmpresaCard({ empresa, favorito }: { empresa: EmpresaResumo; fav
         )}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-5">
-          <SeloStatus status={empresa.status} />
+          <span className="flex flex-wrap items-center gap-1.5">
+            <SeloStatus status={empresa.status} />
+            {!!empresa.ofertas?.length && (
+              <span className="rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-700">🎟️ Cupom</span>
+            )}
+          </span>
           {depoimentos > 0 && (
             <span className="text-xs text-suave">
               {depoimentos} {depoimentos === 1 ? "depoimento" : "depoimentos"}

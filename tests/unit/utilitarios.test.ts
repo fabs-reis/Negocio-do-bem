@@ -3,7 +3,7 @@ import { gerarHashSenha, verificarSenha } from "@/lib/auth/senha";
 import { filtrarCausas } from "@/lib/causas";
 import { cnpjValido, formatarCnpj } from "@/lib/cnpj";
 import { campoEmail, campoSite, campoTelefone, campoWhatsapp } from "@/lib/formulario";
-import { formatarFavoritos, formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura } from "@/lib/texto";
+import { formatarFavoritos, formatarTelefone, iniciais, normalizarTexto, tempoDeLeitura, textoDoPrazo } from "@/lib/texto";
 
 describe("cnpjValido", () => {
   it("aceita CNPJ numérico válido, com ou sem pontuação", () => {
@@ -148,5 +148,18 @@ describe("formatarFavoritos", () => {
     expect(formatarFavoritos(0)).toBe("Ninguém favoritou ainda");
     expect(formatarFavoritos(1)).toBe("1 pessoa favoritou");
     expect(formatarFavoritos(1234)).toBe("1.234 pessoas favoritaram");
+  });
+});
+
+describe("textoDoPrazo", () => {
+  const agora = new Date("2026-11-06T12:00:00Z");
+  const daqui = (minutos: number) => new Date(agora.getTime() + minutos * 60_000);
+
+  it("mostra dias e horas, e horas e minutos no último dia", () => {
+    expect(textoDoPrazo(daqui(3 * 1440 + 4 * 60 + 30), agora)).toBe("Termina em 3 dias e 4 h");
+    expect(textoDoPrazo(daqui(1440), agora)).toBe("Termina em 1 dia");
+    expect(textoDoPrazo(daqui(3 * 60 + 12), agora)).toBe("Termina em 3 h 12 min");
+    expect(textoDoPrazo(daqui(12), agora)).toBe("Termina em 12 min");
+    expect(textoDoPrazo(daqui(0), agora)).toBe("Terminou");
   });
 });

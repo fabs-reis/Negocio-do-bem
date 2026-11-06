@@ -104,6 +104,8 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "embaixador.foto_do_instagram": "Colocou a foto do Instagram num embaixador",
   "clube.liberado": "Liberou um dono para o Clube do Bem",
   "clube.suspenso": "Suspendeu um dono do Clube do Bem",
+  "oferta.criada": "Criou uma oferta do Clube do Bem",
+  "oferta.encerrada": "Encerrou uma oferta do Clube do Bem",
 };
 
 /** A caixa de e-mail do projeto, para quem quer falar com a equipe (ex.: ser embaixador). */

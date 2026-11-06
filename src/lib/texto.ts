@@ -92,3 +92,14 @@ export function formatarDataHora(data: Date): string {
     timeZone: "America/Sao_Paulo",
   }).format(data);
 }
+
+/** "Termina em 3 dias e 4 h"; nas últimas 24 horas, "Termina em 3 h 12 min"; depois, "Terminou". */
+export function textoDoPrazo(fim: Date, agora: Date): string {
+  const minutos = Math.floor((fim.getTime() - agora.getTime()) / 60_000);
+  if (minutos <= 0) return "Terminou";
+  const dias = Math.floor(minutos / 1440);
+  const horas = Math.floor((minutos % 1440) / 60);
+  if (dias > 0) return `Termina em ${dias} ${dias === 1 ? "dia" : "dias"}${horas ? ` e ${horas} h` : ""}`;
+  if (horas > 0) return `Termina em ${horas} h${minutos % 60 ? ` ${minutos % 60} min` : ""}`;
+  return `Termina em ${minutos} min`;
+}

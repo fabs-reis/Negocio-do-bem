@@ -14,7 +14,7 @@ export type EstadoFavorito = {
   voltar: string;
 };
 
-function Coracao({ cheio }: { cheio: boolean }) {
+function Icone({ cheio }: { cheio: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -37,25 +37,30 @@ function Total({ total }: { total: number }) {
   return total > 0 ? <span className="text-sm text-suave">{formatarFavoritos(total)}</span> : null;
 }
 
+type Props = {
+  estado: EstadoFavorito;
+  nome: string;
+  comTexto?: boolean;
+  total?: number;
+  className?: string;
+};
+
+/**
+ * O estado do coração começa com o que o servidor mandou. Se a página voltar do servidor com
+ * outro valor (gerar o cupom favorita o negócio, por exemplo), o coração recomeça com ele: o
+ * `useActionState` guarda o próprio estado e não olharia a prop de novo.
+ */
+export function CoracaoFavorito(props: Props) {
+  return <Coracao key={`${props.estado.empresaId}-${props.estado.favorito}-${props.total ?? ""}`} {...props} />;
+}
+
 /**
  * O coração que põe um negócio nos favoritos ou tira dele, sem sair da página. Enquanto o
  * servidor responde, ele já mostra a escolha nova. Sem login, leva a `/entrar` e volta
  * para `estado.voltar`. `comTexto` é a versão do perfil, com o texto "Favoritar" e, com
  * `total`, quantas pessoas favoritaram, contando o toque de quem está vendo.
  */
-export function CoracaoFavorito({
-  estado,
-  nome,
-  comTexto = false,
-  total,
-  className = "",
-}: {
-  estado: EstadoFavorito;
-  nome: string;
-  comTexto?: boolean;
-  total?: number;
-  className?: string;
-}) {
+function Coracao({ estado, nome, comTexto = false, total, className = "" }: Props) {
   const [favorito, acao, pendente] = useActionState(favoritar, estado.favorito);
   const mostrado = pendente ? !favorito : favorito;
   // O total veio do servidor com a escolha que a pessoa tinha ao abrir a página.
@@ -66,14 +71,14 @@ export function CoracaoFavorito({
     return comTexto ? (
       <div className={`flex flex-wrap items-center gap-3 ${className}`}>
         <Link href={entrar} className="botao-claro">
-          <Coracao cheio={false} />
+          <Icone cheio={false} />
           Favoritar
         </Link>
         {totalAgora !== undefined && <Total total={totalAgora} />}
       </div>
     ) : (
       <Link href={entrar} aria-label={`Entre para favoritar ${nome}`} className={`${ICONE} text-suave hover:text-coral ${className}`}>
-        <Coracao cheio={false} />
+        <Icone cheio={false} />
       </Link>
     );
   }
@@ -92,7 +97,7 @@ export function CoracaoFavorito({
             className={mostrado ? "botao-claro border-coral/40 bg-coral-50 text-coral-700 hover:bg-coral-50" : "botao-claro"}
           >
             <span className={mostrado ? "text-coral" : ""}>
-              <Coracao cheio={mostrado} />
+              <Icone cheio={mostrado} />
             </span>
             Favoritar
           </button>
@@ -116,7 +121,7 @@ export function CoracaoFavorito({
           aria-label={`Favoritar ${nome}`}
           className={`${ICONE} ${mostrado ? "text-coral" : "text-suave hover:text-coral"}`}
         >
-          <Coracao cheio={mostrado} />
+          <Icone cheio={mostrado} />
         </button>
       )}
     </form>

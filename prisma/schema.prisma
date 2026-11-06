@@ -42,6 +42,9 @@ model Usuario {
   registrosAuditoria RegistroAuditoria[]
   liberacoesClube    LiberacaoClube[]    @relation("LiberadoNoClube")
   decisoesClube      LiberacaoClube[]    @relation("DecisaoNoClube")
+  ofertasCriadas     Oferta[]            @relation("OfertasCriadas")
+  cupons             Cupom[]             @relation("CuponsGerados")
+  cuponsValidados    Cupom[]             @relation("CuponsValidados")
 }
 
 model Sessao {
@@ -149,6 +152,7 @@ model Empresa {
   membros         EmpresaMembro[]
   favoritos       EmpresaFavorita[]
   liberacoesClube LiberacaoClube[]
+  ofertas         Oferta[]
   reivindicacoes  Reivindicacao[]
 
   @@index([moderacao, oculta, status])
@@ -214,6 +218,55 @@ model LiberacaoClube {
 
   @@unique([empresaId, usuarioId])
   @@index([usuarioId])
+}
+
+// Oferta do Clube do Bem (#248): um desconto por pouco tempo, criado por um dono liberado
+// (ver src/lib/ofertas.ts). Depois de criada, não muda: o dono só pode encerrar antes.
+model Oferta {
+  id            String   @id @default(cuid())
+  empresaId     String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  criadaPorId   String?
+  criadaPor     Usuario? @relation("OfertasCriadas", fields: [criadaPorId], references: [id], onDelete: SetNull)
+  titulo        String
+  // "percentual" | "valor" | "brinde"
+  tipo          String
+  // Percentual (1 a 50) ou reais inteiros. Vazio no brinde.
+  valor         Int?
+  condicoes     String?
+  // Onde vale, separado por vírgula: "local", "whatsapp", "site".
+  ondeVale      String
+  inicio        DateTime @default(now())
+  // 23h59 (horário de Brasília) do último dia. Os cupons valem até aqui, mesmo se o dono encerrar antes.
+  fim           DateTime
+  // Quantos cupons a oferta dá, no máximo. Vazio: sem limite.
+  limite        Int?
+  cuponsGerados Int      @default(0)
+  // "ativa" | "encerrada" (pelo dono) | "suspensa" (a liberação do clube foi suspensa)
+  status        String   @default("ativa")
+  criadoEm      DateTime @default(now())
+
+  cupons Cupom[]
+
+  @@index([empresaId, status, fim])
+}
+
+// Cupom de uma oferta, gerado por quem favoritou o negócio. Uso único, validado pelo dono.
+model Cupom {
+  id            String    @id @default(cuid())
+  ofertaId      String
+  oferta        Oferta    @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  usuarioId     String
+  usuario       Usuario   @relation("CuponsGerados", fields: [usuarioId], references: [id], onDelete: Cascade)
+  // 6 caracteres sem os que se confundem (0 e O, 1 e I).
+  codigo        String    @unique
+  criadoEm      DateTime  @default(now())
+  usadoEm       DateTime?
+  validadoPorId String?
+  validadoPor   Usuario?  @relation("CuponsValidados", fields: [validadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([ofertaId, usuarioId])
+  @@index([usuarioId, criadoEm])
 }
 
 model Reivindicacao {

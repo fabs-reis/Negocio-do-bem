@@ -61,9 +61,14 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
               {formatarFavoritos(empresa._count.favoritos)}
             </p>
           </div>
-          <Link href={`/empresas/${empresa.instagramUsername}`} className="botao-claro botao-pequeno">
-            Ver perfil público ↗
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/painel/${empresa.instagramUsername}/clube`} className="botao-claro botao-pequeno">
+              Clube do Bem
+            </Link>
+            <Link href={`/empresas/${empresa.instagramUsername}`} className="botao-claro botao-pequeno">
+              Ver perfil público ↗
+            </Link>
+          </div>
         </div>
         <AvisoDaUrl codigo={aviso} />
       </div>

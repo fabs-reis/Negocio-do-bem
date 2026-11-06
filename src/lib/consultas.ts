@@ -5,6 +5,7 @@ import type { UsuarioSessao } from "@/lib/auth/sessao";
 import { db, type Prisma } from "@/lib/db";
 import { interpretarLocal, slugCidade, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
 import { nomeOficial } from "@/lib/municipios";
+import { condicaoDeOfertaAtiva } from "@/lib/ofertas";
 import { normalizarTexto } from "@/lib/texto";
 
 export const POR_PAGINA = 18;
@@ -138,6 +139,7 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
       include: {
         causas: { select: { causa: true } },
         _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+        ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
       },
     }),
     db.empresa.groupBy({ by: ["categoria"], where: condicao(filtros, lugar, "tipos"), _count: { _all: true } }),
@@ -187,6 +189,7 @@ export async function negociosParecidos(empresa: { id: string; cidade: string; u
     include: {
       causas: { select: { causa: true } },
       _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+      ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
     },
   });
   const mesmoTipo = candidatos.filter((c) => c.categoria === empresa.categoria);
@@ -202,6 +205,9 @@ export async function buscarPerfil(username: string) {
       membros: { select: { usuarioId: true } },
       indicadaPor: { select: { nome: true } },
       _count: { select: { favoritos: true } },
+      // A oferta do Clube do Bem que está valendo, e quem pode criar ofertas (o selo de parceiro).
+      ofertas: { where: condicaoDeOfertaAtiva(), take: 1 },
+      liberacoesClube: { where: { status: "liberada" }, select: { usuarioId: true } },
       depoimentos: {
         where: { status: "publicado" },
         orderBy: { criadoEm: "desc" },
@@ -251,6 +257,7 @@ export async function buscarFavoritos(usuarioId: string, paginaPedida: number) {
         include: {
           causas: { select: { causa: true } },
           _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+          ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
         },
       },
     },
