@@ -27,6 +27,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 17. [O site como app](#17-o-site-como-app)
 18. [Comportamentos atuais que valem conhecer](#18-comportamentos-atuais-que-valem-conhecer)
 19. [Embaixadores do bem](#19-embaixadores-do-bem)
+20. [Clube do Bem](#20-clube-do-bem)
 
 ---
 
@@ -41,6 +42,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | Indicação | criação de uma `Empresa` | Alguém da comunidade (ou o próprio dono) cadastra um negócio. |
 | Reivindicação | `Reivindicacao` | O pedido de uma pessoa para virar dona de um negócio. |
 | Depoimento | `Depoimento` | O relato de alguém da comunidade sobre um negócio. |
+| Liberação do clube | `LiberacaoClube` | A permissão que a moderação dá a um dono, depois de conferir o CNPJ na Receita, para criar ofertas do Clube do Bem. |
 | Favorito | `EmpresaFavorita` | Um negócio que uma conta guardou com o coração, para achar de novo na página Favoritos. É a primeira parte do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)). |
 | Denúncia | campos `denunciado`, `motivoDenuncia` e `denunciadoPorId` do `Depoimento` | O aviso de que um depoimento tem algo errado. |
 | Causa | `EmpresaCausa` + lista em `src/lib/causas.ts` | Um valor que o negócio pratica, como "Escala 5x2" ou "Antirracista". Vira selo no perfil e filtro na busca. |
@@ -1007,6 +1009,7 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `embaixador.criado` / `embaixador.editado` / `embaixador.excluido` | A moderação cadastrou, editou ou excluiu um embaixador. Os detalhes trazem o @ (e o nome, na exclusão). |
 | `embaixador.foto_trocada` / `embaixador.foto_removida` | A moderação trocou ou removeu a foto de um embaixador. |
 | `embaixador.foto_do_instagram` | A consulta ao Instagram colocou a foto num embaixador sem foto. Aparece como "Sistema". |
+| `clube.liberado` / `clube.suspenso` | A moderação liberou um dono para o Clube do Bem ou suspendeu a liberação. Os detalhes trazem o @, o nome da conta e o CNPJ (na liberação) ou o motivo (na suspensão). |
 
 O que **não** vai para a auditoria hoje:
 
@@ -1066,6 +1069,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
+| CNPJ da liberação do clube | `LiberacaoClube` | Só a moderação, na ficha do negócio. |
+| Ficha da Receita (razão social, sócios, telefone e e-mail) | Não é guardada | Só a moderação, na ficha do negócio, consultada na hora pela BrasilAPI. A razão social do MEI traz o CPF da pessoa, por isso ela não vai nem para a auditoria. |
 | Os favoritos de cada pessoa | `EmpresaFavorita` | Só a própria pessoa, na página Favoritos. O perfil mostra a todos quantas pessoas favoritaram o negócio, nunca quem. |
 | Quem denunciou e o motivo | `Depoimento` | Só a moderação. |
 | Auditoria | `RegistroAuditoria` | Só a moderação. |
@@ -1145,6 +1150,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Resposta do dono | até 1.000 caracteres | `src/acoes/depoimentos.ts` |
 | Motivo da denúncia | até 300 caracteres | `src/acoes/depoimentos.ts` |
 | Motivo da recusa | até 500 caracteres | `src/acoes/moderacao.ts` |
+| Motivo da suspensão do clube | até 500 caracteres | `src/acoes/clube.ts` |
 | Mensagem da reivindicação | até 1.000 caracteres | `src/acoes/reivindicacoes.ts` |
 | Foto | até 3 MB, JPEG, PNG ou WebP | `src/lib/fotos.ts` |
 | Foto do perfil | 600×600, quadrada | `src/components/FormFoto.tsx` |
@@ -1331,3 +1337,26 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 - A moderação envia, troca ou remove, como a foto do negócio.
 - Um embaixador sem foto ganha a do Instagram na próxima consulta, como "Sistema" na auditoria (`embaixador.foto_do_instagram`). A foto enviada pela moderação nunca é trocada.
 - Sem foto nenhuma, aparecem as iniciais.
+
+---
+
+## 20. Clube do Bem
+
+O clube é a [issue #248](https://github.com/fabs-reis/Negocio-do-bem/issues/248): negócios oferecem descontos por pouco tempo a quem chega pelo site. Os [favoritos](#favoritos) são a primeira parte; esta seção junta as próximas.
+
+### Liberação para o clube
+
+Código: regras em `src/lib/clube.ts` (com testes em `tests/db/clube.test.ts`), ações em `src/acoes/clube.ts` e a tela em `src/app/moderacao/negocios/[usuario]/Clube.tsx`.
+
+Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [Aprovação na hora](#aprovação-na-hora)). Isso basta para editar o perfil, mas não para criar cupons. Por isso, ser dono não basta: a moderação precisa liberar.
+
+- **Só negócio com CNPJ.** O MEI também tem CNPJ. Autônomos sem CNPJ e profissões regulamentadas ficam para depois (os conselhos da saúde, por exemplo, limitam o uso de desconto como propaganda).
+- **Só a moderação libera,** na seção "Clube do Bem" da ficha do negócio (`/moderacao/negocios/<@>`). Não existe pedido feito pelo dono: no lançamento, os donos são convidados.
+- **A liberação vale por dono.** Num negócio com dois donos, cada um precisa da própria. Ela só vale enquanto a pessoa continuar dona: quem deixa de ser dono (numa transferência, por exemplo) perde a liberação, mesmo com o registro guardado (`podeCriarOfertas`).
+- **Consulta à Receita:** a moderação digita o CNPJ e clica em "Consultar na Receita". A ficha vem da BrasilAPI na hora e mostra a razão social, o nome fantasia, a situação, a cidade (comparada com a do perfil), o telefone e o e-mail que a Receita tem e o quadro de sócios. Nada da ficha é guardado.
+- **O nome da conta bate com a ficha?** Para cada dono, a tela diz se o nome da conta bate com um sócio ou, no MEI, com a razão social, que traz o nome da pessoa (`quemBateComAConta`). Bate quando todas as palavras do nome da conta, pelo menos duas, aparecem no nome da ficha, sem ligar para acento, maiúsculas, ordem, nomes do meio, partículas (da, de, dos) e o CPF da razão social. É só um apoio: quem decide é a moderação.
+- **Liberar:** o botão "Liberar <nome>" só aparece com o CNPJ ativo. O servidor confere de novo o CNPJ (os dígitos e a situação "ATIVA" na Receita) e que a conta é dona. Sem resposta da Receita, não libera. Guarda só o CNPJ, sem pontuação.
+- **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. Para liberar de novo, consulta o CNPJ e libera, e o motivo some.
+- **Quem vê:** só a moderação vê a liberação, o CNPJ e a ficha. O selo público e as ofertas vêm na próxima parte do clube.
+- **Auditoria:** `clube.liberado` e `clube.suspenso`, na mesma transação da alteração.
+

@@ -13,33 +13,35 @@ datasource db {
 }
 
 model Usuario {
-  id        String   @id @default(cuid())
-  nome      String
-  email     String   @unique
+  id                String    @id @default(cuid())
+  nome              String
+  email             String    @unique
   // Vazio na conta criada pelo Google: ela entra pelo Google ou por link no e-mail.
-  senhaHash String?
+  senhaHash         String?
   // "sub" da conta do Google ligada a esta, que não muda nem quando o Gmail muda.
-  googleId  String?  @unique
+  googleId          String?   @unique
   // Só os dígitos, com o 55 do Brasil: "5511991488052". Obrigatório no cadastro;
   // vazio nas contas criadas antes dele.
-  telefone  String?
+  telefone          String?
   // "membro" | "moderador"
-  papel     String   @default("membro")
+  papel             String    @default("membro")
   // Quando a pessoa abriu um link mandado para o e-mail dela. Sem isso a conta entra,
   // mas não indica, não escreve nem denuncia depoimentos e não reivindica negócios.
   emailConfirmadoEm DateTime?
-  criadoEm  DateTime @default(now())
+  criadoEm          DateTime  @default(now())
 
-  sessoes             Sessao[]
-  links               LinkEmail[]
-  indicacoes          Empresa[]        @relation("IndicadaPor")
-  depoimentos         Depoimento[]     @relation("AutorDepoimento")
-  denuncias           Depoimento[]     @relation("DenunciadoPor")
-  empresas            EmpresaMembro[]
-  favoritas           EmpresaFavorita[]
-  reivindicacoes      Reivindicacao[]  @relation("Solicitante")
-  revisoes            Reivindicacao[]  @relation("Revisor")
-  registrosAuditoria  RegistroAuditoria[]
+  sessoes            Sessao[]
+  links              LinkEmail[]
+  indicacoes         Empresa[]           @relation("IndicadaPor")
+  depoimentos        Depoimento[]        @relation("AutorDepoimento")
+  denuncias          Depoimento[]        @relation("DenunciadoPor")
+  empresas           EmpresaMembro[]
+  favoritas          EmpresaFavorita[]
+  reivindicacoes     Reivindicacao[]     @relation("Solicitante")
+  revisoes           Reivindicacao[]     @relation("Revisor")
+  registrosAuditoria RegistroAuditoria[]
+  liberacoesClube    LiberacaoClube[]    @relation("LiberadoNoClube")
+  decisoesClube      LiberacaoClube[]    @relation("DecisaoNoClube")
 }
 
 model Sessao {
@@ -88,14 +90,14 @@ model LinkEmail {
 // e a conta só é criada quando ela informa o telefone em /cadastrar/google.
 model CadastroGoogle {
   // sha256 do token guardado no cookie, como na Sessao
-  id        String   @id
-  googleId  String
-  email     String
-  nome      String
+  id       String   @id
+  googleId String
+  email    String
+  nome     String
   // Caminho interno aonde a pessoa vai depois de criar a conta.
-  destino   String   @default("/")
-  expiraEm  DateTime
-  criadoEm  DateTime @default(now())
+  destino  String   @default("/")
+  expiraEm DateTime
+  criadoEm DateTime @default(now())
 
   @@index([expiraEm])
 }
@@ -142,11 +144,12 @@ model Empresa {
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
 
-  causas         EmpresaCausa[]
-  depoimentos    Depoimento[]
-  membros        EmpresaMembro[]
-  favoritos      EmpresaFavorita[]
-  reivindicacoes Reivindicacao[]
+  causas          EmpresaCausa[]
+  depoimentos     Depoimento[]
+  membros         EmpresaMembro[]
+  favoritos       EmpresaFavorita[]
+  liberacoesClube LiberacaoClube[]
+  reivindicacoes  Reivindicacao[]
 
   @@index([moderacao, oculta, status])
   @@index([uf])
@@ -186,6 +189,31 @@ model EmpresaFavorita {
 
   @@id([empresaId, usuarioId])
   @@index([usuarioId, criadoEm])
+}
+
+// Liberação de um dono para criar ofertas do Clube do Bem (#248). Nesta versão, só a
+// moderação libera, depois de conferir na Receita o CNPJ e o quadro de sócios. Vale por
+// dono: num negócio com dois donos, cada um precisa da sua. Só vale enquanto a pessoa
+// continuar dona do negócio (ver src/lib/clube.ts).
+model LiberacaoClube {
+  id            String   @id @default(cuid())
+  empresaId     String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarioId     String
+  usuario       Usuario  @relation("LiberadoNoClube", fields: [usuarioId], references: [id], onDelete: Cascade)
+  // O CNPJ conferido, sem pontuação, como em Reivindicacao.cnpj. Só a moderação vê.
+  cnpj          String
+  // "liberada" | "suspensa"
+  status        String   @default("liberada")
+  // Motivo da suspensão, escrito pela moderação.
+  motivo        String?
+  decididoPorId String?
+  decididoPor   Usuario? @relation("DecisaoNoClube", fields: [decididoPorId], references: [id], onDelete: SetNull)
+  decididoEm    DateTime @default(now())
+  criadoEm      DateTime @default(now())
+
+  @@unique([empresaId, usuarioId])
+  @@index([usuarioId])
 }
 
 model Reivindicacao {

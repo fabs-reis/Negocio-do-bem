@@ -73,6 +73,15 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
   feito: { tipo: "sucesso", texto: "Feito." },
   ja_processada: { tipo: "erro", texto: "Esta solicitação já tinha sido decidida por outra pessoa da moderação." },
   cancelada: { tipo: "info", texto: "Solicitação cancelada." },
+  clube_liberado: { tipo: "sucesso", texto: "Dono liberado para criar ofertas no Clube do Bem." },
+  clube_suspenso: { tipo: "info", texto: "Liberação suspensa. O dono não cria mais ofertas até ser liberado de novo." },
+  clube_cnpj_invalido: { tipo: "erro", texto: "CNPJ inválido. Confira os números." },
+  clube_cnpj_inativo: { tipo: "erro", texto: "Este CNPJ não está ativo na Receita, então o dono não pode ser liberado." },
+  clube_receita_indisponivel: {
+    tipo: "erro",
+    texto: "Não foi possível consultar a Receita agora, e sem a consulta não há liberação. Tente de novo em alguns minutos.",
+  },
+  clube_nao_e_dono: { tipo: "erro", texto: "Essa conta não é dona deste negócio." },
   embaixador_salvo: { tipo: "sucesso", texto: "Embaixador salvo." },
   embaixador_salvo_sem_instagram: {
     tipo: "info",
