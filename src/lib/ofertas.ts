@@ -10,7 +10,9 @@ import { db, type Prisma } from "@/lib/db";
 
 export const DIAS_MAXIMOS = 15;
 export const DIAS_PADRAO = 7;
-export const DESCONTO_MAXIMO = 50;
+// O desconto é livre (decisão de 06/11/2026): até 100%, ou qualquer valor em reais. O teto em
+// reais só garante que o número cabe no banco.
+export const VALOR_MAXIMO_EM_REAIS = 1_000_000;
 
 export const TIPOS_DE_OFERTA = { percentual: "Desconto em %", valor: "Desconto em reais", brinde: "Brinde" } as const;
 export type TipoDeOferta = keyof typeof TIPOS_DE_OFERTA;
@@ -78,15 +80,15 @@ export function esquemaDaOferta(hoje: string) {
     .superRefine((oferta, contexto) => {
       if (oferta.tipo !== "brinde") {
         const valor = Number(oferta.valor);
-        const maximo = oferta.tipo === "percentual" ? DESCONTO_MAXIMO : 10_000;
+        const maximo = oferta.tipo === "percentual" ? 100 : VALOR_MAXIMO_EM_REAIS;
         if (!Number.isInteger(valor) || valor < 1 || valor > maximo) {
           contexto.addIssue({
             code: "custom",
             path: ["valor"],
             message:
               oferta.tipo === "percentual"
-                ? `Use um desconto de 1% a ${DESCONTO_MAXIMO}%.`
-                : "Use um valor inteiro em reais, de R$ 1 a R$ 10.000.",
+                ? "Use um desconto de 1% a 100%."
+                : "Use um valor inteiro em reais, a partir de R$ 1.",
           });
         }
       }

@@ -1161,7 +1161,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Motivo da suspensão do clube | até 500 caracteres | `src/acoes/clube.ts` |
 | Duração de uma oferta | de 1 a 15 dias, contando o dia em que é criada; 7 por padrão | `src/lib/ofertas.ts` |
 | Título e condições da oferta | 5 a 60 e até 300 caracteres | `src/lib/ofertas.ts` |
-| Desconto da oferta | de 1% a 50%, ou de R$ 1 a R$ 10.000 | `src/lib/ofertas.ts` |
+| Desconto da oferta | livre: de 1% a 100%, ou em reais a partir de R$ 1 (até R$ 1.000.000, só para caber no banco) | `src/lib/ofertas.ts` |
 | Limite de cupons por oferta | opcional, de 1 a 10.000 | `src/lib/ofertas.ts` |
 | Ofertas valendo por negócio | 1 | `src/lib/ofertas.ts` |
 | Código do cupom | 6 caracteres, sem 0, O, 1 e I | `src/lib/ofertas.ts` |
@@ -1381,7 +1381,7 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 
 - **Quem cria:** um dono liberado, sem suspensão, num negócio do diretório (publicado e não oculto), na página **Clube do Bem** do painel do negócio (`/painel/<@>/clube`, pelo botão "Clube do Bem" no painel). Sem liberação, a página explica que o clube está em fase de convite (ou mostra o motivo da suspensão).
 - **Uma oferta valendo por vez.** Com dois envios ao mesmo tempo, só um cria: a criação trava a linha do negócio.
-- **Campos:** título (5 a 60 caracteres), tipo (desconto em %, de 1% a 50%; desconto em reais, de R$ 1 a R$ 10.000; ou brinde, sem valor), condições (opcional, até 300), onde vale (no local, pelo WhatsApp, pelo site; pelo menos um), último dia (de hoje a 14 dias depois, 7 dias por padrão) e limite de cupons (opcional, de 1 a 10.000).
+- **Campos:** título (5 a 60 caracteres), tipo (desconto em %, de 1% a 100%; desconto em reais, a partir de R$ 1; ou brinde, sem valor; o valor é livre), condições (opcional, até 300), onde vale (no local, pelo WhatsApp, pelo site; pelo menos um), último dia (de hoje a 14 dias depois, 7 dias por padrão) e limite de cupons (opcional, de 1 a 10.000).
 - **Termina às 23h59 (horário de Brasília) do último dia.**
 - **Sem contato nem pagamento no texto:** o título e as condições recusam links, e-mails, números com 8 dígitos ou mais seguidos (telefone, CPF, CNPJ) e a palavra "Pix". Datas com barra ("10/11") passam. O contato é sempre o do perfil.
 - **Depois de criada, não muda.** O dono pode só encerrar antes do fim: ninguém mais gera cupom, mas quem já gerou usa até o fim previsto. Qualquer dono do negócio encerra.

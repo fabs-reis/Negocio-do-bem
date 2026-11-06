@@ -66,7 +66,7 @@ export function FormOferta({
         </div>
       </fieldset>
 
-      <Campo id="valor" rotulo="Quanto" erro={erro("valor")} ajuda="Desconto de 1% a 50%, ou o valor em reais. No brinde, deixe em branco.">
+      <Campo id="valor" rotulo="Quanto" erro={erro("valor")} ajuda="Desconto de 1% a 100%, ou o valor em reais. No brinde, deixe em branco.">
         <input id="valor" name="valor" inputMode="numeric" defaultValue={valor("valor")} className="campo max-w-40" />
       </Campo>
 

@@ -97,8 +97,10 @@ describe("os dados da oferta", () => {
     expect(erroEm({ ultimoDia: somarDias(HOJE, -1) })).toEqual(["ultimoDia"]);
   });
 
-  it("aceita desconto de 1% a 50% e valor inteiro em reais; o brinde não tem valor", () => {
-    expect(erroEm({ valor: "51" })).toEqual(["valor"]);
+  it("aceita desconto livre, de 1% a 100%, e valor inteiro em reais; o brinde não tem valor", () => {
+    expect(erroEm({ valor: "100" })).toBeNull();
+    expect(erroEm({ valor: "101" })).toEqual(["valor"]);
+    expect(erroEm({ tipo: "valor", valor: "50000" })).toBeNull();
     expect(erroEm({ valor: "0" })).toEqual(["valor"]);
     expect(erroEm({ tipo: "valor", valor: "20" })).toBeNull();
     expect(erroEm({ tipo: "valor", valor: "20.5" })).toEqual(["valor"]);
