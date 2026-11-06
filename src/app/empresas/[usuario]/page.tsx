@@ -74,7 +74,8 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
     : undefined;
   // Parceiro do Clube do Bem: um dono liberado pela moderação, que ainda é dono.
   const parceiro = empresa.liberacoesClube.some((liberacao) => empresa.membros.some((m) => m.usuarioId === liberacao.usuarioId));
-  const oferta = publico ? empresa.ofertas[0] : undefined;
+  // A hora atual só depois da sessão e dos parâmetros: o Cache Components não deixa antes.
+  const oferta = publico && empresa.ofertas[0] && empresa.ofertas[0].fim > new Date() ? empresa.ofertas[0] : undefined;
   const meuCupom =
     oferta && usuario
       ? await db.cupom.findUnique({ where: { ofertaId_usuarioId: { ofertaId: oferta.id, usuarioId: usuario.id } }, select: { codigo: true } })
