@@ -21,7 +21,7 @@ import {
   somarDias,
 } from "@/lib/ofertas";
 import { FORA_DA_BUSCA } from "@/lib/seo";
-import { formatarDataCurta, formatarDataHora } from "@/lib/texto";
+import { comPontoFinal, formatarDataCurta, formatarDataHora } from "@/lib/texto";
 import { FormOferta } from "./FormOferta";
 
 export const metadata: Metadata = { title: "Clube do Bem", robots: FORA_DA_BUSCA };
@@ -134,8 +134,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
             <h2 className="font-serif text-2xl font-semibold">Criar ofertas</h2>
             {liberacao?.status === "suspensa" ? (
               <p className="text-coral-700">
-                A liberação do seu negócio no clube foi suspensa. Motivo: {liberacao.motivo}. Fale com a moderação para conferir de
-                novo.
+                A liberação do seu negócio no clube foi suspensa.
+                {liberacao.motivo && ` Motivo: ${comPontoFinal(liberacao.motivo)}`} Fale com a moderação para conferir de novo.
               </p>
             ) : (
               <p className="text-suave">
