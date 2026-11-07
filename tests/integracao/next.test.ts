@@ -248,6 +248,23 @@ describe("Next em produção", () => {
     expect(new Set(Object.values(acoes)).size).toBe(ACOES.length);
   });
 
+  it("libera na CSP o Google Analytics e o Cloudflare Web Analytics", async () => {
+    const resposta = await fetch(`${origem}/sobre`);
+    await resposta.text();
+    const diretivas = new Map(
+      (resposta.headers.get("content-security-policy") ?? "")
+        .split(";")
+        .map((trecho) => trecho.trim().split(/\s+/))
+        .map(([nome, ...fontes]) => [nome, fontes] as const),
+    );
+    // O Cloudflare injeta o script do Web Analytics, e o GA4 também envia para www.google.com/g/collect.
+    expect(diretivas.get("script-src")).toEqual(expect.arrayContaining(["https://*.googletagmanager.com", "https://static.cloudflareinsights.com"]));
+    expect(diretivas.get("connect-src")).toEqual(
+      expect.arrayContaining(["https://*.google-analytics.com", "https://*.google.com", "https://cloudflareinsights.com"]),
+    );
+    expect(diretivas.get("frame-ancestors")).toEqual(["'none'"]);
+  });
+
   describe.each(["visitante", "membro"])("%s", (papel) => {
     const cookie = () => (papel === "membro" ? cookieMembro : "");
 

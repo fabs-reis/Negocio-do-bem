@@ -1121,6 +1121,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 - Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
 - O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
+- O **Cloudflare Web Analytics** também mede as visitas. Ele é ligado no painel do Cloudflare, e não no código: o Cloudflare injeta nas páginas o script `static.cloudflareinsights.com/beacon.min.js`, que conta as visitas e o tempo de carregamento sem cookies e sem identificar quem visita. Para desligar, desative o Web Analytics do domínio no painel do Cloudflare.
 - Por decisão do projeto, o site não mostra aviso de cookies. A página "Como funciona" explica a medição na seção de privacidade.
 
 ### Proteções da interface

@@ -89,7 +89,8 @@ export default function Sobre() {
           <strong>Vocês medem as visitas?</strong> Sim, com o Google Analytics, para saber quantas pessoas visitam o site,
           quais páginas e buscas são mais comuns, quantas contas e negócios são cadastrados e quantos contatos os negócios
           recebem pelo site. Ele usa cookies no seu navegador e não recebe seu nome, seu e-mail, seu telefone nem o nome do
-          negócio: só a categoria, a cidade e o estado, que já estão no perfil.
+          negócio: só a categoria, a cidade e o estado, que já estão no perfil. O Cloudflare, que hospeda o site, também
+          conta as visitas e mede quanto as páginas demoram para abrir, sem cookies e sem identificar quem visita.
         </p>
         <p>
           <strong>E os depoimentos?</strong> Ficam no ar com o nome de quem escreveu. Donos podem responder, mas não
