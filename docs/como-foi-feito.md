@@ -631,7 +631,11 @@ O e-mail nunca dá permissão, nem depois de confirmado: as contas antigas não 
 
 Toda resposta leva cabeçalhos de segurança (`headers()` no `next.config.ts`):
 
-- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site e do Google Analytics. As imagens podem vir também do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`). Nos previews, também do `vercel.live`, a barra de comentários do Vercel. `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
+- **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site, do Google Analytics e do Cloudflare Web Analytics.
+  - **Google Analytics:** o `connect-src` libera também `*.google.com`, porque o GA4 manda parte dos envios para `www.google.com/g/collect`. O [guia de CSP do Google](https://developers.google.com/tag-platform/security/guides/csp) pede isso mesmo sem os recursos de anúncios.
+  - **Cloudflare Web Analytics:** o script `static.cloudflareinsights.com` e os envios para `cloudflareinsights.com`. O Cloudflare injeta esse script na resposta, e sem a liberação o navegador o barrava em todas as páginas (issue #289).
+  - **Fotos e previews:** as imagens podem vir também do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`). Nos previews, também do `vercel.live`, a barra de comentários do Vercel.
+  - **Embutir e enviar para fora:** `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
 - **Sem nonce:** a CSP aceita scripts inline (`'unsafe-inline'`), como o script do tema no `layout.tsx` e os do próprio Next. Uma CSP com nonce obriga toda página a ser renderizada a cada acesso e é incompatível com o Partial Prerendering, que o projeto usa com o Cache Components. Ficaríamos sem pré-render e sem cache na CDN.
 - **`Strict-Transport-Security`** (2 anos), **`X-Frame-Options: DENY`** (para navegadores antigos), **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: strict-origin-when-cross-origin`** (sites abertos a partir do perfil não recebem o endereço completo) e **`Permissions-Policy`** (sem câmera, microfone, localização, pagamento, USB nem `browsing-topics`).
 
