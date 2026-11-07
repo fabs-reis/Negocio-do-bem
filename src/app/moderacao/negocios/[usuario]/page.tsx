@@ -12,6 +12,7 @@ import { rotuloDoInstagram } from "@/lib/endereco";
 import { normalizarEndereco } from "@/lib/instagram";
 import { Clube } from "./Clube";
 import { Donos } from "./Donos";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export const metadata: Metadata = { title: "Editar perfil · Moderação", robots: { index: false } };
 
@@ -33,6 +34,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/neg
     where: { instagramUsername: username },
     include: { causas: { select: { causa: true } }, _count: { select: { membros: true } } },
   });
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/moderacao/negocios/${atual}`);
   if (!empresa) notFound();
   const { aviso, cnpj } = await searchParams;
   const temDono = empresa._count.membros > 0;

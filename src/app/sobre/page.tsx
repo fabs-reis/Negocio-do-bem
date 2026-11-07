@@ -86,6 +86,12 @@ export default function Sobre() {
           Não fazemos raspagem do Instagram e não guardamos tokens de acesso.
         </p>
         <p>
+          <strong>E para verificar o meu negócio?</strong> Você informa o CNPJ, o seu nome completo e o seu CPF, e marca
+          uma autorização. A moderação compara esses dados com o quadro de sócios na Receita Federal. Do CPF guardamos só os
+          6 dígitos do meio, que a Receita também mostra dos sócios: o número inteiro é conferido e descartado. Só a moderação
+          vê esses dados, e eles servem só para decidir o pedido.
+        </p>
+        <p>
           <strong>Vocês medem as visitas?</strong> Sim, com o Google Analytics, para saber quantas pessoas visitam o site,
           quais páginas e buscas são mais comuns, quantas contas e negócios são cadastrados e quantos contatos os negócios
           recebem pelo site. Ele usa cookies no seu navegador e não recebe seu nome, seu e-mail, seu telefone nem o nome do

@@ -147,13 +147,14 @@ model Empresa {
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
 
-  causas          EmpresaCausa[]
-  depoimentos     Depoimento[]
-  membros         EmpresaMembro[]
-  favoritos       EmpresaFavorita[]
-  liberacoesClube LiberacaoClube[]
-  ofertas         Oferta[]
-  reivindicacoes  Reivindicacao[]
+  causas           EmpresaCausa[]
+  depoimentos      Depoimento[]
+  membros          EmpresaMembro[]
+  favoritos        EmpresaFavorita[]
+  enderecosAntigos EnderecoAntigo[]
+  liberacoesClube  LiberacaoClube[]
+  ofertas          Oferta[]
+  reivindicacoes   Reivindicacao[]
 
   @@index([moderacao, oculta, status])
   @@index([uf])
@@ -182,6 +183,17 @@ model EmpresaMembro {
   @@index([usuarioId])
 }
 
+// Endereços que o negócio já teve: quando o dono troca o @, o antigo redireciona
+// para o atual, para não quebrar links e QR codes já divulgados (#298).
+model EnderecoAntigo {
+  endereco  String   @id
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  criadoEm  DateTime @default(now())
+
+  @@index([empresaId])
+}
+
 // Os negócios que cada pessoa favoritou (Clube do Bem, #248). Só a própria pessoa
 // vê os favoritos dela; o dono vê só quantas pessoas favoritaram o negócio.
 model EmpresaFavorita {
@@ -207,6 +219,10 @@ model LiberacaoClube {
   usuario       Usuario  @relation("LiberadoNoClube", fields: [usuarioId], references: [id], onDelete: Cascade)
   // O CNPJ conferido, sem pontuação, como em Reivindicacao.cnpj. Só a moderação vê.
   cnpj          String
+  // O que a pessoa informou ao pedir a verificação (#293): o nome como no documento e o CPF
+  // só mascarado (os 6 dígitos do meio). O CPF inteiro nunca é guardado. Só a moderação vê.
+  nomeCompleto  String?
+  cpfMascarado  String?
   // "liberada" | "suspensa"
   status        String   @default("liberada")
   // Motivo da suspensão, escrito pela moderação.

@@ -60,7 +60,11 @@ export async function PedidosDoClube() {
           )}
 
           <Suspense fallback={<p className="cartao p-4 text-sm text-suave">Consultando a Receita…</p>}>
-            <Ficha empresa={pedido.empresa} cnpj={pedido.cnpj} dono={pedido.usuario} />
+            <Ficha
+              empresa={pedido.empresa}
+              cnpj={pedido.cnpj}
+              dono={{ ...pedido.usuario, nomeCompleto: pedido.nomeCompleto, cpfMascarado: pedido.cpfMascarado }}
+            />
           </Suspense>
 
           <div className="flex flex-col gap-3 border-t border-linha pt-4 sm:flex-row sm:items-start sm:justify-between">
@@ -91,7 +95,15 @@ export async function PedidosDoClube() {
   );
 }
 
-async function Ficha({ empresa, cnpj, dono }: { empresa: NegocioDaFicha; cnpj: string; dono: { id: string; nome: string } }) {
+async function Ficha({
+  empresa,
+  cnpj,
+  dono,
+}: {
+  empresa: NegocioDaFicha;
+  cnpj: string;
+  dono: { id: string; nome: string; nomeCompleto: string | null; cpfMascarado: string | null };
+}) {
   const ficha = await consultarCnpj(cnpj);
   if (!ficha) {
     return (

@@ -60,6 +60,9 @@ const ERROS_DO_PEDIDO: Partial<Record<MotivoRecusaClube, string>> = {
   nao_e_dono: "Só um dono do negócio pode pedir a verificação.",
   ja_liberado: "Você já está liberado no clube.",
   pedido_em_analise: "Você já tem um pedido em análise.",
+  nome_invalido: "Escreva o seu nome completo, como no documento.",
+  cpf_invalido: "CPF inválido. Confira os números.",
+  sem_consentimento: "Marque a autorização para a moderação usar o seu nome e o seu CPF na verificação.",
 };
 
 /** O dono pede a verificação do negócio para o Clube do Bem, com o CNPJ. O pedido vai para a fila da moderação. */
@@ -68,10 +71,18 @@ export async function pedirVerificacaoAcao(_estado: EstadoFormulario, dados: For
   if (!empresa) redirect("/painel");
   const clube = `/painel/${empresa.instagramUsername}/clube`;
   const usuario = await exigirUsuario(clube);
-  const valores = { cnpj: texto(dados, "cnpj") };
+  // O servidor não devolve o CPF: só o CNPJ e o nome voltam nos `valores` de um erro.
+  const valores = { cnpj: texto(dados, "cnpj"), nomeCompleto: texto(dados, "nomeCompleto") };
   if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto, valores };
   try {
-    await pedirVerificacao({ empresaId: empresa.id, usuarioId: usuario.id, cnpj: valores.cnpj });
+    await pedirVerificacao({
+      empresaId: empresa.id,
+      usuarioId: usuario.id,
+      cnpj: valores.cnpj,
+      nomeCompleto: valores.nomeCompleto,
+      cpf: texto(dados, "cpf"),
+      consentimento: texto(dados, "consentimento") === "sim",
+    });
   } catch (erro) {
     if (erro instanceof ErroClube) return { erro: ERROS_DO_PEDIDO[erro.motivo] ?? AVISOS[`clube_${erro.motivo}`]?.texto, valores };
     throw erro;

@@ -147,7 +147,7 @@ export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: NegocioDaF
                 Não foi possível consultar a Receita agora, e sem a consulta não há liberação. Tente de novo em alguns minutos.
               </p>
             ) : (
-              <FichaDaReceita empresa={empresa} cnpj={cnpj} ficha={ficha} donos={membros.map(({ usuario }) => usuario)} />
+              <FichaDaReceita empresa={empresa} cnpj={cnpj} ficha={ficha} donos={membros.map(({ usuario }) => ({ ...usuario, nomeCompleto: liberacaoDe.get(usuario.id)?.nomeCompleto, cpfMascarado: liberacaoDe.get(usuario.id)?.cpfMascarado }))} />
             ))}
         </>
       )}

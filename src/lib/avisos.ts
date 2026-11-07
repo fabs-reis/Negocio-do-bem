@@ -59,6 +59,7 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     texto: "Você fez muitas solicitações nas últimas 24 horas. Tente de novo amanhã.",
   },
   salvo: { tipo: "sucesso", texto: "Alterações salvas." },
+  arroba_trocado: { tipo: "sucesso", texto: "@ do Instagram trocado. O endereço antigo da página leva para o novo." },
   foto_salva: { tipo: "sucesso", texto: "Foto atualizada." },
   foto_removida: { tipo: "info", texto: "Foto removida." },
   oculta: { tipo: "info", texto: "Seu negócio saiu do diretório. Você pode voltar a mostrá-lo quando quiser." },
