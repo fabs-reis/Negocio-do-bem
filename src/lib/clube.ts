@@ -1,14 +1,30 @@
 import "server-only";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { cnpjValido, consultarCnpj, formatarCnpj, limparCnpj, type DadosCnpj } from "@/lib/cnpj";
+import { buscarNaReceita, cnpjValido, consultarCnpj, formatarCnpj, limparCnpj, type DadosCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
 import { normalizarTexto } from "@/lib/texto";
 
-// Regras do Clube do Bem (#248). Nesta versão, só a moderação libera um dono para criar
-// ofertas, e só para negócio com CNPJ (o MEI também tem CNPJ) ativo na Receita.
+// Regras do Clube do Bem (#248). Só a moderação libera um dono para criar ofertas, e só
+// para negócio com CNPJ (o MEI também tem CNPJ) ativo na Receita. O dono pede a
+// verificação com o CNPJ, e o pedido espera na fila da moderação (#286).
+//
+// Cada dono tem uma liberação por negócio, com um destes status:
+// - "pendente": o dono pediu, e a moderação ainda não decidiu;
+// - "liberada": pode criar ofertas;
+// - "recusada": a moderação recusou o pedido, com o motivo;
+// - "suspensa": estava liberada e foi suspensa, pela moderação ou pelo sistema.
+// Recusado ou suspenso, o dono pode pedir de novo. O motivo da última decisão fica
+// guardado no pedido novo, para a moderação ver o que aconteceu antes.
 
-/** Por que a liberação não aconteceu. Cada motivo vira o aviso `clube_<motivo>` na ficha do negócio. */
-export type MotivoRecusaClube = "cnpj_invalido" | "receita_indisponivel" | "cnpj_inativo" | "nao_e_dono";
+/** Por que a liberação ou o pedido não aconteceu. Cada motivo vira o aviso `clube_<motivo>`. */
+export type MotivoRecusaClube =
+  | "cnpj_invalido"
+  | "receita_indisponivel"
+  | "cnpj_inativo"
+  | "nao_e_dono"
+  | "ja_liberado"
+  | "pedido_em_analise"
+  | "cnpj_nao_encontrado";
 
 export class ErroClube extends Error {
   constructor(readonly motivo: MotivoRecusaClube) {
@@ -125,6 +141,104 @@ export async function suspenderDoClube({
       });
     }
     return liberacao.empresa.instagramUsername;
+  });
+}
+
+/**
+ * O dono pede para entrar no clube, com o CNPJ do negócio. Os dígitos são conferidos aqui,
+ * e um CNPJ que a Receita não tem, ou diz não estar ativo, nem chega à fila. Sem resposta da
+ * Receita, o pedido entra assim mesmo: a moderação consulta de novo antes de liberar.
+ */
+export async function pedirVerificacao({
+  empresaId,
+  usuarioId,
+  cnpj,
+}: {
+  empresaId: string;
+  usuarioId: string;
+  cnpj: string;
+}): Promise<void> {
+  const numero = limparCnpj(cnpj);
+  if (!cnpjValido(numero)) throw new ErroClube("cnpj_invalido");
+  const chave = { empresaId_usuarioId: { empresaId, usuarioId } };
+  const [membro, atual] = await Promise.all([
+    db.empresaMembro.findUnique({ where: chave, include: { empresa: { select: { instagramUsername: true } } } }),
+    db.liberacaoClube.findUnique({ where: chave, select: { status: true } }),
+  ]);
+  if (!membro) throw new ErroClube("nao_e_dono");
+  if (atual?.status === "liberada") throw new ErroClube("ja_liberado");
+  if (atual?.status === "pendente") throw new ErroClube("pedido_em_analise");
+  const ficha = await buscarNaReceita(numero);
+  if (ficha === "nao_encontrado") throw new ErroClube("cnpj_nao_encontrado");
+  if (ficha && normalizarTexto(ficha.situacao ?? "") !== "ativa") throw new ErroClube("cnpj_inativo");
+
+  const pedido = { cnpj: numero, status: "pendente", decididoPorId: null, decididoEm: new Date() };
+  await db.$transaction(async (tx) => {
+    if (!atual) {
+      // Dois envios ao mesmo tempo: o segundo bate na chave única e vira "pedido em análise".
+      try {
+        await tx.liberacaoClube.create({ data: { empresaId, usuarioId, ...pedido } });
+      } catch (erro) {
+        if ((erro as { code?: string }).code === "P2002") throw new ErroClube("pedido_em_analise");
+        throw erro;
+      }
+    } else {
+      // Só sai de "recusada" ou "suspensa": se a moderação decidiu enquanto isso, nada muda.
+      const { count } = await tx.liberacaoClube.updateMany({
+        where: { empresaId, usuarioId, status: { in: ["recusada", "suspensa"] } },
+        data: pedido,
+      });
+      if (count === 0) throw new ErroClube("pedido_em_analise");
+    }
+    await registrarAuditoria(tx, {
+      usuarioId,
+      acao: "clube.pedido",
+      alvoTipo: "empresa",
+      alvoId: empresaId,
+      detalhes: `@${membro.empresa.instagramUsername} · CNPJ ${formatarCnpj(numero)}`,
+    });
+  });
+}
+
+/**
+ * Recusa um pedido que está na fila, com o motivo, que o dono vê no painel. Devolve o @ do
+ * negócio e se o pedido foi recusado agora, ou null se ele não existe. Um pedido já decidido
+ * não muda.
+ */
+export async function recusarPedido({
+  liberacaoId,
+  moderadorId,
+  motivo,
+}: {
+  liberacaoId: string;
+  moderadorId: string;
+  motivo: string;
+}): Promise<{ username: string; empresaId: string; usuarioId: string; recusado: boolean } | null> {
+  return db.$transaction(async (tx) => {
+    const { count } = await tx.liberacaoClube.updateMany({
+      where: { id: liberacaoId, status: "pendente" },
+      data: { status: "recusada", motivo, decididoPorId: moderadorId, decididoEm: new Date() },
+    });
+    const liberacao = await tx.liberacaoClube.findUnique({
+      where: { id: liberacaoId },
+      include: { empresa: { select: { instagramUsername: true } }, usuario: { select: { nome: true } } },
+    });
+    if (!liberacao) return null;
+    if (count > 0) {
+      await registrarAuditoria(tx, {
+        usuarioId: moderadorId,
+        acao: "clube.recusado",
+        alvoTipo: "empresa",
+        alvoId: liberacao.empresaId,
+        detalhes: `@${liberacao.empresa.instagramUsername} · ${liberacao.usuario.nome} · ${motivo}`,
+      });
+    }
+    return {
+      username: liberacao.empresa.instagramUsername,
+      empresaId: liberacao.empresaId,
+      usuarioId: liberacao.usuarioId,
+      recusado: count > 0,
+    };
   });
 }
 

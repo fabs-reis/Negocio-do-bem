@@ -3,9 +3,11 @@ import { db } from "@/lib/db";
 import { enviarEmail, type Email } from "@/lib/email";
 import {
   avisarDecisaoDaReivindicacao,
+  avisarDecisaoDoClube,
   avisarNovaDenuncia,
   avisarNovaReivindicacao,
   avisarNovoDepoimento,
+  avisarNovoPedidoDoClube,
 } from "@/lib/notificacoes";
 import { aprovar, recusar, solicitarPorDocumento } from "@/lib/reivindicacao";
 
@@ -130,6 +132,57 @@ describe("avisos para a moderação", () => {
     expect(destinatarios()).toEqual(["mod1@exemplo.com", "mod2@exemplo.com"]);
     expect(enviados()[0]!.assunto).toBe("Depoimento denunciado em Padaria florescer");
     expect(enviados()[0]!.texto).toContain("/moderacao?aba=denuncias");
+  });
+});
+
+describe("Clube do Bem", () => {
+  async function pedidoDe(status: string, motivo: string | null = null) {
+    const dona = await criarConta("Dora Dona", "dora@exemplo.com");
+    const empresa = await criarEmpresa("florescer", [dona]);
+    await db.liberacaoClube.create({ data: { empresaId: empresa.id, usuarioId: dona.id, cnpj: "11222333000181", status, motivo } });
+    return { empresaId: empresa.id, donaId: dona.id };
+  }
+
+  it("cada pessoa da moderação recebe o pedido de verificação, sem o nome nem o CNPJ do dono", async () => {
+    const { empresaId } = await pedidoDe("pendente");
+
+    await avisarNovoPedidoDoClube(empresaId);
+
+    expect(destinatarios()).toEqual(["mod1@exemplo.com", "mod2@exemplo.com"]);
+    for (const email of enviados()) {
+      expect(email.assunto).toBe("Novo pedido do Clube do Bem: @florescer");
+      expect(email.texto).toContain("/moderacao?aba=clube");
+      expect(email.texto).not.toContain("Dora");
+      expect(email.texto).not.toContain("11.222.333");
+    }
+  });
+
+  it("o dono liberado recebe o link do painel do clube", async () => {
+    const { empresaId, donaId } = await pedidoDe("liberada");
+
+    await avisarDecisaoDoClube(empresaId, donaId);
+
+    expect(destinatarios()).toEqual(["dora@exemplo.com"]);
+    expect(enviados()[0]!.assunto).toBe("Padaria florescer está no Clube do Bem");
+    expect(enviados()[0]!.texto).toContain("/painel/florescer/clube");
+  });
+
+  it("o dono recusado recebe o motivo e o caminho para pedir de novo", async () => {
+    const { empresaId, donaId } = await pedidoDe("recusada", "O nome não bate com os sócios.");
+
+    await avisarDecisaoDoClube(empresaId, donaId);
+
+    expect(destinatarios()).toEqual(["dora@exemplo.com"]);
+    expect(enviados()[0]!.texto).toContain("Motivo: O nome não bate com os sócios.");
+    expect(enviados()[0]!.texto).toContain("/painel/florescer/clube");
+  });
+
+  it("um pedido ainda na fila não manda nada para o dono", async () => {
+    const { empresaId, donaId } = await pedidoDe("pendente");
+
+    await avisarDecisaoDoClube(empresaId, donaId);
+
+    expect(enviados()).toHaveLength(0);
   });
 });
 

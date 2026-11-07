@@ -82,6 +82,12 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     texto: "Não foi possível consultar a Receita agora, e sem a consulta não há liberação. Tente de novo em alguns minutos.",
   },
   clube_nao_e_dono: { tipo: "erro", texto: "Essa conta não é dona deste negócio." },
+  clube_recusado: { tipo: "info", texto: "Pedido recusado. O dono vê o motivo no painel e pode pedir de novo." },
+  clube_ja_decidido: { tipo: "erro", texto: "Este pedido já tinha sido decidido por outra pessoa da moderação." },
+  clube_pedido_enviado: {
+    tipo: "sucesso",
+    texto: "Pedido enviado. A moderação confere o CNPJ na Receita e a resposta aparece aqui.",
+  },
   oferta_criada: { tipo: "sucesso", texto: "Oferta no ar! Ela aparece no perfil do negócio até o último dia." },
   oferta_encerrada: { tipo: "info", texto: "Oferta encerrada. Quem já gerou o cupom pode usar até o fim previsto." },
   cupom_gerado: { tipo: "sucesso", texto: "Seu cupom está pronto. Mostre o código na hora da compra." },

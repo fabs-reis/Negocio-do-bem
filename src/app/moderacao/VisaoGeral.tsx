@@ -18,7 +18,7 @@ export async function VisaoGeral() {
     distribuicaoDoDiretorio(),
     saudeDosDados(agora),
   ]);
-  const { negocios, contas, depoimentos, reivindicacoes } = resumo;
+  const { negocios, contas, depoimentos, reivindicacoes, pedidosDoClube } = resumo;
   const negociosEm = (situacao: string) => hrefModeracao("negocios", { situacao });
   const contasEm = (situacao: string) => hrefModeracao("contas", { situacao });
   const depoimentosEm = (situacao: string) => hrefModeracao("depoimentos", { situacao });
@@ -27,6 +27,7 @@ export async function VisaoGeral() {
     { total: reivindicacoes.pendentes, texto: ["pedido de reivindicação", "pedidos de reivindicação"], href: hrefModeracao("reivindicacoes") },
     { total: negocios.pendentes, texto: ["indicação antiga", "indicações antigas"], href: hrefModeracao("indicacoes") },
     { total: depoimentos.denunciados, texto: ["denúncia aberta", "denúncias abertas"], href: hrefModeracao("denuncias") },
+    { total: pedidosDoClube, texto: ["pedido do Clube do Bem", "pedidos do Clube do Bem"], href: hrefModeracao("clube") },
   ].filter((f) => f.total > 0);
 
   return (
