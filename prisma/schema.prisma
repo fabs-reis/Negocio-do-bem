@@ -344,6 +344,17 @@ model Depoimento {
   @@index([denunciado])
 }
 
+// Keep retirement records when objects or audit history are removed.
+model FotoAposentada {
+  dominio      String
+  chave        String
+  iniciadoEm   DateTime  @default(now())
+  confirmadaEm DateTime?
+
+  @@id([dominio, chave])
+  @@index([chave])
+}
+
 // Embaixador do bem (#250): quem leva o projeto para uma cidade ou um estado inteiro.
 // Só a moderação cadastra. Aparece na página inicial, em /embaixadores e na página da cidade.
 model Embaixador {
