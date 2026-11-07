@@ -29,7 +29,7 @@ export function formatarCnpj(valor: string): string {
   return `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`;
 }
 
-export type SocioCnpj = { nome: string; qualificacao: string | null };
+export type SocioCnpj = { nome: string; qualificacao: string | null; cpfMascarado: string | null };
 
 export type DadosCnpj = {
   razaoSocial: string;
@@ -79,7 +79,12 @@ export async function buscarNaReceita(valor: string): Promise<DadosCnpj | "nao_e
       municipio: texto(dados.municipio),
       uf: texto(dados.uf),
       socios: (Array.isArray(dados.qsa) ? (dados.qsa as Record<string, unknown>[]) : [])
-        .map((socio) => ({ nome: texto(socio.nome_socio), qualificacao: texto(socio.qualificacao_socio) }))
+        .map((socio) => ({
+          nome: texto(socio.nome_socio),
+          qualificacao: texto(socio.qualificacao_socio),
+          // A Receita mostra do sócio pessoa física só os 6 dígitos do meio ("***325350**").
+          cpfMascarado: texto(socio.cnpj_cpf_do_socio),
+        }))
         .filter((socio): socio is SocioCnpj => socio.nome !== null),
       telefone: texto(dados.ddd_telefone_1),
       email: texto(dados.email)?.toLowerCase() ?? null,

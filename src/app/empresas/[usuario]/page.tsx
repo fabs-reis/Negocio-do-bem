@@ -105,7 +105,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <SeloStatus status={empresa.status} />
+              <SeloStatus status={empresa.status} verificado={parceiro} />
               {parceiro && (
                 <span className="rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-700">Parceiro do Clube do Bem</span>
               )}

@@ -111,6 +111,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
           empresaId={empresa.id}
           liberacao={liberacao}
           cnpjSugerido={cnpjSugerido ? formatarCnpj(cnpjSugerido) : undefined}
+          nomeSugerido={usuario.nome}
         />
       )}
 

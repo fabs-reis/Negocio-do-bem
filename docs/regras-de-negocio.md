@@ -475,10 +475,9 @@ Hoje é o único caminho ligado. A pessoa envia:
 | Campo | Obrigatório | Regra |
 | --- | --- | --- |
 | Relação com o negócio | Sim | 2 a 120 caracteres (ex.: "sou a dona", "cuido das redes"). |
-| Contato | Sim | 5 a 160 caracteres. WhatsApp ou e-mail para a moderação falar com a pessoa. |
-| CNPJ ou MEI | Não | Validado pelos dígitos verificadores, inclusive no formato alfanumérico que a Receita passou a emitir em julho de 2026. Guardado sem pontuação. |
-| Site | Não | Mesma regra do site do negócio. |
 | Mensagem | Não | Até 1.000 caracteres. |
+
+Desde a [#293](https://github.com/fabs-reis/Negocio-do-bem/issues/293), o formulário não pede mais contato, CNPJ nem site: a moderação fala com a pessoa pelo e-mail da conta, e o CNPJ vem depois, no pedido de verificação do painel ([seção 20](#liberação-para-o-clube)). Pedidos antigos continuam com o que a pessoa enviou. O formulário só serve para assumir: quem assume ganha o perfil "assumido", e a verificação é o passo seguinte.
 
 O @ do Instagram não é pedido: é o do próprio perfil.
 
@@ -1096,6 +1095,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Conta do Google ligada | `Usuario.googleId` | Ninguém: é só o identificador (`sub`) que o Google dá à conta, para reconhecê-la no próximo login. |
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
+| Nome completo e CPF informados no pedido de verificação | `LiberacaoClube.nomeCompleto` e `cpfMascarado` | Só a moderação. O CPF inteiro **nunca é guardado**: só os 6 dígitos do meio (`***.982.247-**`), os mesmos que a Receita mostra dos sócios. Serve para comparar com o quadro de sócios. A pessoa autoriza numa caixa obrigatória do formulário. Somem se a conta for apagada. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1394,7 +1394,11 @@ Código: regras em `src/lib/clube.ts` (com testes em `tests/db/clube.test.ts`), 
 Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [Aprovação na hora](#aprovação-na-hora)). Isso basta para editar o perfil, mas não para criar cupons. Por isso, ser dono não basta: a moderação precisa liberar.
 
 - **Só negócio com CNPJ.** O MEI também tem CNPJ. Autônomos sem CNPJ e profissões regulamentadas ficam para depois (os conselhos da saúde, por exemplo, limitam o uso de desconto como propaganda).
-- **O dono pede a verificação com o CNPJ** ([#286](https://github.com/fabs-reis/Negocio-do-bem/issues/286)). Enquanto não está liberado, ele vê a caixa "Ofereça cupons no Clube do Bem" no painel do negócio e "Verifique o seu negócio para criar ofertas" no painel do clube (`/painel/<@>/clube#verificar`), com o campo do CNPJ. Se ele mandou o CNPJ quando assumiu o perfil, ou num pedido anterior, o campo já vem preenchido.
+- **O dono pede a verificação com o CNPJ, o nome completo e o CPF** ([#286](https://github.com/fabs-reis/Negocio-do-bem/issues/286), [#293](https://github.com/fabs-reis/Negocio-do-bem/issues/293)). Quem acabou de assumir o perfil cai no painel do negócio, que abre com a caixa "Verifique a sua empresa e seja Parceiro do Clube do Bem". O pedido fica em "Verifique o seu negócio para criar ofertas" no painel do clube (`/painel/<@>/clube#verificar`), com o CNPJ, o nome completo (já vem com o nome da conta), o CPF e uma caixa obrigatória de autorização. Se ele mandou o CNPJ num pedido anterior, o campo já vem preenchido.
+  - **Só os 6 dígitos do meio do CPF são guardados** (`***.982.247-**`). O CPF inteiro é conferido (dígitos verificadores) e descartado, e não aparece na tela, na auditoria nem na URL. O servidor nunca devolve o CPF: se o formulário volta com erro, ele só continua no campo porque o navegador o mantém.
+  - **A moderação vê a comparação:** o nome informado contra os sócios e os 6 dígitos do CPF contra o CPF mascarado que a Receita mostra de cada sócio (no MEI, o CPF que a razão social traz). É só apoio: um gerente ou procurador pode não ser sócio, e a Receita não mostra o CPF de todos.
+  - **Perfil verificado:** liberar o dono no clube dá, no mesmo passo, o selo "Perfil verificado" no perfil público, no lugar de "Perfil assumido". Suspender a liberação, ou tirar o dono, tira o selo. Os perfis assumidos continuam "assumidos" até pedirem a verificação. O campo `status = verificada` segue querendo dizer só "assumido".
+  - **O documento (RG ou CNH)** é a parte 2 da #293 e ainda não existe.
   - O site confere os dígitos e consulta a Receita. Se ela não tem o CNPJ, o pedido não entra ("Não achamos este CNPJ na Receita"); se diz que ele não está ativo, também não ("Só entram no clube negócios com CNPJ ativo"). Sem resposta da Receita, o pedido entra assim mesmo, porque a moderação consulta de novo antes de liberar.
   - Precisa ser dono do negócio e ter o e-mail confirmado (quando a confirmação estiver ligada). Com um pedido em análise, ou já liberado, não pede de novo.
   - O pedido fica com o status "pendente", e o dono vê "A moderação está conferindo o seu negócio", com a data e o CNPJ. O painel do clube só mostra "Validar um cupom" a quem está liberado ou já teve oferta.

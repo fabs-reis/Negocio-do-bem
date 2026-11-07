@@ -1,6 +1,7 @@
 import "server-only";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { buscarNaReceita, cnpjValido, consultarCnpj, formatarCnpj, limparCnpj, type DadosCnpj } from "@/lib/cnpj";
+import { cpfValido, limparCpf, mascararCpf, miolo } from "@/lib/cpf";
 import { db } from "@/lib/db";
 import { normalizarTexto } from "@/lib/texto";
 
@@ -24,7 +25,10 @@ export type MotivoRecusaClube =
   | "nao_e_dono"
   | "ja_liberado"
   | "pedido_em_analise"
-  | "cnpj_nao_encontrado";
+  | "cnpj_nao_encontrado"
+  | "nome_invalido"
+  | "cpf_invalido"
+  | "sem_consentimento";
 
 export class ErroClube extends Error {
   constructor(readonly motivo: MotivoRecusaClube) {
@@ -153,13 +157,23 @@ export async function pedirVerificacao({
   empresaId,
   usuarioId,
   cnpj,
+  nomeCompleto,
+  cpf,
+  consentimento,
 }: {
   empresaId: string;
   usuarioId: string;
   cnpj: string;
+  nomeCompleto: string;
+  cpf: string;
+  consentimento: boolean;
 }): Promise<void> {
   const numero = limparCnpj(cnpj);
   if (!cnpjValido(numero)) throw new ErroClube("cnpj_invalido");
+  const nome = nomeCompleto.trim().replace(/\s+/g, " ");
+  if (palavrasDoNome(nome).length < 2 || nome.length > 120) throw new ErroClube("nome_invalido");
+  if (!cpfValido(cpf)) throw new ErroClube("cpf_invalido");
+  if (!consentimento) throw new ErroClube("sem_consentimento");
   const chave = { empresaId_usuarioId: { empresaId, usuarioId } };
   const [membro, atual] = await Promise.all([
     db.empresaMembro.findUnique({ where: chave, include: { empresa: { select: { instagramUsername: true } } } }),
@@ -172,7 +186,15 @@ export async function pedirVerificacao({
   if (ficha === "nao_encontrado") throw new ErroClube("cnpj_nao_encontrado");
   if (ficha && normalizarTexto(ficha.situacao ?? "") !== "ativa") throw new ErroClube("cnpj_inativo");
 
-  const pedido = { cnpj: numero, status: "pendente", decididoPorId: null, decididoEm: new Date() };
+  // O CPF inteiro não sai daqui: só os 6 dígitos do meio são guardados.
+  const pedido = {
+    cnpj: numero,
+    status: "pendente",
+    nomeCompleto: nome,
+    cpfMascarado: mascararCpf(limparCpf(cpf)),
+    decididoPorId: null,
+    decididoEm: new Date(),
+  };
   await db.$transaction(async (tx) => {
     if (!atual) {
       // Dois envios ao mesmo tempo: o segundo bate na chave única e vira "pedido em análise".
@@ -253,4 +275,22 @@ export async function podeCriarOfertas(empresaId: string, usuarioId: string): Pr
     db.empresaMembro.findUnique({ where: chave, select: { usuarioId: true } }),
   ]);
   return liberacao?.status === "liberada" && membro !== null;
+}
+
+/**
+ * O que a ficha da Receita diz do nome e do CPF que a pessoa informou ao pedir a verificação.
+ * `socio` é o sócio com o mesmo nome; `cpfBate` diz se os 6 dígitos do meio do CPF são os de
+ * algum sócio (ou, no MEI, os do CPF que a razão social traz). É só um apoio: não bloqueia.
+ */
+export function conferirIdentidade(
+  ficha: Pick<DadosCnpj, "razaoSocial" | "socios">,
+  informado: { nomeCompleto: string | null; cpfMascarado: string | null },
+): { nomeBate: string | null; cpfBate: boolean } {
+  const nomeBate = informado.nomeCompleto ? quemBateComAConta(informado.nomeCompleto, ficha) : null;
+  const meio = miolo(informado.cpfMascarado);
+  const cpfDaRazao = ficha.razaoSocial.replace(/\D/g, "");
+  const cpfBate =
+    meio !== null &&
+    (ficha.socios.some((socio) => miolo(socio.cpfMascarado) === meio) || (cpfDaRazao.length === 11 && cpfDaRazao.slice(3, 9) === meio));
+  return { nomeBate, cpfBate };
 }

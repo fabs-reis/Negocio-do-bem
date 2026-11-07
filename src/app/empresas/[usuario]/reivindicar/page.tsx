@@ -54,9 +54,9 @@ async function Reivindicar({
         Este negócio é seu?
       </h1>
       <p className="text-lg leading-relaxed text-suave">
-        Envie os dados do negócio para assumir o perfil de{" "}
+        Conte a sua relação com o negócio para assumir o perfil de{" "}
         <strong className="font-semibold text-tinta">{temInstagram(username) ? `@${username}` : empresa.nome}</strong>. Depois disso, você conta a sua história,
-        escolhe as causas e responde à comunidade.
+        escolhe as causas e responde à comunidade. Depois você pode verificar a empresa, com o CNPJ, o nome e o CPF, para ganhar o selo e os benefícios de Parceiro do Clube do Bem.
       </p>
       <AvisoDaUrl codigo={busca.aviso} />
       {busca.aviso === "ig_conta_diferente" && conectada && (
@@ -183,7 +183,7 @@ async function Reivindicar({
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
               <span>
                 <span className="block font-serif text-2xl font-semibold">Não tenho acesso ao Instagram do negócio</span>
-                <span className="mt-1 block text-suave">Envie os dados do negócio para assumir o perfil.</span>
+                <span className="mt-1 block text-suave">Conte a sua relação com o negócio para assumir o perfil.</span>
               </span>
               <span aria-hidden="true" className="text-2xl text-suave transition group-open:rotate-45">
                 +
@@ -193,7 +193,7 @@ async function Reivindicar({
           </details>
         ) : (
           <section className="cartao p-6 sm:p-8">
-            <h2 className="font-serif text-2xl font-semibold">Envie os dados do negócio</h2>
+            <h2 className="font-serif text-2xl font-semibold">Assuma o perfil</h2>
             <p className="mt-2 leading-relaxed text-suave">
               {empresa.membros.length > 0
                 ? "A moderação analisa o pedido e decide. O resultado aparece no seu painel."
