@@ -3,19 +3,20 @@ import { connection } from "next/server";
 import { filtrarCausas } from "@/lib/causas";
 import { listarParaSitemap } from "@/lib/consultas";
 import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
+import { embaixadoresNoSite } from "@/lib/embaixadores";
 import { ehFotoDoSite } from "@/lib/fotos";
 import { fotoDaCidade } from "@/lib/fotos-das-cidades";
 import { nomeOficial } from "@/lib/municipios";
 import { paginaDaCidade, urlAbsoluta } from "@/lib/seo";
 
-// Páginas públicas, as páginas de cidade, causa e tipo que têm negócios e todos
-// os negócios do diretório, para o Google e o Bing acharem cada um. O robots.txt
-// aponta para cá.
+// Páginas públicas, as páginas de cidade, causa e tipo que têm negócios, as dos
+// embaixadores e todos os negócios do diretório, para o Google e o Bing acharem
+// cada um. O robots.txt aponta para cá.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Lido do banco a cada pedido, como o resto do site: um negócio aprovado
   // entra no sitemap na hora, e um oculto sai na hora.
   await connection();
-  const negocios = await listarParaSitemap();
+  const [negocios, embaixadores] = await Promise.all([listarParaSitemap(), embaixadoresNoSite()]);
   const ultimaMudanca = negocios[0]?.atualizadoEm;
 
   // Cada página de cidade, causa e tipo muda quando muda o negócio dela atualizado
@@ -40,7 +41,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: urlAbsoluta("/"), lastModified: ultimaMudanca },
     { url: urlAbsoluta("/explorar"), lastModified: ultimaMudanca },
     { url: urlAbsoluta("/cidades"), lastModified: ultimaMudanca },
+    { url: urlAbsoluta("/embaixadores") },
     { url: urlAbsoluta("/sobre") },
+    { url: urlAbsoluta("/clube-do-bem") },
     { url: urlAbsoluta("/participar") },
     { url: urlAbsoluta("/instalacao") },
     { url: urlAbsoluta("/instalacao/android") },
@@ -49,6 +52,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: urlAbsoluta(caminho),
       lastModified: quando,
       ...(fotos.has(caminho) && { images: [urlAbsoluta(fotos.get(caminho)!)] }),
+    })),
+    ...embaixadores.map((embaixador) => ({
+      url: urlAbsoluta(embaixador.href),
+      ...(embaixador.fotoUrl && { images: [urlAbsoluta(embaixador.fotoUrl)] }),
     })),
     ...negocios.map((negocio) => ({
       url: urlAbsoluta(`/empresas/${negocio.instagramUsername}`),

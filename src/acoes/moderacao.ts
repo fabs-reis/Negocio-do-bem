@@ -6,9 +6,16 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
-import { comAviso, destinoNaModeracao } from "@/lib/moderacao/filtros";
-import { avisarDecisaoDaReivindicacao } from "@/lib/notificacoes";
-import { aprovar, aprovarPendentesSemDono, ErroReivindicacao, recusar, type ModoAprovacao } from "@/lib/reivindicacao";
+import { comAviso, destinoNaModeracao, hrefModeracao } from "@/lib/moderacao/filtros";
+import { avisarDecisaoDaReivindicacao, avisarDonoRemovido } from "@/lib/notificacoes";
+import {
+  aprovar,
+  aprovarPendentesSemDono,
+  ErroReivindicacao,
+  recusar,
+  removerDono as tirarDosDonos,
+  type ModoAprovacao,
+} from "@/lib/reivindicacao";
 
 function voltar(aba: string, aviso: string): never {
   redirect(`/moderacao?aba=${aba}&aviso=${aviso}`);
@@ -16,7 +23,7 @@ function voltar(aba: string, aviso: string): never {
 
 /** Esvazia a fila antiga: aprova as reivindicações de negócios que ainda não têm dono. */
 export async function aprovarReivindicacoesSemDono(): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModerador("acao");
   const aprovadas = await aprovarPendentesSemDono(moderador.id);
   after(async () => {
     for (const id of aprovadas) await avisarDecisaoDaReivindicacao(id);
@@ -26,7 +33,7 @@ export async function aprovarReivindicacoesSemDono(): Promise<void> {
 
 /** Esvazia a fila antiga: publica todas as indicações que esperavam a moderação. */
 export async function publicarIndicacoesPendentes(): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModerador("acao");
   const pendentes = await db.empresa.findMany({ where: { moderacao: "pendente" }, select: { id: true, instagramUsername: true } });
   for (const { id, instagramUsername } of pendentes) {
     await db.$transaction(async (tx) => {
@@ -45,7 +52,7 @@ export async function publicarIndicacoesPendentes(): Promise<void> {
 }
 
 export async function aprovarReivindicacao(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModerador("acao");
   const modo: ModoAprovacao = dados.get("modo") === "transferir" ? "transferir" : "adicionar";
   const reivindicacaoId = texto(dados, "reivindicacaoId");
   try {
@@ -59,7 +66,7 @@ export async function aprovarReivindicacao(dados: FormData): Promise<void> {
 }
 
 export async function recusarReivindicacao(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModerador("acao");
   const motivo = texto(dados, "motivo").trim().slice(0, 500) || "Não foi possível confirmar que você controla este negócio.";
   const reivindicacaoId = texto(dados, "reivindicacaoId");
   try {
@@ -77,37 +84,64 @@ export async function recusarReivindicacao(dados: FormData): Promise<void> {
  * Negócios, que manda em `voltar` a lista filtrada de onde o pedido saiu.
  */
 export async function moderarEmpresa(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModerador("acao");
   const decisao = dados.get("decisao") === "aprovar" ? "aprovada" : "rejeitada";
   const aba = dados.get("aba") === "negocios" ? "negocios" : "indicacoes";
-  const empresa = await db.empresa.update({
-    where: { id: texto(dados, "empresaId") },
-    data: { moderacao: decisao },
-  });
-  await registrarAuditoria(db, {
-    usuarioId: moderador.id,
-    acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",
-    alvoTipo: "empresa",
-    alvoId: empresa.id,
-    detalhes: `@${empresa.instagramUsername}`,
+  await db.$transaction(async (tx) => {
+    const empresa = await tx.empresa.update({
+      where: { id: texto(dados, "empresaId") },
+      data: { moderacao: decisao },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: moderador.id,
+      acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",
+      alvoTipo: "empresa",
+      alvoId: empresa.id,
+      detalhes: `@${empresa.instagramUsername}`,
+    });
   });
   const destino = destinoNaModeracao(dados.get("voltar"));
   if (destino) redirect(comAviso(destino, "feito"));
   voltar(aba, "feito");
 }
 
+/** Volta para a seção de donos da ficha do negócio ou, com `voltar=fila`, para a fila do clube. */
+function voltarDosDonos(dados: FormData, username: string, aviso: string): never {
+  if (texto(dados, "voltar") === "fila") redirect(`${hrefModeracao("clube", { aviso })}#pedidos`);
+  redirect(`/moderacao/negocios/${username}?aviso=${aviso}#donos`);
+}
+
+/**
+ * Tira uma conta dos donos do negócio, com o motivo, que a pessoa recebe por e-mail. Só
+ * com a confirmação marcada. As regras estão em `removerDono` (src/lib/reivindicacao.ts).
+ */
+export async function removerDono(dados: FormData): Promise<void> {
+  const moderador = await exigirModerador("acao");
+  const empresa = await db.empresa.findUnique({ where: { id: texto(dados, "empresaId") }, select: { id: true, instagramUsername: true } });
+  if (!empresa) redirect("/moderacao?aba=negocios");
+  if (texto(dados, "confirmo") !== "sim") voltarDosDonos(dados, empresa.instagramUsername, "dono_sem_confirmacao");
+  const usuarioId = texto(dados, "usuarioId");
+  const motivo = texto(dados, "motivo").trim().slice(0, 500) || "Sem motivo informado";
+  const resultado = await tirarDosDonos({ empresaId: empresa.id, usuarioId, moderadorId: moderador.id, motivo });
+  if (!resultado?.removido) voltarDosDonos(dados, empresa.instagramUsername, "dono_ja_removido");
+  after(() => avisarDonoRemovido(empresa.id, usuarioId, motivo));
+  voltarDosDonos(dados, empresa.instagramUsername, "dono_removido");
+}
+
 export async function decidirDenuncia(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador();
+  const moderador = await exigirModerador("acao");
   const remover = dados.get("decisao") === "remover";
-  const depoimento = await db.depoimento.update({
-    where: { id: texto(dados, "depoimentoId") },
-    data: remover ? { status: "removido", denunciado: false } : { denunciado: false, motivoDenuncia: null, denunciadoPorId: null },
-  });
-  await registrarAuditoria(db, {
-    usuarioId: moderador.id,
-    acao: remover ? "depoimento.removido" : "depoimento.mantido",
-    alvoTipo: "depoimento",
-    alvoId: depoimento.id,
+  await db.$transaction(async (tx) => {
+    const depoimento = await tx.depoimento.update({
+      where: { id: texto(dados, "depoimentoId") },
+      data: remover ? { status: "removido", denunciado: false } : { denunciado: false, motivoDenuncia: null, denunciadoPorId: null },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: moderador.id,
+      acao: remover ? "depoimento.removido" : "depoimento.mantido",
+      alvoTipo: "depoimento",
+      alvoId: depoimento.id,
+    });
   });
   voltar("denuncias", "feito");
 }
