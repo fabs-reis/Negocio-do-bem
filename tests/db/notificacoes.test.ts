@@ -4,12 +4,13 @@ import { enviarEmail, type Email } from "@/lib/email";
 import {
   avisarDecisaoDaReivindicacao,
   avisarDecisaoDoClube,
+  avisarDonoRemovido,
   avisarNovaDenuncia,
   avisarNovaReivindicacao,
   avisarNovoDepoimento,
   avisarNovoPedidoDoClube,
 } from "@/lib/notificacoes";
-import { aprovar, recusar, solicitarPorDocumento } from "@/lib/reivindicacao";
+import { aprovar, recusar, removerDono, solicitarPorDocumento } from "@/lib/reivindicacao";
 
 // O envio de verdade é testado em tests/unit/email.test.ts. Aqui só importa quem
 // recebe cada aviso e o que vai nele.
@@ -183,6 +184,25 @@ describe("Clube do Bem", () => {
     await avisarDecisaoDoClube(empresaId, donaId);
 
     expect(enviados()).toHaveLength(0);
+  });
+});
+
+describe("dono removido pela moderação", () => {
+  it("só a pessoa recebe, com o motivo e o caminho para pedir o perfil de novo", async () => {
+    const moderadora = await db.usuario.findUniqueOrThrow({ where: { email: "mod1@exemplo.com" } });
+    const dona = await criarConta("Cristiane Oliveira", "cris@exemplo.com");
+    const empresa = await criarEmpresa("coffeelab", [dona]);
+    const motivo = "O nome não bate com a sócia na Receita";
+    await removerDono({ empresaId: empresa.id, usuarioId: dona.id, moderadorId: moderadora.id, motivo });
+
+    await avisarDonoRemovido(empresa.id, dona.id, motivo);
+
+    expect(destinatarios()).toEqual(["cris@exemplo.com"]);
+    const [email] = enviados();
+    expect(email!.assunto).toBe("Você não é mais dono de Padaria coffeelab no Negócio do Bem");
+    expect(email!.texto).toContain("Olá, Cristiane!");
+    expect(email!.texto).toContain("Motivo: O nome não bate com a sócia na Receita.");
+    expect(email!.texto).toContain("/empresas/coffeelab/reivindicar");
   });
 });
 

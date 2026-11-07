@@ -20,9 +20,10 @@ const ACOES = [
   "recusarReivindicacao",
   "moderarEmpresa",
   "decidirDenuncia",
+  "removerDono",
 ] as const;
 type Acao = (typeof ACOES)[number];
-type Alvos = { empresaId: string; reivindicacaoId: string; depoimentoId: string };
+type Alvos = { empresaId: string; reivindicacaoId: string; depoimentoId: string; donoId: string };
 
 /** Os campos que o formulário real da fila envia para cada ação. */
 const CAMPOS: Record<Acao, (alvos: Alvos) => Record<string, string>> = {
@@ -32,6 +33,7 @@ const CAMPOS: Record<Acao, (alvos: Alvos) => Record<string, string>> = {
   recusarReivindicacao: ({ reivindicacaoId }) => ({ reivindicacaoId, motivo: "Prova de runtime" }),
   moderarEmpresa: ({ empresaId }) => ({ empresaId, decisao: "rejeitar", aba: "negocios" }),
   decidirDenuncia: ({ depoimentoId }) => ({ depoimentoId, decisao: "remover" }),
+  removerDono: ({ empresaId, donoId }) => ({ empresaId, usuarioId: donoId, motivo: "Prova de runtime", confirmo: "sim" }),
 };
 
 function formularios(html: string) {
@@ -53,6 +55,7 @@ describe("Next em produção", () => {
   let reivindicacaoId: string;
   let depoimentoId: string;
   let moderadorId: string;
+  let donoId: string;
   let emailDoModerador: string;
   let usernameDoNegocio: string;
   let cookieModerador: string;
@@ -60,7 +63,7 @@ describe("Next em produção", () => {
   const acoes = {} as Record<Acao, string>;
   const usuarios: string[] = [];
 
-  const alvos = (): Alvos => ({ empresaId, reivindicacaoId, depoimentoId });
+  const alvos = (): Alvos => ({ empresaId, reivindicacaoId, depoimentoId, donoId });
   const idsAuditados = () => [empresaId, empresaPendenteId, reivindicacaoId, depoimentoId];
 
   async function criarPessoa(papel: string) {
@@ -108,6 +111,8 @@ describe("Next em produção", () => {
   async function restaurar() {
     await db.registroAuditoria.deleteMany({ where: { OR: [{ usuarioId: { in: usuarios } }, { alvoId: { in: idsAuditados() } }] } });
     await db.empresaMembro.deleteMany({ where: { empresaId: { in: [empresaId, empresaPendenteId] } } });
+    // O negócio da prova tem um dono, para que remover dono tenha o que mudar.
+    await db.empresaMembro.create({ data: { empresaId, usuarioId: donoId } });
     await db.empresa.update({ where: { id: empresaId }, data: { moderacao: "aprovada" } });
     await db.empresa.update({ where: { id: empresaPendenteId }, data: { moderacao: "pendente" } });
     await db.reivindicacao.update({
@@ -135,6 +140,8 @@ describe("Next em produção", () => {
       },
     });
     empresaId = empresa.id;
+    donoId = (await criarPessoa("membro")).id;
+    await db.empresaMembro.create({ data: { empresaId, usuarioId: donoId } });
     // Os dados abaixo fazem a fila mostrar todos os formulários de moderação.
     const pendente = await db.empresa.create({
       data: {
@@ -208,6 +215,10 @@ describe("Next em produção", () => {
     acoes.moderarEmpresa = indicacoes.find((f) => f.corpo.includes(`value="${empresaPendenteId}"`))?.id ?? "";
     const denuncias = await formulariosDaAba("denuncias");
     acoes.decidirDenuncia = denuncias.find((f) => f.corpo.includes(`value="${depoimentoId}"`))?.id ?? "";
+    log!.write("\nPROVA: GET edição do negócio como moderador\n");
+    const edicao = await ler(`/moderacao/negocios/${usernameDoNegocio}`, cookieModerador);
+    expect(edicao.status).toBe(200);
+    acoes.removerDono = formularios(edicao.html).find((f) => f.corpo.includes('name="confirmo"'))?.id ?? "";
   }, 60_000);
 
   beforeEach(async () => {
@@ -345,6 +356,24 @@ describe("Next em produção", () => {
         status: "recusada", motivoRecusa: "Prova de runtime", revisadoPorId: moderadorId,
       });
       expect(await db.registroAuditoria.count({ where: { alvoId: empresaPendenteId, acao: "reivindicacao.recusada" } })).toBe(1);
+    });
+
+    it("executa removerDono e grava a remoção e a auditoria", async () => {
+      log!.write("\nPROVA: POST removerDono como moderador\n");
+      const resposta = await enviar("removerDono", cookieModerador);
+      await resposta.text();
+      expect(resposta.status).toBe(303);
+      expect(resposta.headers.get("location")).toBe(`/moderacao/negocios/${usernameDoNegocio}?aviso=dono_removido#donos`);
+      expect(await db.empresaMembro.count({ where: { empresaId } })).toBe(0);
+      expect(await db.registroAuditoria.count({ where: { alvoId: empresaId, acao: "empresa.dono_removido" } })).toBe(1);
+    });
+
+    it("não remove o dono sem a confirmação marcada", async () => {
+      const resposta = await enviar("removerDono", cookieModerador, { empresaId, usuarioId: donoId, motivo: "Prova de runtime" });
+      await resposta.text();
+      expect(resposta.status).toBe(303);
+      expect(resposta.headers.get("location")).toContain("aviso=dono_sem_confirmacao");
+      expect(await db.empresaMembro.count({ where: { empresaId } })).toBe(1);
     });
 
     it("executa decidirDenuncia e grava a decisão e a auditoria", async () => {

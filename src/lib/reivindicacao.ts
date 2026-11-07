@@ -126,9 +126,21 @@ export async function processarLoginInstagram(params: {
 // Caminho 2: documento
 // ---------------------------------------------------------------------------
 
-/** Negócio sem dono e no ar: a reivindicação pelos dados do negócio é aprovada sozinha. */
-function aprovaSozinhoPorDocumento(empresa: { moderacao: string; membros: unknown[] }): boolean {
-  return empresa.moderacao !== "rejeitada" && empresa.membros.length === 0;
+/**
+ * Negócio sem dono e no ar: a reivindicação pelos dados do negócio é aprovada sozinha.
+ * Menos para quem a moderação já tirou dos donos deste negócio: esse pedido vai para a
+ * moderação.
+ */
+function aprovaSozinhoPorDocumento(empresa: { moderacao: string; membros: unknown[] }, tiradaDosDonos: boolean): boolean {
+  return !tiradaDosDonos && empresa.moderacao !== "rejeitada" && empresa.membros.length === 0;
+}
+
+const NOTA_TIRADA_DOS_DONOS = "A moderação já tirou esta conta dos donos deste negócio. Confira antes de aprovar.";
+
+/** Se a moderação já tirou esta conta dos donos do negócio (um pedido dela ficou "revogada"). */
+async function foiTiradaDosDonos(cliente: Pick<Prisma.TransactionClient, "reivindicacao">, empresaId: string, usuarioId: string) {
+  const revogada = await cliente.reivindicacao.findFirst({ where: { empresaId, usuarioId, status: "revogada" }, select: { id: true } });
+  return revogada !== null;
 }
 
 /**
@@ -146,15 +158,16 @@ export async function solicitarPorDocumento(params: {
 }) {
   await exigirQueNaoSejaDono(params.empresaId, params.usuarioId);
 
-  const reivindicacao = await db.$transaction(async (tx) => {
+  const { reivindicacao, tiradaDosDonos } = await db.$transaction(async (tx) => {
     await bloquearPessoa(tx, params.usuarioId);
     const emAnalise = await tx.reivindicacao.findFirst({
       where: { empresaId: params.empresaId, usuarioId: params.usuarioId, metodo: "documento", status: "pendente" },
     });
     if (emAnalise) throw new ErroReivindicacao("Você já enviou os dados deste negócio e eles estão em análise.");
     await exigirLimiteDiario(tx, params.usuarioId);
+    const tirada = await foiTiradaDosDonos(tx, params.empresaId, params.usuarioId);
 
-    return tx.reivindicacao.create({
+    const criada = await tx.reivindicacao.create({
       data: {
         empresaId: params.empresaId,
         usuarioId: params.usuarioId,
@@ -164,13 +177,15 @@ export async function solicitarPorDocumento(params: {
         relacao: params.relacao,
         contato: params.contato,
         mensagem: params.mensagem,
+        notas: tirada ? linhaDeNota(NOTA_TIRADA_DOS_DONOS) : "",
         expiraEm: daquiA(VALIDADE_ANALISE_DIAS * DIA),
       },
     });
+    return { reivindicacao: criada, tiradaDosDonos: tirada };
   });
 
   const empresa = await db.empresa.findUniqueOrThrow({ where: { id: params.empresaId }, include: { membros: true } });
-  if (!aprovaSozinhoPorDocumento(empresa)) return reivindicacao;
+  if (!aprovaSozinhoPorDocumento(empresa, tiradaDosDonos)) return reivindicacao;
   await aprovar({ reivindicacaoId: reivindicacao.id, revisorId: null });
   return db.reivindicacao.findUniqueOrThrow({ where: { id: reivindicacao.id } });
 }
@@ -184,13 +199,13 @@ export async function aprovarPendentesSemDono(revisorId: string): Promise<string
   const pendentes = await db.reivindicacao.findMany({
     where: { status: "pendente", metodo: "documento" },
     orderBy: { criadoEm: "asc" },
-    select: { id: true, empresaId: true },
+    select: { id: true, empresaId: true, usuarioId: true },
   });
 
   const aprovadas: string[] = [];
-  for (const { id, empresaId } of pendentes) {
+  for (const { id, empresaId, usuarioId } of pendentes) {
     const empresa = await db.empresa.findUniqueOrThrow({ where: { id: empresaId }, include: { membros: true } });
-    if (!aprovaSozinhoPorDocumento(empresa)) continue;
+    if (!aprovaSozinhoPorDocumento(empresa, await foiTiradaDosDonos(db, empresaId, usuarioId))) continue;
     try {
       await aprovar({ reivindicacaoId: id, revisorId });
       aprovadas.push(id);
@@ -224,6 +239,7 @@ async function conflitosDeVerificacao(params: {
   if (empresa.instagramUserId && empresa.instagramUserId !== instagramUserId) {
     conflitos.push("A conta do Instagram é diferente da registrada antes: o @ pode ter mudado de dono.");
   }
+  if (await foiTiradaDosDonos(db, empresa.id, usuarioId)) conflitos.push(NOTA_TIRADA_DOS_DONOS);
   const outra = await db.empresa.findFirst({
     where: { id: { not: empresa.id }, instagramUserId },
     select: { instagramUsername: true },
@@ -344,6 +360,86 @@ export async function cancelar(reivindicacaoId: string, usuarioId: string): Prom
   await db.reivindicacao.updateMany({
     where: { id: reivindicacaoId, usuarioId, status: "pendente" },
     data: { status: "cancelada" },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tirar um dono
+// ---------------------------------------------------------------------------
+
+/** O motivo que a liberação do Clube do Bem recebe quando a pessoa deixa de ser dona. */
+export const MOTIVO_CLUBE_SEM_DONO = "Deixou de ser dono do negócio";
+
+export type ResultadoRemocao =
+  | { removido: false; username: string }
+  | { removido: true; username: string; nome: string; semDono: boolean; ofertasSuspensas: number };
+
+/**
+ * A moderação tira uma conta dos donos do negócio, com um motivo, que a pessoa recebe por
+ * e-mail. Tudo numa transação:
+ * - o pedido aprovado dela vira "revogada", com o motivo. Um pedido novo dela para este
+ *   negócio vai para a moderação, sem a aprovação na hora;
+ * - a liberação do Clube do Bem fica suspensa (ou, em análise, recusada), e as ofertas
+ *   que ela criou e ainda estavam valendo saem do ar;
+ * - sem nenhum dono, o perfil volta a `indicada`: some o selo "Perfil assumido" e volta o
+ *   botão "Sou o dono".
+ * Devolve `removido: false` se a pessoa já não era dona, e null se o negócio não existe.
+ */
+export async function removerDono(params: {
+  empresaId: string;
+  usuarioId: string;
+  moderadorId: string;
+  motivo: string;
+}): Promise<ResultadoRemocao | null> {
+  const { empresaId, usuarioId, moderadorId, motivo } = params;
+  return db.$transaction(async (tx) => {
+    // Trava o negócio: duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, contam
+    // os donos que sobraram uma depois da outra.
+    const [empresa] = await tx.$queryRaw<{ instagramUsername: string }[]>`
+      SELECT "instagramUsername" FROM "Empresa" WHERE id = ${empresaId} FOR NO KEY UPDATE`;
+    if (!empresa) return null;
+    const username = empresa.instagramUsername;
+    const { count } = await tx.empresaMembro.deleteMany({ where: { empresaId, usuarioId } });
+    if (count === 0) return { removido: false, username };
+
+    const { nome } = await tx.usuario.findUniqueOrThrow({ where: { id: usuarioId }, select: { nome: true } });
+    const agora = new Date();
+    await tx.reivindicacao.updateMany({
+      where: { empresaId, usuarioId, status: "aprovada" },
+      data: { status: "revogada", motivoRecusa: motivo, revisadoPorId: moderadorId, revisadoEm: agora },
+    });
+
+    const liberacao = await tx.liberacaoClube.findUnique({ where: { empresaId_usuarioId: { empresaId, usuarioId } } });
+    if (liberacao?.status === "liberada" || liberacao?.status === "pendente") {
+      const status = liberacao.status === "liberada" ? "suspensa" : "recusada";
+      await tx.liberacaoClube.update({
+        where: { id: liberacao.id },
+        data: { status, motivo: MOTIVO_CLUBE_SEM_DONO, decididoPorId: moderadorId, decididoEm: agora },
+      });
+      await registrarAuditoria(tx, {
+        usuarioId: moderadorId,
+        acao: status === "suspensa" ? "clube.suspenso" : "clube.recusado",
+        alvoTipo: "empresa",
+        alvoId: empresaId,
+        detalhes: `@${username} · ${nome} · ${MOTIVO_CLUBE_SEM_DONO}`,
+      });
+    }
+    const { count: ofertasSuspensas } = await tx.oferta.updateMany({
+      where: { empresaId, criadaPorId: usuarioId, status: "ativa" },
+      data: { status: "suspensa" },
+    });
+
+    const semDono = (await tx.empresaMembro.count({ where: { empresaId } })) === 0;
+    if (semDono) await tx.empresa.update({ where: { id: empresaId }, data: { status: "indicada" } });
+
+    await registrarAuditoria(tx, {
+      usuarioId: moderadorId,
+      acao: "empresa.dono_removido",
+      alvoTipo: "empresa",
+      alvoId: empresaId,
+      detalhes: `@${username} · ${nome} · ${motivo}`,
+    });
+    return { removido: true, username, nome, semDono, ofertasSuspensas };
   });
 }
 

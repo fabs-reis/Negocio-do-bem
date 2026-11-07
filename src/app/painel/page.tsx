@@ -31,6 +31,7 @@ const CORES_STATUS: Record<string, string> = {
   pendente: "bg-amber-50 text-amber-800",
   aprovada: "bg-folha-50 text-folha",
   recusada: "bg-coral-50 text-coral-700",
+  revogada: "bg-coral-50 text-coral-700",
   expirada: "bg-papel text-suave",
   cancelada: "bg-papel text-suave",
   rejeitada: "bg-coral-50 text-coral-700",
@@ -132,7 +133,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
                   <p className="text-sm text-suave">
                     {METODOS_REIVINDICACAO[r.metodo]} · {formatarData(r.criadoEm)}
                   </p>
-                  {r.status === "recusada" && r.motivoRecusa && (
+                  {(r.status === "recusada" || r.status === "revogada") && r.motivoRecusa && (
                     <p className="mt-1 text-sm text-coral-700">Motivo: {r.motivoRecusa}</p>
                   )}
                 </div>

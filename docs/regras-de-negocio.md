@@ -321,7 +321,7 @@ O negócio tem três informações de estado que andam separadas:
 | Campo | Valores | O que significa |
 | --- | --- | --- |
 | `moderacao` | `pendente` · `aprovada` · `rejeitada` | Se o negócio está no ar. Toda indicação entra `aprovada`, e a moderação pode tirar do ar (`rejeitada`) e publicar de novo. `pendente` só existe em negócios indicados antes da publicação automática. Só `aprovada` pode aparecer no diretório. |
-| `status` | `indicada` · `verificada` | Se o perfil foi assumido. Vira `verificada` quando a primeira reivindicação é aprovada e não volta mais. O nome interno não significa certificação de identidade ou das causas. |
+| `status` | `indicada` · `verificada` | Se o perfil foi assumido. Vira `verificada` quando a primeira reivindicação é aprovada e só volta a `indicada` quando a moderação tira o último dono (veja [Tirar um dono](#tirar-um-dono)). O nome interno não significa certificação de identidade ou das causas. |
 | `oculta` | `false` · `true` | Se o dono tirou o negócio do diretório. |
 
 **Um negócio aparece para o público quando `moderacao = "aprovada"` e `oculta = false`.** Fora disso, só o dono, a moderação e quem indicou veem o perfil (ver [seção 7](#quem-vê-um-perfil-que-não-está-no-diretório)).
@@ -437,6 +437,7 @@ Código: aba "Negócios" e `src/app/moderacao/negocios/[usuario]/page.tsx`.
 - **Edição:** `/moderacao/negocios/<@>` usa o **mesmo formulário do painel do dono**: foto, informações, contatos, causas e história.
   - Um aviso lembra que a edição é pela moderação e que fica registrada.
   - Se o negócio tem dono, o aviso pede para mudar só o necessário.
+  - Acima do formulário, a seção **"Donos"** lista quem assumiu o perfil (nome, e-mail e desde quando), com o botão "Remover dos donos" (veja [Tirar um dono](#tirar-um-dono)).
 - **No perfil público,** quem é da moderação (e não é dono) vê o botão **"Editar perfil (moderação)"**.
 - **Na auditoria,** toda edição da moderação ganha o sufixo `_pela_moderacao`. Exemplos: `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`.
 
@@ -457,8 +458,9 @@ Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindic
 
 Desde a [issue #20](https://github.com/fabs-reis/Negocio-do-bem/issues/20), **o pedido pelos dados do negócio é aprovado assim que é enviado** quando:
 
-- o negócio **não tem dono**; e
-- o negócio **não foi tirado do ar**.
+- o negócio **não tem dono**;
+- o negócio **não foi tirado do ar**; e
+- a moderação **não tirou antes esta conta dos donos** deste negócio (veja [Tirar um dono](#tirar-um-dono)).
 
 Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Pronto! Você agora é dono deste perfil…".
 
@@ -538,6 +540,25 @@ O que a moderação confere: se o CNPJ, o site e o contato batem com o @ do Inst
 
 **Depois da decisão,** a pessoa recebe um e-mail com o resultado ([seção 14](#14-avisos-por-e-mail)) e acompanha em `/painel`, em "Minhas solicitações de reivindicação". Aparecem as 20 mais recentes, menos as canceladas, com o status e, se recusada, o motivo.
 
+### Tirar um dono
+
+Código: `removerDono` em `src/lib/reivindicacao.ts` (com testes em `tests/db/remover-dono.test.ts`), a ação em `src/acoes/moderacao.ts` e o botão em `src/app/moderacao/RemoverDono.tsx`.
+
+A moderação tira uma conta dos donos de um negócio quando ela não é do negócio: por exemplo, quando o nome da conta não bate com nenhum sócio na ficha da Receita ([issue #292](https://github.com/fabs-reis/Negocio-do-bem/issues/292)).
+
+- **Onde:** o botão **"Remover dos donos"** fica ao lado de cada dono, na seção "Donos" da ficha do negócio (`/moderacao/negocios/<@>#donos`). Também aparece na ficha da Receita do Clube do Bem, na ficha do negócio e na fila do clube, quando o nome da conta não bate com a ficha. Da fila, a moderação volta para a fila.
+- **Confirmação e motivo:** o botão abre um formulário com o motivo (até 500 caracteres; a pessoa recebe por e-mail) e a caixa "Confirmo: <nome> deixa de ser dono de @<negócio>…". Sem a caixa marcada, nada muda ("Marque a confirmação para remover o dono"). Sem motivo, fica "Sem motivo informado".
+- **O que acontece,** numa transação só, com o negócio travado (duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, se enxergam):
+  1. A pessoa deixa de ser dona.
+  2. O pedido aprovado dela vira `revogada`, com o motivo, quem removeu e quando.
+  3. No Clube do Bem, a liberação dela fica suspensa, ou o pedido em análise fica recusado, com o motivo "Deixou de ser dono do negócio". As ofertas que ela criou e ainda estavam valendo ficam suspensas; as de outro dono continuam.
+  4. Se não sobrou nenhum dono, o negócio volta a `indicada`: some o selo "Perfil assumido" e volta o botão "Sou o dono".
+  5. Registra `empresa.dono_removido` na auditoria (e `clube.suspenso` ou `clube.recusado`, se for o caso).
+- **Duas pessoas da moderação ao mesmo tempo:** a segunda vê "Essa conta já não era dona deste negócio", e nada é gravado de novo.
+- **Pedido de novo:** um pedido novo da mesma pessoa para o mesmo negócio nunca é aprovado na hora, nem pelos dados do negócio, nem pelo botão "Aprovar os N pedidos sem dono", nem pelo Entrar com Instagram. Ele vai para a fila com a anotação "A moderação já tirou esta conta dos donos deste negócio". Outras pessoas assumem o negócio sem dono na hora, como antes.
+- **E-mail:** a pessoa recebe o motivo e o link para pedir o perfil de novo ([seção 14](#14-avisos-por-e-mail)).
+- **Pedidos de outras pessoas** que esperavam na fila continuam lá. Se o negócio ficou sem dono, eles entram no botão "Aprovar os N pedidos sem dono".
+
 ### Estados de um pedido
 
 ```mermaid
@@ -548,6 +569,7 @@ stateDiagram-v2
     pendente --> cancelada: a pessoa cancela
     pendente --> cancelada: outro pedido dela foi aprovado
     pendente --> expirada: código por DM venceu e foi trocado (só pedidos antigos)
+    aprovada --> revogada: a moderação tira a pessoa dos donos
 ```
 
 | Status | Rótulo na tela | Quando |
@@ -557,6 +579,7 @@ stateDiagram-v2
 | `recusada` | Recusada | Pela moderação, com motivo. |
 | `cancelada` | Cancelada | A pessoa cancelou, outro pedido dela para o mesmo negócio foi aprovado, ou ela refez o "Entrar com Instagram". |
 | `expirada` | Expirada | Só em pedidos antigos por código de DM: quando a pessoa gerava um código novo depois que o anterior venceu. |
+| `revogada` | Removida pela moderação | A moderação tirou a pessoa dos donos depois de aprovar. O motivo fica no pedido, e a pessoa vê no painel. |
 
 ### Entrar com Instagram (desligado por padrão)
 
@@ -1004,6 +1027,7 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
 | `reivindicacao.recusada` | Um pedido foi recusado. Os detalhes trazem o motivo. |
+| `empresa.dono_removido` | A moderação tirou uma conta dos donos do negócio. Os detalhes trazem o @, o nome da conta e o motivo. |
 | `depoimento.mantido` / `depoimento.removido` | A moderação decidiu uma denúncia. |
 | `usuario.senha_trocada` | A pessoa trocou a própria senha no painel. |
 | `usuario.senha_redefinida` | A pessoa criou uma senha nova pelo link de "Esqueci minha senha" (ou pelo link pedido no painel). |
@@ -1011,7 +1035,7 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `embaixador.criado` / `embaixador.editado` / `embaixador.excluido` | A moderação cadastrou, editou ou excluiu um embaixador. Os detalhes trazem o @ (e o nome, na exclusão). |
 | `embaixador.foto_trocada` / `embaixador.foto_removida` | A moderação trocou ou removeu a foto de um embaixador. |
 | `embaixador.foto_do_instagram` | A consulta ao Instagram colocou a foto num embaixador sem foto. Aparece como "Sistema". |
-| `clube.liberado` / `clube.suspenso` | A moderação liberou um dono para o Clube do Bem ou suspendeu a liberação. Os detalhes trazem o @, o nome da conta e o CNPJ (na liberação) ou o motivo (na suspensão). Quando o dono troca o contato do perfil, a suspensão aparece como "Sistema". |
+| `clube.liberado` / `clube.suspenso` | A moderação liberou um dono para o Clube do Bem ou suspendeu a liberação. Os detalhes trazem o @, o nome da conta e o CNPJ (na liberação) ou o motivo (na suspensão). Quando o dono troca o contato do perfil, a suspensão aparece como "Sistema". Quando a moderação tira o dono, a suspensão (ou a recusa do pedido, em `clube.recusado`) vem junto, com o motivo "Deixou de ser dono do negócio". |
 | `oferta.criada` / `oferta.encerrada` | Um dono criou ou encerrou antes do fim uma oferta do Clube do Bem. Os detalhes trazem o @ e o título. |
 
 O que **não** vai para a auditoria hoje:
@@ -1040,6 +1064,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Um depoimento é denunciado | Cada pessoa da moderação | O negócio e o link da fila de denúncias. |
 | Um dono pede a verificação do Clube do Bem | Cada pessoa da moderação | O negócio e o link da fila do clube. |
 | A moderação libera ou recusa um dono no Clube do Bem | O dono | O negócio e o link do painel do clube; na recusa, o motivo. |
+| A moderação tira uma conta dos donos de um negócio | A pessoa que saiu | O negócio, o motivo e o link para pedir o perfil de novo, que vai para a moderação. |
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
 | Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail". Só com a confirmação ligada, e hoje ela está desligada | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |
 | Alguém pede para entrar por link | O e-mail digitado, se tiver conta | O link para entrar, que vale por 15 minutos. |
@@ -1242,7 +1267,6 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 - **Um @ tirado do ar fica bloqueado:** ninguém consegue indicar de novo, e a página de reivindicação responde 404 até a moderação publicar de novo.
 - **O @ de um negócio não muda.** Se o negócio trocar de @ no Instagram, hoje só dá para ajustar direto no banco.
 - **Cidades cadastradas antes da lista do IBGE** continuam como foram digitadas até o negócio ser editado. Se a grafia não bate com a lista, a edição pede para escolher a cidade de novo.
-- **Não dá para tirar um dono** sem transferir o perfil para outra pessoa. O selo "Perfil assumido" não volta atrás.
 - "Atualizada em", ao lado da história, usa a data da última mudança em **qualquer** dado do negócio (inclusive foto e visibilidade), não só no texto.
 
 **Reivindicações**
@@ -1378,9 +1402,9 @@ Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [A
   - Dois envios ao mesmo tempo gravam um pedido só.
 - **A fila "Clube do Bem" da moderação** (`/moderacao?aba=clube`) lista os pedidos em análise, do mais antigo para o mais novo, e o menu mostra quantos esperam. Cada pedido traz o negócio, o dono, o CNPJ, o motivo de antes (se pediu de novo) e já a ficha da Receita, com o botão "Liberar". "Recusar" pede um motivo, que o dono vê. Depois de decidir, a moderação volta para a fila. A visão geral também mostra a fila quando há pedidos.
 - **Só a moderação libera,** pela fila ou na seção "Clube do Bem" da ficha do negócio (`/moderacao/negocios/<@>`). Na ficha, o pedido em análise aparece com o link "Consultar este CNPJ" e o "Recusar"; o campo do CNPJ já vem com o número do pedido.
-- **A liberação vale por dono.** Num negócio com dois donos, cada um precisa da própria. Ela só vale enquanto a pessoa continuar dona: quem deixa de ser dono (numa transferência, por exemplo) perde a liberação, mesmo com o registro guardado (`podeCriarOfertas`).
+- **A liberação vale por dono.** Num negócio com dois donos, cada um precisa da própria. Ela só vale enquanto a pessoa continuar dona: quem deixa de ser dono (numa transferência, por exemplo) perde a liberação, mesmo com o registro guardado (`podeCriarOfertas`). Quando a moderação [tira um dono](#tirar-um-dono), a liberação dele fica suspensa (ou o pedido em análise, recusado) com o motivo "Deixou de ser dono do negócio", e as ofertas que ele criou e ainda valiam saem do ar.
 - **Consulta à Receita:** a moderação digita o CNPJ e clica em "Consultar na Receita". A ficha vem da BrasilAPI na hora e mostra a razão social, o nome fantasia, a situação, a cidade (comparada com a do perfil), o telefone e o e-mail que a Receita tem e o quadro de sócios. Nada da ficha é guardado.
-- **O nome da conta bate com a ficha?** Para cada dono, a tela diz se o nome da conta bate com um sócio ou, no MEI, com a razão social, que traz o nome da pessoa (`quemBateComAConta`). Bate quando todas as palavras do nome da conta, pelo menos duas, aparecem no nome da ficha, sem ligar para acento, maiúsculas, ordem, nomes do meio, partículas (da, de, dos) e o CPF da razão social. É só um apoio: quem decide é a moderação.
+- **O nome da conta bate com a ficha?** Para cada dono, a tela diz se o nome da conta bate com um sócio ou, no MEI, com a razão social, que traz o nome da pessoa (`quemBateComAConta`). Quando não bate, o dono ganha ali mesmo o botão "Remover dos donos", também na fila do clube. Bate quando todas as palavras do nome da conta, pelo menos duas, aparecem no nome da ficha, sem ligar para acento, maiúsculas, ordem, nomes do meio, partículas (da, de, dos) e o CPF da razão social. É só um apoio: quem decide é a moderação.
 - **Liberar:** o botão "Liberar <nome>" só aparece com o CNPJ ativo. O servidor confere de novo o CNPJ (os dígitos e a situação "ATIVA" na Receita) e que a conta é dona. Sem resposta da Receita, não libera. Guarda só o CNPJ, sem pontuação.
 - **Status da liberação:** "pendente" (o dono pediu), "liberada", "recusada" (a moderação recusou o pedido) e "suspensa" (estava liberada). Só "liberada" cria ofertas e dá o selo. A data da liberação (`decididoEm`) é a da última mudança: num pedido em análise, é a data do pedido.
 - **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. As ofertas que estavam valendo no negócio ficam suspensas, e os cupons delas deixam de valer. Para liberar de novo, consulta o CNPJ e libera, e o motivo some; as ofertas suspensas não voltam, o dono cria outra.

@@ -11,6 +11,7 @@ import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { rotuloDoInstagram } from "@/lib/endereco";
 import { normalizarEndereco } from "@/lib/instagram";
 import { Clube } from "./Clube";
+import { Donos } from "./Donos";
 
 export const metadata: Metadata = { title: "Editar perfil · Moderação", robots: { index: false } };
 
@@ -35,6 +36,9 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/neg
   if (!empresa) notFound();
   const { aviso, cnpj } = await searchParams;
   const temDono = empresa._count.membros > 0;
+  // Os avisos do clube e dos donos aparecem na própria seção, para onde a página volta.
+  const codigo = typeof aviso === "string" ? aviso : undefined;
+  const daSecao = (prefixo: string) => (codigo?.startsWith(prefixo) ? codigo : undefined);
 
   return (
     <div className="space-y-10">
@@ -59,16 +63,17 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/neg
           Você está editando como moderação. {temDono && "Este negócio tem dono, então mude só o necessário. "}Cada
           alteração fica registrada na auditoria.
         </Aviso>
-        {/* Os avisos do clube aparecem na própria seção, para onde a página volta. */}
-        {!(typeof aviso === "string" && aviso.startsWith("clube_")) && <AvisoDaUrl codigo={aviso} />}
+        {!daSecao("clube_") && !daSecao("dono_") && <AvisoDaUrl codigo={codigo} />}
       </div>
+
+      <Donos empresa={empresa} aviso={daSecao("dono_")} />
 
       <EdicaoEmpresa empresa={empresa} voltar={`/moderacao/negocios/${empresa.instagramUsername}`} />
 
       <Clube
         empresa={empresa}
         cnpjDaUrl={typeof cnpj === "string" && cnpj.trim() ? cnpj.trim() : undefined}
-        aviso={typeof aviso === "string" && aviso.startsWith("clube_") ? aviso : undefined}
+        aviso={daSecao("clube_")}
       />
     </div>
   );
