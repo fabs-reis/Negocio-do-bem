@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
 import { comAviso, destinoNaModeracao, hrefModeracao } from "@/lib/moderacao/filtros";
 import { avisarDecisaoDaReivindicacao, avisarDonoRemovido } from "@/lib/notificacoes";
+import { suspenderOfertasQueValem } from "@/lib/ofertas";
 import {
   aprovar,
   aprovarPendentesSemDono,
@@ -92,6 +93,9 @@ export async function moderarEmpresa(dados: FormData): Promise<void> {
       where: { id: texto(dados, "empresaId") },
       data: { moderacao: decisao },
     });
+    if (decisao === "rejeitada") {
+      await suspenderOfertasQueValem(tx, { empresaId: empresa.id });
+    }
     await registrarAuditoria(tx, {
       usuarioId: moderador.id,
       acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",

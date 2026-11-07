@@ -3,6 +3,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { buscarNaReceita, cnpjValido, consultarCnpj, formatarCnpj, limparCnpj, type DadosCnpj } from "@/lib/cnpj";
 import { cpfValido, limparCpf, mascararCpf, miolo } from "@/lib/cpf";
 import { db } from "@/lib/db";
+import { suspenderOfertasQueValem } from "@/lib/ofertas";
 import { normalizarTexto } from "@/lib/texto";
 
 // Regras do Clube do Bem (#248). Só a moderação libera um dono para criar ofertas, e só
@@ -135,7 +136,7 @@ export async function suspenderDoClube({
     });
     if (!liberacao) return null;
     if (count > 0) {
-      await tx.oferta.updateMany({ where: { empresaId: liberacao.empresaId, status: "ativa" }, data: { status: "suspensa" } });
+      await suspenderOfertasQueValem(tx, { empresaId: liberacao.empresaId });
       await registrarAuditoria(tx, {
         usuarioId: moderadorId,
         acao: "clube.suspenso",

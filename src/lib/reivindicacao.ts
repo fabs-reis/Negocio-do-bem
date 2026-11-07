@@ -17,6 +17,7 @@
 
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db, type Prisma } from "@/lib/db";
+import { suspenderOfertasQueValem } from "@/lib/ofertas";
 import { formatarDataHora } from "@/lib/texto";
 
 const VALIDADE_ANALISE_DIAS = 30;
@@ -424,10 +425,11 @@ export async function removerDono(params: {
         detalhes: `@${username} · ${nome} · ${MOTIVO_CLUBE_SEM_DONO}`,
       });
     }
-    const { count: ofertasSuspensas } = await tx.oferta.updateMany({
-      where: { empresaId, criadaPorId: usuarioId, status: "ativa" },
-      data: { status: "suspensa" },
-    });
+    const { count: ofertasSuspensas } = await suspenderOfertasQueValem(
+      tx,
+      { empresaId, criadaPorId: usuarioId },
+      agora,
+    );
 
     const semDono = (await tx.empresaMembro.count({ where: { empresaId } })) === 0;
     if (semDono) await tx.empresa.update({ where: { id: empresaId }, data: { status: "indicada" } });
