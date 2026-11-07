@@ -1,4 +1,5 @@
 import { Monograma } from "@/components/Monograma";
+import { tintaDoNegocio, type Tinta } from "@/lib/cortejo";
 import { ehFotoDoSite } from "@/lib/fotos";
 
 type EmpresaComFoto = { nome: string; instagramUsername: string; fotoUrl: string | null };
@@ -9,6 +10,15 @@ export function fotoDe({ id, nome, instagramUsername, fotoUrl }: EmpresaDaFoto):
   return { id, nome, instagramUsername, fotoUrl };
 }
 
+// O anel da foto tem a tinta do negócio, a mesma do monograma.
+const ANEL: Record<Tinta, string> = {
+  azul: "ring-[color:var(--color-azul,#2f63c8)]",
+  rosa: "ring-[color:var(--color-rosa,#d27ea0)]",
+  amarelo: "ring-[color:var(--color-amarelo,#f2c230)]",
+  verde: "ring-[color:var(--color-verde,#3f9a5c)]",
+  terracota: "ring-[color:var(--color-terracota,#b4502c)]",
+};
+
 /** Foto do negócio; sem foto, o monograma com as iniciais. */
 export function FotoEmpresa({ empresa, tamanho = "md" }: { empresa: EmpresaComFoto; tamanho?: "md" | "lg" }) {
   if (!ehFotoDoSite(empresa.fotoUrl)) {
@@ -18,6 +28,6 @@ export function FotoEmpresa({ empresa, tamanho = "md" }: { empresa: EmpresaComFo
   return (
     // As fotos já chegam reduzidas e quadradas (ver reduzirFoto.ts).
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={empresa.fotoUrl} alt="" className={`shrink-0 rounded-full bg-superficie object-cover ring-superficie ${dimensoes}`} />
+    <img src={empresa.fotoUrl} alt="" className={`shrink-0 rounded-full bg-superficie object-cover ${ANEL[tintaDoNegocio(empresa.instagramUsername)]} ${dimensoes}`} />
   );
 }

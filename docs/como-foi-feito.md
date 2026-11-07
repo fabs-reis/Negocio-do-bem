@@ -792,10 +792,30 @@ Erros que podem ser mostrados para a pessoa usam uma classe própria (`ErroReivi
 
 - **Componentes de formulário:** `Campo` (rótulo, ajuda e erro), `BotaoEnviar` (mostra "Enviando…"), `Aviso`.
 - **Classes de `globals.css`:** `.botao`, `.botao-coral`, `.botao-claro`, `.cartao`, `.campo`, `.link` e `.historia`. Prefira essas classes a repetir utilitários do Tailwind.
-- **Cores do tema:** `papel`, `superficie`, `tinta`, `suave`, `linha`, `coral` e `folha`. Para algo que só muda no escuro, use a variante `escuro:`.
+- **Cores do tema:** `papel`, `superficie`, `tinta`, `suave` e `linha` formam a base. As tintas e `borda-controle` seguem o contrato abaixo. `coral` e `folha` continuam como nomes de compatibilidade. Para algo que só muda no escuro, use a variante `escuro:`.
 - **Cores da marca:** `marca-laranja`, `marca-verde`, `marca-marrom` e `marca-creme` são as do manual e não mudam no escuro. Use para a marca, não para a interface. O logo é o componente `Logo`, e a altura vem do `className`.
 - **Cor fixa nunca:** `bg-white` e afins não mudam no modo escuro. Use `superficie`.
-- **Tipografia:** textos longos usam a fonte serifada (Newsreader), e a interface usa a Inter.
+- **Tipografia:** os títulos usam Bricolage Grotesque. Textos e interface usam Figtree.
+
+### Identidade visual e movimento
+
+- `globals.css` define as cores nos dois temas.
+- Cada `<tinta>` tem três tokens: a cor para fundos e desenhos, `<tinta>-texto` sobre papel e `sobre-<tinta>` sobre a cor.
+- `borda-controle` delimita campos e controles. `linha` fica para separações decorativas.
+- Bricolage Grotesque usa largura 75 nos títulos. Figtree atende textos, interface e histórias.
+- As fontes variáveis vêm dos pacotes locais. As imagens OpenGraph mantêm suas fontes estáticas em `assets/fontes`.
+- A abertura desenha o logo só na primeira visita à página inicial por aba.
+- Toque, clique, roda do mouse ou tecla pulam a abertura. Menos movimento a desativa.
+- A cortina cobre só a busca do diretório: o formulário de `BuscaDiretorio`, marcado com `data-cortina`, na inicial e no Explorar. Links, filtros e os outros formulários seguem a navegação nativa, sem animação.
+- Uma busca no próprio Explorar só muda os parâmetros. Por isso a cortina compara o endereço inteiro, caminho e parâmetros, para saber quando abrir. Repetir a busca com os mesmos campos, na mesma ordem do formulário, não aciona a cortina. Os dois lados são comparados com a mesma codificação.
+- Na cortina, uma folha verde entra pela esquerda e cobre a tela. Um losango amarelo nasce no centro. Na abertura, a página nova aparece dentro de um recorte em losango que cresce, e a folha sai pela direita. As formas lembram a bandeira, mas não a reproduzem: sem círculo, estrelas ou lema.
+- O fim da transição da folha encerra a cortina. As durações ficam em `cortina.css` e somam cerca de 790 ms.
+- Escape e voltar liberam a cortina. Menos movimento desativa a transição.
+- O cortejo mantém suas figuras em SVG, com quatro técnicas e um controle de pausa. As etiquetas com o nome da técnica saíram: chamavam atenção para a troca, e não para os negócios.
+- As figuras do cortejo deixaram de ser links para os tipos de negócio. A ligação era arbitrária: a figura não tinha relação com a categoria a que levava, e a etiqueta "Moda e acessórios · 1 negócio" confundia mais do que ajudava. Sem os links e as contagens, o cortejo não depende do banco e sai pronto no HTML, sem o cortejo de espera. Os tipos continuam ao alcance pelo Explorar, pelo perfil e pelo sitemap.
+- Os números do diretório (#278) entram numa faixa compacta abaixo do cortejo. Comparamos três topos: só a animação, só os números grandes no lugar dela, e os dois. Só a animação não mostrava que o diretório é grande e de verdade. Só os números deixavam a inicial com cara de diretório qualquer. Com os dois, o cortejo abre a página e os números confirmam logo abaixo. Enquanto os números carregam, a faixa aparece vazia com a mesma altura, para a busca não pular.
+- `npm run cortejo:ciclos` executa `scripts/gerar-ciclos.mjs` e gera `src/components/cortejo/ciclos.css`.
+- Não edite os ciclos gerados. As medidas e os pivôs estão em `src/components/cortejo/RIG.md`.
 
 ---
 

@@ -50,11 +50,11 @@ describe("rótulos de perfil assumido", () => {
 
   it("descreve o marcador neutro da lista sem afirmar certificação", () => {
     const linha = renderToStaticMarkup(createElement(EmpresaLinha, { empresa }));
-    const indicador = linha.match(/<[^>]*aria-label="Perfil assumido"[^>]*>[\s\S]*?<\/(?:span|svg)>/)?.[0];
+    const selo = renderToStaticMarkup(createElement(SeloStatus, { status: "verificada" }));
 
-    expect(indicador).toBeDefined();
-    expect(indicador).toContain('title="Uma conta assumiu o perfil. Identidade e causas não certificadas."');
-    expect(indicador).toMatch(/>\s*•\s*<\/span>$/);
+    expect(linha).toContain(selo);
+    expect(linha).toContain('title="Uma conta assumiu este perfil. O selo não certifica a identidade nem as causas do negócio."');
+    expect(linha).toMatch(/<span\b[^>]*aria-hidden="true"[^>]*>•<\/span>/);
     expect(linha).toContain('href="/empresas/cafe_exemplo"');
     expect(linha).not.toContain("Verificado pelo dono");
   });
@@ -66,7 +66,7 @@ describe("rótulos de perfil assumido", () => {
 
     expect(card).toContain("Indicado pela comunidade");
     expect(card).not.toContain("Perfil assumido");
-    expect(linha).not.toContain('aria-label="Perfil assumido"');
+    expect(linha).not.toContain("Perfil assumido");
     expect(linha).toContain('href="/empresas/cafe_exemplo"');
   });
 

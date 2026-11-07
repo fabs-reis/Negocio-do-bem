@@ -47,11 +47,12 @@ export function AlternarTema() {
       aria-label="Modo escuro"
       title={tema === "escuro" ? "Mudar para o modo claro" : "Mudar para o modo escuro"}
       onClick={alternar}
-      className="relative inline-flex h-6 w-10 shrink-0 items-center sm:h-7 sm:w-12 rounded-full border border-linha bg-papel transition hover:border-tinta/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+      className="relative ml-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full border border-linha bg-superficie transition hover:border-tinta/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tinta sm:h-7 sm:w-12"
     >
+      {/* Sol num círculo amarelo no claro; lua num círculo azul no escuro. */}
       <span
         aria-hidden="true"
-        className="absolute left-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-superficie text-tinta shadow-sm ring-1 ring-linha transition-transform escuro:translate-x-4 sm:h-5.5 sm:w-5.5 sm:escuro:translate-x-5"
+        className="absolute left-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-amarelo text-sobre-amarelo transition-[translate,background-color] escuro:translate-x-4 escuro:bg-azul escuro:text-sobre-azul sm:h-5.5 sm:w-5.5 sm:escuro:translate-x-5"
       >
         <svg viewBox="0 0 24 24" className="h-3 w-3 escuro:hidden sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <circle cx="12" cy="12" r="4" />

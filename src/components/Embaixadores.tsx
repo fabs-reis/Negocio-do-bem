@@ -23,7 +23,7 @@ export function RostoDoEmbaixador({ embaixador, className }: { embaixador: Rosto
   return (
     <span
       aria-hidden="true"
-      className={`grid shrink-0 place-items-center rounded-full bg-gradient-to-br font-serif font-semibold ${paletaDe(embaixador.instagramUsername)} ${className}`}
+      className={`grid shrink-0 place-items-center rounded-full font-serif font-semibold ${paletaDe(embaixador.instagramUsername)} ${className}`}
     >
       {iniciais(embaixador.nome)}
     </span>

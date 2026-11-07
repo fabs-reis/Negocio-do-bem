@@ -171,7 +171,7 @@ function BarraDeFerramentas({ editor, empresaId }: { editor: Editor; empresaId: 
           value={estado.estilo}
           onChange={(evento) => mudarEstilo(evento.target.value)}
           aria-label="Estilo do texto"
-          className="mr-1 rounded-lg border border-linha bg-superficie px-2 py-1.5 text-base sm:text-sm"
+          className="mr-1 rounded-lg border border-borda-controle bg-superficie px-2 py-1.5 text-base sm:text-sm"
         >
           <option value="paragrafo">Parágrafo</option>
           <option value="titulo">Título</option>
