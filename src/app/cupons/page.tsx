@@ -5,7 +5,7 @@ import { gerarCupomAcao } from "@/acoes/ofertas";
 import { AbasCupons } from "@/components/AbasCupons";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { Monograma } from "@/components/Monograma";
+import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { Prazo } from "@/components/Prazo";
 import { usuarioAtual } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
@@ -38,7 +38,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/cupons">, "searchPara
       orderBy: { fim: "asc" },
       take: 100,
       include: {
-        empresa: { select: { nome: true, instagramUsername: true, cidade: true, uf: true, membros: { select: { usuarioId: true } } } },
+        empresa: { select: { nome: true, instagramUsername: true, fotoUrl: true, cidade: true, uf: true, membros: { select: { usuarioId: true } } } },
       },
     }),
     usuario
@@ -106,7 +106,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/cupons">, "searchPara
             return (
               <li key={oferta.id} className="cartao space-y-3 p-5">
                 <Link href={perfil} className="flex items-center gap-3">
-                  <Monograma nome={oferta.empresa.nome} chave={oferta.empresa.instagramUsername} />
+                  <FotoEmpresa empresa={oferta.empresa} />
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{oferta.empresa.nome}</span>
                     <span className="block truncate text-sm text-suave">
