@@ -54,8 +54,9 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   experimental: {
     // Fotos chegam reduzidas pelo navegador, mas o padrão de 1 MB é apertado.
-    // O Vercel aceita até 4,5 MB por requisição.
-    serverActions: { bodySizeLimit: "4mb" },
+    // O documento da verificação (#293) leva até 2 arquivos de 5 MB; cada ação confere o
+    // tamanho dos seus arquivos de novo.
+    serverActions: { bodySizeLimit: "11mb" },
     // Sem conexão, navegações e Server Actions esperam a internet voltar em
     // vez de dar erro; o AvisoSemConexao avisa enquanto isso.
     useOffline: true,

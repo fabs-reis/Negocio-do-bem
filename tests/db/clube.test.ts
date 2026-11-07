@@ -1,3 +1,6 @@
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 
@@ -13,6 +16,13 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
+
+// Os documentos da verificação vão para uma pasta de teste, e não para o bucket privado.
+const PASTA_DOS_DOCUMENTOS = mkdtempSync(path.join(tmpdir(), "ndb-documentos-"));
+process.env.DOCUMENTOS_PASTA = PASTA_DOS_DOCUMENTOS;
+const arquivosGuardados = () => readdirSync(PASTA_DOS_DOCUMENTOS);
+const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+const documento = (conteudo: Uint8Array = JPEG, nome = "rg.jpg") => new File([conteudo as BlobPart], nome);
 vi.mock("@/lib/auth/sessao", () => ({
   exigirModerador: async () => {
     if (!sessao.moderador) throw new Error("redirect:/404");
@@ -26,7 +36,7 @@ vi.mock("@/lib/auth/sessao", () => ({
 
 const { after } = await import("next/server");
 const { liberarDonoParaClube, pedirVerificacaoAcao, recusarPedidoDoClube, suspenderDonoDoClube } = await import("@/acoes/clube");
-const { conferirIdentidade, podeCriarOfertas, quemBateComAConta } = await import("@/lib/clube");
+const { apagarDocumentosVencidos, conferirIdentidade, podeCriarOfertas, quemBateComAConta } = await import("@/lib/clube");
 const { suspenderPorContatoAlterado } = await import("@/lib/ofertas");
 
 const CNPJ = "11222333000181";
@@ -53,9 +63,11 @@ async function limparBanco() {
   await db.$executeRawUnsafe(`TRUNCATE "RegistroAuditoria", "LiberacaoClube", "EmpresaMembro", "Empresa", "Usuario" CASCADE`);
 }
 
-function formulario(campos: Record<string, string>) {
+function formulario(campos: Record<string, string | File | File[]>) {
   const dados = new FormData();
-  for (const [nome, valor] of Object.entries(campos)) dados.set(nome, valor);
+  for (const [nome, valor] of Object.entries(campos)) {
+    for (const item of Array.isArray(valor) ? valor : [valor]) dados.append(nome, item);
+  }
   return dados;
 }
 
@@ -81,6 +93,7 @@ const liberacao = () => db.liberacaoClube.findUnique({ where: { empresaId_usuari
 const auditoria = () => db.registroAuditoria.findMany({ where: { alvoId: empresaId }, orderBy: { criadoEm: "asc" } });
 
 beforeEach(async () => {
+  for (const arquivo of arquivosGuardados()) rmSync(path.join(PASTA_DOS_DOCUMENTOS, arquivo));
   await limparBanco();
   moderador = await db.usuario.create({ data: { nome: "Mona Moderação", email: "mona@exemplo.com", papel: "moderador" } });
   dona = await db.usuario.create({ data: { nome: "Dora Dona", email: "dora@exemplo.com" } });
@@ -105,6 +118,7 @@ beforeEach(async () => {
 });
 afterEach(() => vi.unstubAllGlobals());
 afterAll(async () => {
+  rmSync(PASTA_DOS_DOCUMENTOS, { recursive: true, force: true });
   await limparBanco();
   await db.$disconnect();
 });
@@ -253,9 +267,17 @@ describe("o nome e o CPF informados contra a ficha da Receita", () => {
 
 describe("o dono pede a verificação com o CNPJ", () => {
   /** O pedido do dono, pelo formulário do painel do clube. Devolve o erro, ou o destino quando dá certo. */
-  async function pedir(cnpj = "11.222.333/0001-81", extras: Record<string, string> = {}): Promise<string> {
+  async function pedir(cnpj = "11.222.333/0001-81", extras: Record<string, string | File | File[]> = {}): Promise<string> {
     try {
-      const campos = { empresaId, cnpj, nomeCompleto: "Dora Dona da Silva", cpf: "529.982.247-25", consentimento: "sim", ...extras };
+      const campos = {
+        empresaId,
+        cnpj,
+        nomeCompleto: "Dora Dona da Silva",
+        cpf: "529.982.247-25",
+        consentimento: "sim",
+        documentos: [documento()],
+        ...extras,
+      };
       const estado = await pedirVerificacaoAcao(undefined, formulario(campos));
       return `erro:${estado?.erro}`;
     } catch (erro) {
@@ -288,10 +310,97 @@ describe("o dono pede a verificação com o CNPJ", () => {
     expect(await pedir(undefined, { cpf: "529.982.247-26" })).toBe("erro:CPF inválido. Confira os números.");
     expect(await pedir(undefined, { cpf: "111.111.111-11" })).toBe("erro:CPF inválido. Confira os números.");
     expect(await pedir(undefined, { consentimento: "" })).toBe(
-      "erro:Marque a autorização para a moderação usar o seu nome e o seu CPF na verificação.",
+      "erro:Marque a autorização para a moderação usar o seu nome, o seu CPF e o seu documento na verificação.",
     );
     expect(fetch).not.toHaveBeenCalled();
     expect(await liberacao()).toBeNull();
+  });
+
+  it("guarda o documento fora do banco: só a chave fica na liberação, e o arquivo no bucket privado", async () => {
+    receitaCom("ATIVA");
+
+    await pedir(undefined, { documentos: [documento(JPEG, "frente.jpg"), documento(JPEG, "verso.jpg")] });
+
+    const { documentoChaves } = (await liberacao())!;
+    expect(documentoChaves).toHaveLength(2);
+    expect(documentoChaves.every((chave) => /^[0-9a-f]{32}\.jpg$/.test(chave))).toBe(true);
+    expect(arquivosGuardados().sort()).toEqual([...documentoChaves].sort());
+  });
+
+  it("recusa documento ausente, de tipo errado, grande demais ou em excesso, sem guardar nada", async () => {
+    const fetch = receitaCom("ATIVA");
+    const texto = new TextEncoder().encode("isto não é uma imagem");
+    const grande = new Uint8Array(5 * 1024 * 1024 + 1);
+    grande.set(JPEG);
+
+    expect(await pedir(undefined, { documentos: [] })).toBe("erro:Envie a foto do seu RG ou da sua CNH.");
+    expect(await pedir(undefined, { documentos: [documento(texto, "rg.txt")] })).toBe("erro:Use uma foto JPG, PNG ou WebP, ou um PDF.");
+    expect(await pedir(undefined, { documentos: [documento(grande)] })).toBe("erro:Cada arquivo pode ter até 5 MB.");
+    expect(await pedir(undefined, { documentos: [documento(), documento(), documento()] })).toBe(
+      "erro:Envie no máximo 2 arquivos: a frente e o verso.",
+    );
+    expect(fetch).not.toHaveBeenCalled();
+    expect(arquivosGuardados()).toEqual([]);
+    expect(await liberacao()).toBeNull();
+  });
+
+  it("o tipo vem dos bytes, e não do nome: um PDF passa, e um texto chamado .jpg não", async () => {
+    receitaCom("ATIVA");
+    const pdf = new TextEncoder().encode("%PDF-1.7 conteúdo");
+
+    expect(await pedir(undefined, { documentos: [documento(new TextEncoder().encode("texto"), "rg.jpg")] })).toMatch(/^erro:Use uma foto/);
+    expect(await pedir(undefined, { documentos: [documento(pdf, "cnh.pdf")] })).toContain("clube_pedido_enviado");
+    expect((await liberacao())!.documentoChaves[0]).toMatch(/\.pdf$/);
+  });
+
+  it("um pedido que não entra apaga o documento que já tinha subido", async () => {
+    receitaCom("BAIXADA");
+
+    expect(await pedir()).toMatch(/^erro:Este CNPJ não está ativo/);
+    expect(arquivosGuardados()).toEqual([]);
+  });
+
+  it("liberar apaga o documento do bucket e limpa as chaves", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+    expect(arquivosGuardados()).toHaveLength(1);
+
+    await liberarDonoParaClube(formulario({ empresaId, usuarioId: dona.id, cnpj: CNPJ })).catch(() => undefined);
+
+    expect(arquivosGuardados()).toEqual([]);
+    expect((await liberacao())!.documentoChaves).toEqual([]);
+  });
+
+  it("recusar apaga o documento; recusar de novo não faz nada", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+    const { id } = (await liberacao())!;
+
+    await recusarPedidoDoClube(formulario({ liberacaoId: id, motivo: "Não bate" })).catch(() => undefined);
+
+    expect(arquivosGuardados()).toEqual([]);
+    expect((await liberacao())!.documentoChaves).toEqual([]);
+  });
+
+  it("os documentos de um pedido parado há mais de 30 dias saem quando a fila abre", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+    const velho = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    await db.liberacaoClube.updateMany({ where: { usuarioId: dona.id }, data: { decididoEm: velho } });
+
+    expect(await apagarDocumentosVencidos()).toBe(1);
+    expect(arquivosGuardados()).toEqual([]);
+    expect((await liberacao())!).toMatchObject({ status: "pendente", documentoChaves: [] });
+    expect(await apagarDocumentosVencidos()).toBe(0);
+  });
+
+  it("um pedido de 29 dias mantém o documento", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+    await db.liberacaoClube.updateMany({ where: { usuarioId: dona.id }, data: { decididoEm: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000) } });
+
+    expect(await apagarDocumentosVencidos()).toBe(0);
+    expect(arquivosGuardados()).toHaveLength(1);
   });
 
   it("recusa um CNPJ com os dígitos errados, sem consultar a Receita", async () => {

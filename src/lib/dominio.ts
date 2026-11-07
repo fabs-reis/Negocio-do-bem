@@ -106,6 +106,7 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "embaixador.foto_removida": "Removeu a foto de um embaixador",
   "embaixador.foto_do_instagram": "Colocou a foto do Instagram num embaixador",
   "clube.pedido": "Pediu a verificação para o Clube do Bem",
+  "clube.documento_visto": "Abriu o documento de um pedido do Clube do Bem",
   "clube.liberado": "Liberou um dono para o Clube do Bem",
   "clube.recusado": "Recusou um pedido do Clube do Bem",
   "clube.suspenso": "Suspendeu um dono do Clube do Bem",

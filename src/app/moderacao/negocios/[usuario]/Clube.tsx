@@ -5,6 +5,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { cnpjValido, consultarCnpj, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
 import { comPontoFinal, formatarDataCurta } from "@/lib/texto";
+import { DocumentosDoPedido } from "../../DocumentosDoPedido";
 import { FichaDaReceita, type NegocioDaFicha } from "../../FichaDaReceita";
 
 /**
@@ -61,6 +62,7 @@ export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: NegocioDaF
                           Consultar este CNPJ
                         </Link>
                       </p>
+                      <DocumentosDoPedido liberacaoId={liberacao.id} quantidade={liberacao.documentoChaves.length} />
                       {liberacao.motivo && <p className="text-suave">Da última vez: {comPontoFinal(liberacao.motivo)}</p>}
                       <form action={recusarPedidoDoClube} className="flex flex-col gap-2 sm:flex-row">
                         <input type="hidden" name="liberacaoId" value={liberacao.id} />

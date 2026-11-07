@@ -804,7 +804,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
 
 **No servidor:**
 
-- Limite de **3 MB por foto**. O limite de envio das Server Actions é 4 MB (`next.config.ts`).
+- Limite de **3 MB por foto**. O limite de envio das Server Actions é 11 MB (`next.config.ts`), por causa do documento da verificação; cada ação confere o tamanho dos seus arquivos.
 - O tipo é conferido **pelos primeiros bytes do arquivo** (JPEG, PNG ou WebP), não pelo que o navegador diz.
 - O nome do arquivo é aleatório, nas pastas `perfis/` ou `historias/`.
 - Onde a foto fica:
@@ -1042,6 +1042,7 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `embaixador.criado` / `embaixador.editado` / `embaixador.excluido` | A moderação cadastrou, editou ou excluiu um embaixador. Os detalhes trazem o @ (e o nome, na exclusão). |
 | `embaixador.foto_trocada` / `embaixador.foto_removida` | A moderação trocou ou removeu a foto de um embaixador. |
 | `embaixador.foto_do_instagram` | A consulta ao Instagram colocou a foto num embaixador sem foto. Aparece como "Sistema". |
+| `clube.documento_visto` | A moderação abriu o documento de um pedido do clube. Os detalhes trazem o @, o nome da conta e qual arquivo. |
 | `clube.liberado` / `clube.suspenso` | A moderação liberou um dono para o Clube do Bem ou suspendeu a liberação. Os detalhes trazem o @, o nome da conta e o CNPJ (na liberação) ou o motivo (na suspensão). Quando o dono troca o contato do perfil, a suspensão aparece como "Sistema". Quando a moderação tira o dono, a suspensão (ou a recusa do pedido, em `clube.recusado`) vem junto, com o motivo "Deixou de ser dono do negócio". |
 | `oferta.criada` / `oferta.encerrada` | Um dono criou ou encerrou antes do fim uma oferta do Clube do Bem. Os detalhes trazem o @ e o título. |
 
@@ -1104,6 +1105,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Nome completo e CPF informados no pedido de verificação | `LiberacaoClube.nomeCompleto` e `cpfMascarado` | Só a moderação. O CPF inteiro **nunca é guardado**: só os 6 dígitos do meio (`***.982.247-**`), os mesmos que a Receita mostra dos sócios. Serve para comparar com o quadro de sócios. A pessoa autoriza numa caixa obrigatória do formulário. Somem se a conta for apagada. |
+| Foto do RG ou da CNH, no pedido de verificação | Bucket R2 privado `DOCUMENTOS` (a chave em `LiberacaoClube.documentoChaves`) | Só a moderação, por uma rota protegida, com cada abertura na auditoria. Apagada quando a moderação decide, ou depois de 30 dias sem decisão. Nunca em endereço público. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1417,7 +1419,10 @@ Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [A
   - **Só os 6 dígitos do meio do CPF são guardados** (`***.982.247-**`). O CPF inteiro é conferido (dígitos verificadores) e descartado, e não aparece na tela, na auditoria nem na URL. O servidor nunca devolve o CPF: se o formulário volta com erro, ele só continua no campo porque o navegador o mantém.
   - **A moderação vê a comparação:** o nome informado contra os sócios e os 6 dígitos do CPF contra o CPF mascarado que a Receita mostra de cada sócio (no MEI, o CPF que a razão social traz). É só apoio: um gerente ou procurador pode não ser sócio, e a Receita não mostra o CPF de todos.
   - **Perfil verificado:** liberar o dono no clube dá, no mesmo passo, o selo "Perfil verificado" no perfil público, no lugar de "Perfil assumido". Suspender a liberação, ou tirar o dono, tira o selo. Os perfis assumidos continuam "assumidos" até pedirem a verificação. O campo `status = verificada` segue querendo dizer só "assumido".
-  - **O documento (RG ou CNH)** é a parte 2 da #293 e ainda não existe.
+  - **O documento (RG ou CNH):** o pedido exige a foto, de 1 a 2 arquivos (frente e verso), até 5 MB cada, em JPG, PNG, WebP ou PDF. O tipo vem dos primeiros bytes do arquivo, e não do nome. A autorização do formulário cobre o nome, o CPF e o documento.
+  - **Onde fica:** num bucket R2 **privado** (`negocio-do-bem-documentos`; `negocio-do-bem-preview-documentos` nos previews), pelo binding `DOCUMENTOS`. Ele não tem domínio público e nunca é o bucket das fotos. O banco guarda só as chaves (`LiberacaoClube.documentoChaves`), com nomes aleatórios.
+  - **Quem abre:** só a moderação, pelo link "Abrir o arquivo" na fila e na ficha do negócio (`/moderacao/documentos/<pedido>/<n>`). Quem não é da moderação recebe 404. A resposta nunca vai para cache (`Cache-Control: private, no-store`) e vem com `nosniff` e uma política que não executa nada. Cada abertura fica na auditoria (`clube.documento_visto`).
+  - **Quando é apagado:** assim que a moderação libera ou recusa o pedido, e quando ela tira o dono (que recusa o pedido em análise). Um pedido parado há mais de 30 dias perde o documento quando a fila do clube abre, porque o projeto não tem rotina agendada. Se o pedido não entra (CNPJ inativo, por exemplo), o arquivo que já tinha subido é apagado na hora. Apagar é "melhor esforço": se falhar, sobra um arquivo sem nenhuma linha apontando para ele.
   - O site confere os dígitos e consulta a Receita. Se ela não tem o CNPJ, o pedido não entra ("Não achamos este CNPJ na Receita"); se diz que ele não está ativo, também não ("Só entram no clube negócios com CNPJ ativo"). Sem resposta da Receita, o pedido entra assim mesmo, porque a moderação consulta de novo antes de liberar.
   - Precisa ser dono do negócio e ter o e-mail confirmado (quando a confirmação estiver ligada). Com um pedido em análise, ou já liberado, não pede de novo.
   - O pedido fica com o status "pendente", e o dono vê "A moderação está conferindo o seu negócio", com a data e o CNPJ. O painel do clube só mostra "Validar um cupom" a quem está liberado ou já teve oferta.

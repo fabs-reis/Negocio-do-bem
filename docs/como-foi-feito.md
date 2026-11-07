@@ -607,6 +607,17 @@ A ideia: assumir o perfil continua imediato, e a **verificação** vem em seguid
 - **O selo "Perfil verificado" é derivado, sem campo novo:** é o perfil que tem um dono liberado (o mesmo critério do "Parceiro do Clube do Bem"). Assim a suspensão e a remoção do dono tiram o selo sozinhas, e não há dois estados para manter em sincronia. Nas listas do diretório, o selo continua "Perfil assumido"; fica para outra issue, porque pede a consulta da liberação em cada card.
 - **O formulário de assumir encolheu:** saíram CNPJ, site e contato (a moderação usa o e-mail da conta). Pedidos antigos mantêm o que enviaram.
 
+### 7 de novembro: o documento da verificação ([#293](https://github.com/fabs-reis/Negocio-do-bem/issues/293), parte 2)
+
+A foto do RG ou da CNH entra no pedido de verificação. As regras estão em [Liberação para o clube](regras-de-negocio.md#liberação-para-o-clube).
+
+- **Bucket novo e privado, não o das fotos.** O `negocio-do-bem-documentos` (e o `negocio-do-bem-preview-documentos`, para os previews) não tem domínio público. As fotos do site são públicas por desenho; um documento de identidade nunca pode ser. O binding `DOCUMENTOS` fica no `wrangler.jsonc`, na produção e nos previews.
+- **O banco guarda só a chave.** Um nome aleatório (`<32 hex>.jpg`) que não leva a lugar nenhum sozinho. Só a rota `/moderacao/documentos/<pedido>/<n>` lê o arquivo, depois de conferir a moderação a cada acesso, e responde 404 para o resto.
+- **Apagar é parte do desenho, não uma limpeza futura.** O documento some quando a moderação decide. Como o projeto não tem rotina agendada, o prazo de 30 dias roda quando a fila abre. Foi o que deu para garantir sem criar uma rotina nova.
+- **O arquivo sobe antes do pedido.** Se o pedido não entra, a ação apaga o que já tinha subido, para um CNPJ inativo não deixar documento órfão.
+- **O limite das Server Actions subiu de 4 MB para 11 MB** (dois arquivos de 5 MB). Cada ação continua conferindo o tamanho dos seus arquivos, e o das fotos segue 3 MB.
+- **Em desenvolvimento,** os arquivos ficam em `.documentos-privados/` (fora de `public/` e no `.gitignore`).
+
 ### 7 de novembro: a moderação tira um dono ([#292](https://github.com/fabs-reis/Negocio-do-bem/issues/292))
 
 Nos primeiros testes do clube em produção, a conta que assumiu um perfil não batia com a única sócia na Receita, e a moderação não tinha como tirar o acesso: só aprovando outra pessoa no modo "transferir". Agora cada dono tem o botão "Remover dos donos". As regras estão em [Tirar um dono](regras-de-negocio.md#tirar-um-dono).

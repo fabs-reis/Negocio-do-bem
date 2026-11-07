@@ -4,8 +4,10 @@ import { recusarPedidoDoClube } from "@/acoes/clube";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { LinkInstagram } from "@/components/LinkInstagram";
 import { consultarCnpj, formatarCnpj } from "@/lib/cnpj";
+import { apagarDocumentosVencidos } from "@/lib/clube";
 import { db } from "@/lib/db";
 import { comPontoFinal, formatarDataHora } from "@/lib/texto";
+import { DocumentosDoPedido } from "./DocumentosDoPedido";
 import { FichaDaReceita, type NegocioDaFicha } from "./FichaDaReceita";
 
 /**
@@ -14,6 +16,8 @@ import { FichaDaReceita, type NegocioDaFicha } from "./FichaDaReceita";
  * antigo vem primeiro.
  */
 export async function PedidosDoClube() {
+  // Sem rotina agendada: os documentos de pedidos parados há mais de 30 dias saem quando a fila abre.
+  await apagarDocumentosVencidos();
   const pedidos = await db.liberacaoClube.findMany({
     where: { status: "pendente" },
     orderBy: { decididoEm: "asc" },
@@ -52,6 +56,8 @@ export async function PedidosDoClube() {
             </Link>{" "}
             ({pedido.usuario.email}) · <span className="text-suave">CNPJ</span> {formatarCnpj(pedido.cnpj)}
           </p>
+
+          <DocumentosDoPedido liberacaoId={pedido.id} quantidade={pedido.documentoChaves.length} />
 
           {pedido.motivo && (
             <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">

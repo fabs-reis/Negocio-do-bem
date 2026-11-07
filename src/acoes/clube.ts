@@ -6,6 +6,7 @@ import { exigirModerador, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { ErroClube, liberarParaClube, pedirVerificacao, recusarPedido, suspenderDoClube, type MotivoRecusaClube } from "@/lib/clube";
 import { db } from "@/lib/db";
+import { apagarDocumentosGuardados, conferirDocumentos, guardarDocumento } from "@/lib/documentos";
 import { texto, type EstadoFormulario } from "@/lib/formulario";
 import { hrefModeracao } from "@/lib/moderacao/filtros";
 import { avisarDecisaoDoClube, avisarNovoPedidoDoClube } from "@/lib/notificacoes";
@@ -62,7 +63,8 @@ const ERROS_DO_PEDIDO: Partial<Record<MotivoRecusaClube, string>> = {
   pedido_em_analise: "Você já tem um pedido em análise.",
   nome_invalido: "Escreva o seu nome completo, como no documento.",
   cpf_invalido: "CPF inválido. Confira os números.",
-  sem_consentimento: "Marque a autorização para a moderação usar o seu nome e o seu CPF na verificação.",
+  sem_consentimento: "Marque a autorização para a moderação usar o seu nome, o seu CPF e o seu documento na verificação.",
+  sem_documento: "Envie a foto do seu RG ou da sua CNH.",
 };
 
 /** O dono pede a verificação do negócio para o Clube do Bem, com o CNPJ. O pedido vai para a fila da moderação. */
@@ -74,7 +76,12 @@ export async function pedirVerificacaoAcao(_estado: EstadoFormulario, dados: For
   // O servidor não devolve o CPF: só o CNPJ e o nome voltam nos `valores` de um erro.
   const valores = { cnpj: texto(dados, "cnpj"), nomeCompleto: texto(dados, "nomeCompleto") };
   if (!usuario.emailConfirmado) return { erro: AVISOS.confirmar_email.texto, valores };
+  const conferidos = await conferirDocumentos(dados.getAll("documentos"));
+  if ("erro" in conferidos) return { erro: conferidos.erro, valores };
+  // O documento vai para o bucket privado antes do pedido; se o pedido não entrar, ele é apagado.
+  const documentoChaves: string[] = [];
   try {
+    for (const documento of conferidos.documentos) documentoChaves.push(await guardarDocumento(documento));
     await pedirVerificacao({
       empresaId: empresa.id,
       usuarioId: usuario.id,
@@ -82,8 +89,10 @@ export async function pedirVerificacaoAcao(_estado: EstadoFormulario, dados: For
       nomeCompleto: valores.nomeCompleto,
       cpf: texto(dados, "cpf"),
       consentimento: texto(dados, "consentimento") === "sim",
+      documentoChaves,
     });
   } catch (erro) {
+    await apagarDocumentosGuardados(documentoChaves);
     if (erro instanceof ErroClube) return { erro: ERROS_DO_PEDIDO[erro.motivo] ?? AVISOS[`clube_${erro.motivo}`]?.texto, valores };
     throw erro;
   }
