@@ -471,7 +471,7 @@ Desde a [issue #20](https://github.com/fabs-reis/Negocio-do-bem/issues/20), **o 
 
 Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Pronto! Você agora é dono deste perfil…".
 
-Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono) ou um negócio que a moderação tirou do ar.
+Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono), um negócio que a moderação tirou do ar ou um pedido novo de conta já removida dos donos deste negócio (que vê texto neutro antes e depois do envio, sem prometer aprovação imediata nem dizer que o perfil já tem dono).
 
 **Risco aceito:** não há conferência do CNPJ, do site nem do contato antes de aprovar. Qualquer conta consegue assumir um perfil que ainda não tem dono. Os dados enviados ficam guardados e aparecem para a moderação se houver disputa. A regra está em `solicitarPorDocumento` (`src/lib/reivindicacao.ts`).
 
@@ -504,9 +504,9 @@ O @ do Instagram não é pedido: é o do próprio perfil.
 
 ### A decisão da moderação
 
-Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
+Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar, pedidos de contas já removidas dos donos e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
 
-**Fila antiga:** quando há pedidos pendentes de negócios sem dono e no ar, o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
+**Fila antiga:** quando há pedidos pendentes que podem ser aprovados sozinhos (`pendentesQueAprovamSozinhos`: negócio sem dono e no ar, de conta que não foi removida dos donos dele), o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a mesma regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira elegível é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
 
 Cada pedido mostra:
 
@@ -558,7 +558,7 @@ A moderação tira uma conta dos donos de um negócio quando ela não é do neg�
   1. A pessoa deixa de ser dona.
   2. O pedido aprovado dela vira `revogada`, com o motivo, quem removeu e quando.
   3. No Clube do Bem, a liberação dela fica suspensa, ou o pedido em análise fica recusado, com o motivo "Deixou de ser dono do negócio". As ofertas que ela criou e cujos cupons ainda valiam (ativas ou encerradas antes do fim) ficam suspensas; as de outro dono e as já vencidas continuam como estavam.
-  4. Se não sobrou nenhum dono, o negócio volta a `indicada`: some o selo "Perfil assumido" e volta o botão "Sou o dono".
+  4. Se não sobrou nenhum dono, o negócio volta a `indicada` e a ficar visível (`oculta: false`, voltando ao diretório se o ex-dono o tinha ocultado): some o selo "Perfil assumido" e volta o botão "Sou o dono". Se ainda sobrou outro dono, `oculta` não muda.
   5. Registra `empresa.dono_removido` na auditoria (e `clube.suspenso` ou `clube.recusado`, se for o caso).
 - **Duas pessoas da moderação ao mesmo tempo:** a segunda vê "Essa conta já não era dona deste negócio", e nada é gravado de novo.
 - **Pedido de novo:** um pedido novo da mesma pessoa para o mesmo negócio nunca é aprovado na hora, nem pelos dados do negócio, nem pelo botão "Aprovar os N pedidos sem dono", nem pelo Entrar com Instagram. Ele vai para a fila com a anotação "A moderação já tirou esta conta dos donos deste negócio". Outras pessoas assumem o negócio sem dono na hora, como antes.
@@ -737,7 +737,7 @@ Código: `src/app/painel/`.
 - Só o dono pode, a qualquer momento.
 - O negócio sai do diretório e o perfil some para o público (404).
 - Enquanto oculto, ninguém deixa depoimento, não se cria oferta nova e ninguém gera cupom novo; os cupons já gerados continuam valendo até o fim previsto da oferta, e em `/cupons` o nome do negócio aparece sem link (com o aviso de que saiu do diretório).
-- O perfil fica guardado, e o dono pode voltar a mostrar quando quiser.
+- O perfil fica guardado, e o dono pode voltar a mostrar quando quiser. Se a moderação remover o último dono do negócio, ele deixa de ficar oculto (`oculta: false`) e volta ao diretório.
 - É a resposta para "meu negócio foi indicado e eu não quero aparecer": a pessoa reivindica o perfil e oculta.
 - **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`. Se a auditoria falhar, a visibilidade não muda.
 

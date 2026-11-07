@@ -53,7 +53,9 @@ export async function enviarDocumento(_estado: EstadoFormulario, dados: FormData
   }
   if (!aprovada) after(() => avisarNovaReivindicacao(empresa.id));
   await medir({ nome: "perfil_reivindicado", params: { method: "documento", resultado: aprovada ? "verificada" : "em_analise" } });
-  redirect(aprovada ? `/painel/${empresa.instagramUsername}?aviso=verificada` : `${caminho}?aviso=documento_enviado`);
+  if (aprovada) redirect(`/painel/${empresa.instagramUsername}?aviso=verificada`);
+  const temDono = (await db.empresaMembro.count({ where: { empresaId: empresa.id } })) > 0;
+  redirect(`${caminho}?aviso=${temDono ? "documento_enviado" : "documento_em_analise"}`);
 }
 
 export async function cancelarReivindicacao(dados: FormData): Promise<void> {
