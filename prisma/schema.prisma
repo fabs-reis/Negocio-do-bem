@@ -147,13 +147,14 @@ model Empresa {
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
 
-  causas          EmpresaCausa[]
-  depoimentos     Depoimento[]
-  membros         EmpresaMembro[]
-  favoritos       EmpresaFavorita[]
-  liberacoesClube LiberacaoClube[]
-  ofertas         Oferta[]
-  reivindicacoes  Reivindicacao[]
+  causas           EmpresaCausa[]
+  depoimentos      Depoimento[]
+  membros          EmpresaMembro[]
+  favoritos        EmpresaFavorita[]
+  enderecosAntigos EnderecoAntigo[]
+  liberacoesClube  LiberacaoClube[]
+  ofertas          Oferta[]
+  reivindicacoes   Reivindicacao[]
 
   @@index([moderacao, oculta, status])
   @@index([uf])
@@ -180,6 +181,17 @@ model EmpresaMembro {
 
   @@id([empresaId, usuarioId])
   @@index([usuarioId])
+}
+
+// Endereços que o negócio já teve: quando o dono troca o @, o antigo redireciona
+// para o atual, para não quebrar links e QR codes já divulgados (#298).
+model EnderecoAntigo {
+  endereco  String   @id
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  criadoEm  DateTime @default(now())
+
+  @@index([empresaId])
 }
 
 // Os negócios que cada pessoa favoritou (Clube do Bem, #248). Só a própria pessoa

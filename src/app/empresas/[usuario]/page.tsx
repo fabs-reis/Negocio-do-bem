@@ -32,6 +32,7 @@ import { rotuloDoDesconto, rotuloOndeVale } from "@/lib/ofertas";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { formatarData, formatarFavoritos, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
   const username = normalizarEndereco((await props.params).usuario);
@@ -61,6 +62,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   const username = normalizarEndereco((await params).usuario);
   if (!username) notFound();
   const [empresa, usuario, { aviso }] = await Promise.all([buscarPerfil(username), usuarioAtual(), searchParams]);
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/empresas/${atual}`, true);
   if (!empresa || !podeVerPerfil(empresa, usuario)) notFound();
 
   const dono = ehDono(empresa, usuario);

@@ -25,6 +25,7 @@ import { FORA_DA_BUSCA } from "@/lib/seo";
 import { formatarDataCurta, formatarDataHora } from "@/lib/texto";
 import { FormOferta } from "./FormOferta";
 import { Verificacao } from "./Verificacao";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export const metadata: Metadata = { title: "Clube do Bem", robots: FORA_DA_BUSCA };
 
@@ -66,6 +67,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
       },
     },
   });
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/painel/${atual}/clube`);
   if (!empresa || !empresa.membros.some((m) => m.usuarioId === usuario.id)) notFound();
   const { aviso, codigo: codigoDaUrl } = await searchParams;
   const [liberado, liberacao, reivindicacao] = await Promise.all([

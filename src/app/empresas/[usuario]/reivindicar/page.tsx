@@ -16,6 +16,7 @@ import { configLogin, normalizarEndereco, normalizarUsername } from "@/lib/insta
 import { formatarDataHora } from "@/lib/texto";
 import { FormDocumento } from "./Formularios";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export const metadata: Metadata = { title: "Reivindicar perfil", robots: FORA_DA_BUSCA };
 
@@ -40,6 +41,7 @@ async function Reivindicar({
     usuarioAtual(),
     searchParams,
   ]);
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/empresas/${atual}/reivindicar`);
   if (!empresa || empresa.moderacao === "rejeitada") notFound();
 
   const caminho = `/empresas/${username}/reivindicar`;

@@ -14,6 +14,7 @@ import { normalizarEndereco } from "@/lib/instagram";
 import { formatarData, formatarFavoritos } from "@/lib/texto";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export const metadata: Metadata = { title: "Editar perfil", robots: FORA_DA_BUSCA };
 
@@ -44,6 +45,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
       },
     },
   });
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/painel/${atual}`);
   if (!empresa || !empresa.membros.some((m) => m.usuarioId === usuario.id)) notFound();
   const { aviso } = await searchParams;
   const liberacao = await db.liberacaoClube.findUnique({
