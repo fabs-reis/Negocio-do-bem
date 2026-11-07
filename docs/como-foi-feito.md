@@ -857,8 +857,8 @@ npm run typecheck
 | Peça | Onde | Observação |
 | --- | --- | --- |
 | Site | Cloudflare Workers, adaptador OpenNext | Produção na branch `main`; previews para `stage` e PRs. |
-| Banco de produção | PlanetScale Postgres (PS-5, nó único), São Paulo, criado e cobrado pelo Cloudflare | O Worker conecta pelo Hyperdrive `negocio-do-bem` (cache desligado, até 8 conexões; o PS-5 tem 25). O build usa a `DATABASE_URL`, direta e com `?sslmode=verify-full`. O Neon antigo ficou só para leitura, como reserva. |
-| Banco dos previews | Projeto Neon separado (da integração do Vercel) | Não compartilha credenciais de produção. Configure em Worker Previews. |
+| Banco de produção | PlanetScale Postgres (PS-5, nó único), São Paulo, criado e cobrado pelo Cloudflare | O Worker conecta pelo Hyperdrive `negocio-do-bem` (cache desligado, até 8 conexões; o PS-5 tem 25). O build usa a `DATABASE_URL`, direta e com `?sslmode=verify-full`. O Neon antigo, que ficou só para leitura como reserva depois da troca, foi apagado em 7 de novembro. |
+| Banco dos previews | Projeto Neon `negocio-do-bem-preview`, da integração do Vercel (plano Launch, cobrado por uso; custa centavos por mês) | Não compartilha credenciais de produção. O console do Neon abre pela Vercel (Storage → o banco → "Open in Neon"). Não use o "Delete Neon" da integração: ele apaga também este banco. |
 | Domínio | `www.negociodobem.com` como domínio personalizado do Worker | O domínio sem `www` passa pelo proxy do Cloudflare e uma regra de redirecionamento da zona manda para o `www` (301, com caminho e consulta). |
 | Fotos | Cloudflare R2 | Bucket privado para cache; bucket de uploads servido por domínio próprio em produção. Em POC, pode usar a Public Development URL (`r2.dev`), que expõe os objetos publicamente e tem limite de requisições. Configure buckets separados para produção e previews. |
 | Medição | Google Analytics 4 | `NEXT_PUBLIC_GA_ID` só nas variáveis de build da produção. |
