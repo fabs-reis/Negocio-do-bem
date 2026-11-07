@@ -17,6 +17,7 @@
 
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db, type Prisma } from "@/lib/db";
+import { suspenderOfertasQueValem } from "@/lib/ofertas";
 import { formatarDataHora } from "@/lib/texto";
 
 const VALIDADE_ANALISE_DIAS = 30;
@@ -131,14 +132,18 @@ export async function processarLoginInstagram(params: {
  * Menos para quem a moderação já tirou dos donos deste negócio: esse pedido vai para a
  * moderação.
  */
-function aprovaSozinhoPorDocumento(empresa: { moderacao: string; membros: unknown[] }, tiradaDosDonos: boolean): boolean {
+export function aprovaSozinhoPorDocumento(empresa: { moderacao: string; membros: unknown[] }, tiradaDosDonos: boolean): boolean {
   return !tiradaDosDonos && empresa.moderacao !== "rejeitada" && empresa.membros.length === 0;
 }
 
 const NOTA_TIRADA_DOS_DONOS = "A moderação já tirou esta conta dos donos deste negócio. Confira antes de aprovar.";
 
 /** Se a moderação já tirou esta conta dos donos do negócio (um pedido dela ficou "revogada"). */
-async function foiTiradaDosDonos(cliente: Pick<Prisma.TransactionClient, "reivindicacao">, empresaId: string, usuarioId: string) {
+export async function foiTiradaDosDonos(
+  empresaId: string,
+  usuarioId: string,
+  cliente: Pick<Prisma.TransactionClient, "reivindicacao"> = db,
+): Promise<boolean> {
   const revogada = await cliente.reivindicacao.findFirst({ where: { empresaId, usuarioId, status: "revogada" }, select: { id: true } });
   return revogada !== null;
 }
@@ -165,7 +170,7 @@ export async function solicitarPorDocumento(params: {
     });
     if (emAnalise) throw new ErroReivindicacao("Você já enviou os dados deste negócio e eles estão em análise.");
     await exigirLimiteDiario(tx, params.usuarioId);
-    const tirada = await foiTiradaDosDonos(tx, params.empresaId, params.usuarioId);
+    const tirada = await foiTiradaDosDonos(params.empresaId, params.usuarioId, tx);
 
     const criada = await tx.reivindicacao.create({
       data: {
@@ -191,21 +196,59 @@ export async function solicitarPorDocumento(params: {
 }
 
 /**
+ * Os pedidos pendentes pelos dados do negócio que `aprovarPendentesSemDono` aprova de fato:
+ * negócio no ar e sem dono, conta que não foi tirada dos donos dele, e só o primeiro pedido
+ * elegível de cada negócio. Usada na tela da moderação e na ação em lote.
+ */
+export async function pendentesQueAprovamSozinhos(): Promise<{ id: string; empresaId: string; usuarioId: string }[]> {
+  const candidatos = await db.reivindicacao.findMany({
+    where: {
+      status: "pendente",
+      metodo: "documento",
+      empresa: { moderacao: { not: "rejeitada" }, membros: { none: {} } },
+    },
+    orderBy: [{ criadoEm: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      empresaId: true,
+      usuarioId: true,
+      empresa: { select: { moderacao: true, membros: { select: { usuarioId: true } } } },
+    },
+  });
+  if (candidatos.length === 0) return [];
+
+  const revogadas = await db.reivindicacao.findMany({
+    where: {
+      status: "revogada",
+      OR: candidatos.map(({ empresaId, usuarioId }) => ({ empresaId, usuarioId })),
+    },
+    select: { empresaId: true, usuarioId: true },
+  });
+  const tiradas = new Set(revogadas.map((r) => `${r.empresaId}:${r.usuarioId}`));
+
+  const vistos = new Set<string>();
+  const elegiveis: { id: string; empresaId: string; usuarioId: string }[] = [];
+  for (const { id, empresaId, usuarioId, empresa } of candidatos) {
+    if (vistos.has(empresaId)) continue;
+    if (!aprovaSozinhoPorDocumento(empresa, tiradas.has(`${empresaId}:${usuarioId}`))) continue;
+    vistos.add(empresaId);
+    elegiveis.push({ id, empresaId, usuarioId });
+  }
+  return elegiveis;
+}
+
+/**
  * Aplica a regra acima às solicitações pelos dados do negócio que ficaram na fila.
  * Vale a ordem de chegada: se duas pessoas pediram o mesmo negócio, a primeira vira
  * dona e a segunda continua com a moderação. Devolve as solicitações aprovadas.
  */
 export async function aprovarPendentesSemDono(revisorId: string): Promise<string[]> {
-  const pendentes = await db.reivindicacao.findMany({
-    where: { status: "pendente", metodo: "documento" },
-    orderBy: { criadoEm: "asc" },
-    select: { id: true, empresaId: true, usuarioId: true },
-  });
+  const pendentes = await pendentesQueAprovamSozinhos();
 
   const aprovadas: string[] = [];
   for (const { id, empresaId, usuarioId } of pendentes) {
     const empresa = await db.empresa.findUniqueOrThrow({ where: { id: empresaId }, include: { membros: true } });
-    if (!aprovaSozinhoPorDocumento(empresa, await foiTiradaDosDonos(db, empresaId, usuarioId))) continue;
+    if (!aprovaSozinhoPorDocumento(empresa, await foiTiradaDosDonos(empresaId, usuarioId))) continue;
     try {
       await aprovar({ reivindicacaoId: id, revisorId });
       aprovadas.push(id);
@@ -239,7 +282,7 @@ async function conflitosDeVerificacao(params: {
   if (empresa.instagramUserId && empresa.instagramUserId !== instagramUserId) {
     conflitos.push("A conta do Instagram é diferente da registrada antes: o @ pode ter mudado de dono.");
   }
-  if (await foiTiradaDosDonos(db, empresa.id, usuarioId)) conflitos.push(NOTA_TIRADA_DOS_DONOS);
+  if (await foiTiradaDosDonos(empresa.id, usuarioId)) conflitos.push(NOTA_TIRADA_DOS_DONOS);
   const outra = await db.empresa.findFirst({
     where: { id: { not: empresa.id }, instagramUserId },
     select: { instagramUsername: true },
@@ -381,8 +424,8 @@ export type ResultadoRemocao =
  *   negócio vai para a moderação, sem a aprovação na hora;
  * - a liberação do Clube do Bem fica suspensa (ou, em análise, recusada), e as ofertas
  *   que ela criou e ainda estavam valendo saem do ar;
- * - sem nenhum dono, o perfil volta a `indicada`: some o selo "Perfil assumido" e volta o
- *   botão "Sou o dono".
+ * - sem nenhum dono, o perfil volta a `indicada` e a ficar visível (`oculta: false`): some o
+ *   selo "Perfil assumido" e volta o botão "Sou o dono".
  * Devolve `removido: false` se a pessoa já não era dona, e null se o negócio não existe.
  */
 export async function removerDono(params: {
@@ -424,13 +467,14 @@ export async function removerDono(params: {
         detalhes: `@${username} · ${nome} · ${MOTIVO_CLUBE_SEM_DONO}`,
       });
     }
-    const { count: ofertasSuspensas } = await tx.oferta.updateMany({
-      where: { empresaId, criadaPorId: usuarioId, status: "ativa" },
-      data: { status: "suspensa" },
-    });
+    const { count: ofertasSuspensas } = await suspenderOfertasQueValem(
+      tx,
+      { empresaId, criadaPorId: usuarioId },
+      agora,
+    );
 
     const semDono = (await tx.empresaMembro.count({ where: { empresaId } })) === 0;
-    if (semDono) await tx.empresa.update({ where: { id: empresaId }, data: { status: "indicada" } });
+    if (semDono) await tx.empresa.update({ where: { id: empresaId }, data: { status: "indicada", oculta: false } });
 
     await registrarAuditoria(tx, {
       usuarioId: moderadorId,

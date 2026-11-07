@@ -13,6 +13,7 @@ import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, STATUS_REIVINDICACAO } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { configLogin, normalizarEndereco, normalizarUsername } from "@/lib/instagram";
+import { aprovaSozinhoPorDocumento, foiTiradaDosDonos } from "@/lib/reivindicacao";
 import { formatarDataHora } from "@/lib/texto";
 import { FormDocumento } from "./Formularios";
 import { FORA_DA_BUSCA } from "@/lib/seo";
@@ -112,11 +113,14 @@ async function Reivindicar({
     );
   }
 
-  const solicitacoes = await db.reivindicacao.findMany({
-    where: { empresaId: empresa.id, usuarioId: usuario.id },
-    orderBy: { criadoEm: "desc" },
-    take: 5,
-  });
+  const [solicitacoes, tiradaDosDonos] = await Promise.all([
+    db.reivindicacao.findMany({
+      where: { empresaId: empresa.id, usuarioId: usuario.id },
+      orderBy: { criadoEm: "desc" },
+      take: 5,
+    }),
+    foiTiradaDosDonos(empresa.id, usuario.id),
+  ]);
   const pendentes = solicitacoes.filter((r) => r.status === "pendente");
   const dadosEmAnalise = pendentes.some((r) => r.metodo === "documento");
   // Sem Instagram, o único caminho é enviar os dados do negócio.
@@ -197,9 +201,9 @@ async function Reivindicar({
           <section className="cartao p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-semibold">Assuma o perfil</h2>
             <p className="mt-2 leading-relaxed text-suave">
-              {empresa.membros.length > 0
-                ? "A moderação analisa o pedido e decide. O resultado aparece no seu painel."
-                : "Como ninguém assumiu este perfil ainda, ele passa a ser seu assim que você enviar."}
+              {aprovaSozinhoPorDocumento(empresa, tiradaDosDonos)
+                ? "Como ninguém assumiu este perfil ainda, ele passa a ser seu assim que você enviar."
+                : "A moderação analisa o pedido e decide. O resultado aparece no seu painel."}
             </p>
             <FormDocumento empresaId={empresa.id} />
           </section>

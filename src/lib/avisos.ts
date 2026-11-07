@@ -19,6 +19,10 @@ export const AVISOS: Record<string, { tipo: TipoAviso; texto: string }> = {
     tipo: "info",
     texto: "Recebemos seus dados. Como este perfil já tem dono, a moderação decide e pode falar com você pelo contato informado.",
   },
+  documento_em_analise: {
+    tipo: "info",
+    texto: "Recebemos seus dados. A moderação analisa o pedido e pode falar com você pelo contato informado.",
+  },
   ig_conta_diferente: {
     tipo: "erro",
     texto: "Você entrou com uma conta do Instagram diferente da deste negócio. Saia do Instagram e entre com a conta do negócio.",
