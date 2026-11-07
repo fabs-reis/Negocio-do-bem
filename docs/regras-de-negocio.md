@@ -208,7 +208,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 | Grupo | Seção | O que mostra |
 | --- | --- | --- |
 | Painel | **Visão geral** (abre primeiro) | As filas que esperam a moderação, os números do projeto, a atividade das últimas semanas, o diretório por estado, tipo e causa, e a saúde dos dados. |
-| Filas | **Reivindicações**, **Indicações**, **Denúncias**, **Clube do Bem** | As filas que já existiam ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)) e os pedidos de verificação do [Clube do Bem](#liberação-para-o-clube). O menu mostra quantos itens esperam em cada uma. |
+| Filas | **Reivindicações**, **Indicações**, **Denúncias**, **Clube do Bem**, **Trocas de @** | As filas que já existiam ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)), os pedidos de verificação do [Clube do Bem](#liberação-para-o-clube) e os pedidos de [troca do @](#troca-do-). O menu mostra quantos itens esperam em cada uma. |
 | Cadastros | **Negócios** | Todos os negócios, com filtros por situação ([seção 5](#editar-qualquer-perfil)). |
 | Cadastros | **Contas** | Todas as contas, com busca e filtros, e a ficha de cada uma. |
 | Cadastros | **Depoimentos** | Todos os depoimentos, publicados e removidos. |
@@ -277,7 +277,7 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
   - só letras, números, `.` e `_`, até 30 caracteres;
   - não pode começar nem terminar com `.`, nem ter `..`;
   - recusa caminhos do Instagram que não são perfis (`p`, `reel`, `reels`, `explore`, `stories`, `accounts`, `direct`, `tv`).
-- **Ninguém muda o @ depois** (nem o dono, nem a moderação). Não existe tela para isso.
+- **O @ só muda por pedido do dono, aprovado pela moderação** (veja [Troca do @](#troca-do-)). A edição do perfil, do dono ou da moderação, não mexe no @.
 - **Negócio sem Instagram:** quem cadastra pelo "O negócio não tem Instagram" ganha um endereço feito do nome e da cidade, em minúsculas, sem acento e com hífens: "Padaria do Bairro", em Recife, vira `/empresas/padaria-do-bairro-recife` (`enderecoSemInstagram` em `src/lib/endereco.ts`).
   - O endereço fica na mesma coluna do @ (`instagramUsername`). Como o Instagram não aceita hífen no @, e a cidade no fim garante ao menos um hífen, um endereço nunca se confunde com um @ (`temInstagram`).
   - Se outro negócio já usa o endereço, o novo ganha `-2`, `-3`… no fim.
@@ -285,6 +285,24 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
 - Além do @, o negócio pode guardar dois IDs fixos do Instagram:
   - `instagramUserId`, preenchido pelo Entrar com Instagram, hoje desligado (ver [seção 6](#entrar-com-instagram-desligado-por-padrão));
   - `instagramIgsid`, que só vem de pedidos antigos por código de DM (ver [seção 6](#pedidos-antigos-por-código-de-dm)).
+
+### Troca do @
+
+Código: `src/lib/troca-de-arroba.ts` e `src/acoes/arroba.ts`.
+
+- **Quem pede:** um dono do negócio, com o e-mail confirmado, na seção "@ do Instagram" do painel (`/painel/<@>#arroba`). Serve para corrigir um @ errado, seguir um @ que mudou no Instagram ou ligar um @ a um negócio cadastrado sem Instagram.
+- **Por que passa pela moderação:** o dono pode ter assumido o perfil só com os dados do negócio, sem provar que controla o Instagram. Sem a conferência, ele poderia pôr o @ de outro negócio que ainda não está no site.
+- **O pedido não entra** quando o @ é inválido (as mesmas regras de `normalizarUsername`), é o mesmo de agora ou já é de outro negócio. Há **um pedido em análise por negócio**: um segundo, mesmo enviado ao mesmo tempo, recebe "Já existe um pedido de troca do @ em análise".
+- **Enquanto em análise,** o painel mostra o @ pedido e o botão "Cancelar o pedido". Recusado, mostra o motivo e deixa pedir de novo.
+- **A fila "Trocas de @"** da moderação mostra o negócio, o @ atual e o pedido (com link para os dois no Instagram), o que a Meta mostra do @ novo (nome, site e seguidores; ou o aviso de que a conta é pessoal ou não existe) e quem pediu. A moderação aprova ou recusa com um motivo, que o dono vê.
+- **Aprovada,** na mesma transação:
+  - o negócio passa a usar o @ novo, que vira o endereço da página;
+  - o **endereço antigo deixa de existir** (404) e fica livre para outro negócio;
+  - os IDs do Instagram ligados ao @ antigo (`instagramUserId`, `instagramIgsid`) saem, porque eram de outra conta;
+  - o texto de busca é refeito.
+  Depois da resposta, o dono recebe o e-mail e, se o negócio não tem foto, o site busca a do @ novo, com as regras da [foto no cadastro](#o-cadastro-por-etapas).
+- **A aprovação não acontece** se o pedido já foi decidido, se o @ do negócio mudou depois do pedido ou se outro negócio ocupou o @ novo enquanto isso. O pedido continua na fila, e a moderação vê o aviso.
+- **Auditoria:** `empresa.arroba_pedido` (pelo dono), `empresa.arroba_trocado` e `empresa.arroba_recusado`, na mesma transação da alteração, com o @ antigo e o novo nos detalhes.
 
 ### Dados do negócio
 
@@ -722,7 +740,8 @@ Código: `src/app/painel/`.
   - a seção "Minha conta", com a troca de senha, ou o link para criar uma na conta sem senha (veja [Cadastro e login](#cadastro-e-login));
   - o aviso da ação anterior (`?aviso=`), como "Senha trocada".
 - **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). No topo, aparece quantas pessoas favoritaram o negócio. Nele, o dono:
-  - **edita o perfil:** foto, informações, contatos, causas e história. O @ não muda;
+  - **edita o perfil:** foto, informações, contatos, causas e história;
+  - **pede a troca do @,** que só vale quando a moderação aprova (veja [Troca do @](#troca-do-));
   - **responde depoimentos:** até 1.000 caracteres. A resposta pode ser trocada a qualquer momento, e apagar o texto tira a resposta;
   - **oculta ou mostra o negócio no diretório.**
 
@@ -1025,6 +1044,8 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `empresa.foto_do_instagram` | A rotina de fotos colocou a foto do Instagram num negócio sem foto. Os detalhes trazem o @. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
+| `empresa.arroba_pedido` | O dono pediu a troca do @. Os detalhes trazem o @ atual e o pedido. |
+| `empresa.arroba_trocado` / `empresa.arroba_recusado` | A moderação aprovou ou recusou a troca do @. Os detalhes trazem o @ antigo e o novo (e o motivo, na recusa). |
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
 | `reivindicacao.recusada` | Um pedido foi recusado. Os detalhes trazem o motivo. |
 | `empresa.dono_removido` | A moderação tirou uma conta dos donos do negócio. Os detalhes trazem o @, o nome da conta e o motivo. |
@@ -1064,6 +1085,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Um depoimento é denunciado | Cada pessoa da moderação | O negócio e o link da fila de denúncias. |
 | Um dono pede a verificação do Clube do Bem | Cada pessoa da moderação | O negócio e o link da fila do clube. |
 | A moderação libera ou recusa um dono no Clube do Bem | O dono | O negócio e o link do painel do clube; na recusa, o motivo. |
+| Um dono pede a troca do @ | Cada pessoa da moderação | O negócio, o @ atual e o pedido, e o link da fila de trocas de @. |
+| A moderação aprova ou recusa a troca do @ | O dono que pediu | O @ novo e o endereço novo da página; na recusa, o motivo e o link do painel. |
 | A moderação tira uma conta dos donos de um negócio | A pessoa que saiu | O negócio, o motivo e o link para pedir o perfil de novo, que vai para a moderação. |
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
 | Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail". Só com a confirmação ligada, e hoje ela está desligada | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |

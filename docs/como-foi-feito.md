@@ -609,6 +609,17 @@ Nos primeiros testes do clube em produção, a conta que assumiu um perfil não 
 - **A remoção trava a linha do negócio** (`FOR NO KEY UPDATE`) antes de contar os donos que sobraram. Assim, duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, não deixam um perfil sem dono marcado como assumido.
 - **Confirmação no servidor também.** A caixa "Confirmo" é `required` no HTML, e a ação confere `confirmo=sim` de novo, porque uma Server Action pode ser chamada sem o formulário.
 - **A transferência continua como era.** Quem sai dos donos numa transferência não recebe e-mail, e as ofertas que criou não são suspensas. Fica para outra issue, se a moderação precisar.
+
+### 7 de novembro: o dono pede a troca do @ ([#299](https://github.com/fabs-reis/Negocio-do-bem/issues/299))
+
+Um negócio entrou com o @ errado (`@fabsreis` em vez de `@ofabsreis`): a foto do Instagram não veio e o "Ver no Instagram" levava para outra conta. Até aqui ninguém mudava o @ depois do cadastro. Agora o dono pede a troca no painel, e a moderação aprova numa fila nova. As regras estão em [Troca do @](regras-de-negocio.md#troca-do-).
+
+- **Pedido, e não troca direta.** O dono pode ter assumido o perfil só com os dados do negócio, sem provar que controla o Instagram. Se a troca valesse na hora, ele poderia pôr o @ de outro negócio que ainda não está no site. A fila mostra o que a Meta enxerga do @ novo (nome, site e seguidores), para a moderação conferir sem sair da tela.
+- **Tabela própria (`TrocaDeArroba`).** Guarda o @ de antes e o pedido, quem pediu e quem decidiu. Diferente do clube, um negócio pode ter vários pedidos ao longo do tempo, e o histórico fica na tabela, não só na auditoria.
+- **O endereço antigo vira 404 e fica livre.** Foi a escolha mais simples: guardar os @ antigos para redirecionar pediria outra tabela e decidir o que fazer quando outro negócio quisesse o @ antigo.
+- **Um pedido em análise por negócio.** O pedido trava a linha do negócio (`FOR NO KEY UPDATE`) antes de contar os pedidos em análise, como na cota de indicações.
+- **A aprovação confere de novo** se o @ novo continua livre e se o @ do negócio ainda é o do pedido, na mesma transação que troca o @. Os IDs do Instagram ligados ao @ antigo saem: eram de outra conta.
+- **A foto vem junto.** Depois da aprovação, o negócio sem foto ganha a do @ novo, pela mesma função do cadastro (`gravarFotoDaPrevia`).
 ---
 
 ## 4. Arquitetura
