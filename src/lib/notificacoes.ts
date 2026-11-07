@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { enviarEmail, envioLigado } from "@/lib/email";
 import { hrefModeracao } from "@/lib/moderacao/filtros";
 import { ENDERECO_DO_SITE, NOME_DO_SITE } from "@/lib/seo";
+import { comPontoFinal } from "@/lib/texto";
 
 export function primeiroNome(nome: string): string {
   return nome.trim().split(/\s+/)[0] || nome;
@@ -66,6 +67,26 @@ export async function avisarDecisaoDaReivindicacao(reivindicacaoId: string): Pro
       ),
     });
   }
+}
+
+/** Para quem deixou de ser dono: a moderação tirou a conta dos donos do negócio, com o motivo. */
+export async function avisarDonoRemovido(empresaId: string, usuarioId: string, motivo: string): Promise<void> {
+  if (!envioLigado()) return;
+  const [usuario, empresa] = await Promise.all([
+    db.usuario.findUnique({ where: { id: usuarioId }, select: { nome: true, email: true } }),
+    db.empresa.findUnique({ where: { id: empresaId }, select: { nome: true, instagramUsername: true } }),
+  ]);
+  if (!usuario || !empresa) return;
+  await enviarEmail({
+    para: usuario.email,
+    assunto: `Você não é mais dono de ${empresa.nome} no ${NOME_DO_SITE}`,
+    texto: corpo(
+      `Olá, ${primeiroNome(usuario.nome)}!`,
+      `A moderação tirou a sua conta dos donos do perfil de ${empresa.nome} (@${empresa.instagramUsername}). Você não edita mais o perfil, e as ofertas que você criou no Clube do Bem saíram do ar.`,
+      `Motivo: ${comPontoFinal(motivo)}`,
+      `Se você é dono deste negócio, responda este e-mail ou peça o perfil de novo. A moderação vai analisar o pedido:\n${ENDERECO_DO_SITE}/empresas/${empresa.instagramUsername}/reivindicar`,
+    ),
+  });
 }
 
 /** Para a moderação: um pedido de reivindicação ficou na fila para ela decidir. */

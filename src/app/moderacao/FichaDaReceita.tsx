@@ -3,6 +3,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { quemBateComAConta } from "@/lib/clube";
 import { formatarCnpj, type DadosCnpj } from "@/lib/cnpj";
 import { formatarTelefone, normalizarTexto } from "@/lib/texto";
+import { RemoverDono } from "./RemoverDono";
 
 export type NegocioDaFicha = { id: string; instagramUsername: string; cidade: string; uf: string };
 
@@ -87,15 +88,19 @@ export function FichaDaReceita({
         {donos.map((dono) => {
           const bate = quemBateComAConta(dono.nome, ficha);
           return (
-            <li key={dono.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p>
-                <span className="font-medium">{dono.nome}</span>{" "}
-                {bate ? (
-                  <span className="text-folha">· o nome bate com {bate}</span>
-                ) : (
-                  <span className="text-coral-700">· o nome não bate com ninguém da ficha. Confira com a pessoa antes de liberar.</span>
-                )}
-              </p>
+            <li key={dono.id} className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <p>
+                  <span className="font-medium">{dono.nome}</span>{" "}
+                  {bate ? (
+                    <span className="text-folha">· o nome bate com {bate}</span>
+                  ) : (
+                    <span className="text-coral-700">· o nome não bate com ninguém da ficha. Confira com a pessoa antes de liberar.</span>
+                  )}
+                </p>
+                {/* Quem não é do negócio sai dos donos daqui mesmo, sem voltar à seção de donos. */}
+                {!bate && <RemoverDono empresaId={empresa.id} username={empresa.instagramUsername} dono={dono} voltar={voltar} />}
+              </div>
               {ativa ? (
                 <form action={liberarDonoParaClube}>
                   <input type="hidden" name="empresaId" value={empresa.id} />

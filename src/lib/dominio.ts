@@ -47,6 +47,8 @@ export const STATUS_REIVINDICACAO: Record<string, string> = {
   recusada: "Recusada",
   expirada: "Expirada",
   cancelada: "Cancelada",
+  // A moderação tirou a pessoa dos donos depois de aprovar.
+  revogada: "Removida pela moderação",
 };
 
 export const MODERACAO_EMPRESA: Record<string, string> = {
@@ -90,6 +92,7 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "reivindicacao.aprovada": "Aprovou um pedido de reivindicação",
   "reivindicacao.aprovada_com_transferencia": "Aprovou um pedido e transferiu o negócio",
   "reivindicacao.recusada": "Recusou um pedido de reivindicação",
+  "empresa.dono_removido": "Tirou um dono do negócio",
   "depoimento.mantido": "Manteve um depoimento denunciado",
   "depoimento.removido": "Removeu um depoimento denunciado",
   "usuario.senha_trocada": "Trocou a própria senha no painel",
