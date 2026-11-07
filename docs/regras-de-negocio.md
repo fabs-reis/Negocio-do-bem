@@ -296,9 +296,9 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 | Categoria | Sim | Uma da lista fixa (ver [seção 12](#categorias)). |
 | Cidade e estado (UF) | Sim | Um município da lista do IBGE, escolhido no campo de cidade, que sugere cidades enquanto a pessoa digita. O estado vem junto com a cidade. O servidor confere na mesma lista e grava o nome oficial, com acentos (ver [seção 12](#municípios)). |
 | Resumo ("em uma frase") | Sim | 10 a 160 caracteres. Aparece nos cards do diretório. |
-| Telefone comercial | Só no cadastro do dono | Número brasileiro com DDD, com as regras do WhatsApp (ver abaixo). No perfil, vira o botão "Ligar". |
+| Telefone comercial | Não | Número brasileiro com DDD, com as regras do WhatsApp (ver abaixo). No perfil, vira o botão "Ligar". |
 | Site | Não | Até 200 caracteres. Sem `http`, ganha `https://`. Precisa ter um ponto no domínio. |
-| WhatsApp | Não | Número brasileiro com DDD (ver abaixo). |
+| WhatsApp | Só no cadastro do dono | Número brasileiro com DDD (ver abaixo). |
 | E-mail de contato | Não | E-mail válido, até 200 caracteres, guardado em minúsculas. |
 | E-mail e telefone do dono | Só no cadastro do dono | O contato de quem cadastrou o negócio como dono, com as regras do e-mail e do telefone. **Não aparecem no perfil:** só os donos (no painel) e a moderação (na fila de indicações e na edição) veem. |
 | Causas | Não | Qualquer combinação da lista oficial. Slugs desconhecidos são descartados. |
@@ -394,7 +394,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
 Quando a pessoa escolhe **"Sou dono deste negócio"** (ou "Sou dono do negócio", sem Instagram):
 
 - o campo "Por que você indica?" some e o motivo não é guardado;
-- a pessoa informa os contatos do negócio: **telefone comercial (obrigatório)**, WhatsApp, e-mail e site (opcionais). Eles aparecem no perfil;
+- a pessoa informa os contatos do negócio: **WhatsApp (obrigatório)**, telefone comercial, e-mail e site (opcionais). Eles aparecem no perfil;
 - e o contato dela: **e-mail e telefone de contato (obrigatórios)**. O e-mail e o telefone começam preenchidos com os da conta. Esse contato não aparece no perfil ([seção 3](#dados-do-negócio));
 - o negócio é criado do mesmo jeito, já publicado, com a pessoa como quem indicou;
 - a pessoa vai direto para a página de reivindicação (`/empresas/<endereço>/reivindicar`) para enviar os dados do negócio.
