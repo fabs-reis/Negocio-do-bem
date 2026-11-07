@@ -1,8 +1,6 @@
 ## Issue relacionada
 
-<!-- Use "N" se esta PR resolve a Issue e "Refs #N" se apenas se relaciona. -->
-
-
+<!-- Use "Closes #N" se esta PR resolve a issue e "Refs #N" se apenas se relaciona. -->
 
 ## O que muda e por quê
 
