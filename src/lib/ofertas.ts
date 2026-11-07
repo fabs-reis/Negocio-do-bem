@@ -132,6 +132,11 @@ export function condicaoDeOfertaAtiva(agora = new Date()) {
   return { status: "ativa", fim: { gt: agora } } satisfies Prisma.OfertaWhereInput;
 }
 
+/** A oferta ativa de um negócio que o público vê: aprovado e fora do modo oculto, como no perfil. Alimenta a lista de /cupons. */
+export function condicaoDeOfertaPublica(agora = new Date()) {
+  return { ...condicaoDeOfertaAtiva(agora), empresa: { moderacao: "aprovada", oculta: false } } satisfies Prisma.OfertaWhereInput;
+}
+
 export class ErroOferta extends Error {
   constructor(readonly mensagem: string) {
     super(mensagem);

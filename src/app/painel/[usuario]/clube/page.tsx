@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { encerrarOfertaAcao, usarCupomAcao } from "@/acoes/ofertas";
+import { encerrarOfertaAcao } from "@/acoes/ofertas";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
+import { CupomConferido } from "@/components/CupomConferido";
 import { Prazo } from "@/components/Prazo";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { podeCriarOfertas } from "@/lib/clube";
@@ -18,11 +19,10 @@ import {
   normalizarCodigo,
   rotuloDoDesconto,
   rotuloOndeVale,
-  situacaoDoCupom,
   somarDias,
 } from "@/lib/ofertas";
 import { FORA_DA_BUSCA } from "@/lib/seo";
-import { formatarDataCurta, formatarDataHora } from "@/lib/texto";
+import { formatarDataCurta } from "@/lib/texto";
 import { FormOferta } from "./FormOferta";
 import { Verificacao } from "./Verificacao";
 import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
@@ -38,13 +38,6 @@ export default function ClubeDoNegocio(props: PageProps<"/painel/[usuario]/clube
     </div>
   );
 }
-
-const SITUACAO_DO_CUPOM = {
-  valido: { texto: "Válido", cor: "text-folha" },
-  usado: { texto: "Já usado", cor: "text-coral-700" },
-  vencido: { texto: "Vencido", cor: "text-coral-700" },
-  suspenso: { texto: "Oferta suspensa pela moderação", cor: "text-coral-700" },
-} as const;
 
 function situacaoDaOferta(oferta: { status: string; fim: Date }, agora: Date): string {
   if (oferta.status === "suspensa") return "Suspensa";
@@ -202,50 +195,6 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
             ))}
           </ul>
         </section>
-      )}
-    </div>
-  );
-}
-
-function CupomConferido({
-  cupom,
-  empresaId,
-  agora,
-  usadoAgora,
-}: {
-  cupom: {
-    codigo: string;
-    usadoEm: Date | null;
-    usuario: { nome: string };
-    oferta: { titulo: string; tipo: string; valor: number | null; fim: Date; status: string };
-  };
-  empresaId: string;
-  agora: Date;
-  /** Acabou de ser marcado como usado nesta tela: é a confirmação, e não um alerta. */
-  usadoAgora: boolean;
-}) {
-  const situacao = situacaoDoCupom(cupom, agora);
-  const { texto, cor } = usadoAgora && situacao === "usado" ? { texto: "Usado agora. Pode dar o desconto.", cor: "text-folha" } : SITUACAO_DO_CUPOM[situacao];
-  return (
-    <div className="cartao space-y-3 p-5 text-sm">
-      <p className="font-mono text-2xl tracking-[0.2em]">{cupom.codigo}</p>
-      <p className={`font-medium ${cor}`}>
-        {texto}
-        {situacao === "usado" && !usadoAgora && cupom.usadoEm && ` em ${formatarDataHora(cupom.usadoEm)}`}
-      </p>
-      <p>
-        {cupom.oferta.titulo} · {rotuloDoDesconto(cupom.oferta)}
-      </p>
-      {/* Só o primeiro nome: o clube não entrega lista de clientes. */}
-      <p className="text-suave">De {cupom.usuario.nome.split(" ")[0]}</p>
-      {situacao === "valido" && (
-        <form action={usarCupomAcao}>
-          <input type="hidden" name="empresaId" value={empresaId} />
-          <input type="hidden" name="codigo" value={cupom.codigo} />
-          <BotaoEnviar className="botao-coral" enviando="Marcando…">
-            Marcar como usado
-          </BotaoEnviar>
-        </form>
       )}
     </div>
   );

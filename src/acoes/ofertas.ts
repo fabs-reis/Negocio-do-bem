@@ -63,17 +63,21 @@ export async function gerarCupomAcao(dados: FormData): Promise<void> {
   });
   if (!oferta) redirect("/");
   const perfil = `/empresas/${oferta.empresa.instagramUsername}`;
-  const usuario = await exigirUsuario(`${perfil}#clube`);
-  if (!usuario.emailConfirmado) redirect(`${perfil}?aviso=confirmar_email#clube`);
+  // Na lista de ofertas (/cupons), o cupom nasce e volta para a própria lista, sem passar pelo perfil.
+  const daLista = texto(dados, "origem") === "lista";
+  const usuario = await exigirUsuario(daLista ? "/cupons" : `${perfil}#clube`);
+  if (!usuario.emailConfirmado) redirect(daLista ? "/cupons?aviso=confirmar_email" : `${perfil}?aviso=confirmar_email#clube`);
 
   const resultado = await gerarCupom(oferta.id, usuario.id);
   if ("erro" in resultado) {
-    redirect(resultado.erro === "dono" ? perfil : `${perfil}?aviso=${resultado.erro === "esgotada" ? "cupom_esgotado" : "cupom_indisponivel"}#clube`);
+    const aviso = resultado.erro === "esgotada" ? "cupom_esgotado" : "cupom_indisponivel";
+    if (daLista) redirect(resultado.erro === "dono" ? "/cupons" : `/cupons?aviso=${aviso}`);
+    redirect(resultado.erro === "dono" ? perfil : `${perfil}?aviso=${aviso}#clube`);
   }
   const params = { categoria: resultado.categoria, uf: resultado.uf };
   if (resultado.favoritou) await medir({ nome: "negocio_favoritado", params });
   if (resultado.novo) await medir({ nome: "cupom_gerado", params });
-  redirect(`${perfil}?aviso=cupom_gerado#clube`);
+  redirect(daLista ? "/cupons/meus?aviso=cupom_gerado" : `${perfil}?aviso=cupom_gerado#clube`);
 }
 
 const AVISO_DA_SITUACAO = {
@@ -87,13 +91,18 @@ const AVISO_DA_SITUACAO = {
 /** "Marcar como usado", na validação do painel. Só um dono do negócio do cupom. */
 export async function usarCupomAcao(dados: FormData): Promise<void> {
   const empresa = await negocio(texto(dados, "empresaId"));
-  const usuario = await exigirUsuario(`/painel/${empresa.instagramUsername}/clube`);
+  const usuario = await exigirUsuario(texto(dados, "origem") === "validar" ? "/validar" : `/painel/${empresa.instagramUsername}/clube`);
   const codigo = normalizarCodigo(texto(dados, "codigo"));
   const resultado = await usarCupom(empresa.id, codigo, usuario.id);
-  const destino = `/painel/${empresa.instagramUsername}/clube?codigo=${codigo}`;
+  // Na tela de validar (/validar), o dono volta para ela, com o mesmo negócio; senão, ao painel do clube.
+  const daTela = texto(dados, "origem") === "validar";
+  const destino = daTela
+    ? `/validar?negocio=${empresa.instagramUsername}&codigo=${codigo}`
+    : `/painel/${empresa.instagramUsername}/clube?codigo=${codigo}`;
+  const ancora = daTela ? "" : "#validar";
   if (resultado.situacao === "usado_agora") {
     await medir({ nome: "cupom_usado", params: { categoria: resultado.categoria, uf: resultado.uf } });
-    redirect(`${destino}&aviso=cupom_usado#validar`);
+    redirect(`${destino}&aviso=cupom_usado${ancora}`);
   }
-  redirect(`${destino}&aviso=${AVISO_DA_SITUACAO[resultado.situacao]}#validar`);
+  redirect(`${destino}&aviso=${AVISO_DA_SITUACAO[resultado.situacao]}${ancora}`);
 }
