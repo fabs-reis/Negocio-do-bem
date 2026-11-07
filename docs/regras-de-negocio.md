@@ -713,7 +713,7 @@ Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/o
 - **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Perfil assumido". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
 - **Prévia das outras páginas:** a página de cada cidade tem a sua (ver [seção 11](#páginas-de-cidade-causa-e-tipo)). As outras páginas públicas (início, `/sobre`, `/explorar`, `/cidades`, `/participar`, causas e tipos) levam a imagem geral do site, com o logo e o lema.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
-- **Fora da busca:** login, cadastro, painel, Favoritos, Meus cupons, reivindicação e moderação levam `noindex`. `/painel`, `/favoritos`, `/cupons`, `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
+- **Fora da busca:** login, cadastro, painel, Favoritos, Meus cupons, reivindicação e moderação levam `noindex`. `/painel`, `/favoritos`, `/cupons` (a lista de ofertas e Meus cupons), `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
 - **Previews** (`DEPLOY_ENV=preview`) bloqueiam todos os robôs no `robots.txt`. Só a produção entra no índice.
 
 ### Painel do dono
@@ -1234,6 +1234,17 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `src/app/manifest.ts`. Ao segurar o ícone, aparecem os atalhos Explorar, Cadastrar e Painel.
 
+**A navegação no celular** (`src/components/BarraInferior.tsx`)
+
+Em telas pequenas (abaixo de `sm`, 640 px), uma barra fixa no rodapé substitui o menu do topo, que fica só com o logo e a busca. No computador nada muda. A barra respeita a área do botão home do iPhone (`viewportFit: "cover"`) e o rodapé do site ganha folga para ela não cobrir os links.
+
+- **Quem compra** (entrou ou não): Início, Explorar, Cupons, Favoritos e Conta. A aba Cupons mostra quantas ofertas estão valendo agora.
+- **Dono com negócio liberado no clube** (liberação "liberada" e ainda dono): Início, Cupons, **Validar** (botão grande no centro), Negócio e Conta. Dono sem liberação, suspensa ou recusada, vê a barra de quem compra e chega ao negócio pela Conta.
+- **Cupons** (`/cupons`) tem duas partes. **Ofertas** lista todas as ofertas valendo de negócios aprovados e fora do modo oculto (a mesma regra do perfil), da que termina primeiro para a última, com filtro por cidade. "Pegar cupom" gera o cupom (e favorita o negócio, como no perfil) e leva a **Meus cupons** (`/cupons/meus`). Quem não entrou vê "Entre para pegar o cupom".
+- **Validar** (`/validar`): o dono liberado digita o código e confere a oferta e o primeiro nome do cliente. "Marcar como usado" é a mesma ação do painel do clube, com as mesmas regras. Com mais de um negócio liberado, ele escolhe qual no topo. A tela lista os 5 últimos cupons usados no negócio. O painel do clube continua com a validação.
+- **Negócio** (`/negocio`): atalho para Validar, Ofertas do clube, Editar perfil, Depoimentos (quantos sem resposta) e perfil público. Quem ainda não foi liberado vê o convite para a verificação.
+- **Conta** (`/conta`) reúne o que ficava no menu suspenso: painel, favoritos, meus cupons, moderação, modo escuro, instalar o app, Como funciona e Sair. Quem não entrou vê "Entrar" e "Cadastrar um negócio".
+
 **A página de instalação** (`src/app/instalacao/`)
 
 - `/instalacao` pergunta qual é o celular, com dois cartões: iPhone, com o ícone da Apple, e Android, com o do Android. Cada um leva ao seu passo a passo.
@@ -1443,7 +1454,7 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 - **Gerar:** precisa de login (e do e-mail confirmado, quando a confirmação estiver ligada). O botão diz "Favoritar e gerar cupom", com o aviso de que o negócio entra nos favoritos, ou "Gerar cupom" para quem já favoritou. Sem login, "Entre para gerar o cupom". O dono vê o link para o painel do clube, sem botão.
 - **Um cupom por pessoa por oferta.** Pedir de novo devolve o mesmo código. Dois pedidos da mesma pessoa ao mesmo tempo também.
 - **O limite vale com pedidos ao mesmo tempo:** a reserva é um UPDATE condicional na oferta, na mesma transação do cupom, então o último cupom vai para uma pessoa só. Depois, "Os cupons desta oferta acabaram".
-- **Código:** 6 caracteres, sem 0, O, 1 e I, que se confundem ao ditar. Aparece no perfil e em **Meus cupons** (`/cupons`, no menu da conta), com o prazo.
+- **Código:** 6 caracteres, sem 0, O, 1 e I, que se confundem ao ditar. Aparece no perfil e em **Meus cupons** (`/cupons/meus`, na aba Cupons e na Conta), com o prazo.
 - **Validade:** até o fim previsto da oferta, mesmo se o dono encerrar antes. Com a oferta suspensa, o cupom não vale.
 - **Aviso fixo** no perfil e em Meus cupons: o Negócio do Bem nunca pede Pix nem pagamento para liberar cupom; o desconto vale na hora da compra, e quem garante é o negócio.
 - **No diretório,** o card de um negócio com oferta valendo ganha o selo "🎟️ Cupom" (no `/explorar`, nas páginas de cidade, causa e tipo, nos favoritos e nos negócios parecidos).

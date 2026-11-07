@@ -620,6 +620,17 @@ Nos primeiros testes do clube em produção, a conta que assumiu um perfil não 
 - **A transferência continua como era.** Quem sai dos donos numa transferência não recebe e-mail, e as ofertas que criou não são suspensas. Fica para outra issue, se a moderação precisar.
 ---
 
+### 7 de novembro: menu do celular e aba de cupons ([#308](https://github.com/fabs-reis/Negocio-do-bem/issues/308))
+
+Quem instalou o app não tem a barra do navegador, e o menu ficava atrás de um ícone no topo: os cupons ficavam escondidos e o dono não achava onde validar. As regras estão em [A navegação no celular](regras-de-negocio.md#17-o-site-como-app).
+
+- **Barra no rodapé, não menu no topo.** É o padrão dos apps e fica ao alcance do polegar. O desenho foi aprovado antes de codar, em telas feitas à parte. A barra é um componente de cliente (`BarraInferior`) só para marcar a aba ativa com `usePathname`; quem decide o perfil (comprador ou dono) é o servidor (`NavegacaoMobile`), dentro de um `<Suspense>`, porque lê a sessão e o banco.
+- **Dois perfis de barra.** O botão Validar só aparece para o dono liberado no clube: para os demais seria um botão que leva a uma explicação. A liberação e o fato de ainda ser dono vêm de `negociosDoClube`.
+- **`/cupons` virou a lista de ofertas.** Antes era "Meus cupons", que foi para `/cupons/meus`. As ofertas valendo usam `condicaoDeOfertaPublica`, a mesma regra do perfil (aprovado e não oculto), para a lista nunca mostrar o que o perfil esconde.
+- **"Pegar cupom" na lista** usa a mesma ação do perfil (`gerarCupomAcao`), com um campo `origem` para voltar a Meus cupons em vez de ao perfil. Uma regra só para gerar cupom.
+- **Validar tem tela própria,** mas o painel do clube continua validando. O cartão do cupom conferido (`CupomConferido`) virou um componente dos dois lugares, e a ação `usarCupomAcao` volta para a tela de onde o dono veio.
+- **`viewportFit: "cover"`** no layout: sem ele o iPhone não informa a área do botão home, e a barra ficaria por cima dele.
+
 ## 4. Arquitetura
 
 ### A stack e por que cada peça
