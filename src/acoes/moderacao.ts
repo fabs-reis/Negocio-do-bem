@@ -7,7 +7,9 @@ import { exigirModerador } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
 import { comAviso, destinoNaModeracao, hrefModeracao } from "@/lib/moderacao/filtros";
+import { apagarDocumentosDaLiberacao } from "@/lib/clube";
 import { avisarDecisaoDaReivindicacao, avisarDonoRemovido } from "@/lib/notificacoes";
+import { suspenderOfertasQueValem } from "@/lib/ofertas";
 import {
   aprovar,
   aprovarPendentesSemDono,
@@ -92,6 +94,9 @@ export async function moderarEmpresa(dados: FormData): Promise<void> {
       where: { id: texto(dados, "empresaId") },
       data: { moderacao: decisao },
     });
+    if (decisao === "rejeitada") {
+      await suspenderOfertasQueValem(tx, { empresaId: empresa.id });
+    }
     await registrarAuditoria(tx, {
       usuarioId: moderador.id,
       acao: decisao === "aprovada" ? "empresa.aprovada" : "empresa.rejeitada",
@@ -124,6 +129,8 @@ export async function removerDono(dados: FormData): Promise<void> {
   const motivo = texto(dados, "motivo").trim().slice(0, 500) || "Sem motivo informado";
   const resultado = await tirarDosDonos({ empresaId: empresa.id, usuarioId, moderadorId: moderador.id, motivo });
   if (!resultado?.removido) voltarDosDonos(dados, empresa.instagramUsername, "dono_ja_removido");
+  // Um pedido do clube em análise foi recusado junto: o documento dele não fica guardado.
+  await apagarDocumentosDaLiberacao(empresa.id, usuarioId);
   after(() => avisarDonoRemovido(empresa.id, usuarioId, motivo));
   voltarDosDonos(dados, empresa.instagramUsername, "dono_removido");
 }

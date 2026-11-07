@@ -50,7 +50,7 @@ export function Verificacao({
           </p>
         )}
         <p className="text-suave">
-          Informe o CNPJ do negócio, o seu nome completo e o seu CPF. A moderação confere na Receita se o CNPJ está ativo e se o
+          Informe o CNPJ do negócio, o seu nome completo e o seu CPF, e envie a foto do seu RG ou da sua CNH. A moderação confere na Receita se o CNPJ está ativo e se o
           seu nome e o seu CPF estão no quadro de sócios (no MEI, na razão social). Depois de aprovado, você cria ofertas de desconto que aparecem no perfil do negócio.{" "}
           <Link href="/clube-do-bem#para-negocios" className="link">
             Como funciona

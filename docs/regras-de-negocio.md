@@ -430,7 +430,8 @@ Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderaca
 - **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes. A decisão e a auditoria são confirmadas juntas: se a auditoria falhar, o negócio continua como estava.
 - **O que muda num negócio tirado do ar:**
   - o @ continua ocupado, então ninguém consegue indicar de novo;
-  - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação.
+  - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação;
+  - as ofertas ativas e as encerradas ainda dentro do prazo ficam suspensas na mesma transação, e os cupons delas deixam de valer.
 
 ### Editar qualquer perfil
 
@@ -470,7 +471,7 @@ Desde a [issue #20](https://github.com/fabs-reis/Negocio-do-bem/issues/20), **o 
 
 Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Pronto! Você agora é dono deste perfil…".
 
-Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono) ou um negócio que a moderação tirou do ar.
+Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono), um negócio que a moderação tirou do ar ou um pedido novo de conta já removida dos donos deste negócio (que vê texto neutro antes e depois do envio, sem prometer aprovação imediata nem dizer que o perfil já tem dono).
 
 **Risco aceito:** não há conferência do CNPJ, do site nem do contato antes de aprovar. Qualquer conta consegue assumir um perfil que ainda não tem dono. Os dados enviados ficam guardados e aparecem para a moderação se houver disputa. A regra está em `solicitarPorDocumento` (`src/lib/reivindicacao.ts`).
 
@@ -503,9 +504,9 @@ O @ do Instagram não é pedido: é o do próprio perfil.
 
 ### A decisão da moderação
 
-Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
+Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar, pedidos de contas já removidas dos donos e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
 
-**Fila antiga:** quando há pedidos pendentes de negócios sem dono e no ar, o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
+**Fila antiga:** quando há pedidos pendentes que podem ser aprovados sozinhos (`pendentesQueAprovamSozinhos`: negócio sem dono e no ar, de conta que não foi removida dos donos dele), o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a mesma regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira elegível é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
 
 Cada pedido mostra:
 
@@ -556,8 +557,8 @@ A moderação tira uma conta dos donos de um negócio quando ela não é do neg�
 - **O que acontece,** numa transação só, com o negócio travado (duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, se enxergam):
   1. A pessoa deixa de ser dona.
   2. O pedido aprovado dela vira `revogada`, com o motivo, quem removeu e quando.
-  3. No Clube do Bem, a liberação dela fica suspensa, ou o pedido em análise fica recusado, com o motivo "Deixou de ser dono do negócio". As ofertas que ela criou e ainda estavam valendo ficam suspensas; as de outro dono continuam.
-  4. Se não sobrou nenhum dono, o negócio volta a `indicada`: some o selo "Perfil assumido" e volta o botão "Sou o dono".
+  3. No Clube do Bem, a liberação dela fica suspensa, ou o pedido em análise fica recusado, com o motivo "Deixou de ser dono do negócio". As ofertas que ela criou e cujos cupons ainda valiam (ativas ou encerradas antes do fim) ficam suspensas; as de outro dono e as já vencidas continuam como estavam.
+  4. Se não sobrou nenhum dono, o negócio volta a `indicada` e a ficar visível (`oculta: false`, voltando ao diretório se o ex-dono o tinha ocultado): some o selo "Perfil assumido" e volta o botão "Sou o dono". Se ainda sobrou outro dono, `oculta` não muda.
   5. Registra `empresa.dono_removido` na auditoria (e `clube.suspenso` ou `clube.recusado`, se for o caso).
 - **Duas pessoas da moderação ao mesmo tempo:** a segunda vê "Essa conta já não era dona deste negócio", e nada é gravado de novo.
 - **Pedido de novo:** um pedido novo da mesma pessoa para o mesmo negócio nunca é aprovado na hora, nem pelos dados do negócio, nem pelo botão "Aprovar os N pedidos sem dono", nem pelo Entrar com Instagram. Ele vai para a fila com a anotação "A moderação já tirou esta conta dos donos deste negócio". Outras pessoas assumem o negócio sem dono na hora, como antes.
@@ -735,8 +736,8 @@ Código: `src/app/painel/`.
 
 - Só o dono pode, a qualquer momento.
 - O negócio sai do diretório e o perfil some para o público (404).
-- Enquanto oculto, ninguém deixa depoimento.
-- O perfil fica guardado, e o dono pode voltar a mostrar quando quiser.
+- Enquanto oculto, ninguém deixa depoimento, não se cria oferta nova e ninguém gera cupom novo; os cupons já gerados continuam valendo até o fim previsto da oferta, e em `/cupons` o nome do negócio aparece sem link (com o aviso de que saiu do diretório).
+- O perfil fica guardado, e o dono pode voltar a mostrar quando quiser. Se a moderação remover o último dono do negócio, ele deixa de ficar oculto (`oculta: false`) e volta ao diretório.
 - É a resposta para "meu negócio foi indicado e eu não quero aparecer": a pessoa reivindica o perfil e oculta.
 - **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`. Se a auditoria falhar, a visibilidade não muda.
 
@@ -803,7 +804,7 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
 
 **No servidor:**
 
-- Limite de **3 MB por foto**. O limite de envio das Server Actions é 4 MB (`next.config.ts`).
+- Limite de **3 MB por foto**. O limite de envio das Server Actions é 11 MB (`next.config.ts`), por causa do documento da verificação; cada ação confere o tamanho dos seus arquivos.
 - O tipo é conferido **pelos primeiros bytes do arquivo** (JPEG, PNG ou WebP), não pelo que o navegador diz.
 - O nome do arquivo é aleatório, nas pastas `perfis/` ou `historias/`.
 - Onde a foto fica:
@@ -1041,6 +1042,7 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `embaixador.criado` / `embaixador.editado` / `embaixador.excluido` | A moderação cadastrou, editou ou excluiu um embaixador. Os detalhes trazem o @ (e o nome, na exclusão). |
 | `embaixador.foto_trocada` / `embaixador.foto_removida` | A moderação trocou ou removeu a foto de um embaixador. |
 | `embaixador.foto_do_instagram` | A consulta ao Instagram colocou a foto num embaixador sem foto. Aparece como "Sistema". |
+| `clube.documento_visto` | A moderação abriu o documento de um pedido do clube. Os detalhes trazem o @, o nome da conta e qual arquivo. |
 | `clube.liberado` / `clube.suspenso` | A moderação liberou um dono para o Clube do Bem ou suspendeu a liberação. Os detalhes trazem o @, o nome da conta e o CNPJ (na liberação) ou o motivo (na suspensão). Quando o dono troca o contato do perfil, a suspensão aparece como "Sistema". Quando a moderação tira o dono, a suspensão (ou a recusa do pedido, em `clube.recusado`) vem junto, com o motivo "Deixou de ser dono do negócio". |
 | `oferta.criada` / `oferta.encerrada` | Um dono criou ou encerrou antes do fim uma oferta do Clube do Bem. Os detalhes trazem o @ e o título. |
 
@@ -1103,6 +1105,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Nome completo e CPF informados no pedido de verificação | `LiberacaoClube.nomeCompleto` e `cpfMascarado` | Só a moderação. O CPF inteiro **nunca é guardado**: só os 6 dígitos do meio (`***.982.247-**`), os mesmos que a Receita mostra dos sócios. Serve para comparar com o quadro de sócios. A pessoa autoriza numa caixa obrigatória do formulário. Somem se a conta for apagada. |
+| Foto do RG ou da CNH, no pedido de verificação | Bucket R2 privado `DOCUMENTOS` (a chave em `LiberacaoClube.documentoChaves`) | Só a moderação, por uma rota protegida, com cada abertura na auditoria. Apagada quando a moderação decide, ou depois de 30 dias sem decisão. Nunca em endereço público. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1416,7 +1419,10 @@ Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [A
   - **Só os 6 dígitos do meio do CPF são guardados** (`***.982.247-**`). O CPF inteiro é conferido (dígitos verificadores) e descartado, e não aparece na tela, na auditoria nem na URL. O servidor nunca devolve o CPF: se o formulário volta com erro, ele só continua no campo porque o navegador o mantém.
   - **A moderação vê a comparação:** o nome informado contra os sócios e os 6 dígitos do CPF contra o CPF mascarado que a Receita mostra de cada sócio (no MEI, o CPF que a razão social traz). É só apoio: um gerente ou procurador pode não ser sócio, e a Receita não mostra o CPF de todos.
   - **Perfil verificado:** liberar o dono no clube dá, no mesmo passo, o selo "Perfil verificado" no perfil público, no lugar de "Perfil assumido". Suspender a liberação, ou tirar o dono, tira o selo. Os perfis assumidos continuam "assumidos" até pedirem a verificação. O campo `status = verificada` segue querendo dizer só "assumido".
-  - **O documento (RG ou CNH)** é a parte 2 da #293 e ainda não existe.
+  - **O documento (RG ou CNH):** o pedido exige a foto, de 1 a 2 arquivos (frente e verso), até 5 MB cada, em JPG, PNG, WebP ou PDF. O tipo vem dos primeiros bytes do arquivo, e não do nome. A autorização do formulário cobre o nome, o CPF e o documento.
+  - **Onde fica:** num bucket R2 **privado** (`negocio-do-bem-documentos`; `negocio-do-bem-preview-documentos` nos previews), pelo binding `DOCUMENTOS`. Ele não tem domínio público e nunca é o bucket das fotos. O banco guarda só as chaves (`LiberacaoClube.documentoChaves`), com nomes aleatórios.
+  - **Quem abre:** só a moderação, pelo link "Abrir o arquivo" na fila e na ficha do negócio (`/moderacao/documentos/<pedido>/<n>`). Quem não é da moderação recebe 404. A resposta nunca vai para cache (`Cache-Control: private, no-store`) e vem com `nosniff` e uma política que não executa nada. Cada abertura fica na auditoria (`clube.documento_visto`).
+  - **Quando é apagado:** assim que a moderação libera ou recusa o pedido, e quando ela tira o dono (que recusa o pedido em análise). Um pedido parado há mais de 30 dias perde o documento quando a fila do clube abre, porque o projeto não tem rotina agendada. Se o pedido não entra (CNPJ inativo, por exemplo), o arquivo que já tinha subido é apagado na hora. Apagar é "melhor esforço": se falhar, sobra um arquivo sem nenhuma linha apontando para ele.
   - O site confere os dígitos e consulta a Receita. Se ela não tem o CNPJ, o pedido não entra ("Não achamos este CNPJ na Receita"); se diz que ele não está ativo, também não ("Só entram no clube negócios com CNPJ ativo"). Sem resposta da Receita, o pedido entra assim mesmo, porque a moderação consulta de novo antes de liberar.
   - Precisa ser dono do negócio e ter o e-mail confirmado (quando a confirmação estiver ligada). Com um pedido em análise, ou já liberado, não pede de novo.
   - O pedido fica com o status "pendente", e o dono vê "A moderação está conferindo o seu negócio", com a data e o CNPJ. O painel do clube só mostra "Validar um cupom" a quem está liberado ou já teve oferta.
@@ -1429,8 +1435,8 @@ Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [A
 - **O nome da conta bate com a ficha?** Para cada dono, a tela diz se o nome da conta bate com um sócio ou, no MEI, com a razão social, que traz o nome da pessoa (`quemBateComAConta`). Quando não bate, o dono ganha ali mesmo o botão "Remover dos donos", também na fila do clube. Bate quando todas as palavras do nome da conta, pelo menos duas, aparecem no nome da ficha, sem ligar para acento, maiúsculas, ordem, nomes do meio, partículas (da, de, dos) e o CPF da razão social. É só um apoio: quem decide é a moderação.
 - **Liberar:** o botão "Liberar <nome>" só aparece com o CNPJ ativo. O servidor confere de novo o CNPJ (os dígitos e a situação "ATIVA" na Receita) e que a conta é dona. Sem resposta da Receita, não libera. Guarda só o CNPJ, sem pontuação.
 - **Status da liberação:** "pendente" (o dono pediu), "liberada", "recusada" (a moderação recusou o pedido) e "suspensa" (estava liberada). Só "liberada" cria ofertas e dá o selo. A data da liberação (`decididoEm`) é a da última mudança: num pedido em análise, é a data do pedido.
-- **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. As ofertas que estavam valendo no negócio ficam suspensas, e os cupons delas deixam de valer. Para liberar de novo, consulta o CNPJ e libera, e o motivo some; as ofertas suspensas não voltam, o dono cria outra.
-- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria e "pelo sistema" na tela da moderação, com o motivo "O contato do perfil mudou"), e as ofertas valendo também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende. O mesmo vale quando o dono [troca o @](#identidade-o--do-instagram), com o motivo "O @ do Instagram mudou".
+- **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. As ofertas do negócio cujos cupons ainda valiam (ativas e encerradas antes do fim) ficam suspensas, e os cupons delas deixam de valer; ofertas já vencidas não mudam de status. Para liberar de novo, consulta o CNPJ e libera, e o motivo some; as ofertas suspensas não voltam, o dono cria outra.
+- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria e "pelo sistema" na tela da moderação, com o motivo "O contato do perfil mudou"), e as ofertas cujos cupons ainda valiam (ativas e encerradas antes do fim) também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende. O mesmo vale quando o dono [troca o @](#identidade-o--do-instagram), com o motivo "O @ do Instagram mudou".
 - **Quem vê:** só a moderação vê a liberação, o CNPJ e a ficha. O público vê o selo "Parceiro do Clube do Bem" no perfil, enquanto o negócio tiver um dono liberado.
 - **Auditoria:** `clube.pedido` (pelo dono), `clube.liberado`, `clube.recusado` e `clube.suspenso`, na mesma transação da alteração. O pedido registra o @ e o CNPJ.
 - **Avisos por e-mail:** a moderação recebe cada pedido novo, só com o negócio e o link da fila. O dono recebe a liberação (com o link do painel do clube) e a recusa (com o motivo). Veja a [seção 14](#14-avisos-por-e-mail).
@@ -1455,7 +1461,7 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 - **Um cupom por pessoa por oferta.** Pedir de novo devolve o mesmo código. Dois pedidos da mesma pessoa ao mesmo tempo também.
 - **O limite vale com pedidos ao mesmo tempo:** a reserva é um UPDATE condicional na oferta, na mesma transação do cupom, então o último cupom vai para uma pessoa só. Depois, "Os cupons desta oferta acabaram".
 - **Código:** 6 caracteres, sem 0, O, 1 e I, que se confundem ao ditar. Aparece no perfil e em **Meus cupons** (`/cupons/meus`, na aba Cupons e na Conta), com o prazo.
-- **Validade:** até o fim previsto da oferta, mesmo se o dono encerrar antes. Com a oferta suspensa, o cupom não vale.
+- **Validade:** até o fim previsto da oferta, mesmo se o dono encerrar antes ou ocultar o perfil. Com a oferta suspensa (por suspensão da liberação, troca de contato ou @ pelo dono, remoção do dono que criou a oferta ou rejeição do negócio pela moderação), o cupom não vale. Quando o negócio sai do diretório sem suspensão da oferta (oculto pelo dono), **Meus cupons** mostra o nome sem link e o aviso "Este negócio saiu do diretório. O cupom vale no balcão até o fim da oferta."
 - **Aviso fixo** no perfil e em Meus cupons: o Negócio do Bem nunca pede Pix nem pagamento para liberar cupom; o desconto vale na hora da compra, e quem garante é o negócio.
 - **No diretório,** o card de um negócio com oferta valendo ganha o selo "🎟️ Cupom" (no `/explorar`, nas páginas de cidade, causa e tipo, nos favoritos e nos negócios parecidos).
 

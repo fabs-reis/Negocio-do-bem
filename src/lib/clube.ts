@@ -3,6 +3,8 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { buscarNaReceita, cnpjValido, consultarCnpj, formatarCnpj, limparCnpj, type DadosCnpj } from "@/lib/cnpj";
 import { cpfValido, limparCpf, mascararCpf, miolo } from "@/lib/cpf";
 import { db } from "@/lib/db";
+import { apagarDocumentosGuardados } from "@/lib/documentos";
+import { suspenderOfertasQueValem } from "@/lib/ofertas";
 import { normalizarTexto } from "@/lib/texto";
 
 // Regras do Clube do Bem (#248). Só a moderação libera um dono para criar ofertas, e só
@@ -28,7 +30,8 @@ export type MotivoRecusaClube =
   | "cnpj_nao_encontrado"
   | "nome_invalido"
   | "cpf_invalido"
-  | "sem_consentimento";
+  | "sem_consentimento"
+  | "sem_documento";
 
 export class ErroClube extends Error {
   constructor(readonly motivo: MotivoRecusaClube) {
@@ -108,6 +111,8 @@ export async function liberarParaClube({
       detalhes: `@${membro.empresa.instagramUsername} · ${membro.usuario.nome} · CNPJ ${formatarCnpj(numero)}`,
     });
   });
+  // A decisão está tomada: o documento já cumpriu o papel e não fica guardado.
+  await apagarDocumentosDaLiberacao(empresaId, usuarioId);
 }
 
 /**
@@ -135,7 +140,7 @@ export async function suspenderDoClube({
     });
     if (!liberacao) return null;
     if (count > 0) {
-      await tx.oferta.updateMany({ where: { empresaId: liberacao.empresaId, status: "ativa" }, data: { status: "suspensa" } });
+      await suspenderOfertasQueValem(tx, { empresaId: liberacao.empresaId });
       await registrarAuditoria(tx, {
         usuarioId: moderadorId,
         acao: "clube.suspenso",
@@ -160,6 +165,7 @@ export async function pedirVerificacao({
   nomeCompleto,
   cpf,
   consentimento,
+  documentoChaves,
 }: {
   empresaId: string;
   usuarioId: string;
@@ -167,6 +173,8 @@ export async function pedirVerificacao({
   nomeCompleto: string;
   cpf: string;
   consentimento: boolean;
+  /** As chaves dos documentos já guardados no bucket privado (`guardarDocumento`). Pelo menos uma. */
+  documentoChaves: string[];
 }): Promise<void> {
   const numero = limparCnpj(cnpj);
   if (!cnpjValido(numero)) throw new ErroClube("cnpj_invalido");
@@ -174,6 +182,7 @@ export async function pedirVerificacao({
   if (palavrasDoNome(nome).length < 2 || nome.length > 120) throw new ErroClube("nome_invalido");
   if (!cpfValido(cpf)) throw new ErroClube("cpf_invalido");
   if (!consentimento) throw new ErroClube("sem_consentimento");
+  if (documentoChaves.length === 0) throw new ErroClube("sem_documento");
   const chave = { empresaId_usuarioId: { empresaId, usuarioId } };
   const [membro, atual] = await Promise.all([
     db.empresaMembro.findUnique({ where: chave, include: { empresa: { select: { instagramUsername: true } } } }),
@@ -192,6 +201,7 @@ export async function pedirVerificacao({
     status: "pendente",
     nomeCompleto: nome,
     cpfMascarado: mascararCpf(limparCpf(cpf)),
+    documentoChaves,
     decididoPorId: null,
     decididoEm: new Date(),
   };
@@ -236,7 +246,7 @@ export async function recusarPedido({
   moderadorId: string;
   motivo: string;
 }): Promise<{ username: string; empresaId: string; usuarioId: string; recusado: boolean } | null> {
-  return db.$transaction(async (tx) => {
+  const resultado = await db.$transaction(async (tx) => {
     const { count } = await tx.liberacaoClube.updateMany({
       where: { id: liberacaoId, status: "pendente" },
       data: { status: "recusada", motivo, decididoPorId: moderadorId, decididoEm: new Date() },
@@ -262,6 +272,8 @@ export async function recusarPedido({
       recusado: count > 0,
     };
   });
+  if (resultado?.recusado) await apagarDocumentosDaLiberacao(resultado.empresaId, resultado.usuarioId);
+  return resultado;
 }
 
 /**
@@ -293,4 +305,30 @@ export function conferirIdentidade(
     meio !== null &&
     (ficha.socios.some((socio) => miolo(socio.cpfMascarado) === meio) || (cpfDaRazao.length === 11 && cpfDaRazao.slice(3, 9) === meio));
   return { nomeBate, cpfBate };
+}
+
+/** Apaga os documentos de um pedido do bucket privado e limpa as chaves. Chamado quando a moderação decide. */
+export async function apagarDocumentosDaLiberacao(empresaId: string, usuarioId: string): Promise<void> {
+  const chave = { empresaId_usuarioId: { empresaId, usuarioId } };
+  const liberacao = await db.liberacaoClube.findUnique({ where: chave, select: { documentoChaves: true } });
+  if (!liberacao || liberacao.documentoChaves.length === 0) return;
+  await apagarDocumentosGuardados(liberacao.documentoChaves);
+  await db.liberacaoClube.update({ where: chave, data: { documentoChaves: [] } });
+}
+
+/** Dias que o documento de um pedido sem decisão fica guardado. */
+export const DIAS_DO_DOCUMENTO = 30;
+
+/**
+ * Apaga os documentos dos pedidos que esperam a moderação há mais de 30 dias. Não há rotina
+ * agendada: roda quando a fila do clube abre. Devolve quantos pedidos foram limpos.
+ */
+export async function apagarDocumentosVencidos(): Promise<number> {
+  const limite = new Date(Date.now() - DIAS_DO_DOCUMENTO * 24 * 60 * 60 * 1000);
+  const vencidos = await db.liberacaoClube.findMany({
+    where: { status: "pendente", decididoEm: { lt: limite }, NOT: { documentoChaves: { isEmpty: true } } },
+    select: { empresaId: true, usuarioId: true },
+  });
+  for (const { empresaId, usuarioId } of vencidos) await apagarDocumentosDaLiberacao(empresaId, usuarioId);
+  return vencidos.length;
 }

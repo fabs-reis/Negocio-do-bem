@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { createWriteStream, mkdtempSync, readFileSync, rmSync, type WriteStream } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, type WriteStream } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -56,6 +56,10 @@ describe("Next em produção", () => {
   let depoimentoId: string;
   let moderadorId: string;
   let donoId: string;
+  let liberacaoId: string;
+  let pastaDosDocumentos = "";
+  let chaveDoDocumento = "";
+  const BYTES_DO_DOCUMENTO = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
   let emailDoModerador: string;
   let usernameDoNegocio: string;
   let cookieModerador: string;
@@ -113,6 +117,11 @@ describe("Next em produção", () => {
     await db.empresaMembro.deleteMany({ where: { empresaId: { in: [empresaId, empresaPendenteId] } } });
     // O negócio da prova tem um dono, para que remover dono tenha o que mudar.
     await db.empresaMembro.create({ data: { empresaId, usuarioId: donoId } });
+    // E um pedido do clube em análise, com o documento: remover o dono o recusa e apaga o arquivo.
+    if (liberacaoId) {
+      await db.liberacaoClube.update({ where: { id: liberacaoId }, data: { status: "pendente", motivo: null, documentoChaves: [chaveDoDocumento] } });
+      writeFileSync(join(pastaDosDocumentos, chaveDoDocumento), BYTES_DO_DOCUMENTO);
+    }
     await db.empresa.update({ where: { id: empresaId }, data: { moderacao: "aprovada" } });
     await db.empresa.update({ where: { id: empresaPendenteId }, data: { moderacao: "pendente" } });
     await db.reivindicacao.update({
@@ -175,11 +184,26 @@ describe("Next em produção", () => {
     origem = `http://127.0.0.1:${porta}`;
 
     pastaDoLog = mkdtempSync(join(tmpdir(), "negocio-do-bem-integracao-"));
+    // Um documento de verdade (os primeiros bytes de um JPEG) na pasta que o servidor usa como bucket.
+    pastaDosDocumentos = join(pastaDoLog, "documentos");
+    mkdirSync(pastaDosDocumentos);
+    chaveDoDocumento = `${randomBytes(16).toString("hex")}.jpg`;
+    writeFileSync(join(pastaDosDocumentos, chaveDoDocumento), BYTES_DO_DOCUMENTO);
+    liberacaoId = (await db.liberacaoClube.create({
+      data: { empresaId, usuarioId: donoId, cnpj: "11222333000181", status: "pendente", documentoChaves: [chaveDoDocumento] },
+    })).id;
     caminhoLog = join(pastaDoLog, "next.log");
     log = createWriteStream(caminhoLog);
     servidor = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(porta)], {
       cwd: raiz,
-      env: { ...process.env, NODE_ENV: "production", DATABASE_URL: URL_BANCO_TESTE, APP_URL: origem, NEXT_TELEMETRY_DISABLED: "1" },
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        DATABASE_URL: URL_BANCO_TESTE,
+        APP_URL: origem,
+        NEXT_TELEMETRY_DISABLED: "1",
+        DOCUMENTOS_PASTA: pastaDosDocumentos,
+      },
       stdio: ["ignore", "pipe", "pipe"],
     });
     servidor.stdout!.pipe(log, { end: false });
@@ -324,7 +348,28 @@ describe("Next em produção", () => {
     });
   });
 
+  describe.each(["visitante", "membro"])("documento da verificação: %s", (papel) => {
+    it("recebe 404, sem o arquivo", async () => {
+      const resposta = await fetch(`${origem}/moderacao/documentos/${liberacaoId}/0`, { headers: { cookie: papel === "membro" ? cookieMembro : "" } });
+      expect(resposta.status).toBe(404);
+      expect(resposta.headers.get("content-type")).not.toContain("image/jpeg");
+      expect(await db.registroAuditoria.count({ where: { acao: "clube.documento_visto" } })).toBe(0);
+    });
+  });
+
   describe("moderador (controle positivo)", () => {
+    it("abre o documento da verificação, sem cache, e a abertura fica na auditoria", async () => {
+      const resposta = await fetch(`${origem}/moderacao/documentos/${liberacaoId}/0`, { headers: { cookie: cookieModerador } });
+      expect(resposta.status).toBe(200);
+      expect(resposta.headers.get("content-type")).toBe("image/jpeg");
+      expect(resposta.headers.get("cache-control")).toContain("no-store");
+      expect(resposta.headers.get("x-content-type-options")).toBe("nosniff");
+      expect((await resposta.arrayBuffer()).byteLength).toBe(12);
+      expect(await db.registroAuditoria.count({ where: { acao: "clube.documento_visto", usuarioId: moderadorId } })).toBe(1);
+      expect((await fetch(`${origem}/moderacao/documentos/${liberacaoId}/1`, { headers: { cookie: cookieModerador } })).status).toBe(404);
+      expect((await fetch(`${origem}/moderacao/documentos/inexistente/0`, { headers: { cookie: cookieModerador } })).status).toBe(404);
+    });
+
     it("vê a ficha da conta e a edição do negócio", async () => {
       const ficha = await ler(`/moderacao/contas/${moderadorId}`, cookieModerador);
       expect(ficha.status).toBe(200);
@@ -366,6 +411,9 @@ describe("Next em produção", () => {
       expect(resposta.headers.get("location")).toBe(`/moderacao/negocios/${usernameDoNegocio}?aviso=dono_removido#donos`);
       expect(await db.empresaMembro.count({ where: { empresaId } })).toBe(0);
       expect(await db.registroAuditoria.count({ where: { alvoId: empresaId, acao: "empresa.dono_removido" } })).toBe(1);
+      // O pedido do clube em análise foi recusado, e o documento dele saiu do bucket.
+      expect(await db.liberacaoClube.findUniqueOrThrow({ where: { id: liberacaoId } })).toMatchObject({ status: "recusada", documentoChaves: [] });
+      expect(existsSync(join(pastaDosDocumentos, chaveDoDocumento))).toBe(false);
     });
 
     it("não remove o dono sem a confirmação marcada", async () => {

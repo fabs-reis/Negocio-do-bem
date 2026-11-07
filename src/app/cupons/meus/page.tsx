@@ -36,7 +36,13 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/cupons/meus">, "searc
     where: { usuarioId: usuario.id },
     orderBy: { criadoEm: "desc" },
     take: 100,
-    include: { oferta: { include: { empresa: { select: { nome: true, instagramUsername: true } } } } },
+    include: {
+      oferta: {
+        include: {
+          empresa: { select: { nome: true, instagramUsername: true, moderacao: true, oculta: true } },
+        },
+      },
+    },
   });
   const agora = new Date();
   const comSituacao = cupons.map((cupom) => ({ ...cupom, situacao: situacaoDoCupom(cupom, agora) }));
@@ -70,20 +76,33 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/cupons/meus">, "searc
         <>
           {validos.length > 0 && (
             <ul className="space-y-4">
-              {validos.map((cupom) => (
-                <li key={cupom.id} className="cartao space-y-2 border-coral/40 p-5">
-                  <Link href={`/empresas/${cupom.oferta.empresa.instagramUsername}`} className="font-medium hover:text-coral-700">
-                    {cupom.oferta.empresa.nome}
-                  </Link>
-                  <p className="font-serif text-xl font-semibold">{cupom.oferta.titulo}</p>
-                  <p className="text-sm text-suave">
-                    {rotuloDoDesconto(cupom.oferta)} · {rotuloOndeVale(cupom.oferta.ondeVale)}
-                  </p>
-                  {cupom.oferta.condicoes && <p className="text-sm">{cupom.oferta.condicoes}</p>}
-                  <p className="font-mono text-3xl tracking-[0.2em]">{cupom.codigo}</p>
-                  <Prazo fim={cupom.oferta.fim.toISOString()} className="text-sm font-medium text-coral-700" />
-                </li>
-              ))}
+              {validos.map((cupom) => {
+                const { empresa } = cupom.oferta;
+                const noDiretorio = empresa.moderacao === "aprovada" && !empresa.oculta;
+                return (
+                  <li key={cupom.id} className="cartao space-y-2 border-coral/40 p-5">
+                    {noDiretorio ? (
+                      <Link href={`/empresas/${empresa.instagramUsername}`} className="font-medium hover:text-coral-700">
+                        {empresa.nome}
+                      </Link>
+                    ) : (
+                      <>
+                        <p className="font-medium">{empresa.nome}</p>
+                        <p className="text-sm text-suave">
+                          Este negócio saiu do diretório. O cupom vale no balcão até o fim da oferta.
+                        </p>
+                      </>
+                    )}
+                    <p className="font-serif text-xl font-semibold">{cupom.oferta.titulo}</p>
+                    <p className="text-sm text-suave">
+                      {rotuloDoDesconto(cupom.oferta)} · {rotuloOndeVale(cupom.oferta.ondeVale)}
+                    </p>
+                    {cupom.oferta.condicoes && <p className="text-sm">{cupom.oferta.condicoes}</p>}
+                    <p className="font-mono text-3xl tracking-[0.2em]">{cupom.codigo}</p>
+                    <Prazo fim={cupom.oferta.fim.toISOString()} className="text-sm font-medium text-coral-700" />
+                  </li>
+                );
+              })}
             </ul>
           )}
           {outros.length > 0 && (

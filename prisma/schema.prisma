@@ -223,6 +223,9 @@ model LiberacaoClube {
   // só mascarado (os 6 dígitos do meio). O CPF inteiro nunca é guardado. Só a moderação vê.
   nomeCompleto  String?
   cpfMascarado  String?
+  // Chaves dos documentos (RG ou CNH) no bucket R2 privado DOCUMENTOS. Só existem enquanto o
+  // pedido espera: somem quando a moderação decide, ou depois de 30 dias sem decisão.
+  documentoChaves String[] @default([])
   // "liberada" | "suspensa"
   status        String   @default("liberada")
   // Motivo da suspensão, escrito pela moderação.
