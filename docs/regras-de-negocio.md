@@ -208,7 +208,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 | Grupo | Seção | O que mostra |
 | --- | --- | --- |
 | Painel | **Visão geral** (abre primeiro) | As filas que esperam a moderação, os números do projeto, a atividade das últimas semanas, o diretório por estado, tipo e causa, e a saúde dos dados. |
-| Filas | **Reivindicações**, **Indicações**, **Denúncias**, **Clube do Bem**, **Trocas de @** | As filas que já existiam ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)), os pedidos de verificação do [Clube do Bem](#liberação-para-o-clube) e os pedidos de [troca do @](#troca-do-). O menu mostra quantos itens esperam em cada uma. |
+| Filas | **Reivindicações**, **Indicações**, **Denúncias**, **Clube do Bem**, **Trocas de @** | As filas que já existiam ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)), os pedidos de verificação do [Clube do Bem](#liberação-para-o-clube) e os pedidos de [troca do @](#pedido-de-troca-do-). O menu mostra quantos itens esperam em cada uma. |
 | Cadastros | **Negócios** | Todos os negócios, com filtros por situação ([seção 5](#editar-qualquer-perfil)). |
 | Cadastros | **Contas** | Todas as contas, com busca e filtros, e a ficha de cada uma. |
 | Cadastros | **Depoimentos** | Todos os depoimentos, publicados e removidos. |
@@ -277,7 +277,13 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
   - só letras, números, `.` e `_`, até 30 caracteres;
   - não pode começar nem terminar com `.`, nem ter `..`;
   - recusa caminhos do Instagram que não são perfis (`p`, `reel`, `reels`, `explore`, `stories`, `accounts`, `direct`, `tv`).
-- **O @ só muda por pedido do dono, aprovado pela moderação** (veja [Troca do @](#troca-do-)). A edição do perfil, do dono ou da moderação, não mexe no @.
+- **Trocar o @** (`trocarArroba` em `src/lib/troca-de-arroba.ts`, #298 e #299): a moderação troca o @ na edição do perfil, pela seção "Instagram". O dono **pede** a troca no painel, e ela só vale quando a moderação aprova (veja [Pedido de troca do @](#pedido-de-troca-do-)).
+  - O novo @ passa pela mesma normalização. É recusado se já for de outro negócio, ou se for o @ atual.
+  - Um negócio sem Instagram ganha um @ do mesmo jeito. Não há como voltar a "sem Instagram".
+  - **O endereço antigo continua valendo:** fica guardado em `EnderecoAntigo` e leva para o atual (`/empresas`, com redirecionamento permanente, `/empresas/<@>/reivindicar`, `/painel/<@>`, `/painel/<@>/clube` e `/moderacao/negocios/<@>`). Depois de várias trocas, todos os antigos levam ao atual. O @ antigo fica livre: se outro negócio for cadastrado com ele, a página é desse negócio; e, se o próprio negócio voltar a um @ antigo, aquele redirecionamento sai.
+  - Como toda troca passa pela moderação, nenhuma suspende o Clube do Bem. (A suspensão com o motivo "O @ do Instagram mudou" continua no código para uma troca registrada como do dono, que hoje não acontece.)
+  - Os IDs fixos do Instagram (abaixo) saem na troca, porque eram da conta do @ antigo. Sem foto, a foto do novo perfil do Instagram vira a do negócio, pelas regras da [prévia](#o-cadastro-por-etapas).
+  - **Auditoria:** `empresa.arroba_trocado_pela_moderacao` (ou `empresa.arroba_trocado`, nas trocas antigas feitas pelo dono), com o @ antigo e o novo nos detalhes, na mesma transação da troca.
 - **Negócio sem Instagram:** quem cadastra pelo "O negócio não tem Instagram" ganha um endereço feito do nome e da cidade, em minúsculas, sem acento e com hífens: "Padaria do Bairro", em Recife, vira `/empresas/padaria-do-bairro-recife` (`enderecoSemInstagram` em `src/lib/endereco.ts`).
   - O endereço fica na mesma coluna do @ (`instagramUsername`). Como o Instagram não aceita hífen no @, e a cidade no fim garante ao menos um hífen, um endereço nunca se confunde com um @ (`temInstagram`).
   - Se outro negócio já usa o endereço, o novo ganha `-2`, `-3`… no fim.
@@ -286,23 +292,18 @@ Código: `normalizarUsername` em `src/lib/instagram.ts`.
   - `instagramUserId`, preenchido pelo Entrar com Instagram, hoje desligado (ver [seção 6](#entrar-com-instagram-desligado-por-padrão));
   - `instagramIgsid`, que só vem de pedidos antigos por código de DM (ver [seção 6](#pedidos-antigos-por-código-de-dm)).
 
-### Troca do @
+### Pedido de troca do @
 
-Código: `src/lib/troca-de-arroba.ts` e `src/acoes/arroba.ts`.
+Código: `src/lib/troca-de-arroba.ts` e `src/acoes/arroba.ts` (#299).
 
 - **Quem pede:** um dono do negócio, com o e-mail confirmado, na seção "@ do Instagram" do painel (`/painel/<@>#arroba`). Serve para corrigir um @ errado, seguir um @ que mudou no Instagram ou ligar um @ a um negócio cadastrado sem Instagram.
 - **Por que passa pela moderação:** o dono pode ter assumido o perfil só com os dados do negócio, sem provar que controla o Instagram. Sem a conferência, ele poderia pôr o @ de outro negócio que ainda não está no site.
 - **O pedido não entra** quando o @ é inválido (as mesmas regras de `normalizarUsername`), é o mesmo de agora ou já é de outro negócio. Há **um pedido em análise por negócio**: um segundo, mesmo enviado ao mesmo tempo, recebe "Já existe um pedido de troca do @ em análise".
 - **Enquanto em análise,** o painel mostra o @ pedido e o botão "Cancelar o pedido". Recusado, mostra o motivo e deixa pedir de novo.
 - **A fila "Trocas de @"** da moderação mostra o negócio, o @ atual e o pedido (com link para os dois no Instagram), o que a Meta mostra do @ novo (nome, site e seguidores; ou o aviso de que a conta é pessoal ou não existe) e quem pediu. A moderação aprova ou recusa com um motivo, que o dono vê.
-- **Aprovada,** na mesma transação:
-  - o negócio passa a usar o @ novo, que vira o endereço da página;
-  - o **endereço antigo deixa de existir** (404) e fica livre para outro negócio;
-  - os IDs do Instagram ligados ao @ antigo (`instagramUserId`, `instagramIgsid`) saem, porque eram de outra conta;
-  - o texto de busca é refeito.
-  Depois da resposta, o dono recebe o e-mail e, se o negócio não tem foto, o site busca a do @ novo, com as regras da [foto no cadastro](#o-cadastro-por-etapas).
+- **Aprovada,** a troca segue as regras de [trocar o @](#identidade-o--do-instagram), como uma troca da moderação, na mesma transação que fecha o pedido: o endereço antigo passa a levar ao novo e o Clube do Bem não é suspenso. Depois da resposta, o dono recebe o e-mail e, se o negócio não tem foto, o site busca a do @ novo.
 - **A aprovação não acontece** se o pedido já foi decidido, se o @ do negócio mudou depois do pedido ou se outro negócio ocupou o @ novo enquanto isso. O pedido continua na fila, e a moderação vê o aviso.
-- **Auditoria:** `empresa.arroba_pedido` (pelo dono), `empresa.arroba_trocado` e `empresa.arroba_recusado`, na mesma transação da alteração, com o @ antigo e o novo nos detalhes.
+- **Auditoria:** `empresa.arroba_pedido` (pelo dono) e `empresa.arroba_recusado`; a aprovação registra a troca em `empresa.arroba_trocado_pela_moderacao`.
 
 ### Dados do negócio
 
@@ -452,7 +453,7 @@ Código: aba "Negócios" e `src/app/moderacao/negocios/[usuario]/page.tsx`.
   - A busca usa os mesmos campos da busca do diretório e aceita o @ com a arroba.
   - **Filtros:** no diretório, tirados do ar, ocultos pelo dono, aguardando moderação, perfis assumidos, sem dono e, entre os do diretório, sem foto, sem contato e sem história.
   - Depois de "Tirar do ar" ou "Publicar de novo", a moderação volta para a mesma lista, com a busca, o filtro e a página. O endereço de volta só é aceito se for da própria moderação (`destinoNaModeracao`).
-- **Edição:** `/moderacao/negocios/<@>` usa o **mesmo formulário do painel do dono**: foto, informações, contatos, causas e história.
+- **Edição:** `/moderacao/negocios/<@>` usa o **mesmo formulário do painel do dono**: foto, @ do Instagram, informações, contatos, causas e história.
   - Um aviso lembra que a edição é pela moderação e que fica registrada.
   - Se o negócio tem dono, o aviso pede para mudar só o necessário.
   - Acima do formulário, a seção **"Donos"** lista quem assumiu o perfil (nome, e-mail e desde quando), com o botão "Remover dos donos" (veja [Tirar um dono](#tirar-um-dono)).
@@ -493,10 +494,9 @@ Hoje é o único caminho ligado. A pessoa envia:
 | Campo | Obrigatório | Regra |
 | --- | --- | --- |
 | Relação com o negócio | Sim | 2 a 120 caracteres (ex.: "sou a dona", "cuido das redes"). |
-| Contato | Sim | 5 a 160 caracteres. WhatsApp ou e-mail para a moderação falar com a pessoa. |
-| CNPJ ou MEI | Não | Validado pelos dígitos verificadores, inclusive no formato alfanumérico que a Receita passou a emitir em julho de 2026. Guardado sem pontuação. |
-| Site | Não | Mesma regra do site do negócio. |
 | Mensagem | Não | Até 1.000 caracteres. |
+
+Desde a [#293](https://github.com/fabs-reis/Negocio-do-bem/issues/293), o formulário não pede mais contato, CNPJ nem site: a moderação fala com a pessoa pelo e-mail da conta, e o CNPJ vem depois, no pedido de verificação do painel ([seção 20](#liberação-para-o-clube)). Pedidos antigos continuam com o que a pessoa enviou. O formulário só serve para assumir: quem assume ganha o perfil "assumido", e a verificação é o passo seguinte.
 
 O @ do Instagram não é pedido: é o do próprio perfil.
 
@@ -741,7 +741,7 @@ Código: `src/app/painel/`.
   - o aviso da ação anterior (`?aviso=`), como "Senha trocada".
 - **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). No topo, aparece quantas pessoas favoritaram o negócio. Nele, o dono:
   - **edita o perfil:** foto, informações, contatos, causas e história;
-  - **pede a troca do @,** que só vale quando a moderação aprova (veja [Troca do @](#troca-do-));
+  - **pede a troca do @,** que só vale quando a moderação aprova (veja [Pedido de troca do @](#pedido-de-troca-do-));
   - **responde depoimentos:** até 1.000 caracteres. A resposta pode ser trocada a qualquer momento, e apagar o texto tira a resposta;
   - **oculta ou mostra o negócio no diretório.**
 
@@ -1041,11 +1041,12 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `empresa.aprovada` / `empresa.rejeitada` | A moderação publicou (ou publicou de novo) ou tirou do ar um negócio. Os detalhes trazem o @. |
 | `empresa.editada` | O dono salvou o perfil. |
 | `empresa.foto_trocada` / `empresa.foto_removida` | O dono trocou ou removeu a foto do perfil. |
+| `empresa.arroba_trocado` | O dono trocou o @ do Instagram. Os detalhes trazem o @ antigo e o novo. Com `_pela_moderacao`, foi a moderação. |
 | `empresa.foto_do_instagram` | A rotina de fotos colocou a foto do Instagram num negócio sem foto. Os detalhes trazem o @. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
 | `empresa.arroba_pedido` | O dono pediu a troca do @. Os detalhes trazem o @ atual e o pedido. |
-| `empresa.arroba_trocado` / `empresa.arroba_recusado` | A moderação aprovou ou recusou a troca do @. Os detalhes trazem o @ antigo e o novo (e o motivo, na recusa). |
+| `empresa.arroba_trocado_pela_moderacao` / `empresa.arroba_recusado` | A moderação trocou o @ (na edição do perfil ou aprovando um pedido) ou recusou o pedido. Os detalhes trazem o @ antigo e o novo (e o motivo, na recusa). `empresa.arroba_trocado` é das trocas antigas feitas direto pelo dono. |
 | `reivindicacao.aprovada` / `reivindicacao.aprovada_com_transferencia` | Um pedido foi aprovado, como co-dono ou com transferência. Os detalhes trazem o pedido, o caminho e a pessoa. |
 | `reivindicacao.recusada` | Um pedido foi recusado. Os detalhes trazem o motivo. |
 | `empresa.dono_removido` | A moderação tirou uma conta dos donos do negócio. Os detalhes trazem o @, o nome da conta e o motivo. |
@@ -1086,7 +1087,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Um dono pede a verificação do Clube do Bem | Cada pessoa da moderação | O negócio e o link da fila do clube. |
 | A moderação libera ou recusa um dono no Clube do Bem | O dono | O negócio e o link do painel do clube; na recusa, o motivo. |
 | Um dono pede a troca do @ | Cada pessoa da moderação | O negócio, o @ atual e o pedido, e o link da fila de trocas de @. |
-| A moderação aprova ou recusa a troca do @ | O dono que pediu | O @ novo e o endereço novo da página; na recusa, o motivo e o link do painel. |
+| A moderação aprova ou recusa a troca do @ | O dono que pediu | O @ novo e o endereço novo da página (o antigo leva ao novo); na recusa, o motivo e o link do painel. |
 | A moderação tira uma conta dos donos de um negócio | A pessoa que saiu | O negócio, o motivo e o link para pedir o perfil de novo, que vai para a moderação. |
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
 | Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail". Só com a confirmação ligada, e hoje ela está desligada | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |
@@ -1119,6 +1120,7 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Conta do Google ligada | `Usuario.googleId` | Ninguém: é só o identificador (`sub`) que o Google dá à conta, para reconhecê-la no próximo login. |
 | Sessões | `Sessao` | Ninguém vê o token: só o hash é guardado. A moderação vê quantas sessões abertas uma conta tem e quando foram abertas. |
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
+| Nome completo e CPF informados no pedido de verificação | `LiberacaoClube.nomeCompleto` e `cpfMascarado` | Só a moderação. O CPF inteiro **nunca é guardado**: só os 6 dígitos do meio (`***.982.247-**`), os mesmos que a Receita mostra dos sócios. Serve para comparar com o quadro de sócios. A pessoa autoriza numa caixa obrigatória do formulário. Somem se a conta for apagada. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1417,7 +1419,11 @@ Código: regras em `src/lib/clube.ts` (com testes em `tests/db/clube.test.ts`), 
 Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [Aprovação na hora](#aprovação-na-hora)). Isso basta para editar o perfil, mas não para criar cupons. Por isso, ser dono não basta: a moderação precisa liberar.
 
 - **Só negócio com CNPJ.** O MEI também tem CNPJ. Autônomos sem CNPJ e profissões regulamentadas ficam para depois (os conselhos da saúde, por exemplo, limitam o uso de desconto como propaganda).
-- **O dono pede a verificação com o CNPJ** ([#286](https://github.com/fabs-reis/Negocio-do-bem/issues/286)). Enquanto não está liberado, ele vê a caixa "Ofereça cupons no Clube do Bem" no painel do negócio e "Verifique o seu negócio para criar ofertas" no painel do clube (`/painel/<@>/clube#verificar`), com o campo do CNPJ. Se ele mandou o CNPJ quando assumiu o perfil, ou num pedido anterior, o campo já vem preenchido.
+- **O dono pede a verificação com o CNPJ, o nome completo e o CPF** ([#286](https://github.com/fabs-reis/Negocio-do-bem/issues/286), [#293](https://github.com/fabs-reis/Negocio-do-bem/issues/293)). Quem acabou de assumir o perfil cai no painel do negócio, que abre com a caixa "Verifique a sua empresa e seja Parceiro do Clube do Bem". O pedido fica em "Verifique o seu negócio para criar ofertas" no painel do clube (`/painel/<@>/clube#verificar`), com o CNPJ, o nome completo (já vem com o nome da conta), o CPF e uma caixa obrigatória de autorização. Se ele mandou o CNPJ num pedido anterior, o campo já vem preenchido.
+  - **Só os 6 dígitos do meio do CPF são guardados** (`***.982.247-**`). O CPF inteiro é conferido (dígitos verificadores) e descartado, e não aparece na tela, na auditoria nem na URL. O servidor nunca devolve o CPF: se o formulário volta com erro, ele só continua no campo porque o navegador o mantém.
+  - **A moderação vê a comparação:** o nome informado contra os sócios e os 6 dígitos do CPF contra o CPF mascarado que a Receita mostra de cada sócio (no MEI, o CPF que a razão social traz). É só apoio: um gerente ou procurador pode não ser sócio, e a Receita não mostra o CPF de todos.
+  - **Perfil verificado:** liberar o dono no clube dá, no mesmo passo, o selo "Perfil verificado" no perfil público, no lugar de "Perfil assumido". Suspender a liberação, ou tirar o dono, tira o selo. Os perfis assumidos continuam "assumidos" até pedirem a verificação. O campo `status = verificada` segue querendo dizer só "assumido".
+  - **O documento (RG ou CNH)** é a parte 2 da #293 e ainda não existe.
   - O site confere os dígitos e consulta a Receita. Se ela não tem o CNPJ, o pedido não entra ("Não achamos este CNPJ na Receita"); se diz que ele não está ativo, também não ("Só entram no clube negócios com CNPJ ativo"). Sem resposta da Receita, o pedido entra assim mesmo, porque a moderação consulta de novo antes de liberar.
   - Precisa ser dono do negócio e ter o e-mail confirmado (quando a confirmação estiver ligada). Com um pedido em análise, ou já liberado, não pede de novo.
   - O pedido fica com o status "pendente", e o dono vê "A moderação está conferindo o seu negócio", com a data e o CNPJ. O painel do clube só mostra "Validar um cupom" a quem está liberado ou já teve oferta.
@@ -1431,7 +1437,7 @@ Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [A
 - **Liberar:** o botão "Liberar <nome>" só aparece com o CNPJ ativo. O servidor confere de novo o CNPJ (os dígitos e a situação "ATIVA" na Receita) e que a conta é dona. Sem resposta da Receita, não libera. Guarda só o CNPJ, sem pontuação.
 - **Status da liberação:** "pendente" (o dono pediu), "liberada", "recusada" (a moderação recusou o pedido) e "suspensa" (estava liberada). Só "liberada" cria ofertas e dá o selo. A data da liberação (`decididoEm`) é a da última mudança: num pedido em análise, é a data do pedido.
 - **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. As ofertas que estavam valendo no negócio ficam suspensas, e os cupons delas deixam de valer. Para liberar de novo, consulta o CNPJ e libera, e o motivo some; as ofertas suspensas não voltam, o dono cria outra.
-- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria e "pelo sistema" na tela da moderação, com o motivo "O contato do perfil mudou"), e as ofertas valendo também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende.
+- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria e "pelo sistema" na tela da moderação, com o motivo "O contato do perfil mudou"), e as ofertas valendo também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende. O mesmo vale quando o dono [troca o @](#identidade-o--do-instagram), com o motivo "O @ do Instagram mudou".
 - **Quem vê:** só a moderação vê a liberação, o CNPJ e a ficha. O público vê o selo "Parceiro do Clube do Bem" no perfil, enquanto o negócio tiver um dono liberado.
 - **Auditoria:** `clube.pedido` (pelo dono), `clube.liberado`, `clube.recusado` e `clube.suspenso`, na mesma transação da alteração. O pedido registra o @ e o CNPJ.
 - **Avisos por e-mail:** a moderação recebe cada pedido novo, só com o negócio e o link da fila. O dono recebe a liberação (com o link do painel do clube) e a recusa (com o motivo). Veja a [seção 14](#14-avisos-por-e-mail).

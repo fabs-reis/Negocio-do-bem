@@ -9,7 +9,17 @@ type Liberacao = { status: string; cnpj: string; motivo: string | null; decidido
  * Para o dono que ainda não cria ofertas: o pedido de verificação com o CNPJ, ou o pedido
  * que está em análise. Recusado ou suspenso, ele vê o motivo e pode pedir de novo.
  */
-export function Verificacao({ empresaId, liberacao, cnpjSugerido }: { empresaId: string; liberacao: Liberacao; cnpjSugerido?: string }) {
+export function Verificacao({
+  empresaId,
+  liberacao,
+  cnpjSugerido,
+  nomeSugerido,
+}: {
+  empresaId: string;
+  liberacao: Liberacao;
+  cnpjSugerido?: string;
+  nomeSugerido?: string;
+}) {
   if (liberacao?.status === "pendente") {
     return (
       <section id="verificar" className="cartao scroll-mt-24 space-y-2 border-folha/40 p-6 text-sm leading-relaxed">
@@ -40,14 +50,14 @@ export function Verificacao({ empresaId, liberacao, cnpjSugerido }: { empresaId:
           </p>
         )}
         <p className="text-suave">
-          Informe o CNPJ do negócio. A moderação confere na Receita se ele está ativo e se o seu nome está no quadro de sócios
-          (no MEI, na razão social). Depois de aprovado, você cria ofertas de desconto que aparecem no perfil do negócio.{" "}
+          Informe o CNPJ do negócio, o seu nome completo e o seu CPF. A moderação confere na Receita se o CNPJ está ativo e se o
+          seu nome e o seu CPF estão no quadro de sócios (no MEI, na razão social). Depois de aprovado, você cria ofertas de desconto que aparecem no perfil do negócio.{" "}
           <Link href="/clube-do-bem#para-negocios" className="link">
             Como funciona
           </Link>
         </p>
       </div>
-      <FormVerificacao empresaId={empresaId} cnpj={cnpjSugerido} deNovo={recusada || suspensa} />
+      <FormVerificacao empresaId={empresaId} cnpj={cnpjSugerido} nome={nomeSugerido} deNovo={recusada || suspensa} />
     </section>
   );
 }

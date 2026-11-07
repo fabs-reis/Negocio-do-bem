@@ -104,7 +104,7 @@ export async function avisarDecisaoDaTrocaDeArroba(empresaId: string, usuarioId:
       texto: corpo(
         ola,
         `A moderação aprovou a troca do @ de ${empresa.nome}: agora é @${troca.arrobaNovo}.`,
-        `O endereço da página mudou junto. Atualize onde você divulgou o link antigo:\n${ENDERECO_DO_SITE}/empresas/${empresa.instagramUsername}`,
+        `O endereço da página mudou junto, e o antigo continua levando para o novo:\n${ENDERECO_DO_SITE}/empresas/${empresa.instagramUsername}`,
       ),
     });
   } else {

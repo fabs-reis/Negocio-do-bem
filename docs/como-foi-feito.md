@@ -598,6 +598,15 @@ Antes, a moderação precisava conseguir o CNPJ com cada dono e digitar na ficha
 - **CNPJ inexistente é recusado na hora.** `buscarNaReceita` separa o 404 da BrasilAPI ("Não achamos este CNPJ na Receita") da consulta que falhou, que deixa o pedido entrar. O `consultarCnpj` continua devolvendo `null` nos dois casos, para quem já o usava.
 - **A página `/clube-do-bem` mudou junto:** o passo 1 do dono troca o aviso de "fase de convite" por três prints, com a caixa do painel, o formulário do CNPJ e o pedido em análise. O CNPJ dos prints (12.345.678/9999-66) tem os dígitos certos e não existe na Receita.
 
+### 7 de novembro: verificação do negócio com nome e CPF ([#293](https://github.com/fabs-reis/Negocio-do-bem/issues/293))
+
+A ideia: assumir o perfil continua imediato, e a **verificação** vem em seguida, no painel, com o CNPJ, o nome completo e o CPF. Aprovada, ela dá o selo "Perfil verificado" e libera o clube num passo só. As regras estão em [Liberação para o clube](regras-de-negocio.md#liberação-para-o-clube). Esta é a parte 1; o documento (RG ou CNH, num bucket R2 privado) é a parte 2.
+
+- **Migração pequena:** duas colunas em `LiberacaoClube`, `nomeCompleto` e `cpfMascarado`. O pedido do clube já era a linha certa para a verificação.
+- **O CPF inteiro nunca é guardado.** A Receita mostra do sócio só os 6 dígitos do meio (`***325350**`, conferido numa consulta real), então é só isso que dá para comparar, e é só isso que o banco guarda. A moderação vê "os dígitos do meio batem com um sócio", sem o número. O servidor nunca devolve o CPF num formulário com erro (`valores` leva só o CNPJ e o nome); ele só continua no campo porque o navegador mantém o que foi digitado.
+- **O selo "Perfil verificado" é derivado, sem campo novo:** é o perfil que tem um dono liberado (o mesmo critério do "Parceiro do Clube do Bem"). Assim a suspensão e a remoção do dono tiram o selo sozinhas, e não há dois estados para manter em sincronia. Nas listas do diretório, o selo continua "Perfil assumido"; fica para outra issue, porque pede a consulta da liberação em cada card.
+- **O formulário de assumir encolheu:** saíram CNPJ, site e contato (a moderação usa o e-mail da conta). Pedidos antigos mantêm o que enviaram.
+
 ### 7 de novembro: a moderação tira um dono ([#292](https://github.com/fabs-reis/Negocio-do-bem/issues/292))
 
 Nos primeiros testes do clube em produção, a conta que assumiu um perfil não batia com a única sócia na Receita, e a moderação não tinha como tirar o acesso: só aprovando outra pessoa no modo "transferir". Agora cada dono tem o botão "Remover dos donos". As regras estão em [Tirar um dono](regras-de-negocio.md#tirar-um-dono).
@@ -610,16 +619,17 @@ Nos primeiros testes do clube em produção, a conta que assumiu um perfil não 
 - **Confirmação no servidor também.** A caixa "Confirmo" é `required` no HTML, e a ação confere `confirmo=sim` de novo, porque uma Server Action pode ser chamada sem o formulário.
 - **A transferência continua como era.** Quem sai dos donos numa transferência não recebe e-mail, e as ofertas que criou não são suspensas. Fica para outra issue, se a moderação precisar.
 
-### 7 de novembro: o dono pede a troca do @ ([#299](https://github.com/fabs-reis/Negocio-do-bem/issues/299))
+### 7 de novembro: o dono pede a troca do @, e a moderação aprova ([#299](https://github.com/fabs-reis/Negocio-do-bem/issues/299))
 
-Um negócio entrou com o @ errado (`@fabsreis` em vez de `@ofabsreis`): a foto do Instagram não veio e o "Ver no Instagram" levava para outra conta. Até aqui ninguém mudava o @ depois do cadastro. Agora o dono pede a troca no painel, e a moderação aprova numa fila nova. As regras estão em [Troca do @](regras-de-negocio.md#troca-do-).
+O [#298](https://github.com/fabs-reis/Negocio-do-bem/issues/298) deixou o dono trocar o @ direto no painel, com o endereço antigo levando ao novo. No mesmo dia, um negócio entrou com o @ errado (`@fabsreis` em vez de `@ofabsreis`), e a conversa sobre como corrigir mostrou o risco da troca direta. Agora o dono pede, e a moderação aprova numa fila nova. As regras estão em [Pedido de troca do @](regras-de-negocio.md#pedido-de-troca-do-).
 
-- **Pedido, e não troca direta.** O dono pode ter assumido o perfil só com os dados do negócio, sem provar que controla o Instagram. Se a troca valesse na hora, ele poderia pôr o @ de outro negócio que ainda não está no site. A fila mostra o que a Meta enxerga do @ novo (nome, site e seguidores), para a moderação conferir sem sair da tela.
-- **Tabela própria (`TrocaDeArroba`).** Guarda o @ de antes e o pedido, quem pediu e quem decidiu. Diferente do clube, um negócio pode ter vários pedidos ao longo do tempo, e o histórico fica na tabela, não só na auditoria.
-- **O endereço antigo vira 404 e fica livre.** Foi a escolha mais simples: guardar os @ antigos para redirecionar pediria outra tabela e decidir o que fazer quando outro negócio quisesse o @ antigo.
+- **Pedido, e não troca direta.** O dono pode ter assumido o perfil só com os dados do negócio, sem provar que controla o Instagram. Com a troca direta, ele poderia pôr o @ de outro negócio que ainda não está no site. A fila mostra o que a Meta enxerga do @ novo (nome, site e seguidores), para a moderação conferir sem sair da tela.
+- **A troca aprovada é a do #298.** O pedido só decide quando ela acontece: a aprovação chama `trocarArroba` como troca da moderação, com o redirecionamento do endereço antigo e sem suspender o Clube do Bem, porque a moderação já conferiu o @. A troca direta continua na edição do perfil pela moderação.
+- **Tabela própria (`TrocaDeArroba`).** Guarda o @ de antes e o pedido, quem pediu e quem decidiu. Um negócio pode ter vários pedidos ao longo do tempo, e o histórico fica na tabela, não só na auditoria.
 - **Um pedido em análise por negócio.** O pedido trava a linha do negócio (`FOR NO KEY UPDATE`) antes de contar os pedidos em análise, como na cota de indicações.
-- **A aprovação confere de novo** se o @ novo continua livre e se o @ do negócio ainda é o do pedido, na mesma transação que troca o @. Os IDs do Instagram ligados ao @ antigo saem: eram de outra conta.
-- **A foto vem junto.** Depois da aprovação, o negócio sem foto ganha a do @ novo, pela mesma função do cadastro (`gravarFotoDaPrevia`).
+- **A aprovação confere de novo** se o @ do negócio ainda é o do pedido e se o @ novo continua livre, na mesma transação que troca o @.
+- **Os IDs do Instagram saem na troca.** `instagramUserId` e `instagramIgsid` eram da conta do @ antigo; mantê-los ligaria o negócio a uma conta que não é mais a dele.
+
 ---
 
 ## 4. Arquitetura

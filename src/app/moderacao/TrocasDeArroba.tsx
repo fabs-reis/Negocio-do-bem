@@ -28,7 +28,7 @@ export async function TrocasDeArroba() {
     <div id="pedidos" className="scroll-mt-24 space-y-4">
       <p className="text-sm leading-relaxed text-suave">
         Abra o @ novo no Instagram e confira se é a conta do negócio: nome, cidade e site. Aprovado, o endereço da página muda e o
-        antigo deixa de existir.
+        antigo passa a levar ao novo.
       </p>
       {pedidos.map((pedido) => (
         <article key={pedido.id} className="cartao space-y-4 p-6">

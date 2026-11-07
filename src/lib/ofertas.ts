@@ -294,6 +294,7 @@ export async function usarCupom(empresaId: string, codigo: string, donoId: strin
 }
 
 const MOTIVO_CONTATO = "O contato do perfil mudou";
+export const MOTIVO_ARROBA = "O @ do Instagram mudou";
 
 /** Os campos de contato que, trocados pelo dono, suspendem o clube até a moderação conferir de novo. */
 export function contatoMudou(
@@ -305,14 +306,18 @@ export function contatoMudou(
 }
 
 /**
- * O dono trocou o contato do perfil: as liberações do clube do negócio ficam suspensas e as
+ * O dono trocou o contato do perfil (ou o @, com `motivo`): as liberações do clube do negócio ficam suspensas e as
  * ofertas que estão valendo saem do ar, até a moderação conferir de novo. Fecha o golpe de
  * assumir o perfil, trocar o WhatsApp e lançar um cupom. Roda na transação da edição.
  */
-export async function suspenderPorContatoAlterado(tx: Prisma.TransactionClient, empresa: { id: string; instagramUsername: string }): Promise<void> {
+export async function suspenderPorContatoAlterado(
+  tx: Prisma.TransactionClient,
+  empresa: { id: string; instagramUsername: string },
+  motivo: string = MOTIVO_CONTATO,
+): Promise<void> {
   const { count } = await tx.liberacaoClube.updateMany({
     where: { empresaId: empresa.id, status: "liberada" },
-    data: { status: "suspensa", motivo: MOTIVO_CONTATO, decididoPorId: null, decididoEm: new Date() },
+    data: { status: "suspensa", motivo, decididoPorId: null, decididoEm: new Date() },
   });
   if (count === 0) return;
   await tx.oferta.updateMany({ where: { empresaId: empresa.id, status: "ativa" }, data: { status: "suspensa" } });
@@ -321,6 +326,6 @@ export async function suspenderPorContatoAlterado(tx: Prisma.TransactionClient, 
     acao: "clube.suspenso",
     alvoTipo: "empresa",
     alvoId: empresa.id,
-    detalhes: `@${empresa.instagramUsername} · ${MOTIVO_CONTATO}`,
+    detalhes: `@${empresa.instagramUsername} · ${motivo}`,
   });
 }

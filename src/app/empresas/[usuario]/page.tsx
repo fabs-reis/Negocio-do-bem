@@ -32,6 +32,7 @@ import { rotuloDoDesconto, rotuloOndeVale } from "@/lib/ofertas";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
 import { formatarData, formatarFavoritos, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
   const username = normalizarEndereco((await props.params).usuario);
@@ -61,6 +62,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   const username = normalizarEndereco((await params).usuario);
   if (!username) notFound();
   const [empresa, usuario, { aviso }] = await Promise.all([buscarPerfil(username), usuarioAtual(), searchParams]);
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/empresas/${atual}`, true);
   if (!empresa || !podeVerPerfil(empresa, usuario)) notFound();
 
   const dono = ehDono(empresa, usuario);
@@ -105,7 +107,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <SeloStatus status={empresa.status} />
+              <SeloStatus status={empresa.status} verificado={parceiro} />
               {parceiro && (
                 <span className="rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-700">Parceiro do Clube do Bem</span>
               )}

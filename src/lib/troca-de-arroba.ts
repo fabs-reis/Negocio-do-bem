@@ -1,13 +1,94 @@
+// Troca do @ do Instagram de um negócio (#298). O @ é também o endereço da página,
+// então o antigo fica guardado em EnderecoAntigo e redireciona para o atual.
+//
+// A moderação troca direto, na edição do perfil. O dono pede, e a troca só vale quando
+// a moderação aprova (#299): ele pode ter assumido o perfil só com os dados do negócio,
+// sem provar que controla o Instagram, e poria o @ de outro negócio que ainda não está
+// no site.
+
 import "server-only";
+import { permanentRedirect, redirect } from "next/navigation";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { db } from "@/lib/db";
+import { db, type Prisma } from "@/lib/db";
+import { rotuloDoInstagram } from "@/lib/endereco";
 import { normalizarUsername } from "@/lib/instagram";
+import { MOTIVO_ARROBA, suspenderPorContatoAlterado } from "@/lib/ofertas";
 import { textoDeBusca } from "@/lib/texto";
 
-// Troca do @ do negócio (#299). O @ é a identidade do negócio e o endereço da página
-// (/empresas/<@>). O dono pede no painel e a troca só vale quando a moderação aprova,
-// porque o dono pode ter assumido o perfil só com os dados do negócio, sem provar que
-// controla o Instagram. Aprovada, o endereço antigo deixa de existir (404) e fica livre.
+export type ResultadoDaTroca = "trocado" | "mesmo" | "ocupado";
+
+type EmpresaDaTroca = {
+  id: string;
+  instagramUsername: string;
+  nome: string;
+  resumo: string;
+  categoria: string;
+  cidade: string;
+  uf: string;
+};
+
+/**
+ * Troca o endereço do negócio para o @ `novo` (já normalizado). Recusa um @ que já é
+ * de outro negócio. O endereço antigo passa a redirecionar para o novo; se o novo era
+ * endereço antigo de algum negócio, deixa de ser. Troca feita pelo dono suspende o
+ * Clube do Bem até a moderação conferir de novo, como a troca de contato.
+ */
+export async function trocarArroba(
+  tx: Prisma.TransactionClient,
+  empresa: EmpresaDaTroca,
+  novo: string,
+  quem: { usuarioId: string; pelaModeracao: boolean },
+): Promise<ResultadoDaTroca> {
+  const antigo = empresa.instagramUsername;
+  if (novo === antigo) return "mesmo";
+  const dono = await tx.empresa.findUnique({ where: { instagramUsername: novo }, select: { id: true } });
+  if (dono) return "ocupado";
+
+  await tx.enderecoAntigo.deleteMany({ where: { endereco: novo } });
+  await tx.empresa.update({
+    where: { id: empresa.id },
+    // Os IDs fixos do Instagram eram da conta do @ antigo.
+    data: {
+      instagramUsername: novo,
+      instagramUserId: null,
+      instagramIgsid: null,
+      busca: textoDeBusca({ ...empresa, instagramUsername: novo }),
+    },
+  });
+  await tx.enderecoAntigo.upsert({
+    where: { endereco: antigo },
+    create: { endereco: antigo, empresaId: empresa.id },
+    update: { empresaId: empresa.id },
+  });
+  await registrarAuditoria(tx, {
+    usuarioId: quem.usuarioId,
+    acao: quem.pelaModeracao ? "empresa.arroba_trocado_pela_moderacao" : "empresa.arroba_trocado",
+    alvoTipo: "empresa",
+    alvoId: empresa.id,
+    detalhes: `${rotuloDoInstagram(antigo)} (${antigo}) → @${novo}`,
+  });
+  if (!quem.pelaModeracao) await suspenderPorContatoAlterado(tx, { id: empresa.id, instagramUsername: novo }, MOTIVO_ARROBA);
+  return "trocado";
+}
+
+/** O endereço atual de um negócio que já usou `endereco`, ou null. */
+export async function enderecoAtual(endereco: string): Promise<string | null> {
+  const antigo = await db.enderecoAntigo.findUnique({
+    where: { endereco },
+    select: { empresa: { select: { instagramUsername: true } } },
+  });
+  return antigo?.empresa.instagramUsername ?? null;
+}
+
+/** Página aberta pelo endereço antigo: redireciona para o mesmo caminho com o endereço atual. */
+export async function seguirEnderecoAntigo(endereco: string, caminho: (atual: string) => string, permanente = false): Promise<void> {
+  const atual = await enderecoAtual(endereco);
+  if (!atual) return;
+  if (permanente) permanentRedirect(caminho(atual));
+  redirect(caminho(atual));
+}
+
+// Pedido de troca do @ pelo dono (#299).
 
 export type MotivoRecusaTroca =
   | "arroba_invalido"
@@ -79,17 +160,27 @@ export async function cancelarTrocaDeArroba({ empresaId, usuarioId }: { empresaI
   return count > 0;
 }
 
-type Decisao = { empresaId: string; usuarioId: string; arrobaNovo: string; endereco: string };
+type Decisao = { empresaId: string; usuarioId: string; arrobaNovo: string };
 
 /**
- * A moderação aprova: o negócio passa a usar o @ novo, que vira o endereço da página.
- * Os IDs do Instagram ligados ao @ antigo saem, porque eram de outra conta. Recusa se o
+ * A moderação aprova: a troca segue `trocarArroba`, como uma troca da moderação (o
+ * endereço antigo passa a levar ao novo, sem suspender o Clube do Bem). Recusa se o
  * pedido já foi decidido, se o @ do negócio mudou depois do pedido ou se o @ novo foi
- * ocupado por outro negócio enquanto isso.
+ * ocupado por outro negócio enquanto isso; nesses casos o pedido fica na fila.
  */
 export async function aprovarTrocaDeArroba({ trocaId, moderadorId }: { trocaId: string; moderadorId: string }): Promise<Decisao> {
+  try {
+    return await aprovar(trocaId, moderadorId);
+  } catch (erro) {
+    // Outro negócio pegou o @ entre a conferência e a troca.
+    if ((erro as { code?: string }).code === "P2002") throw new ErroTroca("arroba_em_uso");
+    throw erro;
+  }
+}
+
+function aprovar(trocaId: string, moderadorId: string): Promise<Decisao> {
   return db.$transaction(async (tx) => {
-    const troca = await tx.trocaDeArroba.findUnique({ where: { id: trocaId } });
+    const troca = await tx.trocaDeArroba.findUnique({ where: { id: trocaId }, select: { empresaId: true } });
     if (!troca) throw new ErroTroca("ja_decidido");
     await tx.$queryRaw`SELECT id FROM "Empresa" WHERE id = ${troca.empresaId} FOR NO KEY UPDATE`;
     const [pedido, empresa] = await Promise.all([
@@ -98,30 +189,14 @@ export async function aprovarTrocaDeArroba({ trocaId, moderadorId }: { trocaId: 
     ]);
     if (pedido.status !== "pendente") throw new ErroTroca("ja_decidido");
     if (empresa.instagramUsername !== pedido.arrobaAntigo) throw new ErroTroca("arroba_mudou");
-    const ocupado = await tx.empresa.findUnique({ where: { instagramUsername: pedido.arrobaNovo }, select: { id: true } });
-    if (ocupado) throw new ErroTroca("arroba_em_uso");
 
-    await tx.empresa.update({
-      where: { id: empresa.id },
-      data: {
-        instagramUsername: pedido.arrobaNovo,
-        instagramUserId: null,
-        instagramIgsid: null,
-        busca: textoDeBusca({ ...empresa, instagramUsername: pedido.arrobaNovo }),
-      },
-    });
+    const resultado = await trocarArroba(tx, empresa, pedido.arrobaNovo, { usuarioId: moderadorId, pelaModeracao: true });
+    if (resultado !== "trocado") throw new ErroTroca("arroba_em_uso");
     await tx.trocaDeArroba.update({
       where: { id: trocaId },
       data: { status: "aprovada", decididoPorId: moderadorId, decididoEm: new Date() },
     });
-    await registrarAuditoria(tx, {
-      usuarioId: moderadorId,
-      acao: "empresa.arroba_trocado",
-      alvoTipo: "empresa",
-      alvoId: empresa.id,
-      detalhes: `@${pedido.arrobaAntigo} → @${pedido.arrobaNovo}`,
-    });
-    return { empresaId: empresa.id, usuarioId: pedido.usuarioId, arrobaNovo: pedido.arrobaNovo, endereco: pedido.arrobaNovo };
+    return { empresaId: empresa.id, usuarioId: pedido.usuarioId, arrobaNovo: pedido.arrobaNovo };
   });
 }
 
@@ -141,7 +216,7 @@ export async function recusarTrocaDeArroba({
       data: { status: "recusada", motivo, decididoPorId: moderadorId, decididoEm: new Date() },
     });
     if (count === 0) throw new ErroTroca("ja_decidido");
-    const troca = await tx.trocaDeArroba.findUniqueOrThrow({ where: { id: trocaId }, include: { empresa: { select: { instagramUsername: true } } } });
+    const troca = await tx.trocaDeArroba.findUniqueOrThrow({ where: { id: trocaId } });
     await registrarAuditoria(tx, {
       usuarioId: moderadorId,
       acao: "empresa.arroba_recusado",
@@ -149,7 +224,7 @@ export async function recusarTrocaDeArroba({
       alvoId: troca.empresaId,
       detalhes: `@${troca.arrobaAntigo} → @${troca.arrobaNovo} · ${motivo}`,
     });
-    return { empresaId: troca.empresaId, usuarioId: troca.usuarioId, arrobaNovo: troca.arrobaNovo, endereco: troca.empresa.instagramUsername };
+    return { empresaId: troca.empresaId, usuarioId: troca.usuarioId, arrobaNovo: troca.arrobaNovo };
   });
 }
 

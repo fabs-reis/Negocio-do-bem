@@ -17,6 +17,7 @@ import { ultimaTrocaDeArroba } from "@/lib/troca-de-arroba";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
 import { FormArroba } from "./FormArroba";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export const metadata: Metadata = { title: "Editar perfil", robots: FORA_DA_BUSCA };
 
@@ -47,6 +48,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
       },
     },
   });
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/painel/${atual}`);
   if (!empresa || !empresa.membros.some((m) => m.usuarioId === usuario.id)) notFound();
   const { aviso } = await searchParams;
   const [liberacao, troca] = await Promise.all([
@@ -162,11 +164,11 @@ function ChamadaDoClube({ username, status }: { username: string; status?: strin
   return (
     <div className="cartao flex flex-col gap-4 border-coral/40 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p className="font-serif text-xl font-semibold">🎟️ Ofereça cupons no Clube do Bem</p>
+        <p className="font-serif text-xl font-semibold">🎟️ Verifique a sua empresa e seja Parceiro do Clube do Bem</p>
         <p className="mt-1 text-sm leading-relaxed text-suave">
           {deNovo
             ? "A liberação do seu negócio não está valendo. Veja o motivo e peça a verificação de novo."
-            : "Verifique o seu negócio com o CNPJ para criar ofertas de desconto no perfil. É de graça."}
+            : "Com o CNPJ, o seu nome completo e o seu CPF, a nossa equipe confere o negócio. Verificado, o perfil ganha o selo e você divulga promoções e cupons no perfil. É de graça."}
         </p>
       </div>
       <Link href={`/painel/${username}/clube#verificar`} className="botao-coral botao-pequeno whitespace-nowrap">
@@ -188,7 +190,7 @@ function TrocaDoArroba({ empresaId, endereco, troca }: { empresaId: string; ende
         <p className="mt-1 text-sm leading-relaxed text-suave">
           {semInstagram
             ? "Seu negócio está sem Instagram. Se ele tem um perfil, peça para ligar o @: o endereço da página passa a ser o @."
-            : `O @ é também o endereço da página (/empresas/${endereco}). Se ele está errado ou mudou, peça a troca: a moderação confere o perfil no Instagram antes. Aprovada, o endereço antigo deixa de funcionar.`}
+            : `O @ é também o endereço da página (/empresas/${endereco}). Se ele está errado ou mudou, peça a troca: a moderação confere o perfil no Instagram antes. Aprovada, o endereço antigo continua levando para o novo.`}
         </p>
       </div>
       {troca?.status === "pendente" ? (

@@ -26,7 +26,7 @@ vi.mock("@/lib/auth/sessao", () => ({
 
 const { after } = await import("next/server");
 const { liberarDonoParaClube, pedirVerificacaoAcao, recusarPedidoDoClube, suspenderDonoDoClube } = await import("@/acoes/clube");
-const { podeCriarOfertas, quemBateComAConta } = await import("@/lib/clube");
+const { conferirIdentidade, podeCriarOfertas, quemBateComAConta } = await import("@/lib/clube");
 const { suspenderPorContatoAlterado } = await import("@/lib/ofertas");
 
 const CNPJ = "11222333000181";
@@ -200,7 +200,7 @@ describe("suspender e liberar de novo", () => {
 describe("com quem da ficha o nome da conta bate", () => {
   const ficha = (razaoSocial: string, socios: string[] = []) => ({
     razaoSocial,
-    socios: socios.map((nome) => ({ nome, qualificacao: null })),
+    socios: socios.map((nome) => ({ nome, qualificacao: null, cpfMascarado: null })),
   });
 
   it("acha o sócio sem ligar para acento, maiúsculas, ordem nem nomes do meio", () => {
@@ -223,11 +223,40 @@ describe("com quem da ficha o nome da conta bate", () => {
 });
 
 
+describe("o nome e o CPF informados contra a ficha da Receita", () => {
+  const ficha = (razaoSocial: string, socios: { nome: string; cpfMascarado: string | null }[]) => ({
+    razaoSocial,
+    socios: socios.map((socio) => ({ ...socio, qualificacao: null })),
+  });
+  const informado = { nomeCompleto: "Dora Dona da Silva", cpfMascarado: "***.982.247-**" };
+
+  it("o CPF bate quando os 6 dígitos do meio são os de um sócio, e o nome, com o mesmo sócio", () => {
+    const resultado = conferirIdentidade(ficha("X LTDA", [{ nome: "DORA DONA DA SILVA", cpfMascarado: "***982247**" }]), informado);
+    expect(resultado).toEqual({ nomeBate: "DORA DONA DA SILVA", cpfBate: true });
+  });
+
+  it("não bate com outro sócio", () => {
+    const resultado = conferirIdentidade(ficha("X LTDA", [{ nome: "ISABELA CANTO", cpfMascarado: "***325350**" }]), informado);
+    expect(resultado).toEqual({ nomeBate: null, cpfBate: false });
+  });
+
+  it("no MEI, o CPF vem na razão social", () => {
+    const resultado = conferirIdentidade(ficha("DORA DONA DA SILVA 52998224725", []), informado);
+    expect(resultado).toEqual({ nomeBate: "DORA DONA DA SILVA 52998224725", cpfBate: true });
+  });
+
+  it("sem CPF informado (pedido antigo), nada bate", () => {
+    const resultado = conferirIdentidade(ficha("X LTDA", [{ nome: "DORA DONA", cpfMascarado: "***982247**" }]), { nomeCompleto: null, cpfMascarado: null });
+    expect(resultado).toEqual({ nomeBate: null, cpfBate: false });
+  });
+});
+
 describe("o dono pede a verificação com o CNPJ", () => {
   /** O pedido do dono, pelo formulário do painel do clube. Devolve o erro, ou o destino quando dá certo. */
-  async function pedir(cnpj = "11.222.333/0001-81"): Promise<string> {
+  async function pedir(cnpj = "11.222.333/0001-81", extras: Record<string, string> = {}): Promise<string> {
     try {
-      const estado = await pedirVerificacaoAcao(undefined, formulario({ empresaId, cnpj }));
+      const campos = { empresaId, cnpj, nomeCompleto: "Dora Dona da Silva", cpf: "529.982.247-25", consentimento: "sim", ...extras };
+      const estado = await pedirVerificacaoAcao(undefined, formulario(campos));
       return `erro:${estado?.erro}`;
     } catch (erro) {
       if (erro instanceof Error && erro.message.startsWith("redirect:")) return erro.message.slice("redirect:".length);
@@ -242,11 +271,27 @@ describe("o dono pede a verificação com o CNPJ", () => {
 
     expect(await pedir()).toBe("/painel/padaria.flor/clube?aviso=clube_pedido_enviado#verificar");
     expect(await liberacao()).toMatchObject({ cnpj: CNPJ, status: "pendente", decididoPorId: null, motivo: null });
+    // Só o nome e o CPF mascarado ficam guardados; o CPF inteiro não aparece em lugar nenhum.
+    expect(await liberacao()).toMatchObject({ nomeCompleto: "Dora Dona da Silva", cpfMascarado: "***.982.247-**" });
+    expect(JSON.stringify([await liberacao(), await auditoria()])).not.toMatch(/52998224725|529\.982\.247-25/);
     expect(await auditoria()).toMatchObject([
       { acao: "clube.pedido", usuarioId: dona.id, detalhes: "@padaria.flor · CNPJ 11.222.333/0001-81" },
     ]);
     expect(await podeCriarOfertas(empresaId, dona.id)).toBe(false);
     expect(after).toHaveBeenCalledTimes(1);
+  });
+
+  it("exige o nome completo, um CPF válido e a autorização, sem consultar a Receita", async () => {
+    const fetch = receitaCom("ATIVA");
+
+    expect(await pedir(undefined, { nomeCompleto: "Dora" })).toBe("erro:Escreva o seu nome completo, como no documento.");
+    expect(await pedir(undefined, { cpf: "529.982.247-26" })).toBe("erro:CPF inválido. Confira os números.");
+    expect(await pedir(undefined, { cpf: "111.111.111-11" })).toBe("erro:CPF inválido. Confira os números.");
+    expect(await pedir(undefined, { consentimento: "" })).toBe(
+      "erro:Marque a autorização para a moderação usar o seu nome e o seu CPF na verificação.",
+    );
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await liberacao()).toBeNull();
   });
 
   it("recusa um CNPJ com os dígitos errados, sem consultar a Receita", async () => {

@@ -28,6 +28,7 @@ import { normalizarUsername } from "@/lib/instagram";
 import { medir } from "@/lib/medicao-servidor";
 import { contatoMudou, suspenderPorContatoAlterado } from "@/lib/ofertas";
 import { textoDeBusca } from "@/lib/texto";
+import { trocarArroba, type ResultadoDaTroca } from "@/lib/troca-de-arroba";
 
 const LIMITE_INDICACOES_POR_DIA = 10;
 
@@ -324,4 +325,36 @@ export async function enviarFotoDaHistoria(dados: FormData): Promise<{ url?: str
     console.error("Falha ao guardar a foto da história", empresa.id, erro);
     return { erro: "Não conseguimos guardar a foto agora. Tente de novo em instantes." };
   }
+}
+
+/**
+ * A moderação troca o @ do Instagram do negócio (#298). O endereço antigo redireciona para
+ * o novo. O dono não troca direto: pede, e a moderação aprova (#299, src/acoes/arroba.ts).
+ */
+export async function trocarArrobaDaEmpresa(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+  const { usuario, empresa } = await exigirEditor(texto(dados, "empresaId"), "/painel");
+  const valores = valoresDoFormulario(dados);
+  if (!usuario.moderador) {
+    return { erros: { instagram: "Peça a troca na seção \"@ do Instagram\" do painel: a moderação confere o perfil antes." }, valores };
+  }
+  const novo = normalizarUsername(texto(dados, "instagram"));
+  if (!novo) return { erros: { instagram: "Digite o novo @ do Instagram do negócio (ex.: @padariadobairro)." }, valores };
+
+  let resultado: ResultadoDaTroca;
+  try {
+    resultado = await db.$transaction((tx) => trocarArroba(tx, empresa, novo, { usuarioId: usuario.id, pelaModeracao: true }));
+  } catch (erro) {
+    if (!violouUnicidade(erro)) throw erro;
+    resultado = "ocupado";
+  }
+  if (resultado === "ocupado") return { erros: { instagram: `@${novo} já é de outro negócio no Negócio do Bem.` }, valores };
+  if (resultado === "mesmo") return { erros: { instagram: `@${novo} já é o @ deste negócio.` }, valores };
+
+  // Sem foto, a do novo perfil do Instagram vira a foto do negócio (nunca troca uma foto enviada).
+  if (!empresa.fotoUrl) after(() => gravarFotoDaPrevia(empresa.id, novo));
+  const voltar = voltarDe(dados, empresa)
+    .split("/")
+    .map((parte) => (parte === empresa.instagramUsername ? novo : parte))
+    .join("/");
+  redirect(`${voltar}?aviso=arroba_trocado`);
 }
