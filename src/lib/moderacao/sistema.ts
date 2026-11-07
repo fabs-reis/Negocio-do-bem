@@ -2,7 +2,7 @@ import "server-only";
 import { ambienteDeDeploy } from "@/lib/ambiente";
 import { usaArmazenamentoCloudflare } from "@/lib/armazenamento";
 import { configGoogle } from "@/lib/auth/google";
-import { db } from "@/lib/db";
+import { db, esquemaSql } from "@/lib/db";
 import { envioLigado } from "@/lib/email";
 import { tokenDasFotos } from "@/lib/fotos-instagram";
 import { configLogin, perfilOficial } from "@/lib/instagram";
@@ -84,7 +84,7 @@ type Migracao = { nome: string; terminadaEm: Date | null; desfeitaEm: Date | nul
 export async function migracoesAplicadas(): Promise<Migracao[]> {
   return db.$queryRaw<Migracao[]>`
     SELECT migration_name AS nome, finished_at AS "terminadaEm", rolled_back_at AS "desfeitaEm"
-    FROM "_prisma_migrations"
+    FROM ${esquemaSql()}."_prisma_migrations"
     ORDER BY started_at DESC`;
 }
 
