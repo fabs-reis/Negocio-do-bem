@@ -82,6 +82,59 @@ export async function avisarNovaReivindicacao(empresaId: string): Promise<void> 
   );
 }
 
+/** Para a moderação: um dono pediu a verificação do negócio para o Clube do Bem. */
+export async function avisarNovoPedidoDoClube(empresaId: string): Promise<void> {
+  if (!envioLigado()) return;
+  const empresa = await db.empresa.findUnique({ where: { id: empresaId }, select: { nome: true, instagramUsername: true } });
+  if (!empresa) return;
+  await avisarModeracao(
+    `Novo pedido do Clube do Bem: @${empresa.instagramUsername}`,
+    corpo(
+      `Um dono de ${empresa.nome} (@${empresa.instagramUsername}) pediu a verificação do negócio para criar ofertas no Clube do Bem.`,
+      `Confira o CNPJ na fila do clube:\n${ENDERECO_DO_SITE}${hrefModeracao("clube")}`,
+    ),
+  );
+}
+
+/** Para o dono: a moderação liberou ou recusou o pedido dele no Clube do Bem. */
+export async function avisarDecisaoDoClube(empresaId: string, usuarioId: string): Promise<void> {
+  if (!envioLigado()) return;
+  const liberacao = await db.liberacaoClube.findUnique({
+    where: { empresaId_usuarioId: { empresaId, usuarioId } },
+    include: {
+      usuario: { select: { nome: true, email: true } },
+      empresa: { select: { nome: true, instagramUsername: true } },
+    },
+  });
+  if (!liberacao) return;
+  const { usuario, empresa } = liberacao;
+  const painel = `${ENDERECO_DO_SITE}/painel/${empresa.instagramUsername}/clube`;
+  const ola = `Olá, ${primeiroNome(usuario.nome)}!`;
+
+  if (liberacao.status === "liberada") {
+    await enviarEmail({
+      para: usuario.email,
+      assunto: `${empresa.nome} está no Clube do Bem`,
+      texto: corpo(
+        ola,
+        `A moderação conferiu o CNPJ de ${empresa.nome} (@${empresa.instagramUsername}), e você já pode criar ofertas no Clube do Bem.`,
+        `Crie a primeira no painel do clube:\n${painel}`,
+      ),
+    });
+  } else if (liberacao.status === "recusada") {
+    await enviarEmail({
+      para: usuario.email,
+      assunto: `Seu pedido do Clube do Bem para ${empresa.nome} não foi aprovado`,
+      texto: corpo(
+        ola,
+        `A moderação analisou o pedido de ${empresa.nome} (@${empresa.instagramUsername}) para o Clube do Bem e não aprovou desta vez.`,
+        `Motivo: ${liberacao.motivo ?? "não informado."}`,
+        `Você pode corrigir e pedir de novo no painel do clube:\n${painel}`,
+      ),
+    });
+  }
+}
+
 /** Para a moderação: um depoimento foi denunciado. */
 export async function avisarNovaDenuncia(depoimentoId: string): Promise<void> {
   if (!envioLigado()) return;

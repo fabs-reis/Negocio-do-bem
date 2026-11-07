@@ -50,6 +50,16 @@ export type DadosCnpj = {
  * análise; na liberação para o Clube do Bem, sem a consulta não há liberação.
  */
 export async function consultarCnpj(valor: string): Promise<DadosCnpj | null> {
+  const resultado = await buscarNaReceita(valor);
+  return resultado === "nao_encontrado" ? null : resultado;
+}
+
+/**
+ * Como `consultarCnpj`, mas separa o CNPJ que a Receita não tem ("nao_encontrado", o 404 da
+ * BrasilAPI) da consulta que falhou (null). Serve para recusar na hora o pedido do Clube do
+ * Bem com um CNPJ que não existe, sem barrar quem pediu enquanto a BrasilAPI estava fora.
+ */
+export async function buscarNaReceita(valor: string): Promise<DadosCnpj | "nao_encontrado" | null> {
   const cnpj = limparCnpj(valor);
   if (!cnpjValido(cnpj)) return null;
   try {
@@ -58,6 +68,7 @@ export async function consultarCnpj(valor: string): Promise<DadosCnpj | null> {
       headers: { "User-Agent": "NegocioDoBem/1.0 (+https://github.com/fabs-reis/Negocio-do-bem)" },
       signal: AbortSignal.timeout(5000),
     });
+    if (resposta.status === 404) return "nao_encontrado";
     if (!resposta.ok) return null;
     const dados = (await resposta.json()) as Record<string, unknown>;
     const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);

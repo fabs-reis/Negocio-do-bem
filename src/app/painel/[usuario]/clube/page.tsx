@@ -8,6 +8,7 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { Prazo } from "@/components/Prazo";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { podeCriarOfertas } from "@/lib/clube";
+import { formatarCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
 import { normalizarEndereco } from "@/lib/instagram";
 import {
@@ -23,6 +24,7 @@ import {
 import { FORA_DA_BUSCA } from "@/lib/seo";
 import { formatarDataCurta, formatarDataHora } from "@/lib/texto";
 import { FormOferta } from "./FormOferta";
+import { Verificacao } from "./Verificacao";
 
 export const metadata: Metadata = { title: "Clube do Bem", robots: FORA_DA_BUSCA };
 
@@ -66,10 +68,17 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
   });
   if (!empresa || !empresa.membros.some((m) => m.usuarioId === usuario.id)) notFound();
   const { aviso, codigo: codigoDaUrl } = await searchParams;
-  const [liberado, liberacao] = await Promise.all([
+  const [liberado, liberacao, reivindicacao] = await Promise.all([
     podeCriarOfertas(empresa.id, usuario.id),
     db.liberacaoClube.findUnique({ where: { empresaId_usuarioId: { empresaId: empresa.id, usuarioId: usuario.id } } }),
+    // O CNPJ que o dono mandou quando assumiu o perfil, para já vir no pedido de verificação.
+    db.reivindicacao.findFirst({
+      where: { empresaId: empresa.id, usuarioId: usuario.id, cnpj: { not: null } },
+      orderBy: { criadoEm: "desc" },
+      select: { cnpj: true },
+    }),
   ]);
+  const cnpjSugerido = liberacao?.cnpj ?? reivindicacao?.cnpj ?? undefined;
   const agora = new Date();
   const ativa = empresa.ofertas.find((oferta) => oferta.status === "ativa" && oferta.fim > agora);
   const codigo = typeof codigoDaUrl === "string" ? normalizarCodigo(codigoDaUrl) : "";
@@ -97,54 +106,50 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         {!avisoDaValidacao && <AvisoDaUrl codigo={aviso} />}
       </div>
 
-      <section id="validar" className="scroll-mt-24 space-y-4">
-        <h2 className="font-serif text-2xl font-semibold">Validar um cupom</h2>
-        <form action={`/painel/${empresa.instagramUsername}/clube#validar`} method="get" className="cartao space-y-3 p-5">
-          <label htmlFor="codigo" className="rotulo">
-            Código que a pessoa mostrou
-          </label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              id="codigo"
-              name="codigo"
-              required
-              autoCapitalize="characters"
-              autoComplete="off"
-              defaultValue={codigo}
-              placeholder="7K3P9Q"
-              className="campo font-mono tracking-[0.2em] uppercase"
-            />
-            <button type="submit" className="botao whitespace-nowrap">
-              Conferir
-            </button>
-          </div>
-        </form>
-        {avisoDaValidacao !== "cupom_usado" && <AvisoDaUrl codigo={avisoDaValidacao} />}
-        {codigo &&
-          (!cupomDaqui ? (
-            <p className="cartao p-5 text-sm text-coral-700">Não achamos um cupom com esse código neste negócio. Confira as letras.</p>
-          ) : (
-            <CupomConferido cupom={cupomDaqui} empresaId={empresa.id} agora={agora} usadoAgora={avisoDaValidacao === "cupom_usado"} />
-          ))}
-      </section>
+      {!liberado && (
+        <Verificacao
+          empresaId={empresa.id}
+          liberacao={liberacao}
+          cnpjSugerido={cnpjSugerido ? formatarCnpj(cnpjSugerido) : undefined}
+        />
+      )}
+
+      {/* Sem oferta nenhuma, ainda não há cupom para validar. */}
+      {(liberado || empresa.ofertas.length > 0) && (
+        <section id="validar" className="scroll-mt-24 space-y-4">
+          <h2 className="font-serif text-2xl font-semibold">Validar um cupom</h2>
+          <form action={`/painel/${empresa.instagramUsername}/clube#validar`} method="get" className="cartao space-y-3 p-5">
+            <label htmlFor="codigo" className="rotulo">
+              Código que a pessoa mostrou
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                id="codigo"
+                name="codigo"
+                required
+                autoCapitalize="characters"
+                autoComplete="off"
+                defaultValue={codigo}
+                placeholder="7K3P9Q"
+                className="campo font-mono tracking-[0.2em] uppercase"
+              />
+              <button type="submit" className="botao whitespace-nowrap">
+                Conferir
+              </button>
+            </div>
+          </form>
+          {avisoDaValidacao !== "cupom_usado" && <AvisoDaUrl codigo={avisoDaValidacao} />}
+          {codigo &&
+            (!cupomDaqui ? (
+              <p className="cartao p-5 text-sm text-coral-700">Não achamos um cupom com esse código neste negócio. Confira as letras.</p>
+            ) : (
+              <CupomConferido cupom={cupomDaqui} empresaId={empresa.id} agora={agora} usadoAgora={avisoDaValidacao === "cupom_usado"} />
+            ))}
+        </section>
+      )}
 
       <section className="space-y-4">
-        {!liberado ? (
-          <div className="cartao space-y-2 p-6 text-sm leading-relaxed">
-            <h2 className="font-serif text-2xl font-semibold">Criar ofertas</h2>
-            {liberacao?.status === "suspensa" ? (
-              <p className="text-coral-700">
-                A liberação do seu negócio no clube foi suspensa. Motivo: {liberacao.motivo}. Fale com a moderação para conferir de
-                novo.
-              </p>
-            ) : (
-              <p className="text-suave">
-                O Clube do Bem está em fase de convite: a moderação libera negócios com CNPJ ativo, depois de conferir a ficha na
-                Receita. Se o seu negócio foi convidado, fale com a moderação.
-              </p>
-            )}
-          </div>
-        ) : ativa ? (
+        {!liberado ? null : ativa ? (
           <div className="cartao space-y-3 p-6">
             <p className="text-xs font-semibold tracking-[0.2em] text-folha uppercase">Valendo agora</p>
             <h2 className="font-serif text-2xl font-semibold">{ativa.titulo}</h2>

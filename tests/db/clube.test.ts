@@ -3,21 +3,31 @@ import { db } from "@/lib/db";
 
 // As ações rodam fora do Next: o redirect vira um erro com o destino, e a guarda da
 // moderação deixa passar só quem o teste escolher, como a de verdade faz com "acao".
-const sessao = vi.hoisted(() => ({ moderador: null as { id: string } | null }));
+const sessao = vi.hoisted(() => ({
+  moderador: null as { id: string } | null,
+  usuario: null as { id: string; emailConfirmado: boolean } | null,
+}));
 vi.mock("next/navigation", () => ({
   redirect: (destino: string) => {
     throw new Error(`redirect:${destino}`);
   },
 }));
+vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/auth/sessao", () => ({
   exigirModerador: async () => {
     if (!sessao.moderador) throw new Error("redirect:/404");
     return { ...sessao.moderador, nome: "Moderação", email: "mod@exemplo.com", moderador: true, emailConfirmado: true };
   },
+  exigirUsuario: async (voltar: string) => {
+    if (!sessao.usuario) throw new Error(`redirect:/entrar?voltar=${voltar}`);
+    return { ...sessao.usuario, nome: "Conta", email: "conta@exemplo.com", moderador: false };
+  },
 }));
 
-const { liberarDonoParaClube, suspenderDonoDoClube } = await import("@/acoes/clube");
+const { after } = await import("next/server");
+const { liberarDonoParaClube, pedirVerificacaoAcao, recusarPedidoDoClube, suspenderDonoDoClube } = await import("@/acoes/clube");
 const { podeCriarOfertas, quemBateComAConta } = await import("@/lib/clube");
+const { suspenderPorContatoAlterado } = await import("@/lib/ofertas");
 
 const CNPJ = "11222333000181";
 
@@ -90,6 +100,8 @@ beforeEach(async () => {
   });
   empresaId = empresa.id;
   sessao.moderador = moderador;
+  sessao.usuario = { id: dona.id, emailConfirmado: true };
+  vi.mocked(after).mockClear();
 });
 afterEach(() => vi.unstubAllGlobals());
 afterAll(async () => {
@@ -207,5 +219,140 @@ describe("com quem da ficha o nome da conta bate", () => {
   it("não bate com um nome só, nem com um sobrenome diferente", () => {
     expect(quemBateComAConta("Dora", ficha("X LTDA", ["DORA DONA"]))).toBeNull();
     expect(quemBateComAConta("Dora Souza", ficha("X LTDA", ["DORA DONA"]))).toBeNull();
+  });
+});
+
+
+describe("o dono pede a verificação com o CNPJ", () => {
+  /** O pedido do dono, pelo formulário do painel do clube. Devolve o erro, ou o destino quando dá certo. */
+  async function pedir(cnpj = "11.222.333/0001-81"): Promise<string> {
+    try {
+      const estado = await pedirVerificacaoAcao(undefined, formulario({ empresaId, cnpj }));
+      return `erro:${estado?.erro}`;
+    } catch (erro) {
+      if (erro instanceof Error && erro.message.startsWith("redirect:")) return erro.message.slice("redirect:".length);
+      throw erro;
+    }
+  }
+  const recusar = (motivo: string) =>
+    recusarPedidoDoClube(formulario({ liberacaoId: "", motivo, voltar: "fila" }));
+
+  it("com CNPJ ativo, o pedido entra na fila sem liberar, fica na auditoria e avisa a moderação", async () => {
+    receitaCom("ATIVA");
+
+    expect(await pedir()).toBe("/painel/padaria.flor/clube?aviso=clube_pedido_enviado#verificar");
+    expect(await liberacao()).toMatchObject({ cnpj: CNPJ, status: "pendente", decididoPorId: null, motivo: null });
+    expect(await auditoria()).toMatchObject([
+      { acao: "clube.pedido", usuarioId: dona.id, detalhes: "@padaria.flor · CNPJ 11.222.333/0001-81" },
+    ]);
+    expect(await podeCriarOfertas(empresaId, dona.id)).toBe(false);
+    expect(after).toHaveBeenCalledTimes(1);
+  });
+
+  it("recusa um CNPJ com os dígitos errados, sem consultar a Receita", async () => {
+    const fetch = receitaCom("ATIVA");
+
+    expect(await pedir("11.222.333/0001-82")).toBe("erro:CNPJ inválido. Confira os números.");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await liberacao()).toBeNull();
+  });
+
+  it("um CNPJ que a Receita diz não estar ativo nem entra na fila", async () => {
+    receitaCom("BAIXADA");
+
+    expect(await pedir()).toBe("erro:Este CNPJ não está ativo na Receita. Só entram no clube negócios com CNPJ ativo.");
+    expect(await liberacao()).toBeNull();
+    expect(after).not.toHaveBeenCalled();
+  });
+
+  it("um CNPJ que a Receita não tem é recusado na hora", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("não encontrado", { status: 404 })));
+
+    expect(await pedir()).toBe("erro:Não achamos este CNPJ na Receita. Confira os números.");
+    expect(await liberacao()).toBeNull();
+  });
+
+  it("sem resposta da Receita, o pedido entra assim mesmo: a moderação consulta antes de liberar", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("erro", { status: 502 })));
+
+    expect(await pedir()).toBe("/painel/padaria.flor/clube?aviso=clube_pedido_enviado#verificar");
+    expect(await liberacao()).toMatchObject({ status: "pendente" });
+  });
+
+  it("só um dono do negócio pede, e com o e-mail confirmado", async () => {
+    receitaCom("ATIVA");
+    sessao.usuario = { id: outra.id, emailConfirmado: true };
+    expect(await pedir()).toBe("erro:Só um dono do negócio pode pedir a verificação.");
+
+    sessao.usuario = { id: dona.id, emailConfirmado: false };
+    expect(await pedir()).toMatch(/^erro:Antes, confirme o seu e-mail/);
+    expect(await db.liberacaoClube.count()).toBe(0);
+  });
+
+  it("não pede de novo com um pedido em análise, nem depois de liberado", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+    expect(await pedir()).toBe("erro:Você já tem um pedido em análise.");
+
+    await destino(liberar());
+    expect(await pedir()).toBe("erro:Você já está liberado no clube.");
+    expect((await auditoria()).map((registro) => registro.acao)).toEqual(["clube.pedido", "clube.liberado"]);
+  });
+
+  it("a moderação libera pela fila, e volta para a fila", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+
+    expect(await destino(liberar({ voltar: "fila" }))).toBe("/moderacao?aba=clube&aviso=clube_liberado#pedidos");
+    expect(await liberacao()).toMatchObject({ status: "liberada", motivo: null, decididoPorId: moderador.id });
+    expect(await podeCriarOfertas(empresaId, dona.id)).toBe(true);
+  });
+
+  it("a moderação recusa com o motivo, uma vez só; o dono pede de novo e a moderação vê o motivo de antes", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+    const { id } = (await liberacao())!;
+    const recusarEste = (motivo: string) => recusarPedidoDoClube(formulario({ liberacaoId: id, motivo, voltar: "fila" }));
+
+    expect(await destino(recusarEste("O nome não bate com os sócios"))).toBe("/moderacao?aba=clube&aviso=clube_recusado#pedidos");
+    expect(await destino(recusarEste("Outro motivo"))).toBe("/moderacao?aba=clube&aviso=clube_ja_decidido#pedidos");
+    expect(await liberacao()).toMatchObject({ status: "recusada", motivo: "O nome não bate com os sócios", decididoPorId: moderador.id });
+
+    expect(await pedir()).toBe("/painel/padaria.flor/clube?aviso=clube_pedido_enviado#verificar");
+    expect(await liberacao()).toMatchObject({ status: "pendente", motivo: "O nome não bate com os sócios", decididoPorId: null });
+    expect((await auditoria()).map((registro) => registro.acao)).toEqual(["clube.pedido", "clube.recusado", "clube.pedido"]);
+    expect(await db.liberacaoClube.count()).toBe(1);
+  });
+
+  it("recusar um pedido que não existe volta para a fila", async () => {
+    expect(await destino(recusar("Sem pedido"))).toBe("/moderacao?aba=clube");
+  });
+
+  it("só a moderação recusa", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+    sessao.moderador = null;
+
+    expect(await destino(recusarPedidoDoClube(formulario({ liberacaoId: (await liberacao())!.id, motivo: "x" })))).toBe("/404");
+    expect(await liberacao()).toMatchObject({ status: "pendente" });
+  });
+
+  it("quem foi suspenso pode pedir de novo, e continua sem criar ofertas até ser liberado", async () => {
+    receitaCom("ATIVA");
+    await destino(liberar());
+    await destino(suspenderDonoDoClube(formulario({ liberacaoId: (await liberacao())!.id, motivo: "Contato trocado" })));
+
+    expect(await pedir()).toBe("/painel/padaria.flor/clube?aviso=clube_pedido_enviado#verificar");
+    expect(await liberacao()).toMatchObject({ status: "pendente", motivo: "Contato trocado" });
+    expect(await podeCriarOfertas(empresaId, dona.id)).toBe(false);
+  });
+
+  it("trocar o contato do perfil não mexe num pedido em análise", async () => {
+    receitaCom("ATIVA");
+    await pedir();
+
+    await db.$transaction((tx) => suspenderPorContatoAlterado(tx, { id: empresaId, instagramUsername: "padaria.flor" }));
+
+    expect(await liberacao()).toMatchObject({ status: "pendente" });
   });
 });

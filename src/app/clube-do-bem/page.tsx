@@ -21,7 +21,9 @@ const PRINTS = {
   "cliente-3-gerar-cupom": [358, 349],
   "cliente-4-seu-cupom": [358, 397],
   "cliente-5-meus-cupons": [390, 780],
-  "dono-1-fase-de-convite": [358, 181],
+  "dono-0-chamada-no-painel": [358, 192],
+  "dono-1-verifique-o-negocio": [358, 465],
+  "dono-1b-pedido-em-analise": [358, 260],
   "dono-2-criar-oferta": [358, 1001],
   "dono-3-oferta-no-ar": [358, 300],
   "dono-4-conferir-cupom": [358, 245],
@@ -79,7 +81,7 @@ const PROTECOES = [
   {
     titulo: "Contato trocado, oferta parada",
     texto:
-      "Se o WhatsApp, o telefone, o site ou o e-mail do perfil mudar, as ofertas param até a moderação conferir de novo. Assim, ninguém assume um perfil para soltar cupom falso.",
+      "Se o WhatsApp, o telefone, o site ou o e-mail do perfil mudar, as ofertas param até a moderação verificar o negócio de novo. Assim, ninguém assume um perfil para soltar cupom falso.",
   },
   {
     titulo: "Nunca pedimos Pix",
@@ -235,26 +237,28 @@ export default function ClubeDoBem() {
         </p>
 
         <Passos>
-          <Passo nivel="h3" numero={1} titulo="Tenha o perfil assumido e o CNPJ ativo">
+          <Passo nivel="h3" numero={1} titulo="Verifique o seu negócio com o CNPJ">
             <p>
               Participa negócio com <Destaque>CNPJ ativo na Receita</Destaque>, e o MEI também conta. Antes, é preciso{" "}
               <Link href="/sobre#dono" className="link">
                 assumir o perfil do negócio
               </Link>
-              .
+              . Depois, no painel do negócio, toque em <Destaque>Verificar meu negócio</Destaque>.
             </p>
-            <p>
-              Neste começo, o clube é por convite. A moderação confere a ficha do CNPJ, o quadro de sócios e se o seu nome bate
-              com o da ficha, e libera a sua conta. Até lá, o painel do clube mostra este aviso:
-            </p>
-            <Print nome="dono-1-fase-de-convite" alt="Aviso do painel: o Clube do Bem está em fase de convite" />
+            <Print nome="dono-0-chamada-no-painel" alt="Caixa do painel: Ofereça cupons no Clube do Bem, com o botão Verificar meu negócio" />
             <p className="pt-3">
-              Quer participar? Escreva para{" "}
-              <a href={`mailto:${EMAIL_DO_PROJETO}?subject=Quero entrar no Clube do Bem`} className="link">
-                {EMAIL_DO_PROJETO}
-              </a>{" "}
-              com o @ do negócio e o CNPJ.
+              Informe o CNPJ e toque em <Destaque>Pedir a verificação</Destaque>. Se você mandou o CNPJ quando assumiu o perfil,
+              ele já vem preenchido. Só a moderação vê esse número.
             </p>
+            <Print
+              nome="dono-1-verifique-o-negocio"
+              alt="Painel do clube: Verifique o seu negócio para criar ofertas, com o campo do CNPJ e o botão Pedir a verificação"
+            />
+            <p className="pt-3">
+              A moderação confere a ficha na Receita, o quadro de sócios e se o seu nome bate com o da ficha. Enquanto isso, o
+              painel mostra o pedido em análise. Se ela não aprovar, você vê o motivo e pode pedir de novo.
+            </p>
+            <Print nome="dono-1b-pedido-em-analise" alt="Painel do clube: a moderação está conferindo o seu negócio, com a data e o CNPJ do pedido" />
           </Passo>
 
           <Passo nivel="h3" numero={2} titulo="Crie a oferta">
@@ -327,8 +331,8 @@ export default function ClubeDoBem() {
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-suave">
             <li>
               Se você trocar o WhatsApp, o telefone, o site ou o e-mail de contato do perfil, a sua liberação e a oferta ficam
-              suspensas até a moderação conferir de novo. Isso protege o seu negócio de quem tentar assumir o perfil para aplicar
-              golpe.
+              suspensas. Para voltar, peça a verificação de novo no painel do clube. Isso protege o seu negócio de quem tentar
+              assumir o perfil para aplicar golpe.
             </li>
             <li>Não peça Pix nem pagamento adiantado para liberar o cupom: o desconto é na hora da compra.</li>
             <li>Cumpra o que a oferta promete. É a confiança da comunidade que faz o clube funcionar.</li>

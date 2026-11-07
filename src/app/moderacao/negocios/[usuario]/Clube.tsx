@@ -1,19 +1,18 @@
-import { liberarDonoParaClube, suspenderDonoDoClube } from "@/acoes/clube";
+import Link from "next/link";
+import { recusarPedidoDoClube, suspenderDonoDoClube } from "@/acoes/clube";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
-import { quemBateComAConta } from "@/lib/clube";
-import { cnpjValido, consultarCnpj, formatarCnpj, limparCnpj, type DadosCnpj } from "@/lib/cnpj";
+import { cnpjValido, consultarCnpj, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import { db } from "@/lib/db";
-import { formatarDataCurta, formatarTelefone, normalizarTexto } from "@/lib/texto";
-
-type Negocio = { id: string; instagramUsername: string; cidade: string; uf: string };
+import { comPontoFinal, formatarDataCurta } from "@/lib/texto";
+import { FichaDaReceita, type NegocioDaFicha } from "../../FichaDaReceita";
 
 /**
  * O Clube do Bem na ficha do negócio, só para a moderação: a liberação de cada dono e a
  * consulta do CNPJ na Receita, com os sócios. A consulta vem do `?cnpj=` da página e nada
  * dela é guardado: só o CNPJ, quando a moderação libera.
  */
-export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: Negocio; cnpjDaUrl?: string; aviso?: string }) {
+export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: NegocioDaFicha; cnpjDaUrl?: string; aviso?: string }) {
   const [membros, liberacoes] = await Promise.all([
     db.empresaMembro.findMany({
       where: { empresaId: empresa.id },
@@ -25,7 +24,8 @@ export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: Negocio; c
   const liberacaoDe = new Map(liberacoes.map((liberacao) => [liberacao.usuarioId, liberacao]));
   const cnpj = cnpjDaUrl ? limparCnpj(cnpjDaUrl) : "";
   const ficha = cnpj && cnpjValido(cnpj) ? await consultarCnpj(cnpj) : null;
-  const ultimoCnpj = liberacoes[0]?.cnpj;
+  // O CNPJ de um pedido na fila vem primeiro, porque é o que a moderação precisa conferir.
+  const ultimoCnpj = (liberacoes.find((liberacao) => liberacao.status === "pendente") ?? liberacoes[0])?.cnpj;
 
   return (
     <section id="clube" className="scroll-mt-24 space-y-4">
@@ -52,7 +52,39 @@ export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: Negocio; c
                     <span className="font-medium">{usuario.nome}</span> <span className="text-suave">· {usuario.email}</span>
                   </p>
                   {!liberacao ? (
-                    <p className="text-suave">Não liberado.</p>
+                    <p className="text-suave">Não liberado. Ainda não pediu a verificação.</p>
+                  ) : liberacao.status === "pendente" ? (
+                    <>
+                      <p className="text-amber-800">
+                        Pediu a verificação em {formatarDataCurta(liberacao.decididoEm)}, com o CNPJ {formatarCnpj(liberacao.cnpj)}.{" "}
+                        <Link href={`/moderacao/negocios/${empresa.instagramUsername}?cnpj=${liberacao.cnpj}#clube`} className="link">
+                          Consultar este CNPJ
+                        </Link>
+                      </p>
+                      {liberacao.motivo && <p className="text-suave">Da última vez: {comPontoFinal(liberacao.motivo)}</p>}
+                      <form action={recusarPedidoDoClube} className="flex flex-col gap-2 sm:flex-row">
+                        <input type="hidden" name="liberacaoId" value={liberacao.id} />
+                        <label htmlFor={`recusa-${liberacao.id}`} className="sr-only">
+                          Motivo da recusa
+                        </label>
+                        <input
+                          id={`recusa-${liberacao.id}`}
+                          name="motivo"
+                          maxLength={500}
+                          placeholder="Motivo da recusa (o dono vê)"
+                          className="campo py-1.5 sm:text-sm"
+                        />
+                        <BotaoEnviar className="botao-claro botao-pequeno whitespace-nowrap" enviando="Recusando…">
+                          Recusar
+                        </BotaoEnviar>
+                      </form>
+                    </>
+                  ) : liberacao.status === "recusada" ? (
+                    <p className="text-coral-700">
+                      Pedido recusado em {formatarDataCurta(liberacao.decididoEm)}
+                      {liberacao.decididoPor && ` por ${liberacao.decididoPor.nome}`}.
+                      {liberacao.motivo && ` Motivo: ${comPontoFinal(liberacao.motivo)}`}
+                    </p>
                   ) : liberacao.status === "liberada" ? (
                     <>
                       <p className="text-folha">
@@ -79,7 +111,8 @@ export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: Negocio; c
                   ) : (
                     <p className="text-coral-700">
                       Suspenso em {formatarDataCurta(liberacao.decididoEm)}
-                      {liberacao.decididoPor && ` por ${liberacao.decididoPor.nome}`}. Motivo: {liberacao.motivo}
+                      {liberacao.decididoPor ? ` por ${liberacao.decididoPor.nome}` : " pelo sistema"}.
+                      {liberacao.motivo && ` Motivo: ${comPontoFinal(liberacao.motivo)}`}
                     </p>
                   )}
                 </li>
@@ -114,112 +147,10 @@ export async function Clube({ empresa, cnpjDaUrl, aviso }: { empresa: Negocio; c
                 Não foi possível consultar a Receita agora, e sem a consulta não há liberação. Tente de novo em alguns minutos.
               </p>
             ) : (
-              <Ficha empresa={empresa} cnpj={cnpj} ficha={ficha} donos={membros.map(({ usuario }) => usuario)} />
+              <FichaDaReceita empresa={empresa} cnpj={cnpj} ficha={ficha} donos={membros.map(({ usuario }) => usuario)} />
             ))}
         </>
       )}
     </section>
-  );
-}
-
-function Ficha({
-  empresa,
-  cnpj,
-  ficha,
-  donos,
-}: {
-  empresa: Negocio;
-  cnpj: string;
-  ficha: DadosCnpj;
-  donos: { id: string; nome: string }[];
-}) {
-  const ativa = normalizarTexto(ficha.situacao ?? "") === "ativa";
-  const mesmaCidade =
-    normalizarTexto(ficha.municipio ?? "") === normalizarTexto(empresa.cidade) && (ficha.uf ?? "").toUpperCase() === empresa.uf;
-  const linha = "grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)]";
-  return (
-    <div className="cartao space-y-4 p-4 text-sm">
-      <h3 className="font-medium">Ficha da Receita · CNPJ {formatarCnpj(cnpj)}</h3>
-      <dl className="space-y-2">
-        <div className={linha}>
-          <dt className="text-suave">Razão social</dt>
-          <dd className="break-words">{ficha.razaoSocial}</dd>
-        </div>
-        {ficha.nomeFantasia && (
-          <div className={linha}>
-            <dt className="text-suave">Nome fantasia</dt>
-            <dd className="break-words">{ficha.nomeFantasia}</dd>
-          </div>
-        )}
-        <div className={linha}>
-          <dt className="text-suave">Situação</dt>
-          <dd className={ativa ? "font-medium text-folha" : "font-medium text-coral-700"}>{ficha.situacao ?? "Desconhecida"}</dd>
-        </div>
-        <div className={linha}>
-          <dt className="text-suave">Cidade</dt>
-          <dd>
-            {ficha.municipio ? `${ficha.municipio}, ${ficha.uf}` : "Não informada"}{" "}
-            <span className={mesmaCidade ? "text-folha" : "text-coral-700"}>
-              {mesmaCidade ? "· a mesma do perfil" : `· o perfil diz ${empresa.cidade}, ${empresa.uf}`}
-            </span>
-          </dd>
-        </div>
-        {(ficha.telefone || ficha.email) && (
-          <div className={linha}>
-            <dt className="text-suave">Contato na Receita</dt>
-            <dd className="break-words">
-              {[ficha.telefone && formatarTelefone(`55${ficha.telefone}`), ficha.email].filter(Boolean).join(" · ")}
-            </dd>
-          </div>
-        )}
-        <div className={linha}>
-          <dt className="text-suave">Sócios</dt>
-          <dd>
-            {ficha.socios.length === 0 ? (
-              <span className="text-suave">Nenhum na Receita. No MEI, o nome da pessoa está na razão social.</span>
-            ) : (
-              <ul className="space-y-0.5">
-                {ficha.socios.map((socio) => (
-                  <li key={`${socio.nome}-${socio.qualificacao}`}>
-                    {socio.nome}
-                    {socio.qualificacao && <span className="text-suave"> · {socio.qualificacao}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </dd>
-        </div>
-      </dl>
-
-      <ul className="space-y-3 border-t border-linha pt-4">
-        {donos.map((dono) => {
-          const bate = quemBateComAConta(dono.nome, ficha);
-          return (
-            <li key={dono.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p>
-                <span className="font-medium">{dono.nome}</span>{" "}
-                {bate ? (
-                  <span className="text-folha">· o nome bate com {bate}</span>
-                ) : (
-                  <span className="text-coral-700">· o nome não bate com ninguém da ficha. Confira com a pessoa antes de liberar.</span>
-                )}
-              </p>
-              {ativa ? (
-                <form action={liberarDonoParaClube}>
-                  <input type="hidden" name="empresaId" value={empresa.id} />
-                  <input type="hidden" name="usuarioId" value={dono.id} />
-                  <input type="hidden" name="cnpj" value={cnpj} />
-                  <BotaoEnviar className="botao botao-pequeno whitespace-nowrap" enviando="Liberando…">
-                    Liberar {dono.nome.split(" ")[0]}
-                  </BotaoEnviar>
-                </form>
-              ) : (
-                <span className="text-coral-700">O CNPJ precisa estar ativo para liberar.</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
   );
 }

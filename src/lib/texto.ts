@@ -62,6 +62,12 @@ export function formatarTelefone(digitos: string): string {
   return `(${ddd}) ${numero.slice(0, corte)}-${numero.slice(corte)}`;
 }
 
+/** Fecha a frase com ponto, sem dobrar: "O contato mudou" e "O contato mudou." viram "O contato mudou.". */
+export function comPontoFinal(texto: string): string {
+  const limpo = texto.trim();
+  return !limpo || /[.!?…]$/.test(limpo) ? limpo : `${limpo}.`;
+}
+
 /** "Ninguém favoritou ainda", "1 pessoa favoritou", "1.234 pessoas favoritaram". */
 export function formatarFavoritos(total: number): string {
   if (total === 0) return "Ninguém favoritou ainda";

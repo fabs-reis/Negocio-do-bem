@@ -293,7 +293,7 @@ export async function usarCupom(empresaId: string, codigo: string, donoId: strin
   return { situacao: situacaoDoCupom(depois, agora) };
 }
 
-const MOTIVO_CONTATO = "O contato do perfil mudou. Confira o negócio antes de liberar de novo.";
+const MOTIVO_CONTATO = "O contato do perfil mudou";
 
 /** Os campos de contato que, trocados pelo dono, suspendem o clube até a moderação conferir de novo. */
 export function contatoMudou(

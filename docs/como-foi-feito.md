@@ -585,6 +585,18 @@ Sem uma explicação, o dono não sabia como criar a oferta nem conferir o cupom
 - **`Passo` e `Passos` foram para `src/components/Passos.tsx`,** para servir aos dois tutoriais. Na página do clube, o título do passo é `h3`, porque as seções já usam `h2`.
 - **Mudou a tela, troque o print.** O texto cita os botões pelo nome ("Favoritar e gerar cupom", "Marcar como usado"), e as regras citadas (15 dias, primeiro nome, contato trocado) são as da [seção 20](regras-de-negocio.md#20-clube-do-bem).
 
+
+### 6 de novembro: o dono pede a verificação do Clube do Bem ([#286](https://github.com/fabs-reis/Negocio-do-bem/issues/286))
+
+Antes, a moderação precisava conseguir o CNPJ com cada dono e digitar na ficha do negócio. Agora o dono informa o CNPJ no painel, e o pedido cai numa fila da moderação, que já abre com a ficha da Receita. As regras estão em [Liberação para o clube](regras-de-negocio.md#liberação-para-o-clube).
+
+- **Sem migração.** O pedido usa a mesma linha da liberação (`LiberacaoClube`), com dois status novos, "pendente" e "recusada". O `status` já era texto, e o `decididoEm` passou a ser a data da última mudança. Assim, cada dono continua com uma linha por negócio, e liberar um pedido é o mesmo `upsert` de antes.
+- **A Receita barra cedo, mas não trava.** Um CNPJ que a Receita diz não estar ativo nem entra na fila. Se a BrasilAPI não responde, o pedido entra assim mesmo: a moderação consulta de novo antes de liberar, e a liberação continua exigindo a Receita.
+- **O motivo de antes fica.** Quem foi recusado ou suspenso pede de novo, e o motivo da última decisão continua na linha, para a moderação ver ("Da última vez: …"). Um golpista suspenso que pede de novo aparece com o motivo da suspensão.
+- **A ficha da Receita virou um componente** (`src/app/moderacao/FichaDaReceita.tsx`), usado na fila e na ficha do negócio. Na fila, "Liberar" e "Recusar" voltam para a fila (`voltar=fila`).
+- **O dono não vê a ficha.** Ele só fica sabendo se o CNPJ está ativo. O quadro de sócios e a comparação do nome continuam só com a moderação.
+- **CNPJ inexistente é recusado na hora.** `buscarNaReceita` separa o 404 da BrasilAPI ("Não achamos este CNPJ na Receita") da consulta que falhou, que deixa o pedido entrar. O `consultarCnpj` continua devolvendo `null` nos dois casos, para quem já o usava.
+- **A página `/clube-do-bem` mudou junto:** o passo 1 do dono troca o aviso de "fase de convite" por três prints, com a caixa do painel, o formulário do CNPJ e o pedido em análise. O CNPJ dos prints (12.345.678/9999-66) tem os dígitos certos e não existe na Receita.
 ---
 
 ## 4. Arquitetura

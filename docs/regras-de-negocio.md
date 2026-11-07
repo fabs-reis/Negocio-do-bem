@@ -146,7 +146,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
 > As regras abaixo voltam a valer quando a constante for ligada de novo, junto com a troca do envio de e-mails.
 
 - **O cadastro manda um link de confirmação** para o e-mail digitado. A conta já entra no site na hora.
-- **Sem o e-mail confirmado, a conta não** indica negócios, não escreve nem denuncia depoimentos e não reivindica negócios, por nenhum dos caminhos.
+- **Sem o e-mail confirmado, a conta não** indica negócios, não escreve nem denuncia depoimentos, não reivindica negócios, não gera cupom e não pede a verificação do Clube do Bem, por nenhum dos caminhos.
   - Nesses lugares, e no topo do `/painel`, aparece "Confirme seu e-mail", com um botão para mandar o link de novo.
   - As Server Actions conferem de novo no servidor e respondem "Antes, confirme o seu e-mail".
 - **O resto funciona sem confirmar:** entrar, sair, o painel, editar o próprio negócio, responder depoimentos e cancelar pedidos.
@@ -208,7 +208,7 @@ O painel tem um menu com quatro grupos. No celular, ele vira uma linha que rola 
 | Grupo | Seção | O que mostra |
 | --- | --- | --- |
 | Painel | **Visão geral** (abre primeiro) | As filas que esperam a moderação, os números do projeto, a atividade das últimas semanas, o diretório por estado, tipo e causa, e a saúde dos dados. |
-| Filas | **Reivindicações**, **Indicações**, **Denúncias** | As filas que já existiam ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)). O menu mostra quantos itens esperam em cada uma. |
+| Filas | **Reivindicações**, **Indicações**, **Denúncias**, **Clube do Bem** | As filas que já existiam ([seções 5](#5-moderação-das-indicações), [6](#a-decisão-da-moderação) e [10](#denúncias)) e os pedidos de verificação do [Clube do Bem](#liberação-para-o-clube). O menu mostra quantos itens esperam em cada uma. |
 | Cadastros | **Negócios** | Todos os negócios, com filtros por situação ([seção 5](#editar-qualquer-perfil)). |
 | Cadastros | **Contas** | Todas as contas, com busca e filtros, e a ficha de cada uma. |
 | Cadastros | **Depoimentos** | Todos os depoimentos, publicados e removidos. |
@@ -1038,6 +1038,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | A moderação recusa um pedido | Quem pediu | O negócio, o motivo da recusa e o link do painel. |
 | Um pedido pelos dados do negócio fica na fila (o negócio tem dono ou está fora do ar), ou um "Entrar com Instagram" fica em análise | Cada pessoa da moderação | O negócio e o link da fila de reivindicações. |
 | Um depoimento é denunciado | Cada pessoa da moderação | O negócio e o link da fila de denúncias. |
+| Um dono pede a verificação do Clube do Bem | Cada pessoa da moderação | O negócio e o link da fila do clube. |
+| A moderação libera ou recusa um dono no Clube do Bem | O dono | O negócio e o link do painel do clube; na recusa, o motivo. |
 | Chega um depoimento novo | Cada dono do negócio | Quem escreveu, o texto e o link para responder. |
 | Alguém cria uma conta, ou pede de novo em "Confirme seu e-mail". Só com a confirmação ligada, e hoje ela está desligada | A própria pessoa | O link para confirmar o e-mail, que vale por 24 horas. |
 | Alguém pede para entrar por link | O e-mail digitado, se tiver conta | O link para entrar, que vale por 15 minutos. |
@@ -1362,20 +1364,29 @@ A página pública `/clube-do-bem` explica o clube com prints, para quem compra 
 
 ### Liberação para o clube
 
-Código: regras em `src/lib/clube.ts` (com testes em `tests/db/clube.test.ts`), ações em `src/acoes/clube.ts` e a tela em `src/app/moderacao/negocios/[usuario]/Clube.tsx`.
+Código: regras em `src/lib/clube.ts` (com testes em `tests/db/clube.test.ts`), ações em `src/acoes/clube.ts`, o pedido do dono em `src/app/painel/[usuario]/clube/Verificacao.tsx`, a fila em `src/app/moderacao/PedidosDoClube.tsx` e a ficha do negócio em `src/app/moderacao/negocios/[usuario]/Clube.tsx`.
 
 Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [Aprovação na hora](#aprovação-na-hora)). Isso basta para editar o perfil, mas não para criar cupons. Por isso, ser dono não basta: a moderação precisa liberar.
 
 - **Só negócio com CNPJ.** O MEI também tem CNPJ. Autônomos sem CNPJ e profissões regulamentadas ficam para depois (os conselhos da saúde, por exemplo, limitam o uso de desconto como propaganda).
-- **Só a moderação libera,** na seção "Clube do Bem" da ficha do negócio (`/moderacao/negocios/<@>`). Não existe pedido feito pelo dono: no lançamento, os donos são convidados.
+- **O dono pede a verificação com o CNPJ** ([#286](https://github.com/fabs-reis/Negocio-do-bem/issues/286)). Enquanto não está liberado, ele vê a caixa "Ofereça cupons no Clube do Bem" no painel do negócio e "Verifique o seu negócio para criar ofertas" no painel do clube (`/painel/<@>/clube#verificar`), com o campo do CNPJ. Se ele mandou o CNPJ quando assumiu o perfil, ou num pedido anterior, o campo já vem preenchido.
+  - O site confere os dígitos e consulta a Receita. Se ela não tem o CNPJ, o pedido não entra ("Não achamos este CNPJ na Receita"); se diz que ele não está ativo, também não ("Só entram no clube negócios com CNPJ ativo"). Sem resposta da Receita, o pedido entra assim mesmo, porque a moderação consulta de novo antes de liberar.
+  - Precisa ser dono do negócio e ter o e-mail confirmado (quando a confirmação estiver ligada). Com um pedido em análise, ou já liberado, não pede de novo.
+  - O pedido fica com o status "pendente", e o dono vê "A moderação está conferindo o seu negócio", com a data e o CNPJ. O painel do clube só mostra "Validar um cupom" a quem está liberado ou já teve oferta.
+  - Recusado ou suspenso, o dono vê o motivo e pode pedir de novo. O motivo da última decisão fica no pedido novo, para a moderação ver o que aconteceu antes.
+  - Dois envios ao mesmo tempo gravam um pedido só.
+- **A fila "Clube do Bem" da moderação** (`/moderacao?aba=clube`) lista os pedidos em análise, do mais antigo para o mais novo, e o menu mostra quantos esperam. Cada pedido traz o negócio, o dono, o CNPJ, o motivo de antes (se pediu de novo) e já a ficha da Receita, com o botão "Liberar". "Recusar" pede um motivo, que o dono vê. Depois de decidir, a moderação volta para a fila. A visão geral também mostra a fila quando há pedidos.
+- **Só a moderação libera,** pela fila ou na seção "Clube do Bem" da ficha do negócio (`/moderacao/negocios/<@>`). Na ficha, o pedido em análise aparece com o link "Consultar este CNPJ" e o "Recusar"; o campo do CNPJ já vem com o número do pedido.
 - **A liberação vale por dono.** Num negócio com dois donos, cada um precisa da própria. Ela só vale enquanto a pessoa continuar dona: quem deixa de ser dono (numa transferência, por exemplo) perde a liberação, mesmo com o registro guardado (`podeCriarOfertas`).
 - **Consulta à Receita:** a moderação digita o CNPJ e clica em "Consultar na Receita". A ficha vem da BrasilAPI na hora e mostra a razão social, o nome fantasia, a situação, a cidade (comparada com a do perfil), o telefone e o e-mail que a Receita tem e o quadro de sócios. Nada da ficha é guardado.
 - **O nome da conta bate com a ficha?** Para cada dono, a tela diz se o nome da conta bate com um sócio ou, no MEI, com a razão social, que traz o nome da pessoa (`quemBateComAConta`). Bate quando todas as palavras do nome da conta, pelo menos duas, aparecem no nome da ficha, sem ligar para acento, maiúsculas, ordem, nomes do meio, partículas (da, de, dos) e o CPF da razão social. É só um apoio: quem decide é a moderação.
 - **Liberar:** o botão "Liberar <nome>" só aparece com o CNPJ ativo. O servidor confere de novo o CNPJ (os dígitos e a situação "ATIVA" na Receita) e que a conta é dona. Sem resposta da Receita, não libera. Guarda só o CNPJ, sem pontuação.
+- **Status da liberação:** "pendente" (o dono pediu), "liberada", "recusada" (a moderação recusou o pedido) e "suspensa" (estava liberada). Só "liberada" cria ofertas e dá o selo. A data da liberação (`decididoEm`) é a da última mudança: num pedido em análise, é a data do pedido.
 - **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. As ofertas que estavam valendo no negócio ficam suspensas, e os cupons delas deixam de valer. Para liberar de novo, consulta o CNPJ e libera, e o motivo some; as ofertas suspensas não voltam, o dono cria outra.
-- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria, com o motivo "O contato do perfil mudou…"), e as ofertas valendo também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende.
+- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria e "pelo sistema" na tela da moderação, com o motivo "O contato do perfil mudou"), e as ofertas valendo também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende.
 - **Quem vê:** só a moderação vê a liberação, o CNPJ e a ficha. O público vê o selo "Parceiro do Clube do Bem" no perfil, enquanto o negócio tiver um dono liberado.
-- **Auditoria:** `clube.liberado` e `clube.suspenso`, na mesma transação da alteração.
+- **Auditoria:** `clube.pedido` (pelo dono), `clube.liberado`, `clube.recusado` e `clube.suspenso`, na mesma transação da alteração. O pedido registra o @ e o CNPJ.
+- **Avisos por e-mail:** a moderação recebe cada pedido novo, só com o negócio e o link da fila. O dono recebe a liberação (com o link do painel do clube) e a recusa (com o motivo). Veja a [seção 14](#14-avisos-por-e-mail).
 
 ### Ofertas
 
@@ -1409,5 +1420,5 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 
 ### O que fica para depois
 
-O pedido de liberação pelo próprio dono, o QR code, o e-mail de fim de oferta com "Repetir oferta", o agendamento, a revisão das primeiras ofertas, o filtro "Com cupom" no `/explorar`, a denúncia de oferta e os avisos no celular.
+O QR code, o e-mail de fim de oferta com "Repetir oferta", o agendamento, a revisão das primeiras ofertas, o filtro "Com cupom" no `/explorar`, a denúncia de oferta e os avisos no celular.
 
