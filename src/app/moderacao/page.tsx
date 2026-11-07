@@ -19,6 +19,7 @@ import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
 import { perfilOficial } from "@/lib/instagram";
 import { ABAS, lerFiltros, type Aba } from "@/lib/moderacao/filtros";
+import { pendentesQueAprovamSozinhos } from "@/lib/reivindicacao";
 import { formatarDataHora, formatarTelefone } from "@/lib/texto";
 import { Auditoria } from "./Auditoria";
 import { Contas } from "./Contas";
@@ -92,16 +93,7 @@ async function Reivindicacoes() {
         empresa: { include: { membros: { include: { usuario: { select: { id: true, nome: true, email: true } } } } } },
       },
     }),
-    // Um negócio por vez: se duas pessoas pediram o mesmo, só a primeira é aprovada.
-    db.reivindicacao.findMany({
-      where: {
-        status: "pendente",
-        metodo: "documento",
-        empresa: { moderacao: { not: "rejeitada" }, membros: { none: {} } },
-      },
-      distinct: ["empresaId"],
-      select: { id: true },
-    }),
+    pendentesQueAprovamSozinhos(),
   ]);
   const oficial = perfilOficial();
   const agora = new Date();

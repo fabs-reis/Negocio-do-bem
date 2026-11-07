@@ -430,7 +430,8 @@ Código: `moderarEmpresa` e `publicarIndicacoesPendentes` em `src/acoes/moderaca
 - **Auditoria:** registra `empresa.aprovada` ou `empresa.rejeitada`, uma linha por negócio, com o @ nos detalhes. A decisão e a auditoria são confirmadas juntas: se a auditoria falhar, o negócio continua como estava.
 - **O que muda num negócio tirado do ar:**
   - o @ continua ocupado, então ninguém consegue indicar de novo;
-  - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação.
+  - a página de reivindicação responde 404, e um pedido que chegue mesmo assim fica com a moderação;
+  - as ofertas ativas e as encerradas ainda dentro do prazo ficam suspensas na mesma transação, e os cupons delas deixam de valer.
 
 ### Editar qualquer perfil
 
@@ -470,7 +471,7 @@ Desde a [issue #20](https://github.com/fabs-reis/Negocio-do-bem/issues/20), **o 
 
 Nesse caso, a aprovação é a mesma da moderação (veja "O que a aprovação faz" abaixo), mas sem revisor: o pedido fica com `revisadoPorId` vazio, e a auditoria mostra "sistema". A pessoa vai para o painel do negócio com o aviso "Pronto! Você agora é dono deste perfil…".
 
-Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono) ou um negócio que a moderação tirou do ar.
+Fora desses casos, o pedido fica pendente para a moderação: é uma disputa (o negócio já tem dono), um negócio que a moderação tirou do ar ou um pedido novo de conta já removida dos donos deste negócio (que vê texto neutro antes e depois do envio, sem prometer aprovação imediata nem dizer que o perfil já tem dono).
 
 **Risco aceito:** não há conferência do CNPJ, do site nem do contato antes de aprovar. Qualquer conta consegue assumir um perfil que ainda não tem dono. Os dados enviados ficam guardados e aparecem para a moderação se houver disputa. A regra está em `solicitarPorDocumento` (`src/lib/reivindicacao.ts`).
 
@@ -503,9 +504,9 @@ O @ do Instagram não é pedido: é o do próprio perfil.
 
 ### A decisão da moderação
 
-Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
+Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar, pedidos de contas já removidas dos donos e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
 
-**Fila antiga:** quando há pedidos pendentes de negócios sem dono e no ar, o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
+**Fila antiga:** quando há pedidos pendentes que podem ser aprovados sozinhos (`pendentesQueAprovamSozinhos`: negócio sem dono e no ar, de conta que não foi removida dos donos dele), o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a mesma regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira elegível é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
 
 Cada pedido mostra:
 
@@ -556,8 +557,8 @@ A moderação tira uma conta dos donos de um negócio quando ela não é do neg�
 - **O que acontece,** numa transação só, com o negócio travado (duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, se enxergam):
   1. A pessoa deixa de ser dona.
   2. O pedido aprovado dela vira `revogada`, com o motivo, quem removeu e quando.
-  3. No Clube do Bem, a liberação dela fica suspensa, ou o pedido em análise fica recusado, com o motivo "Deixou de ser dono do negócio". As ofertas que ela criou e ainda estavam valendo ficam suspensas; as de outro dono continuam.
-  4. Se não sobrou nenhum dono, o negócio volta a `indicada`: some o selo "Perfil assumido" e volta o botão "Sou o dono".
+  3. No Clube do Bem, a liberação dela fica suspensa, ou o pedido em análise fica recusado, com o motivo "Deixou de ser dono do negócio". As ofertas que ela criou e cujos cupons ainda valiam (ativas ou encerradas antes do fim) ficam suspensas; as de outro dono e as já vencidas continuam como estavam.
+  4. Se não sobrou nenhum dono, o negócio volta a `indicada` e a ficar visível (`oculta: false`, voltando ao diretório se o ex-dono o tinha ocultado): some o selo "Perfil assumido" e volta o botão "Sou o dono". Se ainda sobrou outro dono, `oculta` não muda.
   5. Registra `empresa.dono_removido` na auditoria (e `clube.suspenso` ou `clube.recusado`, se for o caso).
 - **Duas pessoas da moderação ao mesmo tempo:** a segunda vê "Essa conta já não era dona deste negócio", e nada é gravado de novo.
 - **Pedido de novo:** um pedido novo da mesma pessoa para o mesmo negócio nunca é aprovado na hora, nem pelos dados do negócio, nem pelo botão "Aprovar os N pedidos sem dono", nem pelo Entrar com Instagram. Ele vai para a fila com a anotação "A moderação já tirou esta conta dos donos deste negócio". Outras pessoas assumem o negócio sem dono na hora, como antes.
@@ -735,8 +736,8 @@ Código: `src/app/painel/`.
 
 - Só o dono pode, a qualquer momento.
 - O negócio sai do diretório e o perfil some para o público (404).
-- Enquanto oculto, ninguém deixa depoimento.
-- O perfil fica guardado, e o dono pode voltar a mostrar quando quiser.
+- Enquanto oculto, ninguém deixa depoimento, não se cria oferta nova e ninguém gera cupom novo; os cupons já gerados continuam valendo até o fim previsto da oferta, e em `/cupons` o nome do negócio aparece sem link (com o aviso de que saiu do diretório).
+- O perfil fica guardado, e o dono pode voltar a mostrar quando quiser. Se a moderação remover o último dono do negócio, ele deixa de ficar oculto (`oculta: false`) e volta ao diretório.
 - É a resposta para "meu negócio foi indicado e eu não quero aparecer": a pessoa reivindica o perfil e oculta.
 - **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`. Se a auditoria falhar, a visibilidade não muda.
 
@@ -1429,8 +1430,8 @@ Hoje qualquer conta assume um perfil sem dono na hora, sem conferência (veja [A
 - **O nome da conta bate com a ficha?** Para cada dono, a tela diz se o nome da conta bate com um sócio ou, no MEI, com a razão social, que traz o nome da pessoa (`quemBateComAConta`). Quando não bate, o dono ganha ali mesmo o botão "Remover dos donos", também na fila do clube. Bate quando todas as palavras do nome da conta, pelo menos duas, aparecem no nome da ficha, sem ligar para acento, maiúsculas, ordem, nomes do meio, partículas (da, de, dos) e o CPF da razão social. É só um apoio: quem decide é a moderação.
 - **Liberar:** o botão "Liberar <nome>" só aparece com o CNPJ ativo. O servidor confere de novo o CNPJ (os dígitos e a situação "ATIVA" na Receita) e que a conta é dona. Sem resposta da Receita, não libera. Guarda só o CNPJ, sem pontuação.
 - **Status da liberação:** "pendente" (o dono pediu), "liberada", "recusada" (a moderação recusou o pedido) e "suspensa" (estava liberada). Só "liberada" cria ofertas e dá o selo. A data da liberação (`decididoEm`) é a da última mudança: num pedido em análise, é a data do pedido.
-- **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. As ofertas que estavam valendo no negócio ficam suspensas, e os cupons delas deixam de valer. Para liberar de novo, consulta o CNPJ e libera, e o motivo some; as ofertas suspensas não voltam, o dono cria outra.
-- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria e "pelo sistema" na tela da moderação, com o motivo "O contato do perfil mudou"), e as ofertas valendo também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende. O mesmo vale quando o dono [troca o @](#identidade-o--do-instagram), com o motivo "O @ do Instagram mudou".
+- **Suspender:** a moderação suspende com um motivo (até 500 caracteres; sem motivo, "Sem motivo informado"). Suspender de novo não grava outra vez. As ofertas do negócio cujos cupons ainda valiam (ativas e encerradas antes do fim) ficam suspensas, e os cupons delas deixam de valer; ofertas já vencidas não mudam de status. Para liberar de novo, consulta o CNPJ e libera, e o motivo some; as ofertas suspensas não voltam, o dono cria outra.
+- **Contato trocado pelo dono:** quando o dono muda o WhatsApp, o telefone comercial, o site ou o e-mail de contato do perfil, todas as liberações do negócio ficam suspensas ("Sistema" na auditoria e "pelo sistema" na tela da moderação, com o motivo "O contato do perfil mudou"), e as ofertas cujos cupons ainda valiam (ativas e encerradas antes do fim) também. Fecha o golpe de assumir o perfil, trocar o WhatsApp e lançar um cupom. A edição feita pela moderação não suspende. O mesmo vale quando o dono [troca o @](#identidade-o--do-instagram), com o motivo "O @ do Instagram mudou".
 - **Quem vê:** só a moderação vê a liberação, o CNPJ e a ficha. O público vê o selo "Parceiro do Clube do Bem" no perfil, enquanto o negócio tiver um dono liberado.
 - **Auditoria:** `clube.pedido` (pelo dono), `clube.liberado`, `clube.recusado` e `clube.suspenso`, na mesma transação da alteração. O pedido registra o @ e o CNPJ.
 - **Avisos por e-mail:** a moderação recebe cada pedido novo, só com o negócio e o link da fila. O dono recebe a liberação (com o link do painel do clube) e a recusa (com o motivo). Veja a [seção 14](#14-avisos-por-e-mail).
@@ -1455,7 +1456,7 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 - **Um cupom por pessoa por oferta.** Pedir de novo devolve o mesmo código. Dois pedidos da mesma pessoa ao mesmo tempo também.
 - **O limite vale com pedidos ao mesmo tempo:** a reserva é um UPDATE condicional na oferta, na mesma transação do cupom, então o último cupom vai para uma pessoa só. Depois, "Os cupons desta oferta acabaram".
 - **Código:** 6 caracteres, sem 0, O, 1 e I, que se confundem ao ditar. Aparece no perfil e em **Meus cupons** (`/cupons/meus`, na aba Cupons e na Conta), com o prazo.
-- **Validade:** até o fim previsto da oferta, mesmo se o dono encerrar antes. Com a oferta suspensa, o cupom não vale.
+- **Validade:** até o fim previsto da oferta, mesmo se o dono encerrar antes ou ocultar o perfil. Com a oferta suspensa (por suspensão da liberação, troca de contato ou @ pelo dono, remoção do dono que criou a oferta ou rejeição do negócio pela moderação), o cupom não vale. Quando o negócio sai do diretório sem suspensão da oferta (oculto pelo dono), **Meus cupons** mostra o nome sem link e o aviso "Este negócio saiu do diretório. O cupom vale no balcão até o fim da oferta."
 - **Aviso fixo** no perfil e em Meus cupons: o Negócio do Bem nunca pede Pix nem pagamento para liberar cupom; o desconto vale na hora da compra, e quem garante é o negócio.
 - **No diretório,** o card de um negócio com oferta valendo ganha o selo "🎟️ Cupom" (no `/explorar`, nas páginas de cidade, causa e tipo, nos favoritos e nos negócios parecidos).
 
