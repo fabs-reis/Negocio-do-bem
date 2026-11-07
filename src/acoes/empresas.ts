@@ -8,7 +8,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { caminhoSeguro, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { filtrarCausas } from "@/lib/causas";
-import { db } from "@/lib/db";
+import { db, type Prisma } from "@/lib/db";
 import { CATEGORIAS } from "@/lib/dominio";
 import {
   campoEmail,
@@ -26,7 +26,9 @@ import { enderecoLivre, enderecoSemInstagram } from "@/lib/endereco";
 import { semContatosDeTerceiros } from "@/lib/indicacao";
 import { normalizarUsername } from "@/lib/instagram";
 import { medir } from "@/lib/medicao-servidor";
+import { contatoMudou, suspenderPorContatoAlterado } from "@/lib/ofertas";
 import { textoDeBusca } from "@/lib/texto";
+import { trocarArroba, type ResultadoDaTroca } from "@/lib/troca-de-arroba";
 
 const LIMITE_INDICACOES_POR_DIA = 10;
 
@@ -72,9 +74,9 @@ const esquemaIndicacao = z.object({
   motivo: z.string().trim().max(600, "Use até 600 caracteres.").optional(),
 });
 
-/** Quem cadastra o próprio negócio deixa o contato dele e o telefone comercial. */
+/** Quem cadastra o próprio negócio deixa o contato dele e o WhatsApp do negócio. */
 const OBRIGATORIOS_DO_DONO = {
-  telefoneComercial: "Qual é o telefone comercial do negócio?",
+  whatsapp: "Qual é o WhatsApp do negócio?",
   emailDoDono: "Qual é o seu e-mail de contato?",
   telefoneDoDono: "Qual é o seu telefone de contato?",
 } as const;
@@ -219,8 +221,8 @@ async function exigirEditor(empresaId: string, voltarPara: string) {
 }
 
 /** Edições feitas pela moderação ficam marcadas na auditoria. */
-function auditarEdicao(usuarioId: string, empresa: { id: string; instagramUsername: string }, acao: string, pelaModeracao: boolean) {
-  return registrarAuditoria(db, {
+function auditarEdicao(tx: Prisma.TransactionClient, usuarioId: string, empresa: { id: string; instagramUsername: string }, acao: string, pelaModeracao: boolean) {
+  return registrarAuditoria(tx, {
     usuarioId,
     acao: pelaModeracao ? `${acao}_pela_moderacao` : acao,
     alvoTipo: "empresa",
@@ -250,15 +252,17 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
   const campos = comCidade(resultado.data);
   const causas = filtrarCausas(dados.getAll("causas").map(String));
 
-  await db.$transaction([
-    db.empresa.update({
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({
       where: { id: empresa.id },
       data: { ...campos, busca: textoDeBusca({ ...campos, instagramUsername: empresa.instagramUsername }) },
-    }),
-    db.empresaCausa.deleteMany({ where: { empresaId: empresa.id } }),
-    db.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) }),
-  ]);
-  await auditarEdicao(usuario.id, empresa, "empresa.editada", pelaModeracao);
+    });
+    await tx.empresaCausa.deleteMany({ where: { empresaId: empresa.id } });
+    await tx.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) });
+    await auditarEdicao(tx, usuario.id, empresa, "empresa.editada", pelaModeracao);
+    // O dono trocou o contato: o Clube do Bem do negócio espera a moderação conferir de novo.
+    if (!pelaModeracao && contatoMudou(empresa, campos)) await suspenderPorContatoAlterado(tx, empresa);
+  });
 
   redirect(`${voltarDe(dados, empresa)}?aviso=salvo`);
 }
@@ -266,12 +270,14 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
 export async function alternarVisibilidade(dados: FormData): Promise<void> {
   const { usuario, empresa } = await exigirDono(texto(dados, "empresaId"), "/painel");
   const oculta = dados.get("ocultar") === "sim";
-  await db.empresa.update({ where: { id: empresa.id }, data: { oculta } });
-  await registrarAuditoria(db, {
-    usuarioId: usuario.id,
-    acao: oculta ? "empresa.ocultada" : "empresa.reexibida",
-    alvoTipo: "empresa",
-    alvoId: empresa.id,
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({ where: { id: empresa.id }, data: { oculta } });
+    await registrarAuditoria(tx, {
+      usuarioId: usuario.id,
+      acao: oculta ? "empresa.ocultada" : "empresa.reexibida",
+      alvoTipo: "empresa",
+      alvoId: empresa.id,
+    });
   });
   redirect(`/painel/${empresa.instagramUsername}?aviso=${oculta ? "oculta" : "visivel"}`);
 }
@@ -289,18 +295,22 @@ export async function trocarFoto(_estado: EstadoFormulario, dados: FormData): Pr
     console.error("Falha ao guardar a foto do perfil", erro);
     return { erro: "Não conseguimos guardar a foto agora. Tente de novo em instantes." };
   }
-  await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl } });
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({ where: { id: empresa.id }, data: { fotoUrl } });
+    await auditarEdicao(tx, usuario.id, empresa, "empresa.foto_trocada", pelaModeracao);
+  });
   await apagarFoto(empresa.fotoUrl);
-  await auditarEdicao(usuario.id, empresa, "empresa.foto_trocada", pelaModeracao);
   redirect(`${voltarDe(dados, empresa)}?aviso=foto_salva`);
 }
 
 /** Tira a foto do perfil: o dono ou a moderação. */
 export async function removerFoto(dados: FormData): Promise<void> {
   const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
-  await db.empresa.update({ where: { id: empresa.id }, data: { fotoUrl: null } });
+  await db.$transaction(async (tx) => {
+    await tx.empresa.update({ where: { id: empresa.id }, data: { fotoUrl: null } });
+    await auditarEdicao(tx, usuario.id, empresa, "empresa.foto_removida", pelaModeracao);
+  });
   await apagarFoto(empresa.fotoUrl);
-  await auditarEdicao(usuario.id, empresa, "empresa.foto_removida", pelaModeracao);
   redirect(`${voltarDe(dados, empresa)}?aviso=foto_removida`);
 }
 
@@ -315,4 +325,30 @@ export async function enviarFotoDaHistoria(dados: FormData): Promise<{ url?: str
     console.error("Falha ao guardar a foto da história", empresa.id, erro);
     return { erro: "Não conseguimos guardar a foto agora. Tente de novo em instantes." };
   }
+}
+
+/** Troca o @ do Instagram do negócio (#298): o dono ou a moderação. O endereço antigo redireciona para o novo. */
+export async function trocarArrobaDaEmpresa(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
+  const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
+  const valores = valoresDoFormulario(dados);
+  const novo = normalizarUsername(texto(dados, "instagram"));
+  if (!novo) return { erros: { instagram: "Digite o novo @ do Instagram do negócio (ex.: @padariadobairro)." }, valores };
+
+  let resultado: ResultadoDaTroca;
+  try {
+    resultado = await db.$transaction((tx) => trocarArroba(tx, empresa, novo, { usuarioId: usuario.id, pelaModeracao }));
+  } catch (erro) {
+    if (!violouUnicidade(erro)) throw erro;
+    resultado = "ocupado";
+  }
+  if (resultado === "ocupado") return { erros: { instagram: `@${novo} já é de outro negócio no Negócio do Bem.` }, valores };
+  if (resultado === "mesmo") return { erros: { instagram: `@${novo} já é o @ deste negócio.` }, valores };
+
+  // Sem foto, a do novo perfil do Instagram vira a foto do negócio (nunca troca uma foto enviada).
+  if (!empresa.fotoUrl) after(() => gravarFotoDaPrevia(empresa.id, novo));
+  const voltar = voltarDe(dados, empresa)
+    .split("/")
+    .map((parte) => (parte === empresa.instagramUsername ? novo : parte))
+    .join("/");
+  redirect(`${voltar}?aviso=arroba_trocado`);
 }
