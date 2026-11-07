@@ -29,17 +29,25 @@ export function formatarCnpj(valor: string): string {
   return `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`;
 }
 
+export type SocioCnpj = { nome: string; qualificacao: string | null };
+
 export type DadosCnpj = {
   razaoSocial: string;
   nomeFantasia: string | null;
   situacao: string | null;
   municipio: string | null;
   uf: string | null;
+  /** O quadro de sócios e administradores. Vem vazio no MEI: o nome da pessoa fica na razão social. */
+  socios: SocioCnpj[];
+  /** O telefone e o e-mail que a Receita tem, quando tem. Servem para a moderação falar com o negócio. */
+  telefone: string | null;
+  email: string | null;
 };
 
 /**
- * Consulta pública na BrasilAPI, para a moderação conferir o nome registrado.
- * Retorna null se a consulta falhar: é só um apoio, nunca bloqueia a análise.
+ * Consulta pública na BrasilAPI, para a moderação conferir o nome registrado e os sócios.
+ * Retorna null se a consulta falhar. Na reivindicação é só um apoio e nunca bloqueia a
+ * análise; na liberação para o Clube do Bem, sem a consulta não há liberação.
  */
 export async function consultarCnpj(valor: string): Promise<DadosCnpj | null> {
   const cnpj = limparCnpj(valor);
@@ -59,6 +67,11 @@ export async function consultarCnpj(valor: string): Promise<DadosCnpj | null> {
       situacao: texto(dados.descricao_situacao_cadastral),
       municipio: texto(dados.municipio),
       uf: texto(dados.uf),
+      socios: (Array.isArray(dados.qsa) ? (dados.qsa as Record<string, unknown>[]) : [])
+        .map((socio) => ({ nome: texto(socio.nome_socio), qualificacao: texto(socio.qualificacao_socio) }))
+        .filter((socio): socio is SocioCnpj => socio.nome !== null),
+      telefone: texto(dados.ddd_telefone_1),
+      email: texto(dados.email)?.toLowerCase() ?? null,
     };
   } catch {
     return null;

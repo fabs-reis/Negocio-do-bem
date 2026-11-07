@@ -26,6 +26,7 @@ import { enderecoLivre, enderecoSemInstagram } from "@/lib/endereco";
 import { semContatosDeTerceiros } from "@/lib/indicacao";
 import { normalizarUsername } from "@/lib/instagram";
 import { medir } from "@/lib/medicao-servidor";
+import { contatoMudou, suspenderPorContatoAlterado } from "@/lib/ofertas";
 import { textoDeBusca } from "@/lib/texto";
 
 const LIMITE_INDICACOES_POR_DIA = 10;
@@ -258,6 +259,8 @@ export async function salvarEmpresa(_estado: EstadoFormulario, dados: FormData):
     await tx.empresaCausa.deleteMany({ where: { empresaId: empresa.id } });
     await tx.empresaCausa.createMany({ data: causas.map((causa) => ({ empresaId: empresa.id, causa })) });
     await auditarEdicao(tx, usuario.id, empresa, "empresa.editada", pelaModeracao);
+    // O dono trocou o contato: o Clube do Bem do negócio espera a moderação conferir de novo.
+    if (!pelaModeracao && contatoMudou(empresa, campos)) await suspenderPorContatoAlterado(tx, empresa);
   });
 
   redirect(`${voltarDe(dados, empresa)}?aviso=salvo`);

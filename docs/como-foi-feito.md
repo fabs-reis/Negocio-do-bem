@@ -507,6 +507,19 @@ Desde a mudança para o Cloudflare, em 31/10, o site não carregava o Google Ana
 - **A variável era lida no build.** O `NEXT_PUBLIC_GA_ID` estava só na Vercel. O Next põe as variáveis `NEXT_PUBLIC_` no código durante o build, e a casca estática do layout também é gerada ali. No Cloudflare, ela precisa estar nas variáveis de build da produção (Workers Builds), e não nas de runtime do Worker.
 - **Os previews continuam sem Analytics.** As variáveis de build dos previews ficam em outra aba do painel, sem o ID.
 
+### 1º de novembro: favoritos ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248))
+
+É a primeira parte do Clube do Bem, em que negócios vão oferecer cupons por pouco tempo a quem chega pelo site. Favoritar o negócio vai ser a condição para gerar o cupom, então veio primeiro. As regras estão em [Favoritos](regras-de-negocio.md#favoritos).
+
+- **Dentro do site, não no Instagram.** O site não lê o Instagram, então não teria como saber quem segue quem lá. Dentro do site, a condição do cupom pode ser conferida.
+- **Coração, e não "Seguir".** O PR começou com um botão "Seguir" e trocou pelo coração antes do merge: ele combina com o tom do projeto ("gosto deste negócio e quero apoiar") e cabe no canto dos cards, então dá para favoritar direto do diretório. No perfil, o coração vem com o texto "Favoritar", para não ser lido como "curtir", que faria esperar um número de curtidas. Os avisos de ofertas, quando vierem, ficam num sininho à parte e desligado por padrão: quem favorita só pelo desconto não passa a receber notificação sem pedir.
+- **Sem sair da página.** O coração é um formulário com `useActionState`: o toque não recarrega a página nem a leva para o topo, o que importa no meio do diretório. Como a ação é uma Server Action, o React envia o formulário mesmo antes de o JavaScript da página carregar.
+- **O número aparece no perfil, mas não vira ranking.** O perfil mostra quantas pessoas favoritaram, como prova de que a comunidade gosta do negócio, e nada aparece com zero, para um negócio novo não ficar exposto. O número fica fora dos cards e não muda a ordem do diretório: aí um negócio ganharia destaque só por ter mais favoritos. Ninguém vê quem favoritou, nem o dono: o clube não entrega lista de clientes.
+- **Negócio sem dono também pode ser favoritado.** Quando o dono assumir o perfil, já encontra pessoas que gostam do negócio, e isso é um bom motivo para ele reivindicar.
+- **Sem e-mail confirmado.** Favoritar não publica nada, então só precisa de login.
+- **A página é `/favoritos`, e não `/painel/favoritos`.** Dentro de `/painel`, um caminho fixo esconderia o painel de um negócio cujo @ fosse `favoritos`, porque `/painel/<@>` é o painel de cada negócio.
+- **Duas migrações.** A tabela nasceu como `EmpresaSeguidor` e já tinha chegado ao banco dos previews quando virou `EmpresaFavorita`. Por isso a segunda migração só renomeia a tabela, em vez de editar a primeira.
+
 ### 2 de novembro: embaixadores do bem ([#250](https://github.com/fabs-reis/Negocio-do-bem/issues/250))
 
 Influenciadores que levam o projeto para a cidade ou o estado deles ganharam uma faixa na página inicial, a página `/embaixadores` e um bloco na página da cidade. O visual foi combinado num canvas antes do código. As regras estão em [Embaixadores do bem](regras-de-negocio.md#19-embaixadores-do-bem).
@@ -538,6 +551,39 @@ O perfil só contava quem é o negócio, em texto simples e com os botões todos
 - **Depoimentos antes do formulário,** com um botão para o dono copiar o link e pedir depoimentos.
 - **Negócios parecidos** da mesma cidade no fim da página (`negociosParecidos`).
 - **O que está vazio some:** nenhum bloco em branco para o visitante.
+
+### 6 de novembro: liberação para o Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248))
+
+Para criar ofertas com cupom, ser dono não basta: qualquer conta assume um perfil sem dono na hora, e um cupom num negócio assumido por outra pessoa vira golpe ("pague pelo Pix para garantir o desconto"). As regras estão em [Clube do Bem](regras-de-negocio.md#20-clube-do-bem).
+
+- **Só CNPJ, por enquanto.** O CNPJ dá uma ficha pública na Receita, com a situação e o quadro de sócios. A moderação vê se o negócio existe, se está ativo e se o nome da conta bate com um sócio. Autônomos sem CNPJ e profissões regulamentadas precisam de outro caminho (vídeo, indicação de embaixador, registro no conselho) e ficaram para depois.
+- **A moderação libera, o dono não pede.** O lançamento é com donos convidados, e a moderação conversa com cada um. O pedido feito pelo próprio dono, com um código na bio do Instagram, fica para quando o clube abrir.
+- **A ficha não é guardada.** É consultada na hora, a cada vez. A razão social do MEI traz o CPF da pessoa, então nem a auditoria leva a razão social: só o @, o nome da conta e o CNPJ.
+- **Por dono, e só enquanto for dono.** A liberação não passa para outro dono do mesmo negócio, e quem perde o perfil numa transferência perde a liberação sem precisar de outra ação.
+
+
+### 6 de novembro: ofertas e cupons do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248))
+
+Com a liberação pronta, o dono liberado cria uma oferta curta, quem visita gera o cupom e o dono valida no balcão. As regras estão em [Clube do Bem](regras-de-negocio.md#20-clube-do-bem).
+
+- **Prazo curto e sem edição.** Até 15 dias, terminando às 23h59 de Brasília. Uma oferta publicada obriga o negócio a cumprir (CDC, art. 30), então ela não muda depois de criada: o dono encerra e cria outra. Quem já gerou o cupom usa até o fim previsto.
+- **Desconto livre.** O plano previa revisar na moderação as ofertas acima de 50%; sem a fila de revisão, a primeira versão travou o desconto em 50%. Em 06/11 ficou decidido deixar o valor livre (até 100%, ou qualquer valor em reais): quem conhece o negócio é o dono, e as proteções contra golpe estão no texto da oferta, no aviso contra Pix e na suspensão quando o contato muda.
+- **O texto não leva contato nem pagamento.** Link, telefone, e-mail, documento e "Pix" são recusados no título e nas condições, e todo cupom repete que o site nunca pede Pix. O golpe mais provável no clube é pedir pagamento antecipado "para garantir o desconto".
+- **Trocar o contato suspende o clube.** É o outro lado do golpe: assumir um perfil, trocar o WhatsApp e lançar um cupom. A suspensão automática usa a mesma liberação da moderação, que confere de novo antes de liberar.
+- **Concorrência pelo banco.** O último cupom e a validação dupla se resolvem com UPDATE condicional (`cuponsGerados < limite`, `usadoEm IS NULL`), e a oferta única por negócio com `SELECT ... FOR UPDATE` na linha do negócio. Os testes disparam os pedidos ao mesmo tempo.
+- **Gerar o cupom favorita.** É a condição combinada na issue, num toque só, e o botão avisa antes.
+- **O dono vê só o primeiro nome** de quem gerou o cupom, para conferir no balcão. O clube não entrega lista de clientes.
+- **O coração acompanha o servidor.** Gerar o cupom favorita o negócio e volta ao mesmo perfil, só com o `?aviso=`. O coração guardava o próprio estado (`useActionState`) e continuava vazio; agora ele recomeça quando o valor que vem do servidor muda (uma `key` com o estado).
+- **Ficou para depois:** o filtro "Com cupom" no diretório (o selo nos cards já mostra), o QR code, o e-mail com "Repetir oferta" e a denúncia de oferta.
+
+### 6 de novembro: a página do Clube do Bem ([#284](https://github.com/fabs-reis/Negocio-do-bem/issues/284))
+
+Sem uma explicação, o dono não sabia como criar a oferta nem conferir o cupom, e quem compra não sabia que precisava de conta nem que o negócio vê o primeiro nome. `/clube-do-bem` é um passo a passo com prints, no formato do `/instalacao`.
+
+- **Dois caminhos na mesma página.** "Quero usar um cupom" e "Tenho um negócio" levam às duas seções. Numa página só, quem compra também vê como o dono confere o cupom, e o dono vê o que o cliente vê.
+- **Prints de verdade, ao contrário do `/instalacao`.** As telas são as do próprio site, que a gente controla, então não envelhecem com uma versão do sistema. Foram tiradas no tamanho de celular (390 px, densidade 2) com o Chrome sem janela, com os dados de exemplo do seed, e ficam em `public/prints/clube-do-bem/` em WebP (cerca de 350 KB ao todo). Largura e altura de cada uma estão na página, para nada pular enquanto carrega. A pasta não se chama `clube-do-bem` para não disputar o endereço com a página.
+- **`Passo` e `Passos` foram para `src/components/Passos.tsx`,** para servir aos dois tutoriais. Na página do clube, o título do passo é `h3`, porque as seções já usam `h2`.
+- **Mudou a tela, troque o print.** O texto cita os botões pelo nome ("Favoritar e gerar cupom", "Marcar como usado"), e as regras citadas (15 dias, primeiro nome, contato trocado) são as da [seção 20](regras-de-negocio.md#20-clube-do-bem).
 
 ---
 
@@ -620,6 +666,8 @@ erDiagram
     Usuario ||--o{ Sessao : "tem"
     Usuario ||--o{ EmpresaMembro : "é dono via"
     Empresa ||--o{ EmpresaMembro : "tem donos"
+    Usuario ||--o{ EmpresaFavorita : "favorita"
+    Empresa ||--o{ EmpresaFavorita : "é favorita de"
     Empresa ||--o{ EmpresaCausa : "abraça"
     Empresa ||--o{ Depoimento : "recebe"
     Empresa ||--o{ Reivindicacao : "é pedida em"
@@ -640,10 +688,11 @@ Decisões do esquema:
   - uma conta do Google por conta do site (`googleId`);
   - um ID de conta do Instagram por negócio;
   - um depoimento por pessoa por negócio;
+  - um favorito por pessoa por negócio;
   - um código de DM único (só nos pedidos antigos).
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
-  - **uma conta:** apaga as sessões, os vínculos de dono, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
-  - **um negócio:** apaga as causas, os donos, os depoimentos e os pedidos ligados a ele.
+  - **uma conta:** apaga as sessões, os vínculos de dono, os favoritos dela, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
+  - **um negócio:** apaga as causas, os donos, os favoritos, os depoimentos e os pedidos ligados a ele.
 
 ---
 
@@ -857,6 +906,22 @@ Para trocar o slug de uma causa existente, crie uma migração que atualize `Emp
 1. Rode `npm run cidades:corrigir`. Ele lista as cidades gravadas com outra grafia ("Sao Paulo" → São Paulo) e as que não estão na lista do IBGE, sem gravar nada.
 2. Confira a lista e rode de novo com `-- --aplicar` para gravar o nome oficial. Para a produção, passe a conexão do banco de produção na frente: `DATABASE_URL="postgresql://..." npm run cidades:corrigir -- --aplicar`.
 3. As cidades fora da lista do IBGE se corrigem uma a uma, editando o negócio pelo painel da moderação.
+
+### Limpar sessões vencidas
+
+A manutenção manual da #111 não muda o prazo de 30 dias da autenticação. O núcleo está em `src/lib/limpeza-sessoes.ts`, sem depender do Next. A CLI `scripts/limpar-sessoes.ts` abre seu próprio cliente Prisma e usa o banco configurado em `DATABASE_URL`.
+
+1. Confira qual banco está configurado e rode `npm run sessoes:limpar`. O diagnóstico informa o host e o nome do banco sem credenciais, a referência UTC, o limite e a contagem de sessões vencidas. Não altera tabelas.
+2. Confira o diagnóstico. Para remover um único lote, rode `npm run sessoes:limpar -- --aplicar`. O limite padrão é 100. Use `--lote 1` até `--lote 1000` para escolher o tamanho.
+3. Confira as quantidades selecionada e efetivamente removida. Faça outro diagnóstico antes de decidir sobre uma nova aplicação. O diagnóstico anterior não reserva as linhas e cada execução tem sua própria referência.
+
+A referência é o menor instante entre o início local e a leitura do relógio do PostgreSQL. Ela permanece fixa durante a execução. Relógios atrasados podem adiar a limpeza, mas o computador de manutenção adiantado não faz apagar sessões que o banco ainda considera futuras. As máquinas da aplicação e do banco precisam manter seus relógios sincronizados, como na autenticação existente.
+
+A seleção lê somente IDs, filtra `expiraEm <= referência`, ordena por vencimento e ID e aplica o limite. O DELETE inclui os IDs selecionados e confere novamente o vencimento. Uma renovação ou saída concorrente pode reduzir o total removido. Uma seleção vazia não dispara DELETE. Não há repetição automática, mudança de esquema, índice novo, rota pública ou agendamento.
+
+O comando não imprime IDs, hashes, e-mails ou a conexão completa, nem repassa mensagens brutas do driver. Opções inválidas falham antes de abrir conexão. Uma falha de leitura não solicita exclusão. Se a confirmação do DELETE falhar, o resultado é indeterminado. Faça novo diagnóstico antes de repetir. A conexão é encerrada em `finally`, inclusive em falha, antes de anunciar sucesso.
+
+A remoção confirmada não é desfeita ao retirar o código. Não recrie sessões apagadas. Contas, links por e-mail, tentativas, pedidos, conteúdo, mídia, auditoria e backups ficam fora desta operação. Este recorte não encerra a política de retenção da #111. As provas usam somente PostgreSQL descartável e dados sintéticos em `tests/db/limpeza-sessoes.test.ts` e `tests/unit/limpeza-sessoes.test.ts`.
 
 ### Pôr ou trocar a foto de uma cidade
 

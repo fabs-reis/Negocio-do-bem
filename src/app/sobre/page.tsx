@@ -63,6 +63,10 @@ export default function Sobre() {
           Se outra pessoa já assumiu o seu perfil, use a mesma página para pedir a revisão. Qualquer disputa vai para a
           moderação, e todas as decisões ficam registradas.
         </p>
+        <p>
+          Negócios com CNPJ também podem oferecer cupons de desconto no <strong>Clube do Bem</strong>, de graça.{" "}
+          <Link href="/clube-do-bem">Veja como funciona</Link>.
+        </p>
 
         <h2 id="privacidade" className="scroll-mt-24">
           Privacidade e remoção
@@ -76,7 +80,8 @@ export default function Sobre() {
           aparecem no site: só a moderação vê. O e-mail serve para você entrar e para receber avisos sobre os seus
           pedidos e o seu negócio, como a decisão da moderação ou um depoimento novo. O telefone serve só para esses
           avisos, nunca para divulgação. Se você entra com o Google, guardamos também o número que o
-          Google dá à sua conta, para reconhecê-la da próxima vez. Dos negócios, só o que aparece no perfil:
+          Google dá à sua conta, para reconhecê-la da próxima vez. Os seus negócios favoritos ficam guardados também: só
+          você vê essa lista, e o perfil do negócio mostra apenas quantas pessoas o favoritaram. Dos negócios, só o que aparece no perfil:
           textos, fotos e contatos públicos.
           Não fazemos raspagem do Instagram e não guardamos tokens de acesso.
         </p>

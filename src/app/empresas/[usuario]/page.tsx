@@ -3,10 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { denunciarDepoimento } from "@/acoes/depoimentos";
+import { gerarCupomAcao } from "@/acoes/ofertas";
 import { AvisoDaUrl } from "@/components/Avisos";
+import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { BotaoCopiarLink } from "@/components/BotaoCopiarLink";
 import { CapaDoNegocio } from "@/components/CapaDoNegocio";
 import { CausaBadge } from "@/components/CausaBadge";
+import { CoracaoFavorito, type EstadoFavorito } from "@/components/CoracaoFavorito";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { EmpresaLinha } from "@/components/EmpresaLinha";
 import { Historia } from "@/components/Historia";
@@ -14,17 +17,20 @@ import { JsonLd } from "@/components/JsonLd";
 import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { InstagramIcone, WhatsAppIcone } from "@/components/Icones";
 import { LinkInstagram } from "@/components/LinkInstagram";
+import { Prazo } from "@/components/Prazo";
 import { SeloStatus } from "@/components/SeloStatus";
 import { usuarioAtual, type UsuarioSessao } from "@/lib/auth/sessao";
 import { buscarCausa, filtrarCausas, GRUPOS, type GrupoCausa } from "@/lib/causas";
-import { buscarPerfil, ehDono, negociosParecidos, podeVerPerfil } from "@/lib/consultas";
+import { db } from "@/lib/db";
+import { buscarPerfil, coracoesDaLista, ehDono, negociosParecidos, podeVerPerfil } from "@/lib/consultas";
 import { hrefCausa, hrefTipo, temPaginaDeTipo } from "@/lib/diretorio";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { linkPerfil, normalizarEndereco } from "@/lib/instagram";
 import { medirContato, type CanalDeContato } from "@/lib/medicao";
+import { rotuloDoDesconto, rotuloOndeVale } from "@/lib/ofertas";
 import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } from "@/lib/seo";
-import { formatarData, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
+import { formatarData, formatarFavoritos, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
@@ -62,6 +68,18 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   const publico = empresa.moderacao === "aprovada" && !empresa.oculta;
   // Os cliques nos contatos contam no Analytics só quando vêm do público, não do dono.
   const contato = publico && !dono ? empresa : undefined;
+  // Só um negócio do diretório pode ser favoritado, e o dono não favorita o próprio (sem coração).
+  const coracao = publico
+    ? (await coracoesDaLista(usuario, [empresa.id], `/empresas/${empresa.instagramUsername}`))(empresa.id)
+    : undefined;
+  // Parceiro do Clube do Bem: um dono liberado pela moderação, que ainda é dono.
+  const parceiro = empresa.liberacoesClube.some((liberacao) => empresa.membros.some((m) => m.usuarioId === liberacao.usuarioId));
+  // A hora atual só depois da sessão e dos parâmetros: o Cache Components não deixa antes.
+  const oferta = publico && empresa.ofertas[0] && empresa.ofertas[0].fim > new Date() ? empresa.ofertas[0] : undefined;
+  const meuCupom =
+    oferta && usuario
+      ? await db.cupom.findUnique({ where: { ofertaId_usuarioId: { ofertaId: oferta.id, usuarioId: usuario.id } }, select: { codigo: true } })
+      : null;
 
   return (
     <article>
@@ -86,7 +104,12 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
             <FotoEmpresa empresa={empresa} tamanho="lg" />
           </div>
           <div className="min-w-0 flex-1 space-y-2">
-            <SeloStatus status={empresa.status} />
+            <div className="flex flex-wrap items-center gap-2">
+              <SeloStatus status={empresa.status} />
+              {parceiro && (
+                <span className="rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-700">Parceiro do Clube do Bem</span>
+              )}
+            </div>
             <h1 className="font-serif text-[clamp(1.75rem,5vw,2.625rem)] leading-[1.1] font-semibold tracking-tight text-balance">{empresa.nome}</h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-suave">
               {/* Sem WhatsApp, o botão principal já leva ao Instagram: não repete o link aqui. */}
@@ -114,18 +137,23 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
                 </span>
               )}
             </p>
-            <Acoes empresa={empresa} medir={!!contato} compartilhar={publico} />
+            <Acoes empresa={empresa} medir={!!contato} compartilhar={publico} favorito={coracao} />
           </div>
         </header>
 
         <p className="mx-1 mt-8 max-w-[52ch] border-l-[3px] border-coral py-0.5 pl-4 font-serif text-[1.375rem] leading-snug font-medium text-tinta italic text-pretty sm:mx-6">{empresa.resumo}</p>
 
         {(dono || usuario?.moderador) && (
-          <div className="mt-6 px-1 sm:px-6">
+          <div className="mt-6 flex flex-wrap items-center gap-3 px-1 sm:px-6">
             {dono ? (
-              <Link href={`/painel/${empresa.instagramUsername}`} className="botao">
-                Editar meu perfil
-              </Link>
+              <>
+                <Link href={`/painel/${empresa.instagramUsername}`} className="botao">
+                  Editar meu perfil
+                </Link>
+                {publico && empresa._count.favoritos > 0 && (
+                  <span className="text-sm text-suave">{formatarFavoritos(empresa._count.favoritos)}</span>
+                )}
+              </>
             ) : (
               <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao">
                 Editar perfil (moderação)
@@ -138,6 +166,16 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
       <div className="mx-auto mt-10 grid max-w-5xl gap-x-12 gap-y-2 border-t border-linha px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <aside className="pt-8 lg:col-start-2 lg:row-start-1 lg:pt-12">
           <div className="space-y-4 lg:sticky lg:top-24">
+            {oferta && (
+              <OfertaDoClube
+                empresa={empresa}
+                oferta={oferta}
+                logado={!!usuario}
+                dono={dono}
+                favorito={!!coracao?.favorito}
+                meuCupom={meuCupom?.codigo}
+              />
+            )}
             <CartaoDeContato empresa={empresa} medir={!!contato} lugarComLink={publico} />
           </div>
         </aside>
@@ -189,11 +227,24 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
   );
 }
 
-/** O que a pessoa pode fazer logo no topo: o contato principal e compartilhar. */
-function Acoes({ empresa, medir, compartilhar }: { empresa: Perfil; medir: boolean; compartilhar: boolean }) {
+/**
+ * O que a pessoa pode fazer logo no topo: o contato principal, favoritar (com quantas pessoas
+ * já favoritaram) e compartilhar. Sem `favorito`, não há coração: o dono não favorita o próprio.
+ */
+function Acoes({
+  empresa,
+  medir,
+  compartilhar,
+  favorito,
+}: {
+  empresa: Perfil;
+  medir: boolean;
+  compartilhar: boolean;
+  favorito?: EstadoFavorito;
+}) {
   const instagram = temInstagram(empresa.instagramUsername);
   const medida = (canal: CanalDeContato) => (medir ? medirContato(canal, empresa) : {});
-  if (!empresa.whatsapp && !instagram && !compartilhar) return null;
+  if (!empresa.whatsapp && !instagram && !compartilhar && !favorito) return null;
   return (
     <div className="flex flex-wrap items-center gap-2 pt-3">
       {empresa.whatsapp ? (
@@ -226,6 +277,88 @@ function Acoes({ empresa, medir, compartilhar }: { empresa: Perfil; medir: boole
           Compartilhar
         </BotaoCopiarLink>
       )}
+      {favorito && <CoracaoFavorito estado={favorito} nome={empresa.nome} comTexto total={empresa._count.favoritos} />}
+    </div>
+  );
+}
+
+/**
+ * A oferta do Clube do Bem que está valendo, na coluna do lado. Quem favoritou gera o cupom
+ * com um toque; quem não favoritou, gera e favorita junto. O cupom aparece aqui mesmo.
+ */
+function OfertaDoClube({
+  empresa,
+  oferta,
+  logado,
+  dono,
+  favorito,
+  meuCupom,
+}: {
+  empresa: Perfil;
+  oferta: Perfil["ofertas"][number];
+  logado: boolean;
+  dono: boolean;
+  favorito: boolean;
+  meuCupom?: string;
+}) {
+  const restam = oferta.limite === null ? null : Math.max(0, oferta.limite - oferta.cuponsGerados);
+  const perfil = `/empresas/${empresa.instagramUsername}`;
+  return (
+    <div id="clube" className="cartao scroll-mt-24 space-y-3 border-coral/40 p-5">
+      <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">🎟️ Clube do Bem</p>
+      <div>
+        <p className="font-serif text-xl leading-snug font-semibold">{oferta.titulo}</p>
+        <p className="mt-1 text-sm text-suave">
+          {rotuloDoDesconto(oferta)} · {rotuloOndeVale(oferta.ondeVale)}
+        </p>
+      </div>
+      {oferta.condicoes && <p className="text-sm">{oferta.condicoes}</p>}
+      <p className="text-sm font-medium text-coral-700">
+        <Prazo fim={oferta.fim.toISOString()} />
+        {restam !== null && ` · ${restam === 1 ? "resta 1 cupom" : `restam ${restam} cupons`}`}
+      </p>
+      {meuCupom ? (
+        <div className="rounded-2xl bg-papel p-4">
+          <p className="text-xs text-suave">Seu cupom</p>
+          <p className="font-mono text-3xl tracking-[0.2em]">{meuCupom}</p>
+          <p className="mt-1 text-sm text-suave">
+            Mostre na hora da compra. Ele também fica em{" "}
+            <Link href="/cupons" className="link">
+              Meus cupons
+            </Link>
+            .
+          </p>
+        </div>
+      ) : dono ? (
+        <p className="text-sm text-suave">
+          É a oferta do seu negócio. Valide os cupons no{" "}
+          <Link href={`/painel/${empresa.instagramUsername}/clube`} className="link">
+            painel do clube
+          </Link>
+          .
+        </p>
+      ) : restam === 0 ? (
+        <p className="text-sm text-suave">Os cupons desta oferta acabaram.</p>
+      ) : !logado ? (
+        <Link href={`/entrar?voltar=${encodeURIComponent(`${perfil}#clube`)}`} className="botao-coral w-full">
+          Entre para gerar o cupom
+        </Link>
+      ) : (
+        <form action={gerarCupomAcao} className="space-y-2">
+          <input type="hidden" name="ofertaId" value={oferta.id} />
+          <BotaoEnviar className="botao-coral w-full" enviando="Gerando…">
+            {favorito ? "Gerar cupom" : "Favoritar e gerar cupom"}
+          </BotaoEnviar>
+          {!favorito && <p className="text-xs text-suave">Ao gerar o cupom, {empresa.nome} entra nos seus favoritos.</p>}
+        </form>
+      )}
+      <p className="text-xs leading-relaxed text-suave">
+        O Negócio do Bem nunca pede Pix nem pagamento para liberar cupom. O desconto vale na hora da compra, e quem garante é o
+        negócio.{" "}
+        <Link href="/clube-do-bem" className="link">
+          Como funciona
+        </Link>
+      </p>
     </div>
   );
 }
