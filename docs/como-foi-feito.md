@@ -618,6 +618,18 @@ Nos primeiros testes do clube em produção, a conta que assumiu um perfil não 
 - **A remoção trava a linha do negócio** (`FOR NO KEY UPDATE`) antes de contar os donos que sobraram. Assim, duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, não deixam um perfil sem dono marcado como assumido.
 - **Confirmação no servidor também.** A caixa "Confirmo" é `required` no HTML, e a ação confere `confirmo=sim` de novo, porque uma Server Action pode ser chamada sem o formulário.
 - **A transferência continua como era.** Quem sai dos donos numa transferência não recebe e-mail, e as ofertas que criou não são suspensas. Fica para outra issue, se a moderação precisar.
+
+### 7 de novembro: o dono pede a troca do @, e a moderação aprova ([#299](https://github.com/fabs-reis/Negocio-do-bem/issues/299))
+
+O [#298](https://github.com/fabs-reis/Negocio-do-bem/issues/298) deixou o dono trocar o @ direto no painel, com o endereço antigo levando ao novo. No mesmo dia, um negócio entrou com o @ errado (`@fabsreis` em vez de `@ofabsreis`), e a conversa sobre como corrigir mostrou o risco da troca direta. Agora o dono pede, e a moderação aprova numa fila nova. As regras estão em [Pedido de troca do @](regras-de-negocio.md#pedido-de-troca-do-).
+
+- **Pedido, e não troca direta.** O dono pode ter assumido o perfil só com os dados do negócio, sem provar que controla o Instagram. Com a troca direta, ele poderia pôr o @ de outro negócio que ainda não está no site. A fila mostra o que a Meta enxerga do @ novo (nome, site e seguidores), para a moderação conferir sem sair da tela.
+- **A troca aprovada é a do #298.** O pedido só decide quando ela acontece: a aprovação chama `trocarArroba` como troca da moderação, com o redirecionamento do endereço antigo e sem suspender o Clube do Bem, porque a moderação já conferiu o @. A troca direta continua na edição do perfil pela moderação.
+- **Tabela própria (`TrocaDeArroba`).** Guarda o @ de antes e o pedido, quem pediu e quem decidiu. Um negócio pode ter vários pedidos ao longo do tempo, e o histórico fica na tabela, não só na auditoria.
+- **Um pedido em análise por negócio.** O pedido trava a linha do negócio (`FOR NO KEY UPDATE`) antes de contar os pedidos em análise, como na cota de indicações.
+- **A aprovação confere de novo** se o @ do negócio ainda é o do pedido e se o @ novo continua livre, na mesma transação que troca o @.
+- **Os IDs do Instagram saem na troca.** `instagramUserId` e `instagramIgsid` eram da conta do @ antigo; mantê-los ligaria o negócio a uma conta que não é mais a dele.
+
 ---
 
 ## 4. Arquitetura
@@ -845,8 +857,8 @@ npm run typecheck
 | Peça | Onde | Observação |
 | --- | --- | --- |
 | Site | Cloudflare Workers, adaptador OpenNext | Produção na branch `main`; previews para `stage` e PRs. |
-| Banco de produção | PlanetScale Postgres (PS-5, nó único), São Paulo, criado e cobrado pelo Cloudflare | O Worker conecta pelo Hyperdrive `negocio-do-bem` (cache desligado, até 8 conexões; o PS-5 tem 25). O build usa a `DATABASE_URL`, direta e com `?sslmode=verify-full`. O Neon antigo ficou só para leitura, como reserva. |
-| Banco dos previews | Projeto Neon separado (da integração do Vercel) | Não compartilha credenciais de produção. Configure em Worker Previews. |
+| Banco de produção | PlanetScale Postgres (PS-5, nó único), São Paulo, criado e cobrado pelo Cloudflare | O Worker conecta pelo Hyperdrive `negocio-do-bem` (cache desligado, até 8 conexões; o PS-5 tem 25). O build usa a `DATABASE_URL`, direta e com `?sslmode=verify-full`. O Neon antigo, que ficou só para leitura como reserva depois da troca, foi apagado em 7 de novembro. |
+| Banco dos previews | Projeto Neon `negocio-do-bem-preview`, da integração do Vercel (plano Launch, cobrado por uso; custa centavos por mês) | Não compartilha credenciais de produção. O console do Neon abre pela Vercel (Storage → o banco → "Open in Neon"). Não use o "Delete Neon" da integração: ele apaga também este banco. |
 | Domínio | `www.negociodobem.com` como domínio personalizado do Worker | O domínio sem `www` passa pelo proxy do Cloudflare e uma regra de redirecionamento da zona manda para o `www` (301, com caminho e consulta). |
 | Fotos | Cloudflare R2 | Bucket privado para cache; bucket de uploads servido por domínio próprio em produção. Em POC, pode usar a Public Development URL (`r2.dev`), que expõe os objetos publicamente e tem limite de requisições. Configure buckets separados para produção e previews. |
 | Medição | Google Analytics 4 | `NEXT_PUBLIC_GA_ID` só nas variáveis de build da produção. |

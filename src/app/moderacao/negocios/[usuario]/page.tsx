@@ -70,7 +70,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/neg
 
       <Donos empresa={empresa} aviso={daSecao("dono_")} />
 
-      <EdicaoEmpresa empresa={empresa} voltar={`/moderacao/negocios/${empresa.instagramUsername}`} />
+      <EdicaoEmpresa empresa={empresa} voltar={`/moderacao/negocios/${empresa.instagramUsername}`} trocaDoArroba />
 
       <Clube
         empresa={empresa}

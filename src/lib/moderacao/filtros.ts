@@ -7,6 +7,7 @@ export const ABAS = {
   indicacoes: "Indicações",
   denuncias: "Denúncias",
   clube: "Clube do Bem",
+  arroba: "Trocas de @",
   negocios: "Negócios",
   contas: "Contas",
   depoimentos: "Depoimentos",
