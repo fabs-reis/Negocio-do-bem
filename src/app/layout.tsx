@@ -80,6 +80,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/explorar" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
                 Explorar
               </Link>
+              <Link href="/servicos" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">Serviços</Link>
               <Link href="/sobre" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
                 Como funciona
               </Link>
@@ -125,6 +126,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Comunidade</p>
               <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
+              <Link href="/servicos" className="block hover:text-tinta">Encontrar serviços</Link>
               <Link href="/cidades" className="block hover:text-tinta">Negócios por cidade</Link>
               <Link href="/embaixadores" className="block hover:text-tinta">Embaixadores do bem</Link>
               <Link href="/participar" className="block hover:text-tinta">Cadastrar um negócio</Link>

@@ -46,6 +46,7 @@ export function MenuModeracao({ aba, pendentes }: { aba: Aba; pendentes: Partial
           })}
         </div>
       ))}
+      <Link href="/moderacao/servicos" className="shrink-0 rounded-full bg-folha-50 px-4 py-2 text-sm font-semibold text-folha hover:underline lg:rounded-xl lg:px-3">Anúncios de serviços</Link>
     </nav>
   );
 }
