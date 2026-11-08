@@ -19,7 +19,7 @@
   const pagina = await contexto.newPage();
   const quadro = () => pagina.frames().find(frame => frame.url().endsWith("/api/analytics"));
   const eventos = async () => quadro()?.evaluate(() => (window.dataLayer || []).map(item => Array.from(item))) || [];
-  const loaders = () => externas.filter(item => item.url.includes("googletagmanager.com/gtag/js")).length;
+  const loaders = () => externas.filter(item => { const u = new URL(item.url); return u.hostname === "www.googletagmanager.com" && u.pathname === "/gtag/js"; }).length;
   const esperar = () => pagina.waitForTimeout(1200);
   const publico = `${base}/sobre?q=busca-sintetica%40example.invalid#fragmento-sintetico`;
   const cookie = nome => contexto.cookies().then(cookies => cookies.find(item => item.name === nome));
@@ -58,7 +58,7 @@
   await pagina.waitForFunction(() => window.__ndbProntoRecebido === true);
   await esperar();
   assert.ok(loaders() > 0, "aceitação permite somente o carregador interceptado");
-  assert.ok(externas.filter(item => item.url.includes("googletagmanager.com")).every(item => !item.referrer), "carregador sem referrer");
+  assert.ok(externas.filter(item => new URL(item.url).hostname === "www.googletagmanager.com").every(item => !item.referrer), "carregador sem referrer");
   const primeiraPagina = (await eventos()).find(item => item[0] === "event" && item[1] === "page_view");
   assert.ok(primeiraPagina, "page_view explícito");
   assert.equal(primeiraPagina[2].page_location, `${base}/sobre`);

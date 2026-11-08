@@ -121,18 +121,18 @@ describe("Analytics sujeito a consentimento", () => {
       const diretivas = new Map(
         politica!.split(";").map((trecho) => {
           const [nome, ...fontes] = trecho.trim().split(/\s+/);
-          return [nome, fontes] as const;
+          return [nome, new Set(fontes)] as const;
         }),
       );
 
       for (const nome of ["script-src", "style-src", "img-src", "font-src", "connect-src", "frame-src"]) {
         expect(diretivas.get(nome)).toBeDefined();
-        expect(diretivas.get(nome)!.includes("https://vercel.live")).toBe(preview);
+        expect(diretivas.get(nome)!.has("https://vercel.live")).toBe(preview);
       }
-      expect(diretivas.get("img-src")).toContain("https://vercel.live-fotos.example.com");
-      expect(diretivas.get("img-src")!.includes("https://vercel.com")).toBe(preview);
-      expect(diretivas.get("font-src")!.includes("https://assets.vercel.com")).toBe(preview);
-      expect(diretivas.get("connect-src")!.includes("wss://ws-us3.pusher.com")).toBe(preview);
+      expect(diretivas.get("img-src")!.has("https://vercel.live-fotos.example.com")).toBe(true);
+      expect(diretivas.get("img-src")!.has("https://vercel.com")).toBe(preview);
+      expect(diretivas.get("font-src")!.has("https://assets.vercel.com")).toBe(preview);
+      expect(diretivas.get("connect-src")!.has("wss://ws-us3.pusher.com")).toBe(preview);
     },
   );
 });
