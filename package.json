@@ -29,6 +29,7 @@
     "cidades:corrigir": "tsx scripts/corrigir-cidades.ts",
     "cidades:fotos": "tsx scripts/fotos-das-cidades.ts",
     "moderacao": "tsx scripts/moderacao.ts",
+    "sessoes:limpar": "tsx scripts/limpar-sessoes.ts",
     "marca:icones": "tsx scripts/gerar-icones.ts",
     "marca:fontes": "tsx scripts/gerar-fontes.ts"
   },
@@ -72,8 +73,11 @@
     "wrangler": "4.156.0"
   },
   "overrides": {
+    "@opennextjs/cloudflare": {
+      "glob": "14.0.3"
+    },
     "@node-minify/core": {
-      "glob": "^10.5.0"
+      "glob": "14.0.3"
     }
   },
   "engines": {

@@ -1,6 +1,7 @@
 import "server-only";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db } from "@/lib/db";
+import { suspenderOfertasQueValem } from "@/lib/ofertas";
 
 // Cada decisão só vale se o item ainda está como a moderação o viu. A escrita
 // condicional trava a linha até o fim da transação, então de duas decisões
@@ -24,6 +25,9 @@ export async function moderarNegocio(params: {
   return db.$transaction(async (tx) => {
     const { count } = await tx.empresa.updateMany({ where: { id: empresaId, moderacao: de }, data: { moderacao: decisao } });
     if (count === 0) return false;
+    if (decisao === "rejeitada") {
+      await suspenderOfertasQueValem(tx, { empresaId });
+    }
     const empresa = await tx.empresa.findUniqueOrThrow({ where: { id: empresaId }, select: { instagramUsername: true } });
     await registrarAuditoria(tx, {
       usuarioId: moderadorId,

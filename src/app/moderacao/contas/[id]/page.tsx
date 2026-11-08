@@ -23,7 +23,7 @@ export default function FichaDaConta(props: PageProps<"/moderacao/contas/[id]">)
   );
 }
 
-const TOM_DO_PEDIDO: Record<string, Tom> = { pendente: "atencao", aprovada: "bom", recusada: "alerta" };
+const TOM_DO_PEDIDO: Record<string, Tom> = { pendente: "atencao", aprovada: "bom", recusada: "alerta", revogada: "alerta" };
 
 async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "params">) {
   await exigirModerador();
@@ -170,7 +170,11 @@ async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "p
                   </>
                 )}
               </p>
-              {r.motivoRecusa && <p className="mt-1 text-coral-700">Motivo da recusa: {r.motivoRecusa}</p>}
+              {r.motivoRecusa && (
+                <p className="mt-1 text-coral-700">
+                  {r.status === "revogada" ? "Motivo da remoção" : "Motivo da recusa"}: {r.motivoRecusa}
+                </p>
+              )}
             </div>
             <Etiqueta tom={TOM_DO_PEDIDO[r.status] ?? "neutro"}>{STATUS_REIVINDICACAO[r.status] ?? r.status}</Etiqueta>
           </li>

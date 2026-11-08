@@ -19,12 +19,15 @@ import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
 import { perfilOficial } from "@/lib/instagram";
 import { ABAS, lerFiltros, type Aba } from "@/lib/moderacao/filtros";
+import { pendentesQueAprovamSozinhos } from "@/lib/reivindicacao";
 import { formatarDataHora, formatarTelefone } from "@/lib/texto";
 import { Auditoria } from "./Auditoria";
 import { Contas } from "./Contas";
 import { Depoimentos } from "./Depoimentos";
+import { Embaixadores } from "./Embaixadores";
 import { MenuModeracao } from "./MenuModeracao";
 import { Negocios } from "./Negocios";
+import { PedidosDoClube } from "./PedidosDoClube";
 import { Sistema } from "./Sistema";
 import { VisaoGeral } from "./VisaoGeral";
 
@@ -47,12 +50,13 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   const params = await searchParams;
   const filtros = lerFiltros(params);
 
-  const [reivindicacoes, indicacoes, denuncias] = await Promise.all([
+  const [reivindicacoes, indicacoes, denuncias, clube] = await Promise.all([
     db.reivindicacao.count({ where: { status: "pendente" } }),
     db.empresa.count({ where: { moderacao: "pendente" } }),
     db.depoimento.count({ where: { denunciado: true, status: "publicado" } }),
+    db.liberacaoClube.count({ where: { status: "pendente" } }),
   ]);
-  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias };
+  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias, clube };
 
   return (
     <div className="mt-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
@@ -66,9 +70,11 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
         {filtros.aba === "reivindicacoes" && <Reivindicacoes />}
         {filtros.aba === "indicacoes" && <Indicacoes />}
         {filtros.aba === "denuncias" && <Denuncias />}
+        {filtros.aba === "clube" && <PedidosDoClube />}
         {filtros.aba === "negocios" && <Negocios filtros={filtros} />}
         {filtros.aba === "contas" && <Contas filtros={filtros} />}
         {filtros.aba === "depoimentos" && <Depoimentos filtros={filtros} />}
+        {filtros.aba === "embaixadores" && <Embaixadores />}
         {filtros.aba === "auditoria" && <Auditoria filtros={filtros} />}
         {filtros.aba === "sistema" && <Sistema />}
       </div>
@@ -87,16 +93,7 @@ async function Reivindicacoes() {
         empresa: { include: { membros: { include: { usuario: { select: { id: true, nome: true, email: true } } } } } },
       },
     }),
-    // Um negócio por vez: se duas pessoas pediram o mesmo, só a primeira é aprovada.
-    db.reivindicacao.findMany({
-      where: {
-        status: "pendente",
-        metodo: "documento",
-        empresa: { moderacao: { not: "rejeitada" }, membros: { none: {} } },
-      },
-      distinct: ["empresaId"],
-      select: { id: true },
-    }),
+    pendentesQueAprovamSozinhos(),
   ]);
   const oficial = perfilOficial();
   const agora = new Date();
