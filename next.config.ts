@@ -4,16 +4,19 @@ import { ambienteDeDeploy } from "./src/lib/ambiente";
 const desenvolvimento = process.env.NODE_ENV === "development";
 const preview = ambienteDeDeploy() === "preview";
 const ANALYTICS = "https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com";
+// O Cloudflare injeta nas páginas o script do Web Analytics, que manda os dados para cloudflareinsights.com.
+const SCRIPT_DO_CLOUDFLARE = "https://static.cloudflareinsights.com";
+const ENVIOS_DO_CLOUDFLARE = "https://cloudflareinsights.com";
 const VERCEL_LIVE = "https://vercel.live";
 const dominioFotos = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ? ` ${new URL(process.env.NEXT_PUBLIC_R2_PUBLIC_URL).origin}` : "";
 
 const politicaDeConteudo = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${desenvolvimento ? " 'unsafe-eval'" : ""}${preview ? ` ${VERCEL_LIVE}` : ""}`,
+  `script-src 'self' 'unsafe-inline' ${SCRIPT_DO_CLOUDFLARE}${desenvolvimento ? " 'unsafe-eval'" : ""}${preview ? ` ${VERCEL_LIVE}` : ""}`,
   `style-src 'self' 'unsafe-inline'${preview ? ` ${VERCEL_LIVE}` : ""}`,
   `img-src 'self' data: blob:${dominioFotos}${preview ? ` ${VERCEL_LIVE} https://vercel.com` : ""}`,
   `font-src 'self' data:${preview ? ` ${VERCEL_LIVE} https://assets.vercel.com` : ""}`,
-  `connect-src 'self'${desenvolvimento ? " ws:" : ""}${preview ? ` ${VERCEL_LIVE} wss://ws-us3.pusher.com` : ""}`,
+  `connect-src 'self' ${ENVIOS_DO_CLOUDFLARE}${desenvolvimento ? " ws:" : ""}${preview ? ` ${VERCEL_LIVE} wss://ws-us3.pusher.com` : ""}`,
   `frame-src 'self'${preview ? ` ${VERCEL_LIVE}` : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
@@ -58,8 +61,9 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   experimental: {
     // Fotos chegam reduzidas pelo navegador, mas o padrão de 1 MB é apertado.
-    // O Vercel aceita até 4,5 MB por requisição.
-    serverActions: { bodySizeLimit: "4mb" },
+    // O documento da verificação (#293) leva até 2 arquivos de 5 MB; cada ação confere o
+    // tamanho dos seus arquivos de novo.
+    serverActions: { bodySizeLimit: "11mb" },
     // Sem conexão, navegações e Server Actions esperam a internet voltar em
     // vez de dar erro; o AvisoSemConexao avisa enquanto isso.
     useOffline: true,

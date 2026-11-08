@@ -2,6 +2,7 @@ import { FormFoto } from "@/components/FormFoto";
 import { fotoDe } from "@/components/FotoEmpresa";
 import { formatarTelefone } from "@/lib/texto";
 import { FormEmpresa } from "./FormEmpresa";
+import { FormInstagram } from "./FormInstagram";
 
 type Empresa = {
   id: string;
@@ -30,6 +31,8 @@ export function EdicaoEmpresa({ empresa, voltar }: { empresa: Empresa; voltar: s
         <h2 className="font-serif text-2xl font-semibold">Foto do perfil</h2>
         <FormFoto empresa={fotoDe(empresa)} voltar={voltar} />
       </section>
+
+      <FormInstagram empresa={empresa} voltar={voltar} />
 
       <FormEmpresa
         voltar={voltar}

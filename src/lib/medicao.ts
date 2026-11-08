@@ -13,7 +13,11 @@ export type Evento =
   | { nome: "login"; params: { method: MetodoDeAcesso } }
   | { nome: "negocio_cadastrado"; params: { tipo: TipoDeCadastro; categoria: string; uf: string; cidade: string; com_instagram: "sim" | "nao" } }
   | { nome: "perfil_reivindicado"; params: { method: "documento" | "instagram"; resultado: "verificada" | "em_analise" } }
-  | { nome: "depoimento_publicado"; params: { categoria: string } };
+  | { nome: "depoimento_publicado"; params: { categoria: string } }
+  | { nome: "negocio_favoritado"; params: { categoria: string; uf: string } }
+  | { nome: "oferta_criada"; params: { categoria: string; uf: string } }
+  | { nome: "cupom_gerado"; params: { categoria: string; uf: string } }
+  | { nome: "cupom_usado"; params: { categoria: string; uf: string } };
 
 export type EventoPermitido = { nome: string; params: Record<string, string> };
 export const PARAMETROS_EVENTOS: Record<string, Record<string, readonly string[]>> = {

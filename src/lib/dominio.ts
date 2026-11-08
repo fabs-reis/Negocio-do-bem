@@ -47,6 +47,8 @@ export const STATUS_REIVINDICACAO: Record<string, string> = {
   recusada: "Recusada",
   expirada: "Expirada",
   cancelada: "Cancelada",
+  // A moderação tirou a pessoa dos donos depois de aprovar.
+  revogada: "Removida pela moderação",
 };
 
 export const MODERACAO_EMPRESA: Record<string, string> = {
@@ -59,6 +61,14 @@ export const PAPEIS: Record<string, string> = {
   membro: "Membro",
   moderador: "Moderação",
 };
+
+/** Como a página da cidade chama quem é embaixador: "Embaixadora em Salvador". */
+export const TITULOS_EMBAIXADOR = {
+  embaixadora: "Embaixadora",
+  embaixador: "Embaixador",
+  "pessoa-embaixadora": "Pessoa embaixadora",
+} as const;
+export type TituloEmbaixador = keyof typeof TITULOS_EMBAIXADOR;
 
 export const STATUS_DEPOIMENTO: Record<string, string> = {
   publicado: "Publicado",
@@ -82,13 +92,30 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "reivindicacao.aprovada": "Aprovou um pedido de reivindicação",
   "reivindicacao.aprovada_com_transferencia": "Aprovou um pedido e transferiu o negócio",
   "reivindicacao.recusada": "Recusou um pedido de reivindicação",
+  "empresa.dono_removido": "Tirou um dono do negócio",
   "depoimento.mantido": "Manteve um depoimento denunciado",
   "depoimento.removido": "Removeu um depoimento denunciado",
   "usuario.senha_trocada": "Trocou a própria senha no painel",
   "usuario.senha_redefinida": "Trocou a senha pelo link do e-mail",
   "usuario.moderacao_dada": "Deu a moderação a uma conta",
   "usuario.moderacao_tirada": "Tirou a moderação de uma conta",
+  "embaixador.criado": "Cadastrou um embaixador",
+  "embaixador.editado": "Editou um embaixador",
+  "embaixador.excluido": "Excluiu um embaixador",
+  "embaixador.foto_trocada": "Trocou a foto de um embaixador",
+  "embaixador.foto_removida": "Removeu a foto de um embaixador",
+  "embaixador.foto_do_instagram": "Colocou a foto do Instagram num embaixador",
+  "clube.pedido": "Pediu a verificação para o Clube do Bem",
+  "clube.documento_visto": "Abriu o documento de um pedido do Clube do Bem",
+  "clube.liberado": "Liberou um dono para o Clube do Bem",
+  "clube.recusado": "Recusou um pedido do Clube do Bem",
+  "clube.suspenso": "Suspendeu um dono do Clube do Bem",
+  "oferta.criada": "Criou uma oferta do Clube do Bem",
+  "oferta.encerrada": "Encerrou uma oferta do Clube do Bem",
 };
+
+/** A caixa de e-mail do projeto, para quem quer falar com a equipe (ex.: ser embaixador). */
+export const EMAIL_DO_PROJETO = "ola@negociodobem.com";
 
 /** Onde fica o código aberto do projeto. */
 export const REPOSITORIO = "https://github.com/fabs-reis/Negocio-do-bem";

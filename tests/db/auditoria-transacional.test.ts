@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { apagarFoto } from "@/lib/armazenamento";
 import { aprovarReivindicacao, decidirDenuncia, moderarEmpresa, publicarIndicacoesPendentes, recusarReivindicacao } from "@/acoes/moderacao";
 import { alternarVisibilidade, indicarEmpresa, removerFoto, salvarEmpresa, trocarFoto } from "@/acoes/empresas";
+import { excluirEmbaixador, removerFotoDoEmbaixador, salvarEmbaixador, trocarFotoDoEmbaixador } from "@/acoes/embaixadores";
 
 const identidade = vi.hoisted(() => ({ id: "", nome: "Pessoa de teste", email: "pessoa@exemplo.com", moderador: true, emailConfirmado: true }));
 const FOTO_ANTIGA = "/enviados/perfis/antiga.jpg";
@@ -31,6 +32,7 @@ let empresaId: string;
 let depoimentoId: string;
 let reivindicacaoId: string;
 let solicitanteId: string;
+let embaixadorId: string;
 
 function formulario(campos: Record<string, string> = {}) {
   const dados = new FormData();
@@ -53,16 +55,34 @@ function edicao() {
   return dados;
 }
 
-function foto() {
-  const dados = formulario();
+function foto(dados = formulario()) {
   dados.set("foto", new File([new Uint8Array([0xff, 0xd8, 0xff])], "foto.jpg", { type: "image/jpeg" }));
   return dados;
+}
+
+function doEmbaixador(campos: Record<string, string> = {}) {
+  const dados = new FormData();
+  for (const [campo, valor] of Object.entries({ embaixadorId, ...campos })) dados.set(campo, valor);
+  return dados;
+}
+
+function edicaoDoEmbaixador() {
+  return doEmbaixador({
+    instagram: "embaixadora.teste",
+    nome: "Nome atualizado",
+    titulo: "embaixadora",
+    abrangencia: "estado",
+    uf: "PE",
+    ordem: "1",
+    naInicial: "sim",
+    ativo: "sim",
+  });
 }
 
 async function limparBanco() {
   await db.$executeRawUnsafe('ALTER TABLE "RegistroAuditoria" DROP CONSTRAINT IF EXISTS "falha_auditoria_teste"');
   await db.$executeRawUnsafe(
-    'TRUNCATE "RegistroAuditoria", "Depoimento", "Reivindicacao", "EmpresaMembro", "EmpresaCausa", "Empresa", "Sessao", "Usuario" CASCADE',
+    'TRUNCATE "RegistroAuditoria", "Depoimento", "Reivindicacao", "EmpresaMembro", "EmpresaCausa", "Empresa", "Embaixador", "Sessao", "Usuario" CASCADE',
   );
 }
 
@@ -97,6 +117,10 @@ beforeEach(async () => {
     data: { empresaId, autorId: autor.id, texto: "Um depoimento sobre o negócio.", denunciado: true, motivoDenuncia: "Motivo original", denunciadoPorId: pessoa.id },
   });
   depoimentoId = depoimento.id;
+  const embaixador = await db.embaixador.create({
+    data: { instagramUsername: "embaixadora.teste", nome: "Nome original", cidade: "Recife", uf: "PE", fotoUrl: FOTO_ANTIGA },
+  });
+  embaixadorId = embaixador.id;
 });
 
 afterEach(async () => {
@@ -230,6 +254,43 @@ const casos = [
       expect(await db.empresa.count({ where: { instagramUsername: "novo.negocio" } })).toBe(alterada ? 1 : 0);
     },
   },
+  {
+    nome: "edição do embaixador",
+    acao: () => salvarEmbaixador(undefined, edicaoDoEmbaixador()),
+    registro: "embaixador.editado",
+    conferir: async (alterada: boolean) => {
+      const embaixador = await db.embaixador.findUniqueOrThrow({ where: { id: embaixadorId } });
+      expect(embaixador.nome).toBe(alterada ? "Nome atualizado" : "Nome original");
+      expect(embaixador.cidade).toBe(alterada ? null : "Recife");
+    },
+  },
+  {
+    nome: "troca da foto do embaixador",
+    acao: () => trocarFotoDoEmbaixador(undefined, foto(doEmbaixador())),
+    registro: "embaixador.foto_trocada",
+    conferir: async (alterada: boolean) => {
+      expect((await db.embaixador.findUniqueOrThrow({ where: { id: embaixadorId } })).fotoUrl).toBe(alterada ? FOTO_NOVA : FOTO_ANTIGA);
+      if (!alterada) expect(apagarFoto).not.toHaveBeenCalled();
+    },
+  },
+  {
+    nome: "remoção da foto do embaixador",
+    acao: () => removerFotoDoEmbaixador(doEmbaixador()),
+    registro: "embaixador.foto_removida",
+    conferir: async (alterada: boolean) => {
+      expect((await db.embaixador.findUniqueOrThrow({ where: { id: embaixadorId } })).fotoUrl).toBe(alterada ? null : FOTO_ANTIGA);
+      if (!alterada) expect(apagarFoto).not.toHaveBeenCalled();
+    },
+  },
+  {
+    nome: "exclusão do embaixador",
+    acao: () => excluirEmbaixador(doEmbaixador()),
+    registro: "embaixador.excluido",
+    conferir: async (alterada: boolean) => {
+      expect(await db.embaixador.count({ where: { id: embaixadorId } })).toBe(alterada ? 0 : 1);
+      if (!alterada) expect(apagarFoto).not.toHaveBeenCalled();
+    },
+  },
 ];
 
 describe("alteração e auditoria na mesma transação", () => {
@@ -260,6 +321,19 @@ describe("alteração e auditoria na mesma transação", () => {
     vi.mocked(apagarFoto).mockImplementationOnce(async () => {
       expect((await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).fotoUrl).toBe(url);
       expect(await db.registroAuditoria.count({ where: { alvoId: empresaId } })).toBe(1);
+    });
+
+    await expect(acao()).rejects.toThrow(/^REDIRECIONAR:/);
+    expect(apagarFoto).toHaveBeenCalledExactlyOnceWith(FOTO_ANTIGA);
+  });
+
+  it.each([
+    { nome: "trocar", acao: () => trocarFotoDoEmbaixador(undefined, foto(doEmbaixador())), url: FOTO_NOVA },
+    { nome: "remover", acao: () => removerFotoDoEmbaixador(doEmbaixador()), url: null },
+  ])("só apaga a foto antiga do embaixador após confirmar o banco e a auditoria ao $nome", async ({ acao, url }) => {
+    vi.mocked(apagarFoto).mockImplementationOnce(async () => {
+      expect((await db.embaixador.findUniqueOrThrow({ where: { id: embaixadorId } })).fotoUrl).toBe(url);
+      expect(await db.registroAuditoria.count({ where: { alvoId: embaixadorId } })).toBe(1);
     });
 
     await expect(acao()).rejects.toThrow(/^REDIRECIONAR:/);

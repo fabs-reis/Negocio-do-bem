@@ -1,9 +1,11 @@
 import "server-only";
 import { cache } from "react";
+import type { EstadoFavorito } from "@/components/CoracaoFavorito";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
 import { db, type Prisma } from "@/lib/db";
 import { interpretarLocal, slugCidade, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
 import { nomeOficial } from "@/lib/municipios";
+import { condicaoDeOfertaAtiva } from "@/lib/ofertas";
 import { normalizarTexto } from "@/lib/texto";
 
 export const POR_PAGINA = 18;
@@ -137,6 +139,7 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
       include: {
         causas: { select: { causa: true } },
         _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+        ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
       },
     }),
     db.empresa.groupBy({ by: ["categoria"], where: condicao(filtros, lugar, "tipos"), _count: { _all: true } }),
@@ -174,6 +177,26 @@ export async function listarParaSitemap() {
   });
 }
 
+/**
+ * Outros negócios do diretório na mesma cidade, para o fim do perfil. Os do mesmo
+ * tipo vêm primeiro; dentro de cada grupo, a ordem do diretório (assumidos primeiro).
+ */
+export async function negociosParecidos(empresa: { id: string; cidade: string; uf: string; categoria: string }, limite = 4) {
+  const candidatos = await db.empresa.findMany({
+    where: { ...NO_DIRETORIO, cidade: empresa.cidade, uf: empresa.uf, id: { not: empresa.id } },
+    orderBy: ORDENACAO.verificados,
+    take: 24,
+    include: {
+      causas: { select: { causa: true } },
+      _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+      ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
+    },
+  });
+  const mesmoTipo = candidatos.filter((c) => c.categoria === empresa.categoria);
+  const outros = candidatos.filter((c) => c.categoria !== empresa.categoria);
+  return [...mesmoTipo, ...outros].slice(0, limite);
+}
+
 export async function buscarPerfil(username: string) {
   return db.empresa.findUnique({
     where: { instagramUsername: username },
@@ -181,6 +204,12 @@ export async function buscarPerfil(username: string) {
       causas: { select: { causa: true } },
       membros: { select: { usuarioId: true } },
       indicadaPor: { select: { nome: true } },
+      _count: { select: { favoritos: true } },
+      // A oferta ativa mais recente do Clube do Bem (a página confere se o prazo ainda vale: com o
+      // Cache Components, a hora atual só pode ser lida depois da sessão) e quem pode criar
+      // ofertas (o selo de parceiro).
+      ofertas: { where: { status: "ativa" }, orderBy: { fim: "desc" }, take: 1 },
+      liberacoesClube: { where: { status: "liberada" }, select: { usuarioId: true } },
       depoimentos: {
         where: { status: "publicado" },
         orderBy: { criadoEm: "desc" },
@@ -188,6 +217,54 @@ export async function buscarPerfil(username: string) {
       },
     },
   });
+}
+
+/**
+ * O coração de cada negócio de uma lista, com uma consulta só para a lista toda. Quem não
+ * entrou vê o convite para entrar, e o dono não vê o coração nos próprios negócios
+ * (`undefined`). `voltar` é a página a que o login devolve a pessoa.
+ */
+export async function coracoesDaLista(
+  usuario: UsuarioSessao | null,
+  empresaIds: string[],
+  voltar: string,
+): Promise<(empresaId: string) => EstadoFavorito | undefined> {
+  if (!usuario) return (empresaId) => ({ empresaId, logado: false, favorito: false, voltar });
+  const [favoritas, proprias] = await Promise.all([
+    db.empresaFavorita.findMany({ where: { usuarioId: usuario.id, empresaId: { in: empresaIds } }, select: { empresaId: true } }),
+    db.empresaMembro.findMany({ where: { usuarioId: usuario.id, empresaId: { in: empresaIds } }, select: { empresaId: true } }),
+  ]);
+  const favoritos = new Set(favoritas.map((f) => f.empresaId));
+  const dono = new Set(proprias.map((m) => m.empresaId));
+  return (empresaId) => (dono.has(empresaId) ? undefined : { empresaId, logado: true, favorito: favoritos.has(empresaId), voltar });
+}
+
+/**
+ * Uma página dos favoritos da pessoa, do favoritado mais recentemente ao mais antigo.
+ * Os que saíram do diretório não aparecem, mas continuam favoritos: se voltarem, voltam à lista.
+ */
+export async function buscarFavoritos(usuarioId: string, paginaPedida: number) {
+  const onde = { usuarioId, empresa: NO_DIRETORIO } satisfies Prisma.EmpresaFavoritaWhereInput;
+  const total = await db.empresaFavorita.count({ where: onde });
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  // Uma página além da última (depois de tirar favoritos, por exemplo) mostra a última.
+  const pagina = Math.min(paginaPedida, paginas);
+  const itens = await db.empresaFavorita.findMany({
+    where: onde,
+    orderBy: { criadoEm: "desc" },
+    skip: (pagina - 1) * POR_PAGINA,
+    take: POR_PAGINA,
+    include: {
+      empresa: {
+        include: {
+          causas: { select: { causa: true } },
+          _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+          ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
+        },
+      },
+    },
+  });
+  return { total, paginas, pagina, empresas: itens.map((item) => item.empresa) };
 }
 
 type EmpresaVisivel = {
