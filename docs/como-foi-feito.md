@@ -642,6 +642,16 @@ Quem instalou o app não tem a barra do navegador, e o menu ficava atrás de um 
 - **Validar tem tela própria,** mas o painel do clube continua validando. O cartão do cupom conferido (`CupomConferido`) virou um componente dos dois lugares, e a ação `usarCupomAcao` volta para a tela de onde o dono veio.
 - **`viewportFit: "cover"`** no layout: sem ele o iPhone não informa a área do botão home, e a barra ficaria por cima dele.
 
+### 7 de novembro: a conta nova vem com o contato do cadastro ([#317](https://github.com/fabs-reis/Negocio-do-bem/issues/317))
+
+Quem cadastrava o próprio negócio sem ter conta digitava o e-mail e o telefone duas vezes: na etapa "Como a gente fala com você?" e de novo no `/cadastrar`. As regras estão em [Cadastro e login](regras-de-negocio.md#cadastro-e-login).
+
+- **O mesmo rascunho do navegador, e não a URL.** O cadastro já guardava as respostas em `ndb:cadastro` antes de mandar a pessoa criar a conta. O formulário da conta lê esse rascunho, e nenhum dado pessoal vai no endereço, onde ficaria no histórico e nos logs de acesso.
+- **A leitura do aparelho virou um módulo só** (`src/components/rascunho-no-aparelho.ts`), usado pelo cadastro por etapas e pelos formulários da conta. A chave e o caminho de volta (`VOLTA_AO_CADASTRO`) ficam em `src/lib/rascunho-do-cadastro.ts`, junto com a regra (`voltaAoCadastro` e `contatoDoRascunho`), que tem testes em `tests/unit/`.
+- **Sem remontar o formulário.** O rascunho só existe depois da hidratação. Os campos são não controlados, e o React atualiza o `defaultValue`: o campo ainda intocado mostra o valor novo, e o que a pessoa já digitou fica.
+- **O nome não vem.** O cadastro pede o nome do negócio, não o da pessoa. Um campo de nome no cadastro só mudaria a digitação de lugar.
+- **Pelo Google, só o telefone.** O e-mail da conta é o que o Google verificou, e a regra de quem veio do cadastro usa o `voltar` guardado no `CadastroGoogle`.
+
 ## 4. Arquitetura
 
 ### A stack e por que cada peça

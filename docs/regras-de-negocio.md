@@ -67,6 +67,10 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - senha de 8 a 200 caracteres.
 - **Contas sem telefone:** as criadas antes do telefone ser obrigatório ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191)) continuam sem ele e funcionam igual. Ninguém é obrigado a informar depois.
 - **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?").
+- **Conta criada no meio do cadastro de um negócio:** o formulário já vem com o e-mail e o telefone que o dono deu na etapa "Como a gente fala com você?", com o aviso "Trouxemos o contato que você deu no cadastro do negócio. Pode mudar." ([#317](https://github.com/fabs-reis/Negocio-do-bem/issues/317)).
+  - Os dois vêm do rascunho do navegador (`ndb:cadastro`, veja [O cadastro por etapas](#o-cadastro-por-etapas)), nunca pela URL, e só quando o `voltar` leva de volta ao cadastro (`/participar?continuar=1`). Em outra entrada no `/cadastrar`, o formulário começa vazio.
+  - Quem só indicou não deu contato, e nada é preenchido. O nome da pessoa continua sendo pedido aqui: o cadastro do negócio não pede.
+  - Os valores são só o começo: a pessoa muda o que quiser, e o servidor valida tudo como em qualquer cadastro.
 - **Login** (`/entrar`): e-mail e senha.
   - Senha incorreta, conta inexistente e limite de tentativas mostram o mesmo erro, "E-mail ou senha incorretos". Sem IP confiável em produção, aparece o aviso temporário descrito abaixo.
   - Quando o e-mail não existe, a senha é conferida contra um hash falso, para a resposta levar o mesmo tempo e não revelar quais e-mails têm conta.
@@ -81,6 +85,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
     - Se não estava, a senha é apagada, as sessões abertas são encerradas e o e-mail passa a valer como confirmado. Quem criou a conta nunca provou ser dono do endereço: sem isso, alguém criaria a conta com o e-mail de outra pessoa e continuaria entrando com a senha depois que ela entrasse pelo Google.
   - **Sem conta com o e-mail:** a conta só é criada depois que a pessoa informa o telefone, que o Google não dá.
     - O retorno guarda quem o Google disse que é a pessoa (`CadastroGoogle`: o `sub`, o e-mail, o nome e o `voltar`) e leva a `/cadastrar/google`, "Falta só o seu telefone", que mostra o e-mail da conta do Google.
+    - Quem veio do cadastro de um negócio como dono encontra o telefone já preenchido com o que deu no cadastro, pela mesma regra do `/cadastrar` (o `voltar` guardado leva ao cadastro). O e-mail é sempre o do Google.
     - O cookie `ndb_google_cadastro` (`httpOnly`, `sameSite=lax`, só no caminho `/cadastrar/google`) leva o token. O banco guarda só o sha256 dele. O cadastro vale por 30 minutos; os vencidos são apagados quando outro é guardado.
     - Com o telefone válido, a conta é criada com o nome do Google (até 80 caracteres; sem nome, o começo do e-mail), o telefone, o e-mail confirmado e sem senha. O cadastro guardado é apagado, a sessão é aberta e a pessoa vai para o `voltar`.
     - Depois do prazo, a página diz que ele acabou e leva de volta ao `/cadastrar`. Se, enquanto isso, o e-mail foi ligado a outro Google, aparece "Este e-mail já está ligado a outra conta do Google" e nada é criado.
@@ -381,7 +386,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
   - Sem `META_ACCESS_TOKEN` e `META_IG_USER_ID`, não há prévia.
 - **Foto no cadastro:** depois de criar um negócio com Instagram, a foto da prévia vira a foto do perfil (`gravarFotoDaPrevia` em `src/lib/fotos-instagram.ts`), sem atrasar a resposta. Ela segue as regras da rotina de fotos: nunca troca uma foto já enviada e registra `empresa.foto_do_instagram` na auditoria. Sem prévia, a rotina tenta depois.
 - **Sem Instagram:** "O negócio não tem Instagram", na primeira etapa, pula a procura e oferece indicar ou cadastrar como dono. O resto das etapas é igual, e o negócio ganha um endereço feito do nome e da cidade ([seção 3](#identidade-o--do-instagram)).
-- **Conta no fim:** sem login, a última etapa pede para entrar ou criar a conta. As respostas ficam guardadas no navegador (`ndb:cadastro`) e voltam na revisão quando a pessoa retorna com `?continuar=1`. Publicar apaga o rascunho do navegador.
+- **Conta no fim:** sem login, a última etapa pede para entrar ou criar a conta. As respostas ficam guardadas no navegador (`ndb:cadastro`) e voltam na revisão quando a pessoa retorna com `?continuar=1`. Publicar apaga o rascunho do navegador. Criar a conta por ali já começa com o e-mail e o telefone do dono (veja [Cadastro e login](#cadastro-e-login)).
 
 ### As regras do envio
 
