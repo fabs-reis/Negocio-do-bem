@@ -29,7 +29,7 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 
 const { salvarEmpresa, alternarVisibilidade } = await import("@/acoes/empresas");
 const { moderarEmpresa } = await import("@/acoes/moderacao");
-const { default: MeusCupons } = await import("@/app/cupons/page");
+const { default: MeusCupons } = await import("@/app/cupons/meus/page");
 
 async function limparBanco() {
   await db.$executeRawUnsafe(
@@ -230,7 +230,7 @@ describe("cupons depois de suspensão do clube ou saída do negócio do ar (#304
     if (!("cupom" in gerado)) throw new Error("Falha ao gerar cupom.");
 
     Object.assign(sessao, { id: cliente.id, nome: cliente.nome, email: cliente.email, moderador: false });
-    const htmlVisivel = await renderizarPagina(<MeusCupons />);
+    const htmlVisivel = await renderizarPagina(<MeusCupons params={Promise.resolve({})} searchParams={Promise.resolve({})} />);
     expect(htmlVisivel).toContain('href="/empresas/padaria.flor"');
     expect(htmlVisivel).not.toContain("Este negócio saiu do diretório.");
 
@@ -238,7 +238,7 @@ describe("cupons depois de suspensão do clube ou saída do negócio do ar (#304
     await expect(alternarVisibilidade(formDe({ empresaId, ocultar: "sim" }))).rejects.toThrow("REDIRECIONAR:");
 
     Object.assign(sessao, { id: cliente.id, nome: cliente.nome, email: cliente.email, moderador: false });
-    const htmlOculto = await renderizarPagina(<MeusCupons />);
+    const htmlOculto = await renderizarPagina(<MeusCupons params={Promise.resolve({})} searchParams={Promise.resolve({})} />);
     expect(htmlOculto).toContain("Padaria Flor");
     expect(htmlOculto).not.toContain('href="/empresas/padaria.flor"');
     expect(htmlOculto).toContain("Este negócio saiu do diretório. O cupom vale no balcão até o fim da oferta.");

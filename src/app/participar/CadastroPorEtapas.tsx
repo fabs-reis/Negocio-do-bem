@@ -50,9 +50,9 @@ const ETAPA_DO_CAMPO: Record<string, Etapa> = {
   municipio: "onde",
   resumo: "onde",
   motivo: "causas",
+  whatsapp: "contatos",
   telefoneComercial: "contatos",
   site: "contatos",
-  whatsapp: "contatos",
   emailContato: "contatos",
   emailDoDono: "voce",
   telefoneDoDono: "voce",
@@ -241,9 +241,9 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       if (valor("resumo").length < 10) erros.resumo = "Escreva uma frase sobre o negócio.";
     }
     if (etapa === "contatos") {
-      if (!valor("telefoneComercial")) erros.telefoneComercial = "Qual é o telefone comercial do negócio?";
-      else if (!telefoneValido(valor("telefoneComercial"))) erros.telefoneComercial = "Confira o número, com o DDD.";
-      if (valor("whatsapp") && !telefoneValido(valor("whatsapp"))) erros.whatsapp = "Confira o número, com o DDD.";
+      if (!valor("whatsapp")) erros.whatsapp = "Qual é o WhatsApp do negócio?";
+      else if (!telefoneValido(valor("whatsapp"))) erros.whatsapp = "Confira o número, com o DDD.";
+      if (valor("telefoneComercial") && !telefoneValido(valor("telefoneComercial"))) erros.telefoneComercial = "Confira o número, com o DDD.";
       if (emailInvalido("emailContato")) erros.emailContato = "Esse e-mail não parece certo.";
     }
     if (etapa === "voce") {
@@ -453,23 +453,23 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
 
         {dono && (
           <>
-            <Secao etapa="contatos" atual={etapa} titulo="Como os clientes falam com o negócio?" subtitulo="Tudo isso vira botão no perfil. Só o telefone comercial é obrigatório.">
-              <Campo id="telefoneComercial" rotulo="Telefone comercial" erro={erro("telefoneComercial")}>
+            <Secao etapa="contatos" atual={etapa} titulo="Como os clientes falam com o negócio?" subtitulo="Tudo isso vira botão no perfil. Só o WhatsApp é obrigatório.">
+              <Campo id="whatsapp" rotulo="WhatsApp" erro={erro("whatsapp")}>
                 <input
-                  id="telefoneComercial"
-                  name="telefoneComercial"
+                  id="whatsapp"
+                  name="whatsapp"
                   type="tel"
                   maxLength={30}
-                  placeholder="(11) 3333-4444"
-                  defaultValue={inicial?.telefoneComercial ?? ""}
-                  onChange={() => limpar("telefoneComercial")}
-                  aria-invalid={erro("telefoneComercial") ? true : undefined}
+                  placeholder="(11) 99999-9999"
+                  defaultValue={inicial?.whatsapp ?? ""}
+                  onChange={() => limpar("whatsapp")}
+                  aria-invalid={erro("whatsapp") ? true : undefined}
                   className="campo"
                 />
               </Campo>
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Campo id="whatsapp" rotulo="WhatsApp (opcional)" erro={erro("whatsapp")}>
-                  <input id="whatsapp" name="whatsapp" type="tel" maxLength={30} placeholder="(11) 99999-9999" defaultValue={inicial?.whatsapp ?? ""} onChange={() => limpar("whatsapp")} className="campo" />
+                <Campo id="telefoneComercial" rotulo="Telefone comercial (opcional)" erro={erro("telefoneComercial")}>
+                  <input id="telefoneComercial" name="telefoneComercial" type="tel" maxLength={30} placeholder="(11) 3333-4444" defaultValue={inicial?.telefoneComercial ?? ""} onChange={() => limpar("telefoneComercial")} className="campo" />
                 </Campo>
                 <Campo id="emailContato" rotulo="E-mail do negócio (opcional)" erro={erro("emailContato")}>
                   <input id="emailContato" name="emailContato" type="email" maxLength={200} placeholder="contato@negocio.com.br" defaultValue={inicial?.emailContato ?? ""} onChange={() => limpar("emailContato")} className="campo" />
@@ -529,8 +529,8 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
             <dd>{!visto.causas?.length ? "nenhuma" : visto.causas.length === 1 ? "1 marcada" : `${visto.causas.length} marcadas`}</dd>
             {dono && (
               <>
-                <dt className="text-suave">Telefone comercial</dt>
-                <dd className="truncate">{visto.telefoneComercial ?? "—"}</dd>
+                <dt className="text-suave">WhatsApp</dt>
+                <dd className="truncate">{visto.whatsapp ?? "—"}</dd>
                 <dt className="text-suave">Seu contato</dt>
                 <dd className="truncate">{[visto.emailDoDono, visto.telefoneDoDono].filter(Boolean).join(" · ") || "—"}</dd>
               </>

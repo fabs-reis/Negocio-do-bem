@@ -86,7 +86,8 @@ async function renderizarPagina(elemento: React.ReactElement): Promise<string> {
   const fluxo = await renderToReadableStream(elemento);
   await fluxo.allReady;
   const bruto = await new Response(fluxo).text();
-  return bruto.replace(/<!--[\s\S]*?-->/g, "");
+  // O React separa textos vizinhos com <!-- -->; tirar só esse marcador evita sanitizar HTML com regex.
+  return bruto.split("<!-- -->").join("");
 }
 
 let moderadora: { id: string; nome: string; email: string };

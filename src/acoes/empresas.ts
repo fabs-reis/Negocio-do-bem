@@ -74,9 +74,9 @@ const esquemaIndicacao = z.object({
   motivo: z.string().trim().max(600, "Use até 600 caracteres.").optional(),
 });
 
-/** Quem cadastra o próprio negócio deixa o contato dele e o telefone comercial. */
+/** Quem cadastra o próprio negócio deixa o contato dele e o WhatsApp do negócio. */
 const OBRIGATORIOS_DO_DONO = {
-  telefoneComercial: "Qual é o telefone comercial do negócio?",
+  whatsapp: "Qual é o WhatsApp do negócio?",
   emailDoDono: "Qual é o seu e-mail de contato?",
   telefoneDoDono: "Qual é o seu telefone de contato?",
 } as const;

@@ -607,6 +607,17 @@ A ideia: assumir o perfil continua imediato, e a **verificação** vem em seguid
 - **O selo "Perfil verificado" é derivado, sem campo novo:** é o perfil que tem um dono liberado (o mesmo critério do "Parceiro do Clube do Bem"). Assim a suspensão e a remoção do dono tiram o selo sozinhas, e não há dois estados para manter em sincronia. Nas listas do diretório, o selo continua "Perfil assumido"; fica para outra issue, porque pede a consulta da liberação em cada card.
 - **O formulário de assumir encolheu:** saíram CNPJ, site e contato (a moderação usa o e-mail da conta). Pedidos antigos mantêm o que enviaram.
 
+### 7 de novembro: o documento da verificação ([#293](https://github.com/fabs-reis/Negocio-do-bem/issues/293), parte 2)
+
+A foto do RG ou da CNH entra no pedido de verificação. As regras estão em [Liberação para o clube](regras-de-negocio.md#liberação-para-o-clube).
+
+- **Bucket novo e privado, não o das fotos.** O `negocio-do-bem-documentos` (e o `negocio-do-bem-preview-documentos`, para os previews) não tem domínio público. As fotos do site são públicas por desenho; um documento de identidade nunca pode ser. O binding `DOCUMENTOS` fica no `wrangler.jsonc`, na produção e nos previews.
+- **O banco guarda só a chave.** Um nome aleatório (`<32 hex>.jpg`) que não leva a lugar nenhum sozinho. Só a rota `/moderacao/documentos/<pedido>/<n>` lê o arquivo, depois de conferir a moderação a cada acesso, e responde 404 para o resto.
+- **Apagar é parte do desenho, não uma limpeza futura.** O documento some quando a moderação decide. Como o projeto não tem rotina agendada, o prazo de 30 dias roda quando a fila abre. Foi o que deu para garantir sem criar uma rotina nova.
+- **O arquivo sobe antes do pedido.** Se o pedido não entra, a ação apaga o que já tinha subido, para um CNPJ inativo não deixar documento órfão.
+- **O limite das Server Actions subiu de 4 MB para 11 MB** (dois arquivos de 5 MB). Cada ação continua conferindo o tamanho dos seus arquivos, e o das fotos segue 3 MB.
+- **Em desenvolvimento,** os arquivos ficam em `.documentos-privados/` (fora de `public/` e no `.gitignore`).
+
 ### 7 de novembro: a moderação tira um dono ([#292](https://github.com/fabs-reis/Negocio-do-bem/issues/292))
 
 Nos primeiros testes do clube em produção, a conta que assumiu um perfil não batia com a única sócia na Receita, e a moderação não tinha como tirar o acesso: só aprovando outra pessoa no modo "transferir". Agora cada dono tem o botão "Remover dos donos". As regras estão em [Tirar um dono](regras-de-negocio.md#tirar-um-dono).
@@ -619,6 +630,17 @@ Nos primeiros testes do clube em produção, a conta que assumiu um perfil não 
 - **Confirmação no servidor também.** A caixa "Confirmo" é `required` no HTML, e a ação confere `confirmo=sim` de novo, porque uma Server Action pode ser chamada sem o formulário.
 - **A transferência continua como era.** Quem sai dos donos numa transferência não recebe e-mail, e as ofertas que criou não são suspensas. Fica para outra issue, se a moderação precisar.
 ---
+
+### 7 de novembro: menu do celular e aba de cupons ([#308](https://github.com/fabs-reis/Negocio-do-bem/issues/308))
+
+Quem instalou o app não tem a barra do navegador, e o menu ficava atrás de um ícone no topo: os cupons ficavam escondidos e o dono não achava onde validar. As regras estão em [A navegação no celular](regras-de-negocio.md#17-o-site-como-app).
+
+- **Barra no rodapé, não menu no topo.** É o padrão dos apps e fica ao alcance do polegar. O desenho foi aprovado antes de codar, em telas feitas à parte. A barra é um componente de cliente (`BarraInferior`) só para marcar a aba ativa com `usePathname`; quem decide o perfil (comprador ou dono) é o servidor (`NavegacaoMobile`), dentro de um `<Suspense>`, porque lê a sessão e o banco.
+- **Dois perfis de barra.** O botão Validar só aparece para o dono liberado no clube: para os demais seria um botão que leva a uma explicação. A liberação e o fato de ainda ser dono vêm de `negociosDoClube`.
+- **`/cupons` virou a lista de ofertas.** Antes era "Meus cupons", que foi para `/cupons/meus`. As ofertas valendo usam `condicaoDeOfertaPublica`, a mesma regra do perfil (aprovado e não oculto), para a lista nunca mostrar o que o perfil esconde.
+- **"Pegar cupom" na lista** usa a mesma ação do perfil (`gerarCupomAcao`), com um campo `origem` para voltar a Meus cupons em vez de ao perfil. Uma regra só para gerar cupom.
+- **Validar tem tela própria,** mas o painel do clube continua validando. O cartão do cupom conferido (`CupomConferido`) virou um componente dos dois lugares, e a ação `usarCupomAcao` volta para a tela de onde o dono veio.
+- **`viewportFit: "cover"`** no layout: sem ele o iPhone não informa a área do botão home, e a barra ficaria por cima dele.
 
 ## 4. Arquitetura
 

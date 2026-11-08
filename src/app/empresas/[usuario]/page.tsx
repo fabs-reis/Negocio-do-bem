@@ -325,7 +325,7 @@ function OfertaDoClube({
           <p className="font-mono text-3xl tracking-[0.2em]">{meuCupom}</p>
           <p className="mt-1 text-sm text-suave">
             Mostre na hora da compra. Ele também fica em{" "}
-            <Link href="/cupons" className="link">
+            <Link href="/cupons/meus" className="link">
               Meus cupons
             </Link>
             .

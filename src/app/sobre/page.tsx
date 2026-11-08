@@ -86,10 +86,11 @@ export default function Sobre() {
           Não fazemos raspagem do Instagram e não guardamos tokens de acesso.
         </p>
         <p>
-          <strong>E para verificar o meu negócio?</strong> Você informa o CNPJ, o seu nome completo e o seu CPF, e marca
-          uma autorização. A moderação compara esses dados com o quadro de sócios na Receita Federal. Do CPF guardamos só os
+          <strong>E para verificar o meu negócio?</strong> Você informa o CNPJ, o seu nome completo e o seu CPF, envia a
+          foto do seu RG ou da sua CNH e marca uma autorização. A moderação compara esses dados com o quadro de sócios na Receita Federal. Do CPF guardamos só os
           6 dígitos do meio, que a Receita também mostra dos sócios: o número inteiro é conferido e descartado. Só a moderação
-          vê esses dados, e eles servem só para decidir o pedido.
+          vê esses dados, e eles servem só para decidir o pedido. A foto do documento fica num espaço privado, sem endereço
+          público, e é apagada quando a moderação decide (ou depois de 30 dias, se o pedido ficar parado).
         </p>
         <p>
           <strong>Vocês medem as visitas?</strong> Sim, com o Google Analytics, para saber quantas pessoas visitam o site,
