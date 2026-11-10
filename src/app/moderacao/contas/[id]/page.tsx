@@ -5,9 +5,10 @@ import { Suspense, type ReactNode } from "react";
 import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { ACOES_AUDITORIA, METODOS_REIVINDICACAO, STATUS_REIVINDICACAO } from "@/lib/dominio";
+import { rotuloDoInstagram } from "@/lib/endereco";
 import { fichaDaConta, LIMITE_DA_FICHA } from "@/lib/moderacao/consultas";
 import { hrefModeracao, lerId } from "@/lib/moderacao/filtros";
-import { formatarData, formatarDataHora } from "@/lib/texto";
+import { formatarData, formatarDataHora, formatarTelefone } from "@/lib/texto";
 import { contar, Etiqueta, EtiquetasDoNegocio, numero, type Tom } from "../../Blocos";
 
 export const metadata: Metadata = { title: "Ficha da conta · Moderação", robots: { index: false } };
@@ -22,7 +23,7 @@ export default function FichaDaConta(props: PageProps<"/moderacao/contas/[id]">)
   );
 }
 
-const TOM_DO_PEDIDO: Record<string, Tom> = { pendente: "atencao", aprovada: "bom", recusada: "alerta" };
+const TOM_DO_PEDIDO: Record<string, Tom> = { pendente: "atencao", aprovada: "bom", recusada: "alerta", revogada: "alerta" };
 
 async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "params">) {
   await exigirModerador();
@@ -58,6 +59,10 @@ async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "p
         <dl className="cartao grid grid-cols-1 gap-x-6 gap-y-2 p-5 text-sm sm:grid-cols-[11rem_1fr]">
           <dt className="text-suave">Conta criada em</dt>
           <dd>{formatarDataHora(conta.criadoEm)}</dd>
+          <dt className="text-suave">E-mail confirmado</dt>
+          <dd>{conta.emailConfirmadoEm ? `Em ${formatarDataHora(conta.emailConfirmadoEm)}` : "Ainda não"}</dd>
+          <dt className="text-suave">Telefone</dt>
+          <dd>{conta.telefone ? formatarTelefone(conta.telefone) : "Não informado (conta de antes do telefone)"}</dd>
           <dt className="text-suave">Sessões abertas</dt>
           <dd>
             {sessoesAbertas.length === 0
@@ -72,7 +77,7 @@ async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "p
           )}
         </dl>
         <p className="text-xs text-suave">
-          O e-mail só aparece para a moderação. &ldquo;Sair&rdquo; apaga a sessão, então quem saiu não deixa sessão aberta.
+          O e-mail e o telefone só aparecem para a moderação. &ldquo;Sair&rdquo; apaga a sessão, então quem saiu não deixa sessão aberta.
         </p>
         <nav aria-label="Resumo da conta" className="flex flex-wrap gap-2">
           {numeros.map((n) => (
@@ -165,7 +170,11 @@ async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "p
                   </>
                 )}
               </p>
-              {r.motivoRecusa && <p className="mt-1 text-coral-700">Motivo da recusa: {r.motivoRecusa}</p>}
+              {r.motivoRecusa && (
+                <p className="mt-1 text-coral-700">
+                  {r.status === "revogada" ? "Motivo da remoção" : "Motivo da recusa"}: {r.motivoRecusa}
+                </p>
+              )}
             </div>
             <Etiqueta tom={TOM_DO_PEDIDO[r.status] ?? "neutro"}>{STATUS_REIVINDICACAO[r.status] ?? r.status}</Etiqueta>
           </li>
@@ -261,7 +270,7 @@ function LinhaDeNegocio({
           <EtiquetasDoNegocio empresa={empresa} />
         </div>
         <p className="text-sm text-suave">
-          @{empresa.instagramUsername} · {empresa.cidade}/{empresa.uf} · {children}
+          {rotuloDoInstagram(empresa.instagramUsername)} · {empresa.cidade}/{empresa.uf} · {children}
         </p>
       </div>
       <Link href={`/moderacao/negocios/${empresa.instagramUsername}`} className="botao-claro botao-pequeno">

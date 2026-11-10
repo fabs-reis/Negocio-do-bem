@@ -6,15 +6,23 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AlternarTema } from "@/components/AlternarTema";
+import { AvisoSemConexao } from "@/components/AvisoSemConexao";
+import { EventosAnalytics } from "@/components/EventosAnalytics";
+import { InstalarApp } from "@/components/InstalarApp";
 import { Logo } from "@/components/Logo";
 import { MenuUsuario } from "@/components/MenuUsuario";
+import { NavegacaoMobile } from "@/components/NavegacaoMobile";
+import { ProtecaoDaBarra } from "@/components/ProtecaoDaBarra";
+import { ProtecaoDoMenu } from "@/components/ProtecaoDoMenu";
+import { RegistrarServiceWorker } from "@/components/RegistrarServiceWorker";
 import { REPOSITORIO } from "@/lib/dominio";
 import { CORES_DA_MARCA } from "@/lib/marca";
 import { DESCRICAO_DO_SITE, ENDERECO_DO_SITE, NOME_DO_SITE, TITULO_DO_SITE } from "@/lib/seo";
 import { SCRIPT_TEMA } from "@/lib/tema";
 
 // A imagem de compartilhamento vem de opengraph-image.tsx (o perfil de cada
-// negócio tem a sua), e os ícones de icon.svg, favicon.ico e apple-icon.png.
+// negócio e cada cidade têm a sua; ver metadadosDaPagina, em src/lib/seo.ts),
+// e os ícones de icon.svg, favicon.ico e apple-icon.png.
 export const metadata: Metadata = {
   metadataBase: new URL(ENDERECO_DO_SITE),
   title: {
@@ -23,6 +31,8 @@ export const metadata: Metadata = {
   },
   description: DESCRICAO_DO_SITE,
   applicationName: NOME_DO_SITE,
+  // No iPhone, o site adicionado à tela de início abre sem a barra do Safari.
+  appleWebApp: { capable: true, title: NOME_DO_SITE, statusBarStyle: "default" },
   openGraph: {
     type: "website",
     locale: "pt_BR",
@@ -39,14 +49,17 @@ export const metadata: Metadata = {
 
 // Cor da barra do navegador no celular: o creme da marca, ou o fundo do modo escuro.
 export const viewport: Viewport = {
+  // Sem isso o iPhone não informa a área do botão home, e a barra de baixo ficaria por cima dele.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: CORES_DA_MARCA.creme },
     { media: "(prefers-color-scheme: dark)", color: "#17120e" },
   ],
 };
 
-// Só a produção do Vercel define o ID; no seu computador e em cópias do projeto
-// o Analytics não carrega.
+// O ID vem das variáveis de build da produção no Cloudflare: o Next põe o valor
+// no código durante o build. No seu computador, nos previews e em cópias do
+// projeto o Analytics não carrega.
 const ID_ANALYTICS = process.env.NEXT_PUBLIC_GA_ID;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -70,20 +83,33 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/sobre" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
                 Como funciona
               </Link>
-              <Link href="/indicar" className="rounded-full px-2 py-2 text-suave transition hover:text-tinta sm:px-3">
-                Indicar
+              {/* No celular, a barra de baixo e a aba Conta cuidam do resto: o topo fica com a busca. */}
+              <Link href="/explorar" aria-label="Buscar negócios" className="grid h-10 w-10 place-items-center rounded-full text-suave transition hover:text-tinta sm:hidden">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="M16 16l4.5 4.5" />
+                </svg>
               </Link>
-              <AlternarTema />
-              <Suspense fallback={<div className="h-9 w-20 rounded-full bg-linha/60" />}>
-                <MenuUsuario />
-              </Suspense>
+              <Link href="/participar" className="hidden rounded-full px-3 py-2 text-suave transition hover:text-tinta sm:block">
+                Cadastrar
+              </Link>
+              <div className="hidden sm:block">
+                <AlternarTema />
+              </div>
+              <div className="hidden sm:block">
+                <Suspense fallback={<div className="h-9 w-20 rounded-full bg-linha/60" />}>
+                  <ProtecaoDoMenu>
+                    <MenuUsuario />
+                  </ProtecaoDoMenu>
+                </Suspense>
+              </div>
             </nav>
           </div>
         </header>
 
         <main className="flex-1">{children}</main>
 
-        <footer className="mt-24 border-t border-linha">
+        <footer className="mt-24 border-t border-linha max-sm:pb-24">
           <div className="mx-auto grid grid-cols-1 max-w-6xl gap-8 px-4 py-12 text-sm text-suave sm:grid-cols-[2fr_1fr_1fr] sm:px-6">
             <div className="space-y-3">
               <Logo className="h-12" />
@@ -91,6 +117,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 Um movimento independente para fortalecer negócios que cuidam das pessoas, da comunidade e do planeta.
                 Feito pela comunidade, para a comunidade.
               </p>
+              <InstalarApp />
               <a href={REPOSITORIO} target="_blank" rel="noopener noreferrer" className="link inline-block">
                 Código aberto no GitHub ↗
               </a>
@@ -99,15 +126,25 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <p className="font-semibold text-tinta">Comunidade</p>
               <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
               <Link href="/cidades" className="block hover:text-tinta">Negócios por cidade</Link>
-              <Link href="/indicar" className="block hover:text-tinta">Indicar um negócio</Link>
+              <Link href="/embaixadores" className="block hover:text-tinta">Embaixadores do bem</Link>
+              <Link href="/participar" className="block hover:text-tinta">Cadastrar um negócio</Link>
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-tinta">Para negócios</p>
               <Link href="/sobre#dono" className="block hover:text-tinta">Reivindicar meu perfil</Link>
+              <Link href="/clube-do-bem" className="block hover:text-tinta">Clube do Bem</Link>
               <Link href="/sobre#privacidade" className="block hover:text-tinta">Privacidade e remoção</Link>
             </div>
           </div>
         </footer>
+        <Suspense fallback={null}>
+          <ProtecaoDaBarra>
+            <NavegacaoMobile />
+          </ProtecaoDaBarra>
+        </Suspense>
+        <AvisoSemConexao />
+        <RegistrarServiceWorker />
+        {ID_ANALYTICS && <EventosAnalytics />}
       </body>
       {ID_ANALYTICS && <GoogleAnalytics gaId={ID_ANALYTICS} />}
     </html>

@@ -24,20 +24,21 @@ const NEGOCIO = {
   site: null,
   whatsapp: null,
   emailContato: null,
+  telefoneComercial: null,
 };
 
 describe("endereço do site", () => {
-  it("no Vercel usa o domínio de produção, até nos previews", async () => {
-    const seo = await seoCom({ VERCEL_PROJECT_PRODUCTION_URL: "negociodobem.com.br", VERCEL_ENV: "preview", APP_URL: "https://outro.exemplo" });
-    expect(seo.ENDERECO_DO_SITE).toBe("https://negociodobem.com.br");
-    expect(seo.urlAbsoluta("/empresas/x")).toBe("https://negociodobem.com.br/empresas/x");
-    // Preview não entra nos buscadores.
-    expect(seo.INDEXAVEL).toBe(false);
+  it("usa o APP_URL, sem a barra do final", async () => {
+    const seo = await seoCom({ DEPLOY_ENV: "production", APP_URL: "https://meusite.exemplo/" });
+    expect(seo.ENDERECO_DO_SITE).toBe("https://meusite.exemplo");
+    expect(seo.urlAbsoluta("/empresas/x")).toBe("https://meusite.exemplo/empresas/x");
+    expect(seo.INDEXAVEL).toBe(true);
   });
 
-  it("fora do Vercel usa o APP_URL, sem a barra do final", async () => {
-    const seo = await seoCom({ VERCEL_PROJECT_PRODUCTION_URL: "", VERCEL_ENV: "", APP_URL: "https://meusite.exemplo/" });
-    expect(seo.ENDERECO_DO_SITE).toBe("https://meusite.exemplo");
+  it("nos previews, usa o APP_URL do preview e fica fora dos buscadores", async () => {
+    const seo = await seoCom({ DEPLOY_ENV: "preview", APP_URL: "https://stage.exemplo" });
+    expect(seo.ENDERECO_DO_SITE).toBe("https://stage.exemplo");
+    expect(seo.INDEXAVEL).toBe(false);
   });
 });
 
@@ -46,6 +47,22 @@ describe("metadadosDaPagina", () => {
     const m = metadadosDaPagina({ titulo: "Explorar negócios", descricao: "Busque.", caminho: "/explorar" });
     expect(m.alternates).toEqual({ canonical: "/explorar" });
     expect(m.openGraph).toMatchObject({ siteName: "Negócio do Bem", locale: "pt_BR", title: "Explorar negócios", url: "/explorar" });
+  });
+
+  it("leva a imagem geral do site, que se perderia junto com o openGraph do layout", () => {
+    const m = metadadosDaPagina({ titulo: "Sobre", descricao: "Como funciona.", caminho: "/sobre" });
+    expect(m.openGraph?.images).toEqual([expect.objectContaining({ url: "/opengraph-image", width: 1200, height: 630 })]);
+  });
+
+  it("deixa a imagem para o opengraph-image.tsx da página que tem o seu", () => {
+    const m = metadadosDaPagina({ titulo: "Salvador", descricao: "Negócios.", caminho: "/cidades/salvador-ba", imagemPropria: true });
+    expect(m.openGraph).not.toHaveProperty("images");
+  });
+
+  it("usa a prévia pronta em JPEG no lugar da imagem do arquivo", () => {
+    const previa = { url: "/fotos/cidades/salvador-ba-previa-0cf27790.jpg", alt: "Farol da Barra" };
+    const m = metadadosDaPagina({ titulo: "Salvador", descricao: "Negócios.", caminho: "/cidades/salvador-ba", imagemPropria: true, previa });
+    expect(m.openGraph?.images).toEqual([{ ...previa, width: 1200, height: 630, type: "image/jpeg" }]);
   });
 });
 
@@ -65,10 +82,20 @@ describe("jsonLdDoNegocio", () => {
     expect(completa.sameAs).toContain("https://padaria.exemplo");
   });
 
+  it("prefere o telefone comercial ao WhatsApp", () => {
+    expect(ficha({ whatsapp: "5581999990000", telefoneComercial: "558133334444" }).telephone).toBe("+558133334444");
+  });
+
+  it("negócio sem Instagram não aponta para o Instagram", () => {
+    expect(ficha({ instagramUsername: "padaria-florescer-recife" }).sameAs).toEqual([]);
+    expect(ficha({ instagramUsername: "padaria-florescer-recife", site: "https://padaria.exemplo" }).sameAs).toEqual([
+      "https://padaria.exemplo",
+    ]);
+  });
+
   it("só usa fotos guardadas pelo site", () => {
-    expect(ficha({ fotoUrl: "https://abc.public.blob.vercel-storage.com/perfis/x.jpg" }).image).toBe(
-      "https://abc.public.blob.vercel-storage.com/perfis/x.jpg",
-    );
+    vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://fotos.exemplo.com");
+    expect(ficha({ fotoUrl: "https://fotos.exemplo.com/perfis/x.jpg" }).image).toBe("https://fotos.exemplo.com/perfis/x.jpg");
     expect(ficha({ fotoUrl: "https://outro-site.exemplo/foto.jpg" })).not.toHaveProperty("image");
   });
 

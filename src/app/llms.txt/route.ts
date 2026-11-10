@@ -10,14 +10,17 @@ export function GET() {
 
 > ${DESCRICAO_DO_SITE}
 
-O ${NOME_DO_SITE} é um diretório gratuito e colaborativo de negócios brasileiros que cuidam das pessoas, da comunidade e do planeta. Qualquer pessoa pode indicar um negócio; a moderação confere cada indicação antes de publicar, e o dono pode assumir o perfil para contar a história do negócio. Cada perfil mostra cidade, tipo de negócio, causas, contatos e depoimentos de quem é cliente.
+O ${NOME_DO_SITE} é um diretório gratuito e colaborativo de negócios brasileiros que cuidam das pessoas, da comunidade e do planeta. Qualquer pessoa pode indicar um negócio, e o perfil entra no ar na hora, sem conferência prévia; a moderação pode tirar do ar depois o que for spam, perfil falso ou impróprio. O dono pode assumir o perfil para contar a história do negócio. Cada perfil mostra cidade, tipo de negócio, causas, contatos e depoimentos de quem é cliente.
 
 ## Páginas principais
 
 - [Explorar negócios](${urlAbsoluta("/explorar")}): busca por cidade, tipo de negócio e causa.
 - [Negócios por cidade](${urlAbsoluta("/cidades")}): todas as cidades com negócios no diretório, cada uma com a sua página.
+- [Embaixadores do bem](${urlAbsoluta("/embaixadores")}): quem divulga o projeto em cada cidade ou estado. Cada um tem a própria página (\`/embaixadores/<@>\`), com o Instagram e os negócios da região.
 - [Como funciona](${urlAbsoluta("/sobre")}): manifesto, moderação, como o dono assume o perfil e privacidade.
-- [Indicar um negócio](${urlAbsoluta("/indicar")}): formulário para sugerir um negócio do bem.
+- [Clube do Bem](${urlAbsoluta("/clube-do-bem")}): como funcionam os cupons de desconto, para quem compra e para o dono do negócio, e como os negócios são verificados.
+- [Cadastrar um negócio](${urlAbsoluta("/participar")}): cadastro por etapas para indicar um negócio do bem ou cadastrar o próprio, com ou sem Instagram.
+- [Instale o app](${urlAbsoluta("/instalacao")}): passo a passo para instalar o site como app no iPhone e no Android.
 
 ## Perfis dos negócios
 

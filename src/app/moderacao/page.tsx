@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Form from "next/form";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
@@ -13,20 +12,24 @@ import {
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { CausaBadge } from "@/components/CausaBadge";
+import { LinkInstagram } from "@/components/LinkInstagram";
 import { exigirModerador } from "@/lib/auth/sessao";
 import { consultarCnpj, formatarCnpj } from "@/lib/cnpj";
-import { extrairCodigo } from "@/lib/codigo";
 import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO } from "@/lib/dominio";
-import { linkPerfil, perfilOficial } from "@/lib/instagram";
+import { perfilOficial } from "@/lib/instagram";
 import { ABAS, lerFiltros, type Aba } from "@/lib/moderacao/filtros";
-import { formatarDataHora, formatarWhatsapp } from "@/lib/texto";
+import { pendentesQueAprovamSozinhos } from "@/lib/reivindicacao";
+import { formatarDataHora, formatarTelefone } from "@/lib/texto";
 import { Auditoria } from "./Auditoria";
 import { Contas } from "./Contas";
 import { Depoimentos } from "./Depoimentos";
+import { Embaixadores } from "./Embaixadores";
 import { MenuModeracao } from "./MenuModeracao";
 import { Negocios } from "./Negocios";
+import { PedidosDoClube } from "./PedidosDoClube";
 import { Sistema } from "./Sistema";
+import { TrocasDeArroba } from "./TrocasDeArroba";
 import { VisaoGeral } from "./VisaoGeral";
 
 export const metadata: Metadata = { title: "Moderação", robots: { index: false } };
@@ -47,14 +50,15 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   await exigirModerador();
   const params = await searchParams;
   const filtros = lerFiltros(params);
-  const codigo = typeof params.codigo === "string" ? extrairCodigo(params.codigo) : null;
 
-  const [reivindicacoes, indicacoes, denuncias] = await Promise.all([
+  const [reivindicacoes, indicacoes, denuncias, clube, arroba] = await Promise.all([
     db.reivindicacao.count({ where: { status: "pendente" } }),
     db.empresa.count({ where: { moderacao: "pendente" } }),
     db.depoimento.count({ where: { denunciado: true, status: "publicado" } }),
+    db.liberacaoClube.count({ where: { status: "pendente" } }),
+    db.trocaDeArroba.count({ where: { status: "pendente" } }),
   ]);
-  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias };
+  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias, clube, arroba };
 
   return (
     <div className="mt-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
@@ -65,12 +69,15 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
         <AvisoDaUrl codigo={params.aviso} />
 
         {filtros.aba === "visao-geral" && <VisaoGeral />}
-        {filtros.aba === "reivindicacoes" && <Reivindicacoes codigo={codigo} />}
+        {filtros.aba === "reivindicacoes" && <Reivindicacoes />}
         {filtros.aba === "indicacoes" && <Indicacoes />}
         {filtros.aba === "denuncias" && <Denuncias />}
+        {filtros.aba === "clube" && <PedidosDoClube />}
+        {filtros.aba === "arroba" && <TrocasDeArroba />}
         {filtros.aba === "negocios" && <Negocios filtros={filtros} />}
         {filtros.aba === "contas" && <Contas filtros={filtros} />}
         {filtros.aba === "depoimentos" && <Depoimentos filtros={filtros} />}
+        {filtros.aba === "embaixadores" && <Embaixadores />}
         {filtros.aba === "auditoria" && <Auditoria filtros={filtros} />}
         {filtros.aba === "sistema" && <Sistema />}
       </div>
@@ -78,10 +85,10 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   );
 }
 
-async function Reivindicacoes({ codigo }: { codigo: string | null }) {
+async function Reivindicacoes() {
   const [pendentes, semDono] = await Promise.all([
     db.reivindicacao.findMany({
-      where: { status: "pendente", ...(codigo ? { codigo } : {}) },
+      where: { status: "pendente" },
       orderBy: { criadoEm: "asc" },
       take: 50,
       include: {
@@ -89,16 +96,7 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
         empresa: { include: { membros: { include: { usuario: { select: { id: true, nome: true, email: true } } } } } },
       },
     }),
-    // Um negócio por vez: se duas pessoas pediram o mesmo, só a primeira é aprovada.
-    db.reivindicacao.findMany({
-      where: {
-        status: "pendente",
-        metodo: "documento",
-        empresa: { moderacao: { not: "rejeitada" }, membros: { none: {} } },
-      },
-      distinct: ["empresaId"],
-      select: { id: true },
-    }),
+    pendentesQueAprovamSozinhos(),
   ]);
   const oficial = perfilOficial();
   const agora = new Date();
@@ -116,28 +114,8 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
         </form>
       )}
 
-      {oficial && (
-        <Form action="/moderacao" className="cartao flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
-          <input type="hidden" name="aba" value="reivindicacoes" />
-          <label htmlFor="codigo" className="px-2 text-sm font-medium whitespace-nowrap">
-            Chegou uma DM com código?
-          </label>
-          <input id="codigo" name="codigo" defaultValue={codigo ?? ""} placeholder="BEM-XXXXXX" className="campo flex-1 font-mono uppercase" />
-          <button type="submit" className="botao">
-            Localizar
-          </button>
-          {codigo && (
-            <Link href="/moderacao?aba=reivindicacoes" className="botao-claro">
-              Ver todas
-            </Link>
-          )}
-        </Form>
-      )}
-
       {pendentes.length === 0 && (
-        <p className="cartao p-8 text-center text-suave">
-          {codigo ? `Nenhuma solicitação pendente com o código ${codigo}.` : "Nenhuma reivindicação pendente. 🎉"}
-        </p>
+        <p className="cartao p-8 text-center text-suave">Nenhuma reivindicação pendente. 🎉</p>
       )}
 
       {pendentes.map((r) => {
@@ -151,10 +129,8 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
                   {r.empresa.nome}
                 </Link>
                 <p className="text-sm text-suave">
-                  <a href={linkPerfil(r.empresa.instagramUsername)} target="_blank" rel="noopener noreferrer" className="link">
-                    @{r.empresa.instagramUsername}
-                  </a>{" "}
-                  · {r.empresa.status === "verificada" ? "já verificado" : "sem dono"}
+                  <LinkInstagram endereco={r.empresa.instagramUsername} />{" "}
+                  · {r.empresa.status === "verificada" ? "perfil já assumido" : "sem dono"}
                 </p>
               </div>
               <div className="text-right text-sm">
@@ -174,7 +150,8 @@ async function Reivindicacoes({ codigo }: { codigo: string | null }) {
 
             {r.metodo === "codigo_dm" && r.codigo && (
               <div className="rounded-2xl bg-papel p-4 text-sm leading-relaxed">
-                Confira se <strong>{oficial ? `@${oficial}` : "o perfil oficial"}</strong> recebeu uma DM <strong>de @{r.empresa.instagramUsername}</strong> com o
+                Pedido antigo: o código por DM não é mais oferecido. Confira se{" "}
+                <strong>{oficial ? `@${oficial}` : "o perfil oficial"}</strong> recebeu uma DM <strong>de @{r.empresa.instagramUsername}</strong> com o
                 código <code className="rounded bg-superficie px-2 py-0.5 font-mono text-base font-bold text-coral-700">{r.codigo}</code>.
                 Se a DM veio de outra conta, recuse.
               </div>
@@ -312,9 +289,7 @@ async function Indicacoes() {
                 {e.nome}
               </Link>
               <p className="text-sm text-suave">
-                <a href={linkPerfil(e.instagramUsername)} target="_blank" rel="noopener noreferrer" className="link">
-                  @{e.instagramUsername} ↗
-                </a>{" "}
+                <LinkInstagram endereco={e.instagramUsername} seta />{" "}
                 · {e.categoria} · {e.cidade}/{e.uf}
               </p>
             </div>
@@ -333,15 +308,22 @@ async function Indicacoes() {
           </div>
           <p>{e.resumo}</p>
           {e.motivoIndicacao && <p className="text-sm text-suave italic">“{e.motivoIndicacao}”</p>}
-          {(e.site || e.whatsapp || e.emailContato) && (
+          {(e.telefoneComercial || e.site || e.whatsapp || e.emailContato) && (
             <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-suave">
+              {e.telefoneComercial && <span>Telefone {formatarTelefone(e.telefoneComercial)}</span>}
               {e.site && (
                 <a href={e.site} target="_blank" rel="noopener noreferrer nofollow" className="link break-all">
                   {e.site}
                 </a>
               )}
-              {e.whatsapp && <span>WhatsApp {formatarWhatsapp(e.whatsapp)}</span>}
+              {e.whatsapp && <span>WhatsApp {formatarTelefone(e.whatsapp)}</span>}
               {e.emailContato && <span>{e.emailContato}</span>}
+            </p>
+          )}
+          {(e.emailDoDono || e.telefoneDoDono) && (
+            <p className="text-sm text-suave">
+              Contato do dono:{" "}
+              {[e.emailDoDono, e.telefoneDoDono && formatarTelefone(e.telefoneDoDono)].filter(Boolean).join(" · ")}
             </p>
           )}
           {e.causas.length > 0 && (
