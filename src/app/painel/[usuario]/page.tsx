@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { cancelarTrocaDeArrobaAcao } from "@/acoes/arroba";
 import { alternarVisibilidade } from "@/acoes/empresas";
 import { responderDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
@@ -9,10 +10,12 @@ import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { exigirUsuario } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
-import { rotuloDoInstagram } from "@/lib/endereco";
+import { rotuloDoInstagram, temInstagram } from "@/lib/endereco";
 import { normalizarEndereco } from "@/lib/instagram";
-import { formatarData, formatarFavoritos } from "@/lib/texto";
+import { comPontoFinal, formatarData, formatarFavoritos } from "@/lib/texto";
+import { ultimaTrocaDeArroba } from "@/lib/troca-de-arroba";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
+import { FormArroba } from "./FormArroba";
 import { FORA_DA_BUSCA } from "@/lib/seo";
 import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
@@ -48,10 +51,13 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
   if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/painel/${atual}`);
   if (!empresa || !empresa.membros.some((m) => m.usuarioId === usuario.id)) notFound();
   const { aviso } = await searchParams;
-  const liberacao = await db.liberacaoClube.findUnique({
-    where: { empresaId_usuarioId: { empresaId: empresa.id, usuarioId: usuario.id } },
-    select: { status: true },
-  });
+  const [liberacao, troca] = await Promise.all([
+    db.liberacaoClube.findUnique({
+      where: { empresaId_usuarioId: { empresaId: empresa.id, usuarioId: usuario.id } },
+      select: { status: true },
+    }),
+    ultimaTrocaDeArroba(empresa.id),
+  ]);
 
   return (
     <div className="space-y-10">
@@ -119,6 +125,8 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         </div>
       </section>
 
+      <TrocaDoArroba empresaId={empresa.id} endereco={empresa.instagramUsername} troca={troca} />
+
       <section className="cartao p-6">
         <h2 className="font-serif text-2xl font-semibold">Aparecer no diretório</h2>
         <p className="mt-1 text-sm leading-relaxed text-suave">
@@ -167,5 +175,47 @@ function ChamadaDoClube({ username, status }: { username: string; status?: strin
         Verificar meu negócio
       </Link>
     </div>
+  );
+}
+
+type Troca = Awaited<ReturnType<typeof ultimaTrocaDeArroba>>;
+
+/** O @ do negócio: o dono pede a troca, e a moderação aprova. Mostra o pedido em análise ou a última recusa. */
+function TrocaDoArroba({ empresaId, endereco, troca }: { empresaId: string; endereco: string; troca: Troca }) {
+  const semInstagram = !temInstagram(endereco);
+  return (
+    <section id="arroba" className="cartao scroll-mt-24 space-y-4 p-6">
+      <div>
+        <h2 className="font-serif text-2xl font-semibold">{semInstagram ? "Instagram do negócio" : "@ do Instagram"}</h2>
+        <p className="mt-1 text-sm leading-relaxed text-suave">
+          {semInstagram
+            ? "Seu negócio está sem Instagram. Se ele tem um perfil, peça para ligar o @: o endereço da página passa a ser o @."
+            : `O @ é também o endereço da página (/empresas/${endereco}). Se ele está errado ou mudou, peça a troca: a moderação confere o perfil no Instagram antes. Aprovada, o endereço antigo continua levando para o novo.`}
+        </p>
+      </div>
+      {troca?.status === "pendente" ? (
+        <div className="space-y-3">
+          <p className="rounded-2xl bg-superficie p-3 text-sm">
+            Pedido em análise: trocar para <strong>@{troca.arrobaNovo}</strong>, desde {formatarData(troca.criadoEm)}. A resposta
+            aparece aqui e no seu e-mail.
+          </p>
+          <form action={cancelarTrocaDeArrobaAcao}>
+            <input type="hidden" name="empresaId" value={empresaId} />
+            <BotaoEnviar className="botao-claro botao-pequeno" enviando="Cancelando…">
+              Cancelar o pedido
+            </BotaoEnviar>
+          </form>
+        </div>
+      ) : (
+        <>
+          {troca?.status === "recusada" && (
+            <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              A troca para @{troca.arrobaNovo} não foi aprovada. Motivo: {comPontoFinal(troca.motivo ?? "não informado")}
+            </p>
+          )}
+          <FormArroba empresaId={empresaId} semInstagram={semInstagram} />
+        </>
+      )}
+    </section>
   );
 }

@@ -39,17 +39,11 @@ describe("Analytics sujeito a consentimento", () => {
     },
   );
 
-  it.each([
-    ["production", undefined],
-    ["production", "preview"],
-    ["development", undefined],
-    ["development", "preview"],
-  ] as const)(
-    "headers() retira permissões Google em %s / %s",
-    async (ambiente, vercel) => {
+  it.each(["production", "development"] as const)(
+    "headers() retira permissões Google do documento principal em %s",
+    async (ambiente) => {
       vi.stubEnv("NODE_ENV", ambiente);
       vi.stubEnv("DEPLOY_ENV", undefined);
-      vi.stubEnv("VERCEL_ENV", vercel);
       vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", undefined);
       vi.stubEnv("NEXT_PUBLIC_GA_ID", ID_SINTETICO);
       vi.resetModules();
@@ -63,7 +57,7 @@ describe("Analytics sujeito a consentimento", () => {
 
       expect(politica).toBeDefined();
       expect(politica).not.toMatch(
-        /(?:googletagmanager\.com|google-analytics\.com|analytics\.google\.com)/i,
+        /(?:googletagmanager\.com|google-analytics\.com|analytics\.google\.com|google\.com)/i,
       );
 
       const diretivas = new Map(
@@ -90,49 +84,6 @@ describe("Analytics sujeito a consentimento", () => {
         expect(diretivas.get("script-src")).toContain("'unsafe-eval'");
         expect(diretivas.get("connect-src")).toContain("ws:");
       }
-      if (vercel === "preview") {
-        expect(diretivas.get("script-src")).toContain("https://vercel.live");
-        expect(diretivas.get("connect-src")).toContain("wss://ws-us3.pusher.com");
-      }
-    },
-  );
-
-  it.each([
-    ["production", "preview", false],
-    ["preview", "production", true],
-    ["", "preview", true],
-    [undefined, "production", false],
-  ] as const)(
-    "a CSP usa DEPLOY_ENV %s antes de VERCEL_ENV %s",
-    async (deploy, vercel, preview) => {
-      vi.stubEnv("NODE_ENV", "production");
-      vi.stubEnv("DEPLOY_ENV", deploy);
-      vi.stubEnv("VERCEL_ENV", vercel);
-      vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://vercel.live-fotos.example.com");
-      vi.resetModules();
-
-      const { default: config } = await import("../../next.config");
-      const regras = await config.headers!();
-      const politica = regras
-        .find((regra) => regra.source === "/:caminho*")
-        ?.headers.find((header) => header.key.toLowerCase() === "content-security-policy")?.value;
-
-      expect(politica).toBeDefined();
-      const diretivas = new Map(
-        politica!.split(";").map((trecho) => {
-          const [nome, ...fontes] = trecho.trim().split(/\s+/);
-          return [nome, new Set(fontes)] as const;
-        }),
-      );
-
-      for (const nome of ["script-src", "style-src", "img-src", "font-src", "connect-src", "frame-src"]) {
-        expect(diretivas.get(nome)).toBeDefined();
-        expect(diretivas.get(nome)!.has("https://vercel.live")).toBe(preview);
-      }
-      expect(diretivas.get("img-src")!.has("https://vercel.live-fotos.example.com")).toBe(true);
-      expect(diretivas.get("img-src")!.has("https://vercel.com")).toBe(preview);
-      expect(diretivas.get("font-src")!.has("https://assets.vercel.com")).toBe(preview);
-      expect(diretivas.get("connect-src")!.has("wss://ws-us3.pusher.com")).toBe(preview);
     },
   );
 });

@@ -31,12 +31,12 @@ describe("consentimento versionado", () => {
     await medir({ nome: "negocio_cadastrado", params: { tipo: "indicacao", categoria: "Saúde", uf: "BA", cidade: "Salvador", com_instagram: "sim" } });
     expect(gravar).not.toHaveBeenCalled();
   });
-  it("não mede eventos de conta e reivindicação mesmo com consentimento", async () => {
+  it("mede eventos do funil com consentimento positivo", async () => {
     vi.stubEnv("NEXT_PUBLIC_GA_ID", "G-SINTETICO");
     loja.set(COOKIE_CONSENTIMENTO, { value: `1:aceito:${Date.now()}` });
     await medir({ nome: "login", params: { method: "senha" } });
     await medir({ nome: "perfil_reivindicado", params: { method: "documento", resultado: "verificada" } });
-    expect(gravar).not.toHaveBeenCalled();
+    expect(gravar).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -47,21 +47,24 @@ describe("carregador descartável", () => {
     expect(resposta.status).toBe(204);
     expect(await resposta.text()).toBe("");
   });
-  it("isola o carregador do documento real e desativa páginas automáticas e publicidade", async () => {
+  it("concede analytics_storage com client_id estável e desativa publicidade", async () => {
     vi.stubEnv("NEXT_PUBLIC_GA_ID", "G-SINTETICO");
     loja.set(COOKIE_CONSENTIMENTO, { value: `1:aceito:${Date.now()}` });
     const resposta = await GET();
     const html = await resposta.text();
     expect(resposta.headers.get("Cache-Control")).toBe("private, no-store");
     expect(resposta.headers.get("Referrer-Policy")).toBe("no-referrer");
+    expect(resposta.headers.get("Content-Security-Policy")).toContain("https://*.google.com");
     expect(html).toContain("send_page_view: false");
     expect(html).toContain("allow_google_signals: false");
     expect(html).toContain("allow_ad_personalization_signals: false");
+    expect(html).toContain("client_id: configuracao.clientId");
     expect(html).toContain("evento.source !== parent");
     expect(html).toContain("configuracao.origem = location.origin");
     expect(html).not.toContain("document.referrer");
     expect(html).not.toContain("document.cookie");
     expect(html).toContain("analytics_storage: 'denied'");
+    expect(html).toContain("gtag('consent', 'update', { analytics_storage: 'granted' })");
     expect(html).toContain("ad_storage: 'denied'");
     expect(html).not.toContain("user_id");
   });
@@ -71,12 +74,18 @@ describe("listas permitidas", () => {
   it.each(["/painel", "/painel/sintetico", "/moderacao", "/entrar", "/cadastrar", "/link", "/empresas/sintetico/reivindicar", "/causas/antirracista", "/desconhecido"])("recusa a rota %s", caminho => {
     expect(paginaPermitida(caminho)).toBeNull();
   });
-  it("reduz perfis a uma rota genérica sem identificar o negócio", () => {
+  it("inclui páginas públicas do diretório e reduz rotas dinâmicas a caminhos genéricos", () => {
+    expect(paginaPermitida("/embaixadores")).toEqual({ caminho: "/embaixadores", titulo: "Embaixadores do bem" });
+    expect(paginaPermitida("/clube-do-bem")).toEqual({ caminho: "/clube-do-bem", titulo: "Clube do Bem" });
+    expect(paginaPermitida("/tipos")).toEqual({ caminho: "/tipos", titulo: "Categorias" });
+    expect(paginaPermitida("/tipos/cafe-e-padaria")).toEqual({ caminho: "/tipos/tipo", titulo: "Negócios por categoria" });
+    expect(paginaPermitida("/cupons")).toEqual({ caminho: "/cupons", titulo: "Ofertas do Clube do Bem" });
+    expect(paginaPermitida("/favoritos")).toEqual({ caminho: "/favoritos", titulo: "Favoritos" });
     expect(paginaPermitida("/empresas/perfil-sintetico")).toEqual({ caminho: "/empresas/perfil", titulo: "Perfil de negócio" });
   });
   it("descarta nomes desconhecidos e todos os parâmetros livres", () => {
     expect(sanearEvento("inventado", { email: "sintetico@example.invalid" })).toBeNull();
-    expect(sanearEvento("contato_negocio", { canal: "site", categoria: "Saúde", uf: "BA", email: "sintetico@example.invalid", q: "termo sintético", user_id: "sintetico" })).toEqual({ nome: "contato_negocio", params: { canal: "site", uf: "BA" } });
+    expect(sanearEvento("contato_negocio", { canal: "site", categoria: "Saúde", uf: "BA", email: "sintetico@example.invalid", q: "termo sintético", user_id: "sintetico" })).toEqual({ nome: "contato_negocio", params: { canal: "site", categoria: "Saúde", uf: "BA" } });
     expect(sanearEvento("cadastro_etapa", { etapa: "sintetico@example.invalid", tipo: "indicacao" })).toBeNull();
   });
 });

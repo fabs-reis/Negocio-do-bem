@@ -12,7 +12,7 @@ describe("CSP da medição opcional", () => {
     const regras = await config.headers!();
     const global = regras.find(regra => regra.source === "/:caminho*")!;
     const politica = global.headers.find(item => item.key === "Content-Security-Policy")!.value;
-    expect(politica).not.toMatch(/googletagmanager|google-analytics|analytics\.google/);
+    expect(politica).not.toMatch(/googletagmanager|google-analytics|analytics\.google|google\.com/);
     expect(politica).toContain("https://fotos.example.invalid");
     expect(politica).toContain("frame-ancestors 'none'");
     const medicao = regras.find(regra => regra.source === "/api/analytics")!;
@@ -22,6 +22,7 @@ describe("CSP da medição opcional", () => {
     ]));
     const especifica = medicao.headers.find(item => item.key === "Content-Security-Policy")!.value;
     expect(especifica).toContain("https://www.googletagmanager.com");
+    expect(especifica).toContain("https://*.google.com");
     expect(especifica).toContain("frame-ancestors 'self'");
     expect(especifica).toContain("default-src 'none'");
     expect(especifica).toContain("sandbox allow-scripts");

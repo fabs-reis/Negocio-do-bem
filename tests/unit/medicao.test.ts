@@ -9,7 +9,7 @@ vi.mock("next/headers", () => ({ cookies: async () => ({
   set: (nome: string, value: string, opcoes: Record<string, unknown>) => loja.set(nome, { value, opcoes }),
 }) }));
 const INDICACAO: Evento = { nome: "negocio_cadastrado", params: { tipo: "indicacao", categoria: "Café e padaria", uf: "BA", cidade: "Salvador", com_instagram: "sim" } };
-const INDICACAO_MINIMA = { nome: "negocio_cadastrado", params: { tipo: "indicacao", uf: "BA", com_instagram: "sim" } };
+const INDICACAO_MINIMA = { nome: "negocio_cadastrado", params: { tipo: "indicacao", categoria: "Café e padaria", uf: "BA", com_instagram: "sim" } };
 const escolha = () => `1:aceito:${Date.now()}`;
 
 describe("fila vinculada à escolha", () => {
@@ -31,14 +31,22 @@ describe("fila vinculada à escolha", () => {
   });
   it("descarta eventos e parâmetros fora da lista", () => {
     const consentimento = escolha();
-    const valor = JSON.stringify({ consentimento, eventos: [null, "login", { nome: "login", params: { method: "senha" } }, { nome: "contato_negocio", params: { canal: "telefone", uf: "BA", email: "sintetico@example.invalid" } }] });
-    expect(lerEventos(valor, consentimento)).toEqual([{ nome: "contato_negocio", params: { canal: "telefone", uf: "BA" } }]);
+    const valor = JSON.stringify({
+      consentimento,
+      eventos: [
+        null,
+        "login",
+        { nome: "login", params: { method: "invalido" } },
+        { nome: "contato_negocio", params: { canal: "telefone", categoria: "Saúde", uf: "BA", email: "sintetico@example.invalid" } },
+      ],
+    });
+    expect(lerEventos(valor, consentimento)).toEqual([{ nome: "contato_negocio", params: { canal: "telefone", categoria: "Saúde", uf: "BA" } }]);
   });
 });
 
 describe("medirContato", () => {
-  it("marca só canal e UF, sem identificar o negócio ou interesses", () => {
-    expect(medirContato("whatsapp", { categoria: "Saúde", uf: "BA" })).toEqual({ "data-medir": "contato_negocio", "data-canal": "whatsapp", "data-uf": "BA" });
+  it("marca canal, categoria e UF, sem identificar o negócio", () => {
+    expect(medirContato("whatsapp", { categoria: "Saúde", uf: "BA" })).toEqual({ "data-medir": "contato_negocio", "data-canal": "whatsapp", "data-categoria": "Saúde", "data-uf": "BA" });
   });
 });
 
@@ -68,7 +76,7 @@ describe("medir", () => {
     await medir(INDICACAO);
     expect(loja.has(COOKIE_EVENTOS)).toBe(false);
   });
-  it("deixa só eventos mínimos num cookie curto após consentimento", async () => {
+  it("deixa só eventos permitidos num cookie curto após consentimento", async () => {
     vi.stubEnv("NEXT_PUBLIC_GA_ID", "G-SINTETICO");
     const consentimento = escolha();
     loja.set(COOKIE_CONSENTIMENTO, { value: consentimento, opcoes: {} });

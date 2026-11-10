@@ -74,7 +74,7 @@
   await esperar();
   const contato = (await eventos()).find(item => item[1] === "contato_negocio");
   assert.ok(contato);
-  assert.deepEqual(Object.keys(contato[2]).sort(), ["canal", "uf", "page_location", "page_title", "page_referrer"].sort());
+  assert.deepEqual(Object.keys(contato[2]).sort(), ["canal", "categoria", "uf", "page_location", "page_title", "page_referrer"].sort());
   assert.ok(!JSON.stringify(await eventos()).includes("busca-sintetica"));
   assert.ok(!JSON.stringify(await eventos()).includes("sintetico@example.invalid"));
   assert.ok(!JSON.stringify(await eventos()).includes("fragmento-sintetico"));
@@ -87,18 +87,21 @@
   assert.notEqual((await cookie("ndb_consentimento")).value, escolhaAntes, "reaceitação grava uma escolha nova");
   await pagina.evaluate(() => {
     const alvo = document.createElement("button");
-    alvo.dataset.medir = "contato_negocio"; alvo.dataset.canal = "telefone"; alvo.dataset.uf = "BA";
+    alvo.dataset.medir = "contato_negocio"; alvo.dataset.canal = "telefone"; alvo.dataset.categoria = "Saúde"; alvo.dataset.uf = "BA";
     document.body.append(alvo); alvo.click(); alvo.remove();
   });
   await esperar();
   assert.equal(await pagina.evaluate(() => window.__ndbReaceitacao), "sem-navegacao", "reaceitação não navega nem recarrega o documento principal");
   assert.ok((await eventos()).some(item => item[0] === "event" && item[1] === "contato_negocio" && item[2].canal === "telefone"), "reaceitação na mesma rota mantém o envio de uma interação permitida");
 
+  const loadersAntesDaRota = loaders();
   await pagina.evaluate(() => { window.__documentoConsentimento = "mesmo-documento"; });
   await pagina.getByRole("link", { name: "Cadastrar", exact: true }).click();
   await pagina.waitForURL("**/participar");
   await esperar();
   assert.equal(await pagina.evaluate(() => window.__documentoConsentimento), "mesmo-documento", "navegação cliente real");
+  assert.equal(loaders(), loadersAntesDaRota, "navegação pública reutiliza o mesmo frame sem recarregar o gtag");
+  assert.ok((await eventos()).some(item => item[0] === "event" && item[1] === "page_view" && item[2].page_location === `${base}/participar`), "navegação pública envia page_view no mesmo frame");
   await pagina.getByRole("link", { name: "Entrar", exact: true }).first().click();
   await pagina.waitForURL("**/entrar*");
   await esperar();

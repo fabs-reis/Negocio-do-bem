@@ -107,6 +107,7 @@ export default function Sobre() {
         </p>
         <p>
           A revogação impede novos envios e descarta filas opcionais. Ela não apaga dados já recebidos pelo Google.
+          Além disso, o Cloudflare Web Analytics mede visitas e tempo de carregamento das páginas sem usar cookies e sem identificar quem visita.
           A retenção, o compartilhamento, os recursos de publicidade e as demais configurações da conta Google precisam
           de verificação pelo responsável. Estes controles técnicos não são uma declaração de conformidade jurídica.
         </p>
