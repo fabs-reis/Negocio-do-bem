@@ -172,7 +172,7 @@ export default function ClubeDoBem() {
           <Passo nivel="h3" numero={1} titulo="Ache um negócio com cupom">
             <p>
               No <Link href="/explorar" className="link">Explorar</Link>, os negócios com oferta valendo têm o selo{" "}
-              <Destaque>🎟️ Cupom</Destaque>.
+              <Destaque>Cupom</Destaque>.
             </p>
             <Print nome="cliente-1-selo-no-diretorio" alt="Cartão da Padaria Florescer no Explorar, com o selo Cupom" />
             <p className="pt-3">
@@ -295,7 +295,7 @@ export default function ClubeDoBem() {
           <Passo nivel="h3" numero={3} titulo="A oferta entra no ar">
             <p>
               Ela aparece no perfil do negócio, com o selo <Destaque>Parceiro do Clube do Bem</Destaque>, e no Explorar, com o
-              selo <Destaque>🎟️ Cupom</Destaque>. No painel, você acompanha quantos cupons foram gerados e quantos foram usados.
+              selo <Destaque>Cupom</Destaque>. No painel, você acompanha quantos cupons foram gerados e quantos foram usados.
             </p>
             <Print nome="dono-3-oferta-no-ar" alt="Painel com a oferta valendo agora: 1 cupom gerado de 50, 0 usados" />
             <p className="pt-3">

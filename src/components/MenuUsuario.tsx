@@ -16,7 +16,7 @@ export async function MenuUsuario() {
   const primeiroNome = usuario.nome.split(" ")[0];
   return (
     <details className="group relative sm:ml-1">
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-linha bg-superficie py-1 pr-1 pl-1 text-sm sm:pr-3 transition hover:border-tinta/20 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-areia py-1 pr-1 pl-1 text-sm sm:pr-3 transition hover:bg-linha [&::-webkit-details-marker]:hidden">
         <span className="grid h-7 w-7 place-items-center rounded-full bg-coral-50 text-xs font-bold text-coral-700">
           {primeiroNome?.[0]?.toUpperCase()}
         </span>

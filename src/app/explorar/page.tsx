@@ -110,7 +110,7 @@ async function Diretorio({ searchParams }: Pick<PageProps<"/explorar">, "searchP
                 atual={filtros.ordem}
                 links={Object.fromEntries((Object.keys(ORDENS) as Ordem[]).map((ordem) => [ordem, mudarFiltro(filtros, { ordem })])) as Record<Ordem, string>}
               />
-              <div role="group" aria-label="Modo de exibição" className="inline-flex rounded-full border border-linha bg-superficie p-0.5">
+              <div role="group" aria-label="Modo de exibição" className="inline-flex rounded-full bg-areia p-0.5">
                 <BotaoVista href={hrefDiretorio({ ...filtros, vista: "grade" })} ativo={filtros.vista === "grade"} rotulo="Ver em grade">
                   <path d="M4 4h7v7H4V4ZM13 4h7v7h-7V4ZM4 13h7v7H4v-7ZM13 13h7v7h-7v-7Z" />
                 </BotaoVista>
@@ -129,10 +129,10 @@ async function Diretorio({ searchParams }: Pick<PageProps<"/explorar">, "searchP
                   href={ativo.href}
                   scroll={false} rel="nofollow"
                   aria-label={`Tirar o filtro ${ativo.rotulo}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-tinta/60 bg-superficie py-1.5 pr-2.5 pl-3.5 text-sm font-medium transition hover:border-tinta"
+                  className="inline-flex items-center gap-2 rounded-full bg-tinta py-1.5 pr-2.5 pl-3.5 text-sm font-medium text-papel transition hover:bg-tinta/85"
                 >
                   {ativo.rotulo}
-                  <span aria-hidden="true" className="text-suave">
+                  <span aria-hidden="true" className="text-papel/70">
                     ✕
                   </span>
                 </Link>
@@ -233,7 +233,7 @@ function Filtros({ filtros, resultado }: { filtros: FiltrosDiretorio; resultado:
         href={mudarFiltro(filtros, { verificados: !filtros.verificados })}
         scroll={false} rel="nofollow"
         aria-current={filtros.verificados ? "true" : undefined}
-        className="cartao flex items-center justify-between gap-3 p-4 transition hover:border-tinta/30"
+        className="cartao flex items-center justify-between gap-3 p-4 transition hover:bg-linha"
       >
         <span>
           <span className="block text-sm font-semibold">Só perfis assumidos</span>

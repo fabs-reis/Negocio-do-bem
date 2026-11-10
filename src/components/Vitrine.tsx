@@ -138,7 +138,7 @@ export function Atalhos({ titulo, itens }: { titulo: string; itens: Atalho[] }) 
           <li key={item.chave}>
             <Link
               href={item.href}
-              className="inline-flex items-center gap-2 rounded-full border border-linha bg-superficie px-3.5 py-1.5 text-sm font-medium transition hover:border-tinta/40"
+              className="inline-flex items-center gap-2 rounded-full bg-areia px-3.5 py-1.5 text-sm font-medium transition hover:bg-linha"
             >
               {item.rotulo}
               {item.total !== undefined && <span className="text-xs text-suave tabular-nums">{item.total}</span>}

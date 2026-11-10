@@ -9,7 +9,7 @@ export function OrdenarPor({ atual, links }: { atual: Ordem; links: Record<Ordem
       <details key={atual} className="group relative">
         <summary
           aria-describedby="rotulo-ordenar"
-          className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-linha bg-superficie py-2 pr-3 pl-3 font-medium text-tinta [&::-webkit-details-marker]:hidden"
+          className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-areia py-2 pr-3 pl-3 font-medium text-tinta [&::-webkit-details-marker]:hidden"
         >
           {ORDENS[atual]}
           <svg viewBox="0 0 20 20" className="h-4 w-4 text-suave transition group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

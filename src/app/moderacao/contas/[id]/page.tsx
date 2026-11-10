@@ -81,7 +81,7 @@ async function Conteudo({ params }: Pick<PageProps<"/moderacao/contas/[id]">, "p
         </p>
         <nav aria-label="Resumo da conta" className="flex flex-wrap gap-2">
           {numeros.map((n) => (
-            <a key={n.ancora} href={`#${n.ancora}`} className="rounded-full border border-linha bg-superficie px-3.5 py-1.5 text-sm hover:border-tinta/30">
+            <a key={n.ancora} href={`#${n.ancora}`} className="rounded-full bg-areia px-3.5 py-1.5 text-sm hover:bg-linha">
               {n.texto}
             </a>
           ))}
