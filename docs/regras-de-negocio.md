@@ -380,7 +380,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
 
 ### O cadastro por etapas
 
-- **Uma entrada só:** `/participar` é o "Cadastrar" do menu e o destino dos botões de indicar. O `/indicar` antigo redireciona para lá, com a busca (`?instagram=<@>&dono=sim`), que vira o @ e a escolha de dono já preenchidos.
+- **Uma entrada só:** `/participar` é o "Adicionar empresa" do menu e o destino dos botões de indicar. O `/indicar` antigo redireciona para lá, com a busca (`?instagram=<@>&dono=sim`), que vira o @ e a escolha de dono já preenchidos.
 - **Uma pergunta por vez.** Primeiro o @, depois "O que você quer fazer?". As respostas ficam num formulário só: voltar não perde nada, Enter avança, e cada etapa confere os próprios campos antes de seguir. O servidor confere tudo de novo no envio, e um erro dele leva a pessoa de volta à etapa do campo errado.
 - **As etapas:** quem indica passa por @, escolha, nome e categoria, cidade e frase, causas (com o "por que você indica?") e revisão. O dono tem duas a mais antes da revisão: os contatos do negócio e o contato dele.
 - **A procura do @** (`procurarArroba` em `src/acoes/participacao.ts`) não precisa de login e só lê. As opções da etapa seguinte dependem do que ela acha (`casoDaProcura` em `src/lib/participacao.ts`):
@@ -1273,7 +1273,7 @@ O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `
 
 **A navegação no celular** (`src/components/BarraInferior.tsx`)
 
-Em telas pequenas (abaixo de `sm`, 640 px), uma barra flutuante no rodapé substitui o menu do topo, que fica só com o logo, a busca e o botão laranja "Cadastrar" (no computador, "Cadastrar negócio", também em laranja). No computador nada muda. A barra respeita a área do botão home do iPhone (`viewportFit: "cover"`) e o rodapé do site ganha folga para ela não cobrir os links.
+Em telas pequenas (abaixo de `sm`, 640 px), uma barra flutuante no rodapé substitui o menu do topo, que fica só com o logo, a busca e o botão laranja "+ Adicionar" (no computador, "+ Adicionar empresa", também em laranja), que leva a `/participar`. No computador nada muda. A barra respeita a área do botão home do iPhone (`viewportFit: "cover"`) e o rodapé do site ganha folga para ela não cobrir os links.
 
 - **Quem compra** (entrou ou não): Início, Explorar, Cupons, Favoritos e Conta. A aba Cupons mostra quantas ofertas estão valendo agora.
 - **Dono com negócio liberado no clube** (liberação "liberada" e ainda dono): Início, Cupons, **Validar** (botão grande no centro), Negócio e Conta. Dono sem liberação, suspensa ou recusada, vê a barra de quem compra e chega ao negócio pela Conta.

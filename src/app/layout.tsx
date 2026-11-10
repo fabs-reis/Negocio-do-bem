@@ -95,10 +95,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   <path d="M16 16l4.5 4.5" />
                 </svg>
               </Link>
-              {/* A ação principal do site: em laranja, também no celular (lá, só "Cadastrar"). */}
-              <Link href="/participar" className="botao-coral max-sm:px-3.5 max-sm:py-2 max-sm:text-[13px]">
-                <span className="sm:hidden">Cadastrar</span>
-                <span className="max-sm:hidden">Cadastrar negócio</span>
+              {/* A ação principal do site: em laranja, também no celular (lá, só "Adicionar"). */}
+              <Link href="/participar" className="botao-coral gap-1.5 max-sm:py-2 max-sm:pr-3.5 max-sm:pl-3 max-sm:text-[13px] sm:pl-4">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span className="sm:hidden">Adicionar</span>
+                <span className="max-sm:hidden">Adicionar empresa</span>
               </Link>
               <div className="hidden sm:block">
                 <AlternarTema />
