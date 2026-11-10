@@ -28,6 +28,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { AVISOS } from "@/lib/avisos";
 import { db } from "@/lib/db";
 import { campoTelefone, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
+import { medir } from "@/lib/medicao-servidor";
 import { avisarSenhaTrocada } from "@/lib/notificacoes";
 
 const campoEmail = z.email("Digite um e-mail válido.").max(200, "E-mail muito longo.");
@@ -53,6 +54,7 @@ const esquemaTrocarSenha = z
   .refine(senhasConferem, senhasNaoConferem);
 
 const MENSAGEM_LIMITE = "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
+const MENSAGEM_SEM_IP = "Não foi possível continuar agora. Tente de novo mais tarde.";
 
 /** IP de quem fez a requisição, ou null se não der para confiar em nenhum cabeçalho (veja `ipDoCabecalho`). */
 async function ipDaRequisicao(): Promise<string | null> {
@@ -71,8 +73,12 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
   }
   const { nome, email, telefone, senha } = resultado.data;
 
-  if (!(await tentativaDoIpLiberada(await ipDaRequisicao()))) {
-    return { erro: MENSAGEM_LIMITE, valores: valoresDoFormulario(dados) };
+  const ip = await ipDaRequisicao();
+  if (!(await tentativaDoIpLiberada(ip))) {
+    const erro = ip
+      ? "Muitas tentativas seguidas. Espere alguns minutos e tente de novo."
+      : "Não foi possível criar a conta agora. Tente de novo mais tarde.";
+    return { erro, valores: valoresDoFormulario(dados) };
   }
 
   const existente = await db.usuario.findUnique({ where: { email } });
@@ -82,6 +88,7 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
 
   const usuario = await db.usuario.create({ data: { nome, email, telefone, senhaHash: await gerarHashSenha(senha) } });
   await criarSessao(usuario.id);
+  await medir({ nome: "sign_up", params: { method: "senha" } });
   const voltar = caminhoSeguro(texto(dados, "voltar"));
   if (CONFIRMACAO_DE_EMAIL_LIGADA) {
     after(async () => {
@@ -111,6 +118,7 @@ export async function concluirCadastroGoogle(_estado: EstadoFormulario, dados: F
   await apagarCadastroGoogle(token);
   loja.delete({ name: COOKIE_CADASTRO_GOOGLE, path: "/cadastrar/google" });
   await criarSessao(resultado.usuarioId);
+  await medir({ nome: "sign_up", params: { method: "google" } });
   redirect(caminhoSeguro(cadastro.destino));
 }
 
@@ -124,9 +132,10 @@ export async function entrar(_estado: EstadoFormulario, dados: FormData): Promis
   const recusado = { erro: "E-mail ou senha incorretos.", valores: valoresDoFormulario(dados) };
 
   const ip = await ipDaRequisicao();
-  if (!(await tentativaDoIpLiberada(ip)) || (email && !(await reservarTentativaDoEmail(email, ip)))) {
-    return recusado;
+  if (!(await tentativaDoIpLiberada(ip))) {
+    return ip ? recusado : { erro: "Não foi possível entrar agora. Tente de novo mais tarde.", valores: valoresDoFormulario(dados) };
   }
+  if (email && !(await reservarTentativaDoEmail(email, ip))) return recusado;
 
   const usuario = email ? await db.usuario.findUnique({ where: { email } }) : null;
   const senhaConfere = await verificarSenha(senha, usuario?.senhaHash ?? (await (hashFalso ??= gerarHashSenha("senha-que-nao-existe"))));
@@ -134,6 +143,7 @@ export async function entrar(_estado: EstadoFormulario, dados: FormData): Promis
   if (!usuario || !senhaConfere) return recusado;
   await zerarTentativasDoEmail(email, ip);
   await criarSessao(usuario.id);
+  await medir({ nome: "login", params: { method: "senha" } });
   redirect(caminhoSeguro(texto(dados, "voltar")));
 }
 
@@ -185,6 +195,7 @@ export async function usarLinkDoEmail(): Promise<void> {
   const destino = caminhoSeguro(link.destino);
   if (link.finalidade === "entrar") {
     await criarSessao(link.usuario.id);
+    await medir({ nome: "login", params: { method: "link" } });
     redirect(destino);
   }
   redirect(`/link?confirmado=1&voltar=${encodeURIComponent(destino)}`);
@@ -201,8 +212,9 @@ export async function pedirRedefinicaoDeSenha(_estado: EstadoFormulario, dados: 
   if (!resultado.success) {
     return { erros: { email: resultado.error.issues[0]?.message ?? "Digite um e-mail válido." }, valores: valoresDoFormulario(dados) };
   }
-  if (!(await tentativaDoIpLiberada(await ipDaRequisicao()))) {
-    return { erro: MENSAGEM_LIMITE, valores: valoresDoFormulario(dados) };
+  const ip = await ipDaRequisicao();
+  if (!(await tentativaDoIpLiberada(ip))) {
+    return { erro: ip ? MENSAGEM_LIMITE : MENSAGEM_SEM_IP, valores: valoresDoFormulario(dados) };
   }
   const usuario = await db.usuario.findUnique({
     where: { email: resultado.data },
@@ -227,7 +239,8 @@ export async function criarSenhaComLink(_estado: EstadoFormulario, dados: FormDa
   if (!resultado.success) return { erros: errosPorCampo(resultado.error) };
 
   // A troca calcula o scrypt, então também passa pelo limite por IP.
-  if (!(await tentativaDoIpLiberada(await ipDaRequisicao()))) return { erro: MENSAGEM_LIMITE };
+  const ip = await ipDaRequisicao();
+  if (!(await tentativaDoIpLiberada(ip))) return { erro: ip ? MENSAGEM_LIMITE : MENSAGEM_SEM_IP };
 
   const loja = await cookies();
   const conta = await redefinirSenhaComLink(loja.get(COOKIE_LINK)?.value ?? "", resultado.data.novaSenha);
@@ -256,9 +269,8 @@ export async function trocarSenha(_estado: EstadoFormulario, dados: FormData): P
   const { senhaAtual, novaSenha } = resultado.data;
 
   const ip = await ipDaRequisicao();
-  if (!(await tentativaDoIpLiberada(ip)) || !(await reservarTentativaDoEmail(usuario.email, ip))) {
-    return { erro: MENSAGEM_LIMITE };
-  }
+  if (!(await tentativaDoIpLiberada(ip))) return { erro: ip ? MENSAGEM_LIMITE : MENSAGEM_SEM_IP };
+  if (!(await reservarTentativaDoEmail(usuario.email, ip))) return { erro: MENSAGEM_LIMITE };
   const { senhaHash: senhaAntiga } = await db.usuario.findUniqueOrThrow({ where: { id: usuario.id }, select: { senhaHash: true } });
   // A conta sem senha (criada pelo Google) cria a primeira pelo link do e-mail, e não por aqui.
   if (!senhaAntiga || !(await verificarSenha(senhaAtual, senhaAntiga))) {

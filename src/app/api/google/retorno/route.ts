@@ -9,6 +9,7 @@ import {
   VALIDADE_CADASTRO_GOOGLE_MS,
 } from "@/lib/auth/google";
 import { caminhoSeguro, criarSessao } from "@/lib/auth/sessao";
+import { medir } from "@/lib/medicao-servidor";
 
 /** Retorno do Google depois do login (URI de redirecionamento cadastrada no Google Cloud). */
 export async function GET(request: NextRequest) {
@@ -55,6 +56,8 @@ export async function GET(request: NextRequest) {
       return resposta;
     }
     await criarSessao(resultado.usuarioId);
+    // Conta nova passa por /cadastrar/google: aqui é sempre quem já tinha conta.
+    await medir({ nome: "login", params: { method: "google" } });
     return ir(new URL(voltar, origem));
   } catch (erro) {
     // A mensagem vai como texto: com o objeto do erro, o log do Worker guarda só a pilha.

@@ -6,7 +6,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   useTransition,
   type FormEvent,
   type KeyboardEvent,
@@ -21,9 +20,11 @@ import { CampoMunicipio } from "@/components/CampoMunicipio";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { enviarSemLimpar } from "@/components/envio";
 import { Monograma } from "@/components/Monograma";
+import { apagarRascunhoDoAparelho, guardarRascunhoNoAparelho, useRascunhoDoAparelho } from "@/components/rascunho-no-aparelho";
 import { SeletorCausas } from "@/components/SeletorCausas";
 import { CATEGORIAS } from "@/lib/dominio";
-import { lerRascunho, type Rascunho } from "@/lib/rascunho-do-cadastro";
+import { enviarEvento, type TipoDeCadastro } from "@/lib/medicao";
+import { lerRascunho, VOLTA_AO_CADASTRO as CONTINUAR, type Rascunho } from "@/lib/rascunho-do-cadastro";
 
 // O cadastro por etapas: uma pergunta por vez. Todas as etapas ficam montadas num
 // formulário só, e só a atual aparece: voltar não perde nada, e o envio final é o
@@ -38,6 +39,9 @@ const SEQUENCIA: Record<Ramo, Etapa[]> = {
   dono: ["arroba", "escolha", "nome", "onde", "causas", "contatos", "voce", "fim"],
 };
 
+/** O ramo como o Analytics o chama, igual ao `tipo` do evento `negocio_cadastrado`. */
+const TIPO_DO_RAMO: Record<Ramo, TipoDeCadastro> = { indicar: "indicacao", dono: "dono" };
+
 /** Onde cada campo fica: um erro do servidor leva a pessoa de volta à etapa certa. */
 const ETAPA_DO_CAMPO: Record<string, Etapa> = {
   instagram: "arroba",
@@ -46,30 +50,13 @@ const ETAPA_DO_CAMPO: Record<string, Etapa> = {
   municipio: "onde",
   resumo: "onde",
   motivo: "causas",
+  whatsapp: "contatos",
   telefoneComercial: "contatos",
   site: "contatos",
-  whatsapp: "contatos",
   emailContato: "contatos",
   emailDoDono: "voce",
   telefoneDoDono: "voce",
 };
-
-/** O rascunho no aparelho, enquanto a pessoa entra, cria a conta ou confirma o e-mail. */
-const CHAVE_LOCAL = "ndb:cadastro";
-const CONTINUAR = "/participar?continuar=1#cadastro";
-
-function lerDoAparelho(): string | null {
-  try {
-    return window.localStorage.getItem(CHAVE_LOCAL);
-  } catch {
-    return null;
-  }
-}
-
-function assinarAparelho(aviso: () => void) {
-  window.addEventListener("storage", aviso);
-  return () => window.removeEventListener("storage", aviso);
-}
 
 function valoresDo(formulario: HTMLFormElement): Rascunho {
   const dados = new FormData(formulario);
@@ -99,15 +86,7 @@ type Props = {
 
 export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, continuar, instagramDoProjeto }: Props) {
   // Quem volta do login ou do cadastro, neste aparelho, continua de onde parou.
-  const doAparelho = useSyncExternalStore(assinarAparelho, lerDoAparelho, () => null);
-  const inicial = (() => {
-    if (!continuar || !doAparelho) return null;
-    try {
-      return lerRascunho(JSON.parse(doAparelho));
-    } catch {
-      return null;
-    }
-  })();
+  const inicial = useRascunhoDoAparelho(continuar);
 
   const [etapaEscolhida, setEtapa] = useState<Etapa | null>(null);
   const [ramoEscolhido, setRamo] = useState<Ramo | null>(null);
@@ -158,7 +137,8 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       return resto;
     });
 
-  function irPara(destino: Etapa) {
+  /** O ramo vem junto quando acabou de ser escolhido: o estado só muda na próxima renderização. */
+  function irPara(destino: Etapa, ramoDaEtapa = ramo) {
     mexeu.current = true;
     if (formulario.current) {
       const valores = valoresDo(formulario.current);
@@ -167,6 +147,8 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       if (destino === "fim" && conta.logado && !conta.emailConfirmado) guardarNoAparelho(valores);
     }
     setEtapa(destino);
+    // Cada etapa é um passo do funil no Analytics: mostra onde as pessoas desistem.
+    enviarEvento("cadastro_etapa", { etapa: destino, tipo: ramoDaEtapa ? TIPO_DO_RAMO[ramoDaEtapa] : undefined });
   }
 
   function procurar() {
@@ -191,7 +173,7 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       setSitePrevia(previa?.site ?? "");
       if (resultado.caso === "indicar" && donoInicial) {
         setRamo("dono");
-        irPara("nome");
+        irPara("nome", "dono");
       } else {
         irPara("escolha");
       }
@@ -211,7 +193,7 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
 
   function escolher(novo: Ramo) {
     setRamo(novo);
-    irPara("nome");
+    irPara("nome", novo);
   }
 
   /** Confere só os campos da etapa atual. O servidor confere tudo de novo no envio. */
@@ -234,9 +216,9 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
       if (valor("resumo").length < 10) erros.resumo = "Escreva uma frase sobre o negócio.";
     }
     if (etapa === "contatos") {
-      if (!valor("telefoneComercial")) erros.telefoneComercial = "Qual é o telefone comercial do negócio?";
-      else if (!telefoneValido(valor("telefoneComercial"))) erros.telefoneComercial = "Confira o número, com o DDD.";
-      if (valor("whatsapp") && !telefoneValido(valor("whatsapp"))) erros.whatsapp = "Confira o número, com o DDD.";
+      if (!valor("whatsapp")) erros.whatsapp = "Qual é o WhatsApp do negócio?";
+      else if (!telefoneValido(valor("whatsapp"))) erros.whatsapp = "Confira o número, com o DDD.";
+      if (valor("telefoneComercial") && !telefoneValido(valor("telefoneComercial"))) erros.telefoneComercial = "Confira o número, com o DDD.";
       if (emailInvalido("emailContato")) erros.emailContato = "Esse e-mail não parece certo.";
     }
     if (etapa === "voce") {
@@ -275,21 +257,12 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
   /** Antes de ir para o login, o cadastro ou o e-mail, as respostas ficam neste aparelho. */
   function guardarNoAparelho(valores?: Rascunho) {
     const rascunho = valores ?? (formulario.current ? valoresDo(formulario.current) : null);
-    if (!rascunho) return;
-    try {
-      window.localStorage.setItem(CHAVE_LOCAL, JSON.stringify(rascunho));
-    } catch {
-      // Sem armazenamento (navegação privada), a pessoa preenche de novo depois de entrar.
-    }
+    if (rascunho) guardarRascunhoNoAparelho(rascunho);
   }
 
   const enviar = enviarSemLimpar(acao);
   function aoEnviar(evento: FormEvent<HTMLFormElement>) {
-    try {
-      window.localStorage.removeItem(CHAVE_LOCAL);
-    } catch {
-      // Nada a limpar.
-    }
+    apagarRascunhoDoAparelho();
     enviar(evento);
   }
 
@@ -446,23 +419,23 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
 
         {dono && (
           <>
-            <Secao etapa="contatos" atual={etapa} titulo="Como os clientes falam com o negócio?" subtitulo="Tudo isso vira botão no perfil. Só o telefone comercial é obrigatório.">
-              <Campo id="telefoneComercial" rotulo="Telefone comercial" erro={erro("telefoneComercial")}>
+            <Secao etapa="contatos" atual={etapa} titulo="Como os clientes falam com o negócio?" subtitulo="Tudo isso vira botão no perfil. Só o WhatsApp é obrigatório.">
+              <Campo id="whatsapp" rotulo="WhatsApp" erro={erro("whatsapp")}>
                 <input
-                  id="telefoneComercial"
-                  name="telefoneComercial"
+                  id="whatsapp"
+                  name="whatsapp"
                   type="tel"
                   maxLength={30}
-                  placeholder="(11) 3333-4444"
-                  defaultValue={inicial?.telefoneComercial ?? ""}
-                  onChange={() => limpar("telefoneComercial")}
-                  aria-invalid={erro("telefoneComercial") ? true : undefined}
+                  placeholder="(11) 99999-9999"
+                  defaultValue={inicial?.whatsapp ?? ""}
+                  onChange={() => limpar("whatsapp")}
+                  aria-invalid={erro("whatsapp") ? true : undefined}
                   className="campo"
                 />
               </Campo>
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Campo id="whatsapp" rotulo="WhatsApp (opcional)" erro={erro("whatsapp")}>
-                  <input id="whatsapp" name="whatsapp" type="tel" maxLength={30} placeholder="(11) 99999-9999" defaultValue={inicial?.whatsapp ?? ""} onChange={() => limpar("whatsapp")} className="campo" />
+                <Campo id="telefoneComercial" rotulo="Telefone comercial (opcional)" erro={erro("telefoneComercial")}>
+                  <input id="telefoneComercial" name="telefoneComercial" type="tel" maxLength={30} placeholder="(11) 3333-4444" defaultValue={inicial?.telefoneComercial ?? ""} onChange={() => limpar("telefoneComercial")} className="campo" />
                 </Campo>
                 <Campo id="emailContato" rotulo="E-mail do negócio (opcional)" erro={erro("emailContato")}>
                   <input id="emailContato" name="emailContato" type="email" maxLength={200} placeholder="contato@negocio.com.br" defaultValue={inicial?.emailContato ?? ""} onChange={() => limpar("emailContato")} className="campo" />
@@ -522,8 +495,8 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
             <dd>{!visto.causas?.length ? "nenhuma" : visto.causas.length === 1 ? "1 marcada" : `${visto.causas.length} marcadas`}</dd>
             {dono && (
               <>
-                <dt className="text-suave">Telefone comercial</dt>
-                <dd className="truncate">{visto.telefoneComercial ?? "—"}</dd>
+                <dt className="text-suave">WhatsApp</dt>
+                <dd className="truncate">{visto.whatsapp ?? "—"}</dd>
                 <dt className="text-suave">Seu contato</dt>
                 <dd className="truncate">{[visto.emailDoDono, visto.telefoneDoDono].filter(Boolean).join(" · ") || "—"}</dd>
               </>

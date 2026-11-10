@@ -13,9 +13,11 @@ import { db } from "@/lib/db";
 import { METODOS_REIVINDICACAO, STATUS_REIVINDICACAO } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { configLogin, normalizarEndereco, normalizarUsername } from "@/lib/instagram";
+import { aprovaSozinhoPorDocumento, foiTiradaDosDonos } from "@/lib/reivindicacao";
 import { formatarDataHora } from "@/lib/texto";
 import { FormDocumento } from "./Formularios";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
 
 export const metadata: Metadata = { title: "Reivindicar perfil", robots: FORA_DA_BUSCA };
 
@@ -40,6 +42,7 @@ async function Reivindicar({
     usuarioAtual(),
     searchParams,
   ]);
+  if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/empresas/${atual}/reivindicar`);
   if (!empresa || empresa.moderacao === "rejeitada") notFound();
 
   const caminho = `/empresas/${username}/reivindicar`;
@@ -54,9 +57,9 @@ async function Reivindicar({
         Este negócio é seu?
       </h1>
       <p className="text-lg leading-relaxed text-suave">
-        Envie os dados do negócio para assumir o perfil de{" "}
+        Conte a sua relação com o negócio para assumir o perfil de{" "}
         <strong className="font-semibold text-tinta">{temInstagram(username) ? `@${username}` : empresa.nome}</strong>. Depois disso, você conta a sua história,
-        escolhe as causas e responde à comunidade.
+        escolhe as causas e responde à comunidade. Depois você pode verificar a empresa, com o CNPJ, o nome e o CPF, para ganhar o selo e os benefícios de Parceiro do Clube do Bem.
       </p>
       <AvisoDaUrl codigo={busca.aviso} />
       {busca.aviso === "ig_conta_diferente" && conectada && (
@@ -110,11 +113,14 @@ async function Reivindicar({
     );
   }
 
-  const solicitacoes = await db.reivindicacao.findMany({
-    where: { empresaId: empresa.id, usuarioId: usuario.id },
-    orderBy: { criadoEm: "desc" },
-    take: 5,
-  });
+  const [solicitacoes, tiradaDosDonos] = await Promise.all([
+    db.reivindicacao.findMany({
+      where: { empresaId: empresa.id, usuarioId: usuario.id },
+      orderBy: { criadoEm: "desc" },
+      take: 5,
+    }),
+    foiTiradaDosDonos(empresa.id, usuario.id),
+  ]);
   const pendentes = solicitacoes.filter((r) => r.status === "pendente");
   const dadosEmAnalise = pendentes.some((r) => r.metodo === "documento");
   // Sem Instagram, o único caminho é enviar os dados do negócio.
@@ -183,7 +189,7 @@ async function Reivindicar({
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
               <span>
                 <span className="block font-serif text-2xl font-semibold">Não tenho acesso ao Instagram do negócio</span>
-                <span className="mt-1 block text-suave">Envie os dados do negócio para assumir o perfil.</span>
+                <span className="mt-1 block text-suave">Conte a sua relação com o negócio para assumir o perfil.</span>
               </span>
               <span aria-hidden="true" className="text-2xl text-suave transition group-open:rotate-45">
                 +
@@ -193,11 +199,11 @@ async function Reivindicar({
           </details>
         ) : (
           <section className="cartao p-6 sm:p-8">
-            <h2 className="font-serif text-2xl font-semibold">Envie os dados do negócio</h2>
+            <h2 className="font-serif text-2xl font-semibold">Assuma o perfil</h2>
             <p className="mt-2 leading-relaxed text-suave">
-              {empresa.membros.length > 0
-                ? "A moderação analisa o pedido e decide. O resultado aparece no seu painel."
-                : "Como ninguém assumiu este perfil ainda, ele passa a ser seu assim que você enviar."}
+              {aprovaSozinhoPorDocumento(empresa, tiradaDosDonos)
+                ? "Como ninguém assumiu este perfil ainda, ele passa a ser seu assim que você enviar."
+                : "A moderação analisa o pedido e decide. O resultado aparece no seu painel."}
             </p>
             <FormDocumento empresaId={empresa.id} />
           </section>
