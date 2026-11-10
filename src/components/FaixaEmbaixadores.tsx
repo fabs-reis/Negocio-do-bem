@@ -23,8 +23,8 @@ export async function FaixaEmbaixadores() {
       <div className="flex flex-wrap items-center gap-x-10 gap-y-6 rounded-[2rem] bg-tinta p-7 text-papel sm:p-10 escuro:bg-superficie escuro:text-tinta escuro:ring-1 escuro:ring-linha">
         <div className="min-w-0 flex-[1_1_16rem]">
           <p className="text-xs font-semibold tracking-[0.08em] text-coral-100 uppercase escuro:text-coral-700">Quem espalha a palavra</p>
-          <h2 className="mt-2.5 font-serif text-4xl leading-[1.05] font-semibold tracking-tight">
-            Embaixadores do <span className="text-coral italic escuro:text-coral-700">bem</span>
+          <h2 className="mt-2.5 font-display text-4xl leading-[1.05] font-semibold tracking-tight">
+            Embaixadores do <span className="font-serif text-coral italic escuro:text-coral-700">bem</span>
           </h2>
           <p className="mt-3 leading-relaxed text-papel/75 escuro:text-suave">
             Siga quem leva o Negócio do Bem para a própria cidade, e veja os negócios de lá.

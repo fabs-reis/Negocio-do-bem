@@ -37,8 +37,8 @@ export default function Inicio() {
                 Um movimento do bem<span className="hidden sm:inline">, feito pela comunidade</span>
               </span>
             </p>
-            <h1 className="mt-5 font-serif text-5xl leading-[1.02] font-semibold tracking-tight text-balance sm:text-7xl">
-              Compre de quem <span className="text-coral italic">faz o bem.</span>
+            <h1 className="mt-5 font-display text-5xl leading-[1.02] font-semibold tracking-tight text-balance sm:text-7xl">
+              Compre de quem <span className="font-serif text-coral italic">faz o bem.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-suave text-balance sm:text-xl">
               Negócios com consciência social e raízes na comunidade. Busque pelo que você precisa e pela sua cidade,
@@ -71,7 +71,7 @@ export default function Inicio() {
 
       <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Explore por tipo de negócio</h2>
+          <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Explore por tipo de negócio</h2>
           <Link href="/explorar" className="inline-flex items-center gap-1.5 font-semibold text-coral-700 hover:underline">
             Ver todos os negócios <span aria-hidden="true">→</span>
           </Link>
@@ -100,7 +100,7 @@ async function Numeros() {
     <div className="flex flex-[1_1_20rem] flex-col justify-between gap-7 rounded-[2rem] bg-tinta p-8 text-papel escuro:bg-superficie escuro:text-tinta escuro:ring-1 escuro:ring-linha">
       <div>
         <p className="text-xs font-semibold tracking-[0.08em] text-papel/70 uppercase escuro:text-suave">Já no diretório</p>
-        <p className="mt-2.5 font-serif text-8xl leading-[0.92] font-semibold tracking-tight text-coral escuro:text-coral-700">
+        <p className="mt-2.5 font-display text-8xl leading-[0.92] font-semibold tracking-tight text-coral escuro:text-coral-700">
           <Contador valor={resumo.total} />
         </p>
         <p className="mt-2.5 text-xl font-medium">
@@ -171,7 +171,7 @@ async function CidadesComMaisNegocios() {
   return (
     <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Explore por cidade</h2>
+        <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Explore por cidade</h2>
         <Link href="/cidades" className="inline-flex items-center gap-1.5 font-semibold text-coral-700 hover:underline">
           Ver todas as cidades <span aria-hidden="true">→</span>
         </Link>
@@ -222,7 +222,7 @@ function ComoFunciona() {
   ];
   return (
     <section className="mx-auto mt-24 max-w-6xl px-4 sm:px-6">
-      <h2 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Como funciona</h2>
+      <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Como funciona</h2>
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {passos.map((passo, i) => (
           <div key={passo.titulo} className="cartao p-7">
@@ -230,14 +230,14 @@ function ComoFunciona() {
               {passo.emoji}
             </span>
             <p className="mt-4 text-xs font-semibold tracking-wide text-coral-700 uppercase">Passo {i + 1}</p>
-            <h3 className="mt-1 font-serif text-2xl font-semibold">{passo.titulo}</h3>
+            <h3 className="mt-1 font-display text-2xl font-semibold">{passo.titulo}</h3>
             <p className="mt-2 leading-relaxed text-suave">{passo.texto}</p>
           </div>
         ))}
       </div>
       <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-3xl bg-tinta px-8 py-10 text-papel sm:flex-row">
         <div>
-          <p className="font-serif text-3xl font-semibold">Tem um negócio do bem?</p>
+          <p className="font-display text-3xl font-semibold">Tem um negócio do bem?</p>
           <p className="mt-1 text-papel/70">Cadastre, mostre as causas que você abraça e conte a sua história.</p>
         </div>
         <Link href="/sobre#dono" className="botao-coral shrink-0 px-6 py-3 text-base">

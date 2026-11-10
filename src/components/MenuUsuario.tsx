@@ -24,22 +24,22 @@ export async function MenuUsuario() {
       </summary>
       <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-linha bg-superficie p-1.5 text-sm shadow-lg shadow-tinta/5">
         <p className="truncate px-3 pt-2 pb-1 text-xs text-suave">{usuario.email}</p>
-        <Link href="/painel" className="block rounded-xl px-3 py-2 hover:bg-papel">
+        <Link href="/painel" className="block rounded-xl px-3 py-2 hover:bg-areia">
           Meu painel
         </Link>
-        <Link href="/favoritos" className="block rounded-xl px-3 py-2 hover:bg-papel">
+        <Link href="/favoritos" className="block rounded-xl px-3 py-2 hover:bg-areia">
           Favoritos
         </Link>
-        <Link href="/cupons/meus" className="block rounded-xl px-3 py-2 hover:bg-papel">
+        <Link href="/cupons/meus" className="block rounded-xl px-3 py-2 hover:bg-areia">
           Meus cupons
         </Link>
         {usuario.moderador && (
-          <Link href="/moderacao" className="block rounded-xl px-3 py-2 hover:bg-papel">
+          <Link href="/moderacao" className="block rounded-xl px-3 py-2 hover:bg-areia">
             Moderação
           </Link>
         )}
         <form action={sair}>
-          <button type="submit" className="block w-full rounded-xl px-3 py-2 text-left text-suave hover:bg-papel hover:text-tinta">
+          <button type="submit" className="block w-full rounded-xl px-3 py-2 text-left text-suave hover:bg-areia hover:text-tinta">
             Sair
           </button>
         </form>

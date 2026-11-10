@@ -40,7 +40,7 @@ export function CampoOnde({ cidades, valorInicial }: { cidades: CidadeComNegocio
 
   return (
     <div className="relative min-w-0 flex-[2_1_15rem]">
-      <label className="flex cursor-text items-center gap-3.5 rounded-2xl bg-papel px-4 py-3 transition focus-within:bg-coral-50">
+      <label className="flex cursor-text items-center gap-3.5 rounded-2xl bg-areia px-4 py-3 transition focus-within:bg-coral-50">
         <IconePino />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-xs font-semibold text-suave">Onde?</span>
@@ -103,7 +103,7 @@ export function CampoOnde({ cidades, valorInicial }: { cidades: CidadeComNegocio
             onMouseMove={() => setAtiva(i)}
             className={`flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 ${i === destacada ? "bg-coral-50" : ""}`}
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-papel text-coral-700">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-areia text-coral-700">
               {sugestao.tipo === "cidade" ? <IconePino /> : <IconeMapa />}
             </span>
             <span className="min-w-0 flex-1 text-[15px]">

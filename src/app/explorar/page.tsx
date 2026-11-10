@@ -71,7 +71,7 @@ async function Diretorio({ searchParams }: Pick<PageProps<"/explorar">, "searchP
 
   return (
     <>
-      <h1 className="mt-2 font-serif text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">
+      <h1 className="mt-2 font-display text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">
         {tituloDoDiretorio(filtros, resultado.local)}
       </h1>
       <div className="mt-5">
@@ -101,7 +101,7 @@ async function Diretorio({ searchParams }: Pick<PageProps<"/explorar">, "searchP
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-linha pb-3.5">
             <p aria-live="polite" className="text-suave">
-              <strong className="font-serif text-2xl font-semibold text-tinta">{resultado.total.toLocaleString("pt-BR")}</strong>{" "}
+              <strong className="font-display text-2xl font-semibold text-tinta">{resultado.total.toLocaleString("pt-BR")}</strong>{" "}
               {resultado.total === 1 ? "negócio" : "negócios"}
               {ativos.length > 0 ? " com esses filtros" : " no diretório"}
             </p>
@@ -270,7 +270,7 @@ function OpcaoFiltro({ href, ativo, total, children }: { href: string; ativo: bo
       href={href}
       scroll={false} rel="nofollow"
       aria-current={ativo ? "true" : undefined}
-      className={`flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm transition hover:bg-papel ${total === 0 && !ativo ? "opacity-55" : ""}`}
+      className={`flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm transition hover:bg-areia ${total === 0 && !ativo ? "opacity-55" : ""}`}
     >
       <span
         aria-hidden="true"
@@ -311,7 +311,7 @@ function Vazio({ filtros, resultado }: { filtros: FiltrosDiretorio; resultado: R
   if (resultado.total > 0) {
     return (
       <div className="cartao mt-5 px-6 py-14 text-center">
-        <p className="font-serif text-2xl">Essa página não existe.</p>
+        <p className="font-display text-2xl">Essa página não existe.</p>
         <Link href={hrefDiretorio({ ...filtros, pagina: 1 })} className="botao-claro mt-5">
           Voltar para a primeira página
         </Link>
@@ -322,7 +322,7 @@ function Vazio({ filtros, resultado }: { filtros: FiltrosDiretorio; resultado: R
     resultado.local?.cidade && !filtros.q && filtros.tipos.length === 0 && filtros.causas.length === 0 && !filtros.verificados;
   return (
     <div className="cartao mt-5 px-6 py-14 text-center">
-      <p className="font-serif text-2xl">
+      <p className="font-display text-2xl">
         {soOLugar ? `Ainda não há negócios do bem em ${resultado.local!.cidade} no diretório.` : "Nenhum negócio com esses filtros por enquanto."}
       </p>
       <p className="mx-auto mt-2 max-w-md text-suave">
