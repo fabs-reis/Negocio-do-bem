@@ -187,6 +187,33 @@ describe("armazenamento local descartável", () => {
     }
   }, 60_000);
 
+  it("recusa excluir outro inode introduzido após o inventário", async () => {
+    const raiz = await mkdtemp(path.join(tmpdir(), "ndb82-inode-"));
+    const diretorio = path.join(raiz, "app");
+    const pasta = path.join(diretorio, "public/enviados/historias");
+    const nome = "ffffffffffffffffffffffff.jpg";
+    const chave = `historias/${nome}`;
+    await mkdir(pasta, { recursive: true });
+    await writeFile(path.join(pasta, nome), "arquivo administrado original");
+    try {
+      const r = await rodar(["descartar", `/enviados/${chave}`], {
+        FOTOS_DOMINIO_EXCLUSIVO: "confirmado",
+        LOCAL_TESTE_TROCA: "arquivo-substituido",
+      }, diretorio);
+      expect(await readFile(path.join(raiz, "troca-provada"), "utf8")).toBe("arquivo-substituido");
+      expect(await readFile(path.join(pasta, nome), "utf8")).toBe("arquivo substituto preservado");
+      expect(await readFile(path.join(pasta, `${nome}-original`), "utf8")).toBe("arquivo administrado original");
+      expect(r.codigo).toBe(1);
+      expect(r.stdout).not.toContain("descartada");
+      const registro = await db.fotoAposentada.findUniqueOrThrow({ where: { dominio_chave: {
+        dominio: `local:${path.join(diretorio, "public/enviados")}`, chave,
+      } } });
+      expect(registro.confirmadaEm).toBeNull();
+    } finally {
+      await rm(raiz, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it("remove a entrada final substituída por link sem seguir o alvo externo", async () => {
     const raiz = await mkdtemp(path.join(tmpdir(), "ndb82-entrada-"));
     const diretorio = path.join(raiz, "app");

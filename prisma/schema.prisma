@@ -42,6 +42,8 @@ model Usuario {
   registrosAuditoria RegistroAuditoria[]
   liberacoesClube    LiberacaoClube[]    @relation("LiberadoNoClube")
   decisoesClube      LiberacaoClube[]    @relation("DecisaoNoClube")
+  trocasDeArroba     TrocaDeArroba[]     @relation("TrocaPedida")
+  decisoesDeArroba   TrocaDeArroba[]     @relation("TrocaDecidida")
   ofertasCriadas     Oferta[]            @relation("OfertasCriadas")
   cupons             Cupom[]             @relation("CuponsGerados")
   cuponsValidados    Cupom[]             @relation("CuponsValidados")
@@ -155,6 +157,7 @@ model Empresa {
   liberacoesClube  LiberacaoClube[]
   ofertas          Oferta[]
   reivindicacoes   Reivindicacao[]
+  trocasDeArroba   TrocaDeArroba[]
 
   @@index([moderacao, oculta, status])
   @@index([uf])
@@ -205,6 +208,33 @@ model EmpresaFavorita {
 
   @@id([empresaId, usuarioId])
   @@index([usuarioId, criadoEm])
+}
+
+// Pedido de um dono para trocar o @ do negócio (#299). O @ é o endereço da página e
+// o dono pode ter assumido o perfil sem provar que controla o Instagram: por isso a
+// troca só vale quando a moderação aprova (ver src/lib/troca-de-arroba.ts). Um pedido
+// em análise por negócio.
+model TrocaDeArroba {
+  id            String    @id @default(cuid())
+  empresaId     String
+  empresa       Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarioId     String
+  usuario       Usuario   @relation("TrocaPedida", fields: [usuarioId], references: [id], onDelete: Cascade)
+  // O endereço quando o pedido foi feito e o @ pedido, minúsculo e sem "@".
+  arrobaAntigo  String
+  arrobaNovo    String
+  // "pendente" | "aprovada" | "recusada" | "cancelada"
+  status        String    @default("pendente")
+  // Motivo da recusa, escrito pela moderação. O dono vê no painel.
+  motivo        String?
+  decididoPorId String?
+  decididoPor   Usuario?  @relation("TrocaDecidida", fields: [decididoPorId], references: [id], onDelete: SetNull)
+  decididoEm    DateTime?
+  criadoEm      DateTime  @default(now())
+
+  @@index([status, criadoEm])
+  @@index([empresaId, status])
+  @@index([usuarioId])
 }
 
 // Liberação de um dono para criar ofertas do Clube do Bem (#248). Nesta versão, só a

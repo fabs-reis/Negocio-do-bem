@@ -147,6 +147,7 @@ describe("resumoDoPainel", () => {
       depoimentos: { publicados: 2, removidos: 1, denunciados: 1, respondidos: 1, novos: 3 },
       reivindicacoes: { total: 2, pendentes: 1, aprovadas: 1, recusadas: 0 },
       pedidosDoClube: 0,
+      trocasDeArroba: 0,
     });
   });
 

@@ -5,15 +5,28 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 /**
  * Uma faixa de itens que passa sozinha, num loop lento (a dos embaixadores, na
  * página inicial). Os itens vão duas vezes: quando a primeira volta sai pela
- * esquerda, a cópia está no mesmo lugar e a animação recomeça sem salto. A cópia
- * fica fora do leitor de tela e do Tab.
+ * esquerda, a cópia está no mesmo lugar e a animação recomeça sem salto.
+ *
+ * A cópia (`copia`) são os mesmos itens com os links fora do Tab (`tabIndex={-1}`).
+ * Ela fica fora do leitor de tela, mas recebe o clique: conforme a faixa anda, boa
+ * parte do que está na tela é a cópia. Com `inert`, esses rostos não abriam nada.
  *
  * Só anda quando os itens não cabem na largura; cabendo, eles ficam parados e no
  * centro. Para com o mouse em cima, com o foco do teclado e com o botão "Pausar",
  * e fica parada para quem pede menos movimento no aparelho. Sem JavaScript, é uma
  * lista que rola para o lado.
  */
-export function FaixaRolante({ itens, segundosPorItem = 5, className = "" }: { itens: ReactNode[]; segundosPorItem?: number; className?: string }) {
+export function FaixaRolante({
+  itens,
+  copia,
+  segundosPorItem = 5,
+  className = "",
+}: {
+  itens: ReactNode[];
+  copia: ReactNode[];
+  segundosPorItem?: number;
+  className?: string;
+}) {
   const janela = useRef<HTMLDivElement>(null);
   const lista = useRef<HTMLUListElement>(null);
   const [rolando, setRolando] = useState(false);
@@ -41,8 +54,8 @@ export function FaixaRolante({ itens, segundosPorItem = 5, className = "" }: { i
             {itens}
           </ul>
           {rolando && (
-            <ul className="flex gap-4 pr-4 motion-reduce:hidden" aria-hidden="true" inert>
-              {itens}
+            <ul className="flex gap-4 pr-4 motion-reduce:hidden" aria-hidden="true">
+              {copia}
             </ul>
           )}
         </div>

@@ -6,7 +6,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   useTransition,
   type FormEvent,
   type KeyboardEvent,
@@ -21,10 +20,11 @@ import { CampoMunicipio } from "@/components/CampoMunicipio";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { enviarSemLimpar } from "@/components/envio";
 import { Monograma } from "@/components/Monograma";
+import { apagarRascunhoDoAparelho, guardarRascunhoNoAparelho, useRascunhoDoAparelho } from "@/components/rascunho-no-aparelho";
 import { SeletorCausas } from "@/components/SeletorCausas";
 import { CATEGORIAS } from "@/lib/dominio";
 import { enviarEvento, type TipoDeCadastro } from "@/lib/medicao";
-import { lerRascunho, type Rascunho } from "@/lib/rascunho-do-cadastro";
+import { lerRascunho, VOLTA_AO_CADASTRO as CONTINUAR, type Rascunho } from "@/lib/rascunho-do-cadastro";
 
 // O cadastro por etapas: uma pergunta por vez. Todas as etapas ficam montadas num
 // formulário só, e só a atual aparece: voltar não perde nada, e o envio final é o
@@ -58,23 +58,6 @@ const ETAPA_DO_CAMPO: Record<string, Etapa> = {
   telefoneDoDono: "voce",
 };
 
-/** O rascunho no aparelho, enquanto a pessoa entra, cria a conta ou confirma o e-mail. */
-const CHAVE_LOCAL = "ndb:cadastro";
-const CONTINUAR = "/participar?continuar=1#cadastro";
-
-function lerDoAparelho(): string | null {
-  try {
-    return window.localStorage.getItem(CHAVE_LOCAL);
-  } catch {
-    return null;
-  }
-}
-
-function assinarAparelho(aviso: () => void) {
-  window.addEventListener("storage", aviso);
-  return () => window.removeEventListener("storage", aviso);
-}
-
 function valoresDo(formulario: HTMLFormElement): Rascunho {
   const dados = new FormData(formulario);
   const valores: Record<string, string | string[]> = {};
@@ -103,15 +86,7 @@ type Props = {
 
 export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, continuar, instagramDoProjeto }: Props) {
   // Quem volta do login ou do cadastro, neste aparelho, continua de onde parou.
-  const doAparelho = useSyncExternalStore(assinarAparelho, lerDoAparelho, () => null);
-  const inicial = (() => {
-    if (!continuar || !doAparelho) return null;
-    try {
-      return lerRascunho(JSON.parse(doAparelho));
-    } catch {
-      return null;
-    }
-  })();
+  const inicial = useRascunhoDoAparelho(continuar);
 
   const [etapaEscolhida, setEtapa] = useState<Etapa | null>(null);
   const [ramoEscolhido, setRamo] = useState<Ramo | null>(null);
@@ -282,21 +257,12 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
   /** Antes de ir para o login, o cadastro ou o e-mail, as respostas ficam neste aparelho. */
   function guardarNoAparelho(valores?: Rascunho) {
     const rascunho = valores ?? (formulario.current ? valoresDo(formulario.current) : null);
-    if (!rascunho) return;
-    try {
-      window.localStorage.setItem(CHAVE_LOCAL, JSON.stringify(rascunho));
-    } catch {
-      // Sem armazenamento (navegação privada), a pessoa preenche de novo depois de entrar.
-    }
+    if (rascunho) guardarRascunhoNoAparelho(rascunho);
   }
 
   const enviar = enviarSemLimpar(acao);
   function aoEnviar(evento: FormEvent<HTMLFormElement>) {
-    try {
-      window.localStorage.removeItem(CHAVE_LOCAL);
-    } catch {
-      // Nada a limpar.
-    }
+    apagarRascunhoDoAparelho();
     enviar(evento);
   }
 

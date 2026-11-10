@@ -657,10 +657,52 @@ describe("ciclo das fotos", () => {
     vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "");
     vi.stubEnv("FOTOS_R2_BUCKET", "");
     disco.readdir.mockResolvedValue([{ name: "aaaaaaaaaaaaaaaaaaaaaaaa.jpg", isFile: () => true }]);
-    disco.lstat.mockImplementation(async (destino: string) => ({ dev: 1, ino: 1, isDirectory: () => true, isFile: () => !destino.endsWith(".jpg") }));
+    let consultas = 0;
+    disco.lstat.mockImplementation(async (destino: string) => {
+      if (destino.endsWith(".jpg")) {
+        consultas++;
+        return { dev: 1, ino: 1, isDirectory: () => false, isFile: () => consultas === 1 };
+      }
+      return { dev: 1, ino: 1, isDirectory: () => true, isFile: () => false };
+    });
     const url = "/enviados/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg";
     expect(await limparFotosHistorias([url], true)).toEqual([{ url, status: "falha" }]);
     expect(disco.unlink).not.toHaveBeenCalled();
+    expect((await db.fotoAposentada.findFirstOrThrow()).confirmadaEm).toBeNull();
+  });
+
+  it("recusa excluir um arquivo substituído após o inventário", async () => {
+    vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "");
+    vi.stubEnv("FOTOS_R2_BUCKET", "");
+    disco.readdir.mockResolvedValue([{ name: "aaaaaaaaaaaaaaaaaaaaaaaa.jpg", isFile: () => true }]);
+    let consultas = 0;
+    disco.lstat.mockImplementation(async (destino: string) => {
+      if (destino.endsWith(".jpg")) {
+        consultas++;
+        return { dev: 1, ino: consultas === 1 ? 1 : 2, isDirectory: () => false, isFile: () => true };
+      }
+      return { dev: 1, ino: 1, isDirectory: () => true, isFile: () => false };
+    });
+    const url = "/enviados/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg";
+    expect(await limparFotosHistorias([url], true)).toEqual([{ url, status: "falha" }]);
+    expect(disco.unlink).not.toHaveBeenCalled();
+    expect((await db.fotoAposentada.findFirstOrThrow()).confirmadaEm).toBeNull();
+  });
+
+  it("recusa apagar arquivo reaparecido quando só existe marca de aposentadoria", async () => {
+    vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "");
+    vi.stubEnv("FOTOS_R2_BUCKET", "");
+    const url = "/enviados/historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg";
+    await db.fotoAposentada.create({
+      data: { dominio: `local:${path.resolve("public/enviados")}`, chave: "historias/aaaaaaaaaaaaaaaaaaaaaaaa.jpg" },
+    });
+    disco.readdir.mockResolvedValue([]);
+    disco.lstat.mockImplementation(async (destino: string) => ({
+      dev: 1, ino: 9, isDirectory: () => !destino.endsWith(".jpg"), isFile: () => destino.endsWith(".jpg"),
+    }));
+    expect(await limparFotosHistorias([url], true)).toEqual([{ url, status: "falha" }]);
+    expect(disco.unlink).not.toHaveBeenCalled();
+    expect((await db.fotoAposentada.findFirstOrThrow()).confirmadaEm).toBeNull();
   });
 
   it("a ausência depois do inventário confirma o descarte sem liberar a URL", async () => {

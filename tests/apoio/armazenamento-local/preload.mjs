@@ -5,6 +5,7 @@ import path from "node:path";
 const lstat = fs.lstat;
 const historias = path.resolve("public/enviados/historias");
 let leiturasDaPasta = 0;
+let leiturasDoArquivo = 0;
 let trocou = false;
 fs.lstat = async function (destino, ...opcoes) {
   const estado = await lstat(destino, ...opcoes);
@@ -12,14 +13,20 @@ fs.lstat = async function (destino, ...opcoes) {
   const momento = process.env.LOCAL_TESTE_TROCA;
   const depoisDaPasta = momento === "pasta" && String(destino) === historias && leiturasDaPasta === 2;
   const arquivoSelecionado = String(destino).endsWith("/ffffffffffffffffffffffff.jpg");
-  const depoisDoArquivo = momento === "arquivo" && arquivoSelecionado;
-  const trocarDiretorio = momento?.startsWith("diretorio") && arquivoSelecionado;
-  const trocarEntrada = momento === "entrada" && arquivoSelecionado;
-  if (!trocou && (depoisDaPasta || depoisDoArquivo || trocarDiretorio || trocarEntrada)) {
+  if (arquivoSelecionado) leiturasDoArquivo++;
+  // O inventário agora lê o inode; as corridas destrutivas disparam na leitura antes do unlink.
+  const depoisDoArquivo = momento === "arquivo" && arquivoSelecionado && leiturasDoArquivo === 2;
+  const trocarDiretorio = momento?.startsWith("diretorio") && arquivoSelecionado && leiturasDoArquivo === 2;
+  const trocarEntrada = momento === "entrada" && arquivoSelecionado && leiturasDoArquivo === 2;
+  const trocarInode = momento === "arquivo-substituido" && arquivoSelecionado && leiturasDoArquivo === 1;
+  if (!trocou && (depoisDaPasta || depoisDoArquivo || trocarDiretorio || trocarEntrada || trocarInode)) {
     trocou = true;
     if (trocarEntrada) {
       await fs.rename(destino, `${destino}-original`);
       await fs.symlink(path.resolve("../fora/ffffffffffffffffffffffff.jpg"), destino);
+    } else if (trocarInode) {
+      await fs.rename(destino, `${destino}-original`);
+      await fs.writeFile(destino, "arquivo substituto preservado");
     } else {
       await fs.rename(historias, `${historias}-original`);
       if (trocarDiretorio) {

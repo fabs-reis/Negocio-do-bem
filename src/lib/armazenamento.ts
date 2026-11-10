@@ -84,16 +84,25 @@ async function pastaLocalSegura(pasta: "perfis" | "historias"): Promise<boolean>
   }
 }
 
-async function inventariarFotos(pasta: "perfis" | "historias"): Promise<Map<string, string>> {
+type IdentidadeArquivo = { dev: number; ino: number };
+
+/** Guarda a identidade do arquivo inventariado para recusar trocas antes do unlink. */
+async function inventariarFotos(pasta: "perfis" | "historias") {
   const objetos = new Map<string, string>();
+  const identidades = new Map<string, IdentidadeArquivo>();
   const diretorio = path.join(PASTA_LOCAL, pasta);
-  if (!await pastaLocalSegura(pasta)) return objetos;
+  if (!await pastaLocalSegura(pasta)) return { objetos, identidades };
   for (const arquivo of await readdir(diretorio, { withFileTypes: true })) {
     if (!arquivo.isFile()) continue;
     const url = identidadeDaFoto(`/enviados/${pasta}/${arquivo.name}`);
-    if (url) objetos.set(url, path.join(diretorio, arquivo.name));
+    if (!url) continue;
+    const destino = path.join(diretorio, arquivo.name);
+    const info = await lstat(destino);
+    if (!info.isFile()) continue;
+    objetos.set(url, destino);
+    identidades.set(url, { dev: info.dev, ino: info.ino });
   }
-  return objetos;
+  return { objetos, identidades };
 }
 
 async function abrirPastaParaExclusao(): Promise<FileHandle> {
@@ -103,7 +112,7 @@ async function abrirPastaParaExclusao(): Promise<FileHandle> {
   const opcoes = constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
   let pasta = await open(".", opcoes);
   try {
-    // Each component opens through its parent descriptor without following symbolic links.
+    // Cada segmento abre pelo descritor da pasta pai, sem seguir links simbólicos.
     for (const nome of ["public", "enviados", "historias"]) {
       const anterior = pasta;
       pasta = await open(`/proc/self/fd/${anterior.fd}/${nome}`, opcoes);
@@ -121,17 +130,27 @@ async function abrirPastaParaExclusao(): Promise<FileHandle> {
   }
 }
 
-async function excluirObjeto(url: string, objetos: Map<string, string>): Promise<void> {
+async function excluirObjeto(
+  url: string,
+  objetos: Map<string, string>,
+  identidades: Map<string, IdentidadeArquivo>,
+): Promise<void> {
   const chave = objetoDaFoto(url).chave;
   if (!objetos.has(url) || !/^historias\/[a-f0-9]{24}\.(jpg|png|webp)$/.test(chave)) {
     throw new Error("A foto não pertence ao inventário deste armazenamento.");
   }
   const pasta = await abrirPastaParaExclusao();
-  // A renamed parent cannot redirect this path to a different directory.
+  // Mesmo se a pasta pai mudar de nome, este caminho continua apontando para o mesmo descritor.
   const destino = `/proc/self/fd/${pasta.fd}/${path.basename(chave)}`;
   try {
     try {
-      if (!(await lstat(destino)).isFile()) throw new Error("O destino da foto não é um arquivo regular.");
+      const atual = await lstat(destino);
+      if (!atual.isFile()) throw new Error("O destino da foto não é um arquivo regular.");
+      const esperada = identidades.get(url);
+      // Não apaga outro inode colocado depois do inventário; entrada ausente só vale com ENOENT.
+      if (!esperada || atual.dev !== esperada.dev || atual.ino !== esperada.ino) {
+        throw new Error("A foto mudou desde o inventário; descarte recusado.");
+      }
       await unlink(destino);
     } catch (erro) {
       if (!(typeof erro === "object" && erro !== null && "code" in erro && erro.code === "ENOENT")) throw erro;
@@ -158,7 +177,7 @@ async function excluirObjeto(url: string, objetos: Map<string, string>): Promise
   }
 }
 
-/** Physical deletion requires the explicit story cleanup command. */
+/** A exclusão física passa apenas pelo comando explícito de limpeza de histórias. */
 export async function apagarFoto(_url: string | null): Promise<ResultadoDescarte["status"]> {
   return "bloqueada";
 }
@@ -181,14 +200,17 @@ export async function limparFotosHistorias(selecionadas: string[] = [], aplicar 
   }
   const inventario = remoto
     ? await (await import("@/lib/r2-administracao")).prepararInventarioHistoriasR2(aplicar, [...aposentadas])
-    : await inventariarFotos("historias").then((objetos) => ({ objetos, excluir: (url: string) => excluirObjeto(url, objetos) }));
+    : await inventariarFotos("historias").then(({ objetos, identidades }) => ({
+      objetos,
+      excluir: (url: string) => excluirObjeto(url, objetos, identidades),
+    }));
   const urls = selecionadas.length ? selecionadas.map(identidadeDaFoto) : [...inventario.objetos.keys()];
   for (const url of urls) {
     if (url && inventario.objetos.has(url)) continue;
     if (!url || !url.includes("/historias/") || (remoto && url.startsWith("/enviados/"))) throw new Error("A seleção contém foto fora do inventário de histórias.");
     const objeto = objetoDaFoto(url);
     if (!aposentadas.has(url)) throw new Error("A seleção contém foto fora do inventário de histórias.");
-    // A previous request can remove an object before its response is lost.
+    // Uma execução anterior pode ter removido o arquivo antes de confirmar no banco.
     inventario.objetos.set(url, remoto ? objeto.chave : path.join(PASTA_LOCAL, objeto.chave));
   }
   return descartarFotos(urls as string[], inventario.excluir, aplicar);
