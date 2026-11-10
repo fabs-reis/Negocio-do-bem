@@ -44,8 +44,17 @@ const nextConfig: NextConfig = {
     return [{ source: "/:caminho*", headers: cabecalhosDeSeguranca }];
   },
   async redirects() {
-    // O cadastro tem uma entrada só (/participar). A busca vai junto: ?instagram=<@>&dono=sim.
-    return [{ source: "/indicar", destination: "/participar", permanent: false }];
+    return [
+      // O cadastro tem uma entrada só (/participar). A busca vai junto: ?instagram=<@>&dono=sim.
+      { source: "/indicar", destination: "/participar", permanent: false },
+      // O diretório ficava na página inicial: links antigos com filtro abrem o /explorar, com a mesma busca.
+      ...["q", "causa", "uf", "pagina"].map((chave) => ({
+        source: "/",
+        has: [{ type: "query" as const, key: chave }],
+        destination: "/explorar",
+        permanent: false,
+      })),
+    ];
   },
   /* config options here */
   cacheComponents: true,
