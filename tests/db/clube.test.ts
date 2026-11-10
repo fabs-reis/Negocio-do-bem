@@ -24,6 +24,10 @@ const arquivosGuardados = () => readdirSync(PASTA_DOS_DOCUMENTOS);
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
 const documento = (conteudo: Uint8Array = JPEG, nome = "rg.jpg") => new File([conteudo as BlobPart], nome);
 vi.mock("@/lib/auth/sessao", () => ({
+  exigirModeradorRecente: async () => {
+    if (!sessao.moderador) throw new Error("redirect:/404");
+    return { ...sessao.moderador, nome: "Moderação", email: "mod@exemplo.com", moderador: true, emailConfirmado: true };
+  },
   exigirModerador: async () => {
     if (!sessao.moderador) throw new Error("redirect:/404");
     return { ...sessao.moderador, nome: "Moderação", email: "mod@exemplo.com", moderador: true, emailConfirmado: true };

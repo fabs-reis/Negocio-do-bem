@@ -74,6 +74,8 @@ async function mudarPapel(email: string, papel: "moderador" | "membro") {
   }
   await db.$transaction(async (tx) => {
     await tx.usuario.update({ where: { id: usuario.id }, data: { papel } });
+    // Alterar privilégios exige nova autenticação, mesmo que ainda haja MFA válido.
+    await tx.sessao.deleteMany({ where: { usuarioId: usuario.id } });
     await registrarAuditoria(tx, {
       usuarioId: null,
       acao: papel === "moderador" ? "usuario.moderacao_dada" : "usuario.moderacao_tirada",
@@ -85,6 +87,31 @@ async function mudarPapel(email: string, papel: "moderador" | "membro") {
   console.log(papel === "moderador" ? `${email} agora é moderação.` : `${email} não é mais moderação.`);
 }
 
+/** Contenção administrativa: revoga sessões e links pendentes, sem alterar a senha nem o MFA. */
+async function revogarAcessos(email: string) {
+  const usuario = await db.usuario.findUnique({ where: { email }, select: { id: true } });
+  if (!usuario) {
+    console.error("Conta não encontrada.");
+    process.exitCode = 1;
+    return;
+  }
+  await db.$transaction(async (tx) => {
+    await tx.sessao.deleteMany({ where: { usuarioId: usuario.id } });
+    await tx.linkEmail.updateMany({
+      where: { usuarioId: usuario.id, usadoEm: null },
+      data: { usadoEm: new Date() },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: null,
+      acao: "usuario.sessoes_revogadas_pela_administracao",
+      alvoTipo: "usuario",
+      alvoId: usuario.id,
+      detalhes: "Contenção administrativa por acesso à consola do banco",
+    });
+  });
+  console.log("Sessões e links pendentes revogados para " + email);
+}
+
 async function main() {
   const { host, pathname } = new URL(urlDoBanco!);
   console.log(`Banco: ${host}${pathname}\n`);
@@ -92,10 +119,11 @@ async function main() {
   const [comando, email] = process.argv.slice(2);
   const emailNormalizado = email?.trim().toLowerCase();
   if (comando === "listar") return listar();
+  if (comando === "revogar" && emailNormalizado) return revogarAcessos(emailNormalizado);
   if ((comando === "dar" || comando === "tirar") && emailNormalizado) {
     return mudarPapel(emailNormalizado, comando === "dar" ? "moderador" : "membro");
   }
-  console.error("Uso: npm run moderacao -- listar | dar <e-mail> | tirar <e-mail>");
+  console.error("Uso: npm run moderacao -- listar | dar <e-mail> | tirar <e-mail> | revogar <e-mail>");
   process.exit(1);
 }
 

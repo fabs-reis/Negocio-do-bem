@@ -1475,3 +1475,21 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 
 O QR code, o e-mail de fim de oferta com "Repetir oferta", o agendamento, a revisão das primeiras ofertas, o filtro "Com cupom" no `/explorar`, a denúncia de oferta e os avisos no celular.
 
+
+
+---
+## MFA e contenção de sessões (#103)
+
+- Moderação exige papel moderador e MFA verificado em sessão, mesmo após Google ou link por e-mail.
+- Ativação em /seguranca/mfa exige senha atual e código TOTP válido. A chave pendente expira após 10 minutos e exige reiniciar a configuração; uma chave expirada não pode ser ativada numa corrida entre pedidos. Conta Google sem senha precisa criar uma senha pelo link de recuperação antes.
+- O segredo TOTP é cifrado com AES-256-GCM usando MFA_ENCRYPTION_KEY (32 bytes em base64), configurado exclusivamente como secret do servidor. A chave deve persistir entre deploys.
+- Após ativação, dez códigos de recuperação com 128 bits aleatórios são apresentados uma única vez; guardam-se somente hashes. Cada código é consumido atomicamente.
+- Códigos TOTP aceitos não podem ser reutilizados e admitem tolerância de um intervalo de 30 segundos.
+- Tentativas MFA são limitadas por sessão (cinco) e conta (dez por quinze minutos, mesmo após novo login).
+- Sessões de moderação têm oito horas de duração máxima e quinze minutos de inatividade. A verificação é feita no servidor; a atividade é atualizada no banco no máximo uma vez por minuto.
+- Operações em lote e transferências de reivindicações exigem um MFA verificado há menos de cinco minutos.
+- Trocar a senha revoga todas as outras sessões e invalida MFA na sessão atual. Redefinir por link revoga as sessões antigas e cria apenas sessão sem MFA validado.
+- Qualquer pessoa autenticada pode encerrar todas as sessões em /seguranca/sessoes. Contenção administrativa pode ser feita por npm run moderacao -- revogar <email>; revoga também links pendentes e grava auditoria.
+- Mudança do papel de moderador revoga todas as sessões. Redefinição por e-mail nunca desativa o MFA.
+- Perda do autenticador: recuperar por código de uso único. Perda de todos os fatores requer verificação manual de identidade pelos responsáveis, sem reset automático.
+- TOTP não é resistente a phishing como WebAuthn. Recomenda-se futura migração para passkeys; a equipa deve aprovar TOTP como alternativa nesta etapa.

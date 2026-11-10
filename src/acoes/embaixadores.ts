@@ -3,7 +3,7 @@
 import { notFound, redirect } from "next/navigation";
 import { apagarFoto, conferirFoto, guardarFoto } from "@/lib/armazenamento";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { exigirModerador } from "@/lib/auth/sessao";
+import { exigirModerador, exigirModeradorRecente } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { atualizarPeloInstagram, lerEmbaixador } from "@/lib/embaixadores";
 import { texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
@@ -118,7 +118,7 @@ export async function removerFotoDoEmbaixador(dados: FormData): Promise<void> {
 
 /** Apaga o cadastro e a foto. Para só tirar do site, basta desmarcar "Aparece no site". */
 export async function excluirEmbaixador(dados: FormData): Promise<void> {
-  const usuario = await exigirModerador();
+  const usuario = await exigirModeradorRecente("acao");
   const embaixador = await embaixadorDoFormulario(dados);
   await db.$transaction(async (tx) => {
     await tx.embaixador.delete({ where: { id: embaixador.id } });

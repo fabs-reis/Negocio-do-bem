@@ -12,8 +12,12 @@ vi.mock("next/navigation", () => ({ notFound: mocks.naoEncontrado, redirect: moc
 
 function sessao(papel: string) {
   return {
+    id: "sessao-de-teste",
     expiraEm: new Date(Date.now() + 60_000),
-    usuario: { id: "pessoa-sintetica", nome: "Pessoa", email: "pessoa@exemplo.test", papel },
+    criadoEm: new Date(),
+    ultimaAtividadeEm: new Date(),
+    mfaVerificadoEm: papel === "moderador" ? new Date() : null,
+    usuario: { id: "pessoa-sintetica", nome: "Pessoa", email: "pessoa@exemplo.test", papel, mfaAtivadoEm: papel === "moderador" ? new Date() : null },
   };
 }
 
@@ -34,7 +38,15 @@ describe("guarda de moderação", () => {
     expect(mocks.naoEncontrado).not.toHaveBeenCalled();
   });
 
-  it.each(["pagina", "acao"] as const)("aceita a sessão de moderador no contexto %s", async (contexto) => {
+  it("bloqueia a moderação se o segundo fator não estiver validado", async () => {
+    const registro = sessao("moderador");
+    registro.mfaVerificadoEm = null;
+    mocks.sessao.mockResolvedValue(registro);
+    await expect(exigirModerador("acao")).rejects.toThrow("recusa-publica");
+    expect(mocks.redirecionar).toHaveBeenCalledWith("/seguranca/mfa?voltar=%2Fmoderacao");
+  });
+
+  it.each(["pagina", "acao"] as const)("aceita apenas moderação com MFA no contexto %s", async (contexto) => {
     mocks.sessao.mockResolvedValue(sessao("moderador"));
     await expect(exigirModerador(contexto)).resolves.toMatchObject({ id: "pessoa-sintetica", moderador: true });
     expect(mocks.naoEncontrado).not.toHaveBeenCalled();

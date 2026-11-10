@@ -8,12 +8,17 @@ import { db } from "@/lib/db";
 
 const COOKIE = "ndb_sessao";
 const DURACAO_MS = 30 * 24 * 60 * 60 * 1000;
+const DURACAO_MODERADOR_MS = 8 * 60 * 60 * 1000;
+const INATIVIDADE_MODERADOR_MS = 15 * 60 * 1000;
+const ATUALIZACAO_ATIVIDADE_MS = 60 * 1000;
+const REAUTENTICACAO_MS = 5 * 60 * 1000;
 
 export type UsuarioSessao = {
   id: string;
   nome: string;
   email: string;
   moderador: boolean;
+  temPapelModeracao?: boolean;
   // Indicar, escrever e denunciar depoimentos e reivindicar pedem o e-mail confirmado.
   // Com CONFIRMACAO_DE_EMAIL_LIGADA desligada, é sempre true.
   emailConfirmado: boolean;
@@ -34,8 +39,9 @@ export function ehModerador(usuario: { papel: string }): boolean {
 
 /** Cria a sessão e grava o cookie. Só pode ser chamada em Server Actions e Route Handlers. */
 export async function criarSessao(usuarioId: string): Promise<void> {
+  const { papel } = await db.usuario.findUniqueOrThrow({ where: { id: usuarioId }, select: { papel: true } });
   const token = randomBytes(32).toString("base64url");
-  const expiraEm = new Date(Date.now() + DURACAO_MS);
+  const expiraEm = new Date(Date.now() + (papel === "moderador" ? DURACAO_MODERADOR_MS : DURACAO_MS));
   await db.sessao.create({ data: { id: hashToken(token), usuarioId, expiraEm } });
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
@@ -59,21 +65,49 @@ export async function idDaSessaoAtual(): Promise<string | null> {
   return token ? hashToken(token) : null;
 }
 
-/** Usuário logado nesta requisição, ou null. Lido uma vez por requisição. */
-export const usuarioAtual = cache(async (): Promise<UsuarioSessao | null> => {
+/**
+ * Uma única leitura por requisição. Contenção é feita consultando o banco,
+ * nunca confiando no papel ou em um MFA embutido no cookie.
+ */
+export const sessaoAtual = cache(async () => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const sessao = await db.sessao.findUnique({
     where: { id: hashToken(token) },
     include: { usuario: true },
   });
-  if (!sessao || sessao.expiraEm <= new Date()) return null;
+  if (!sessao) return null;
+  const agora = new Date();
+  if (sessao.expiraEm <= agora) return null;
+
+  if (ehModerador(sessao.usuario)) {
+    if (
+      agora.getTime() - sessao.criadoEm.getTime() >= DURACAO_MODERADOR_MS ||
+      agora.getTime() - sessao.ultimaAtividadeEm.getTime() >= INATIVIDADE_MODERADOR_MS
+    ) return null;
+
+    if (agora.getTime() - sessao.ultimaAtividadeEm.getTime() >= ATUALIZACAO_ATIVIDADE_MS) {
+      const { count } = await db.sessao.updateMany({
+        where: { id: sessao.id, expiraEm: { gt: agora }, ultimaAtividadeEm: { gt: new Date(agora.getTime() - INATIVIDADE_MODERADOR_MS) } },
+        data: { ultimaAtividadeEm: agora },
+      });
+      if (!count) return null;
+    }
+  }
+  return sessao;
+});
+
+export const usuarioAtual = cache(async (): Promise<UsuarioSessao | null> => {
+  const sessao = await sessaoAtual();
+  if (!sessao) return null;
   const { usuario } = sessao;
   return {
     id: usuario.id,
     nome: usuario.nome,
     email: usuario.email,
-    moderador: ehModerador(usuario),
+    // O privilégio só existe após MFA validado no servidor.
+    moderador: ehModerador(usuario) && usuario.mfaAtivadoEm !== null && sessao.mfaVerificadoEm !== null,
+    temPapelModeracao: ehModerador(usuario),
     emailConfirmado: !CONFIRMACAO_DE_EMAIL_LIGADA || usuario.emailConfirmadoEm !== null,
   };
 });
@@ -85,16 +119,30 @@ export async function exigirUsuario(voltarPara: string): Promise<UsuarioSessao> 
   return usuario;
 }
 
-/** A página mantém o 404. A ação recusa com um redirecionamento, porque o `notFound()` de um POST sem JavaScript quebra no Next. */
+/** Preserva a resposta segura para Server Actions sem JavaScript da stage. */
 export async function exigirModerador(contexto: "pagina" | "acao" = "pagina"): Promise<UsuarioSessao> {
-  const usuario = await usuarioAtual();
-  if (!usuario?.moderador) {
-    // No Next 16.4.3, um notFound() vindo de um POST sem JavaScript termina em erro no servidor
-    // ("Couldn't find all resumable slots") e em 404. O redirecionamento evita o erro.
+  const sessao = await sessaoAtual();
+  if (!sessao || !ehModerador(sessao.usuario)) {
     if (contexto === "acao") redirect("/404");
     notFound();
   }
-  return usuario;
+  if (sessao.usuario.mfaAtivadoEm === null || sessao.mfaVerificadoEm === null) {
+    redirect("/seguranca/mfa?voltar=%2Fmoderacao");
+  }
+  return (await usuarioAtual())!;
+}
+
+/** Exige MFA renovado em menos de cinco minutos para decisões de alto impacto. */
+export async function exigirModeradorRecente(
+  contexto: "pagina" | "acao" = "acao",
+  voltarPara = "/moderacao",
+): Promise<UsuarioSessao> {
+  const moderador = await exigirModerador(contexto);
+  const sessao = await sessaoAtual();
+  if (!sessao?.mfaVerificadoEm || Date.now() - sessao.mfaVerificadoEm.getTime() >= REAUTENTICACAO_MS) {
+    redirect("/seguranca/mfa?revalidar=1&voltar=" + encodeURIComponent(caminhoSeguro(voltarPara, "/moderacao")));
+  }
+  return moderador;
 }
 
 /**

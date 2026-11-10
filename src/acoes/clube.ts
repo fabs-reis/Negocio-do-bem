@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { exigirModerador, exigirUsuario } from "@/lib/auth/sessao";
+import { exigirModerador, exigirModeradorRecente, exigirUsuario } from "@/lib/auth/sessao";
 import { AVISOS } from "@/lib/avisos";
 import { ErroClube, liberarParaClube, pedirVerificacao, recusarPedido, suspenderDoClube, type MotivoRecusaClube } from "@/lib/clube";
 import { db } from "@/lib/db";
@@ -19,7 +19,7 @@ function voltarDaModeracao(dados: FormData, username: string, aviso: string): ne
 
 /** Libera um dono do negócio para o Clube do Bem, com o CNPJ conferido na Receita. Só a moderação. */
 export async function liberarDonoParaClube(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador("acao");
+  const moderador = await exigirModeradorRecente("acao");
   const empresa = await db.empresa.findUnique({ where: { id: texto(dados, "empresaId") }, select: { id: true, instagramUsername: true } });
   if (!empresa) redirect("/moderacao?aba=negocios");
   const usuarioId = texto(dados, "usuarioId");
@@ -35,7 +35,7 @@ export async function liberarDonoParaClube(dados: FormData): Promise<void> {
 
 /** Suspende a liberação de um dono, com o motivo. Só a moderação. */
 export async function suspenderDonoDoClube(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador("acao");
+  const moderador = await exigirModeradorRecente("acao");
   const motivo = texto(dados, "motivo").trim().slice(0, 500) || "Sem motivo informado";
   const username = await suspenderDoClube({ liberacaoId: texto(dados, "liberacaoId"), moderadorId: moderador.id, motivo });
   if (!username) redirect("/moderacao?aba=negocios");

@@ -134,7 +134,7 @@ export async function redefinirSenhaComLink(token: string, novaSenha: string): P
     if (count === 0) return false;
     await gastarLinksAbertos(tx, usuario.id, agora);
     await tx.usuario.updateMany({ where: { id: usuario.id, email: usuario.email, emailConfirmadoEm: null }, data: { emailConfirmadoEm: agora } });
-    await tx.usuario.update({ where: { id: usuario.id }, data: { senhaHash } });
+    await tx.usuario.update({ where: { id: usuario.id }, data: { senhaHash, mfaSegredoPendente: null, mfaPendenteCriadoEm: null } });
     await tx.sessao.deleteMany({ where: { usuarioId: usuario.id } });
     await registrarAuditoria(tx, { usuarioId: usuario.id, acao: "usuario.senha_redefinida", alvoTipo: "usuario", alvoId: usuario.id });
     return true;

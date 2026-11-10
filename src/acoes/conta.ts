@@ -282,9 +282,10 @@ export async function trocarSenha(_estado: EstadoFormulario, dados: FormData): P
   const agora = new Date();
   const trocou = await db.$transaction(async (tx) => {
     // Só troca se a senha não mudou desde a conferência: de duas trocas juntas, passa uma.
-    const { count } = await tx.usuario.updateMany({ where: { id: usuario.id, senhaHash: senhaAntiga }, data: { senhaHash } });
+    const { count } = await tx.usuario.updateMany({ where: { id: usuario.id, senhaHash: senhaAntiga }, data: { senhaHash, mfaSegredoPendente: null, mfaPendenteCriadoEm: null } });
     if (count === 0) return false;
     await tx.sessao.deleteMany({ where: { usuarioId: usuario.id, ...(sessaoAtual ? { id: { not: sessaoAtual } } : {}) } });
+    if (sessaoAtual) await tx.sessao.updateMany({ where: { id: sessaoAtual, usuarioId: usuario.id }, data: { mfaVerificadoEm: null, tentativasMfa: 0 } });
     await gastarLinksAbertos(tx, usuario.id, agora);
     await registrarAuditoria(tx, { usuarioId: usuario.id, acao: "usuario.senha_trocada", alvoTipo: "usuario", alvoId: usuario.id });
     return true;

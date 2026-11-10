@@ -72,7 +72,7 @@ describe("Next em produção", () => {
 
   async function criarPessoa(papel: string) {
     const email = `${randomBytes(8).toString("hex")}@exemplo.test`;
-    const pessoa = await db.usuario.create({ data: { nome: `Pessoa ${papel}`, email, senhaHash: "nao-usada", papel } });
+    const pessoa = await db.usuario.create({ data: { nome: `Pessoa ${papel}`, email, senhaHash: "nao-usada", papel, ...(papel === "moderador" ? { mfaAtivadoEm: new Date() } : {}) } });
     usuarios.push(pessoa.id);
     const sessao = randomBytes(32).toString("base64url");
     await db.sessao.create({
@@ -80,6 +80,7 @@ describe("Next em produção", () => {
         id: createHash("sha256").update(sessao).digest("hex"),
         usuarioId: pessoa.id,
         expiraEm: new Date(Date.now() + 60 * 60 * 1000),
+        ...(papel === "moderador" ? { mfaVerificadoEm: new Date() } : {}),
       },
     });
     return { id: pessoa.id, email, cookie: `ndb_sessao=${sessao}` };

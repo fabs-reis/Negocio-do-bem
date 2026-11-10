@@ -13,6 +13,7 @@ vi.mock("@/lib/auth/sessao", async (importarOriginal) => ({
   ...await importarOriginal<typeof import("@/lib/auth/sessao")>(),
   exigirUsuario: vi.fn(async () => identidade),
   exigirModerador: vi.fn(async () => identidade),
+  exigirModeradorRecente: vi.fn(async () => identidade),
 }));
 
 vi.mock("next/navigation", () => ({

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { exigirModerador } from "@/lib/auth/sessao";
+import { exigirModerador, exigirModeradorRecente } from "@/lib/auth/sessao";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/formulario";
 import { comAviso, destinoNaModeracao, hrefModeracao } from "@/lib/moderacao/filtros";
@@ -25,7 +25,7 @@ function voltar(aba: string, aviso: string): never {
 
 /** Esvazia a fila antiga: aprova as reivindicações de negócios que ainda não têm dono. */
 export async function aprovarReivindicacoesSemDono(): Promise<void> {
-  const moderador = await exigirModerador("acao");
+  const moderador = await exigirModeradorRecente("acao");
   const aprovadas = await aprovarPendentesSemDono(moderador.id);
   after(async () => {
     for (const id of aprovadas) await avisarDecisaoDaReivindicacao(id);
@@ -35,7 +35,7 @@ export async function aprovarReivindicacoesSemDono(): Promise<void> {
 
 /** Esvazia a fila antiga: publica todas as indicações que esperavam a moderação. */
 export async function publicarIndicacoesPendentes(): Promise<void> {
-  const moderador = await exigirModerador("acao");
+  const moderador = await exigirModeradorRecente("acao");
   const pendentes = await db.empresa.findMany({ where: { moderacao: "pendente" }, select: { id: true, instagramUsername: true } });
   for (const { id, instagramUsername } of pendentes) {
     await db.$transaction(async (tx) => {
@@ -54,8 +54,8 @@ export async function publicarIndicacoesPendentes(): Promise<void> {
 }
 
 export async function aprovarReivindicacao(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador("acao");
   const modo: ModoAprovacao = dados.get("modo") === "transferir" ? "transferir" : "adicionar";
+  const moderador = modo === "transferir" ? await exigirModeradorRecente("acao") : await exigirModerador("acao");
   const reivindicacaoId = texto(dados, "reivindicacaoId");
   try {
     await aprovar({ reivindicacaoId, revisorId: moderador.id, modo });
@@ -86,8 +86,8 @@ export async function recusarReivindicacao(dados: FormData): Promise<void> {
  * Negócios, que manda em `voltar` a lista filtrada de onde o pedido saiu.
  */
 export async function moderarEmpresa(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador("acao");
   const decisao = dados.get("decisao") === "aprovar" ? "aprovada" : "rejeitada";
+  const moderador = decisao === "rejeitada" ? await exigirModeradorRecente("acao") : await exigirModerador("acao");
   const aba = dados.get("aba") === "negocios" ? "negocios" : "indicacoes";
   await db.$transaction(async (tx) => {
     const empresa = await tx.empresa.update({
@@ -121,7 +121,7 @@ function voltarDosDonos(dados: FormData, username: string, aviso: string): never
  * com a confirmação marcada. As regras estão em `removerDono` (src/lib/reivindicacao.ts).
  */
 export async function removerDono(dados: FormData): Promise<void> {
-  const moderador = await exigirModerador("acao");
+  const moderador = await exigirModeradorRecente("acao");
   const empresa = await db.empresa.findUnique({ where: { id: texto(dados, "empresaId") }, select: { id: true, instagramUsername: true } });
   if (!empresa) redirect("/moderacao?aba=negocios");
   if (texto(dados, "confirmo") !== "sim") voltarDosDonos(dados, empresa.instagramUsername, "dono_sem_confirmacao");
