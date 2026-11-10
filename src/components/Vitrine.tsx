@@ -90,9 +90,14 @@ export async function Vitrine({
           {total === 1 ? "negócio no diretório" : "negócios no diretório"}
         </p>
         {total > 0 && (
-          <Link href={hrefNoDiretorio} className="botao-claro botao-pequeno">
-            Filtrar no diretório
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/participar" className="botao-coral botao-pequeno">
+              Cadastrar um negócio
+            </Link>
+            <Link href={hrefNoDiretorio} className="botao-claro botao-pequeno">
+              Filtrar no diretório
+            </Link>
+          </div>
         )}
       </div>
 
@@ -116,6 +121,18 @@ export async function Vitrine({
         <div className="mt-6 text-center">
           <Link href={hrefNoDiretorio} className="botao">
             Ver todos os {total.toLocaleString("pt-BR")} no diretório <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+      )}
+
+      {itens.length > 0 && (
+        <div className="cartao mt-10 flex flex-wrap items-center justify-between gap-4 px-6 py-6">
+          <div className="min-w-0 flex-[1_1_18rem]">
+            <p className="font-serif text-2xl leading-snug font-semibold text-balance">Tem ou conhece um negócio do bem que ainda não está aqui?</p>
+            <p className="mt-1 text-suave">Cadastre pelo @ do Instagram. Leva poucos minutos.</p>
+          </div>
+          <Link href="/participar" className="botao-coral">
+            Cadastrar um negócio
           </Link>
         </div>
       )}
