@@ -33,17 +33,23 @@ export async function FaixaEmbaixadores() {
             {todos.length === 1 ? "Ver os embaixadores" : `Conhecer todos os ${todos.length}`} <span aria-hidden="true">→</span>
           </Link>
         </div>
-        <FaixaRolante className="min-w-0 flex-[999_1_32rem]" itens={naFaixa.map((e) => <Rosto key={e.id} embaixador={e} />)} />
+        <FaixaRolante
+          className="min-w-0 flex-[999_1_32rem]"
+          itens={naFaixa.map((e) => <RostoNaFaixa key={e.id} embaixador={e} />)}
+          copia={naFaixa.map((e) => <RostoNaFaixa key={e.id} embaixador={e} naCopia />)}
+        />
       </div>
     </section>
   );
 }
 
-function Rosto({ embaixador }: { embaixador: EmbaixadorNoSite }) {
+/** Na cópia do laço, os links continuam clicáveis, mas ficam fora do Tab. */
+export function RostoNaFaixa({ embaixador, naCopia = false }: { embaixador: EmbaixadorNoSite; naCopia?: boolean }) {
   const semNegocios = embaixador.destino.href === "/participar";
+  const foraDoTab = naCopia ? -1 : undefined;
   return (
     <li className="flex w-40 shrink-0 flex-col items-center gap-1 text-center">
-      <Link href={embaixador.href} className="group flex max-w-full flex-col items-center" title={`A página de ${embaixador.nome}`}>
+      <Link href={embaixador.href} tabIndex={foraDoTab} className="group flex max-w-full flex-col items-center" title={`A página de ${embaixador.nome}`}>
         <RostoDoEmbaixador
           embaixador={embaixador}
           className="mb-3.5 h-21 w-21 text-[1.75rem] ring-2 ring-coral ring-offset-[3px] ring-offset-tinta transition group-hover:ring-4 escuro:ring-offset-superficie"
@@ -53,6 +59,7 @@ function Rosto({ embaixador }: { embaixador: EmbaixadorNoSite }) {
       {embaixador.seguidores && <span className="text-[13px] text-papel/70 escuro:text-suave">{embaixador.seguidores} seguidores</span>}
       <Link
         href={embaixador.destino.href}
+        tabIndex={foraDoTab}
         className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border border-papel/20 px-2.5 text-[13px] font-medium transition hover:border-papel/55 escuro:border-linha escuro:hover:border-tinta/40"
       >
         <IconeLugar className="h-3.5 w-3.5 shrink-0 text-coral-100 escuro:text-coral-700" />

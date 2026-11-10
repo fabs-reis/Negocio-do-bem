@@ -7,7 +7,7 @@ import { Campo } from "@/components/Campo";
 import { enviarSemLimpar } from "@/components/envio";
 import { rotuloDoInstagram, temInstagram } from "@/lib/endereco";
 
-/** Trocar o @ do Instagram do negócio, que também é o endereço da página (#298). */
+/** A moderação troca o @ do Instagram do negócio, que também é o endereço da página (#298). O dono pede a troca (#299). */
 export function FormInstagram({ empresa, voltar }: { empresa: { id: string; instagramUsername: string }; voltar: string }) {
   const [estado, acao] = useActionState(trocarArrobaDaEmpresa, undefined);
   const comInstagram = temInstagram(empresa.instagramUsername);
@@ -28,7 +28,7 @@ export function FormInstagram({ empresa, voltar }: { empresa: { id: string; inst
           id="novoInstagram"
           rotulo={comInstagram ? "Novo @ do Instagram" : "@ do Instagram"}
           erro={estado?.erros?.instagram}
-          ajuda="Pode colar o link do perfil. Se o negócio estiver no Clube do Bem, as ofertas pausam até a moderação conferir o novo @."
+          ajuda="Pode colar o link do perfil. A troca vale na hora; o Clube do Bem não é suspenso."
         >
           <input
             id="novoInstagram"

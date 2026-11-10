@@ -29,6 +29,7 @@ import { MenuModeracao } from "./MenuModeracao";
 import { Negocios } from "./Negocios";
 import { PedidosDoClube } from "./PedidosDoClube";
 import { Sistema } from "./Sistema";
+import { TrocasDeArroba } from "./TrocasDeArroba";
 import { VisaoGeral } from "./VisaoGeral";
 
 export const metadata: Metadata = { title: "Moderação", robots: { index: false } };
@@ -50,13 +51,14 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
   const params = await searchParams;
   const filtros = lerFiltros(params);
 
-  const [reivindicacoes, indicacoes, denuncias, clube] = await Promise.all([
+  const [reivindicacoes, indicacoes, denuncias, clube, arroba] = await Promise.all([
     db.reivindicacao.count({ where: { status: "pendente" } }),
     db.empresa.count({ where: { moderacao: "pendente" } }),
     db.depoimento.count({ where: { denunciado: true, status: "publicado" } }),
     db.liberacaoClube.count({ where: { status: "pendente" } }),
+    db.trocaDeArroba.count({ where: { status: "pendente" } }),
   ]);
-  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias, clube };
+  const pendentes: Partial<Record<Aba, number>> = { reivindicacoes, indicacoes, denuncias, clube, arroba };
 
   return (
     <div className="mt-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
@@ -71,6 +73,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/moderacao">, "searchP
         {filtros.aba === "indicacoes" && <Indicacoes />}
         {filtros.aba === "denuncias" && <Denuncias />}
         {filtros.aba === "clube" && <PedidosDoClube />}
+        {filtros.aba === "arroba" && <TrocasDeArroba />}
         {filtros.aba === "negocios" && <Negocios filtros={filtros} />}
         {filtros.aba === "contas" && <Contas filtros={filtros} />}
         {filtros.aba === "depoimentos" && <Depoimentos filtros={filtros} />}
