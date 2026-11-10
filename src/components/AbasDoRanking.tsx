@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 
 type Aba = { id: string; rotulo: string; conteudo: ReactNode };
 
@@ -11,17 +11,29 @@ type Aba = { id: string; rotulo: string; conteudo: ReactNode };
 export function AbasDoRanking({ abas }: { abas: Aba[] }) {
   const [ativa, setAtiva] = useState(abas[0]?.id);
   if (abas.length === 0) return null;
+
+  // Setas e Home/End trocam de aba, como pede o padrão de abas da WAI-ARIA.
+  function aoTeclar(evento: KeyboardEvent<HTMLButtonElement>, indice: number) {
+    const destino = { ArrowRight: indice + 1, ArrowLeft: indice - 1, Home: 0, End: abas.length - 1 }[evento.key];
+    if (destino === undefined) return;
+    evento.preventDefault();
+    const aba = abas[(destino + abas.length) % abas.length];
+    setAtiva(aba.id);
+    document.getElementById(`aba-${aba.id}`)?.focus();
+  }
   return (
     <div className="flex flex-col gap-6">
       {abas.length > 1 && (
         <div role="tablist" aria-label="Ordenar os mais queridos" className="flex self-start rounded-full bg-areia p-1 max-sm:w-full">
-          {abas.map((aba) => (
+          {abas.map((aba, indice) => (
             <button
               key={aba.id}
               type="button"
               role="tab"
               id={`aba-${aba.id}`}
               aria-selected={aba.id === ativa}
+              tabIndex={aba.id === ativa ? 0 : -1}
+              onKeyDown={(evento) => aoTeclar(evento, indice)}
               aria-controls={`painel-${aba.id}`}
               onClick={() => setAtiva(aba.id)}
               className={`rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition max-sm:flex-1 ${

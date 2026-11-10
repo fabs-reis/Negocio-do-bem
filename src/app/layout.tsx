@@ -95,8 +95,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   <path d="M16 16l4.5 4.5" />
                 </svg>
               </Link>
-              <Link href="/participar" className="botao-claro hidden sm:inline-flex">
-                Cadastrar negócio
+              {/* A ação principal do site: em laranja, também no celular (lá, só "Cadastrar"). */}
+              <Link href="/participar" className="botao-coral max-sm:px-3.5 max-sm:py-2 max-sm:text-[13px]">
+                <span className="sm:hidden">Cadastrar</span>
+                <span className="max-sm:hidden">Cadastrar negócio</span>
               </Link>
               <div className="hidden sm:block">
                 <AlternarTema />

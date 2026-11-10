@@ -157,7 +157,7 @@ export function FormEmpresa({ empresa, voltar }: { empresa: DadosEmpresa; voltar
       {estado?.erro && <Aviso tipo="erro">{estado.erro}</Aviso>}
       {estado?.erros && Object.keys(estado.erros).length > 0 && <Aviso tipo="erro">Confira os campos destacados acima.</Aviso>}
 
-      <div className="sticky bottom-4 z-10 flex justify-end">
+      <div className="sticky bottom-28 z-10 flex justify-end sm:bottom-4">
         <BotaoEnviar pendente={pendente} className="botao-coral px-8 py-3 text-base shadow-lg shadow-coral/20" enviando="Salvando…">
           Salvar alterações
         </BotaoEnviar>

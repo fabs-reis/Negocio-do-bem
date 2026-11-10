@@ -206,7 +206,7 @@ async function Numeros() {
         {itens.map((item, i) => (
           <div
             key={item.rotulo}
-            className={`flex flex-col-reverse gap-0.5 py-5 ${i % 2 === 1 ? "border-l border-linha pl-5" : ""} ${i >= 2 ? "max-sm:border-t max-sm:border-linha" : ""} ${i === 2 ? "sm:border-l sm:border-linha sm:pl-5" : ""} ${i === 0 ? "" : "sm:pl-6"}`}
+            className={`flex flex-col-reverse gap-0.5 border-linha py-5 ${i > 0 ? "sm:border-l sm:pl-6" : ""} ${i % 2 === 1 ? "max-sm:border-l max-sm:pl-5" : ""} ${i >= 2 ? "max-sm:border-t" : ""}`}
           >
             <dt className="text-sm text-suave">{item.rotulo}</dt>
             <dd className="font-display text-3xl font-bold tracking-tight tabular-nums sm:text-4xl">
