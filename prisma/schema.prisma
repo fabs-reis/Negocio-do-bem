@@ -124,6 +124,17 @@ model Empresa {
   categoria         String
   cidade            String
   uf                String
+  // Subdivisões públicas; no DF o município continua sendo Brasília.
+  regiaoAdministrativa String?
+  bairro               String?
+  localidade           String?
+  // Endereço postal opcional, informado pela pessoa (nunca atualizado pela base de CEP).
+  cep                  String?
+  logradouro           String?
+  numero               String?
+  complemento          String?
+  // Só o dono ou a moderação podem publicar os detalhes postais.
+  enderecoPublico      Boolean  @default(false)
   // Foto do perfil, enviada pelo dono ou pela moderação (ver src/lib/armazenamento.ts).
   fotoUrl           String?
   site              String?
@@ -426,4 +437,36 @@ model RegistroAuditoria {
 
   @@index([criadoEm])
   @@index([alvoTipo, alvoId])
+}
+
+// Cópia local das consultas de CEP ao ViaCEP (src/lib/cep.ts). Guarda só dados
+// postais públicos, nunca número, complemento ou outro dado de um negócio.
+model CepConsultado {
+  cep          String   @id // 8 dígitos
+  // "encontrado" | "inexistente". Falha técnica nunca é gravada aqui.
+  situacao     String
+  uf           String?
+  cidade       String?
+  bairro       String?
+  logradouro   String?
+  fonte        String
+  consultadoEm DateTime
+
+  @@index([consultadoEm])
+}
+
+// Contadores das cotas da consulta de CEP e pausa do provedor depois de falhas,
+// no banco porque o site roda em várias instâncias (src/lib/cep.ts).
+model CotaCep {
+  chave            String   @id
+  contagem         Int
+  janelaIniciadaEm DateTime
+
+  @@index([janelaIniciadaEm])
+}
+
+model PausaProvedorCep {
+  provedor       String   @id
+  falhasSeguidas Int
+  pausadoAte     DateTime
 }

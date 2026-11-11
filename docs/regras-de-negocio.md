@@ -319,6 +319,12 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 | Nome | Sim | 2 a 80 caracteres. |
 | Categoria | Sim | Uma da lista fixa (ver [seção 12](#categorias)). |
 | Cidade e estado (UF) | Sim | Um município da lista do IBGE, escolhido no campo de cidade, que sugere cidades enquanto a pessoa digita. O estado vem junto com a cidade. O servidor confere na mesma lista e grava o nome oficial, com acentos (ver [seção 12](#municípios)). |
+| Região administrativa do DF | Não | Uma da lista em `src/lib/regioes-df.ts`, validada no servidor. Só aceita quando o município é Brasília/DF. Não substitui a cidade. |
+| Bairro e distrito/localidade | Não | Até 100 caracteres cada, sem espaços nas pontas. Podem representar povoado, comunidade rural ou setor. Públicos no perfil e na busca. |
+| CEP | Não | Aceita 8 dígitos com ou sem hífen, guarda só os 8 dígitos como texto, preservando zeros iniciais. Valida o formato, sem afirmar que o CEP existe. |
+| Logradouro | Não | Até 200 caracteres. Pode conter rua, quadra, conjunto, estrada ou outra descrição postal. |
+| Número | Não | Até 30 caracteres; aceita letras e `s/n`, sem exigir um número inteiro. |
+| Complemento | Não | Até 200 caracteres, para bloco, lote, sala ou referência. |
 | Resumo ("em uma frase") | Sim | 10 a 160 caracteres. Aparece nos cards do diretório. |
 | Telefone comercial | Não | Número brasileiro com DDD, com as regras do WhatsApp (ver abaixo). No perfil, vira o botão "Ligar". |
 | Site | Não | Até 200 caracteres. Sem `http`, ganha `https://`. Precisa ter um ponto no domínio. |
@@ -328,6 +334,21 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 | Causas | Não | Qualquer combinação da lista oficial. Slugs desconhecidos são descartados. |
 | História | Não | Markdown, até 20 mil caracteres (ver [seção 8](#8-história-do-negócio)). |
 | Foto | Não | Ver [seção 9](#9-fotos). |
+
+**Endereço opcional:** indicação, edição pelo dono e edição pela moderação usam os mesmos campos e validações. Somente município/UF continuam obrigatórios. Cadastros antigos não ganham região, bairro ou CEP por dedução. Valores inválidos voltam junto com os erros, sem apagar o formulário.
+
+**Visibilidade:** bairro, região e localidade são públicos. CEP, logradouro, número e complemento ficam restritos à edição pelo dono e pela moderação até que um deles marque "Mostrar CEP, logradouro, número e complemento no perfil público". Uma indicação, inclusive com "Este negócio é meu", não pode autorizar essa publicação. Desmarcar oculta os detalhes também dos dados estruturados. Os detalhes postais não entram no texto de busca, mesmo quando públicos.
+
+**Consulta de CEP** (`src/lib/cep.ts`, rota `/api/cep`): só ajuda a preencher e fica desligada até `CEP_CONSULTA=viacep` e `CEP_ARMAZENAMENTO_AUTORIZADO=1`, após a manutenção confirmar as condições de retenção com a fonte. Sem ela, ou com ela fora do ar, o preenchimento é manual. Detalhes e motivos em [decisões do endereço](endereco.md).
+
+- **Quando consulta:** quando o CEP fica completo, com meio segundo de espera, nunca a cada tecla. A fonte é o ViaCEP, gratuito. Se o CEP mudar ou for apagado antes da resposta, a consulta é cancelada e nada é preenchido.
+- **O que preenche:** só campos vazios (cidade, logradouro, bairro e, no DF, a região administrativa reconhecida pelo bairro inteiro ou pelo nome final entre parênteses). Nunca apaga o que a pessoa escreveu nem mexe em número e complemento. Se a cidade informada for outra ou a consulta não identificar um município da lista, não preenche nada e avisa para conferir o CEP ou a cidade.
+- **Respostas:** "não encontramos esse CEP" só quando o ViaCEP diz que ele não existe. Erro, demora acima de 4 segundos, `429` ou resposta estranha valem "consulta indisponível", nunca "CEP inexistente".
+- **Cópia local:** cada CEP com resposta válida fica no banco (`CepConsultado`), com a situação, os dados disponíveis do ViaCEP (UF, cidade, bairro e logradouro), fonte e data, sem dado de negócio. Encontrado vale 90 dias e depois é consultado de novo no uso; não existe atualização em lote. Com o ViaCEP fora do ar, a cópia vale até 365 dias, avisando que pode estar desatualizada. "Não encontrado" vale 7 dias. Falha nunca é gravada como resposta postal. Cada consulta habilitada exclui até 100 cópias encontradas com mais de 365 dias e negativas vencidas. Com a consulta desligada, a manutenção cuida da exclusão ao encerrar o uso da fonte.
+- **Cotas, no banco, divididas entre as instâncias:** 20 consultas a cada 10 minutos por origem (IP, ou /64 no IPv6; sem IP confiável, todas dividem uma cota), contando também as respondidas pela cópia. Chamadas ao ViaCEP: no máximo 20 por minuto e 1.000 por dia, somando todo o site. São limites definidos pelo projeto, não cotas garantidas pelo provedor.
+- **Pausa:** depois de uma falha externa, novas chamadas ao ViaCEP são suspensas por 1 minuto, dobrando a cada falha seguida até 1 hora, ou pelo tempo do `Retry-After` (até 24 horas), com acréscimo aleatório de até 20%. Uma trava no PostgreSQL limita a uma chamada externa por vez entre instâncias. Quem espera relê a cópia por até cinco segundos; consultas iguais reutilizam a resposta. Não há repetição automática da chamada externa. Falha do armazenamento libera o preenchimento manual e é registrada sem dados do formulário.
+
+A [proposta de localização nacional e evolução da busca](busca-e-localizacao.md) discute identificadores IBGE, preferência pessoal e indexação. São mudanças futuras, não regras já implementadas.
 
 **Regras do WhatsApp e dos telefones:**
 
@@ -661,6 +682,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
 - **"Favoritar",** com o coração, ao lado de "Compartilhar", num negócio do diretório, para quem não é dono, junto com quantas pessoas já favoritaram (veja [Favoritos](#favoritos)). O dono vê esse número ao lado de "Editar meu perfil".
 - **Cartão de contato** (coluna da direita no computador, logo abaixo do topo no celular), só com o que está preenchido. WhatsApp, Instagram e site abrem numa aba nova, para a pessoa não sair do site:
   - telefone comercial, que abre `tel:`;
+- **Localização:** bairro, distrito/localidade e região administrativa preenchidos, sem repetir nomes idênticos. O endereço postal só aparece quando o dono ou a moderação autorizam na edição.
   - WhatsApp, que abre `wa.me`;
   - Instagram (só para quem tem Instagram);
   - site, que mostra o domínio sem `www`;
@@ -727,8 +749,9 @@ Código: `favoritar` em `src/acoes/favoritos.ts`, o coração em `src/components
 Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/opengraph-image.tsx`, `src/app/empresas/[usuario]/opengraph-image.tsx`, `src/app/cidades/[cidade]/opengraph-image.tsx` e `src/lib/previa-da-cidade.tsx`.
 
 - **Só perfis do diretório vão para os buscadores.** O sitemap lista os negócios aprovados e não ocultos, lido do banco a cada pedido: um negócio aprovado entra na hora, e um oculto sai na hora. Ele também lista as páginas de cidade, causa e tipo que têm negócios (ver [seção 11](#páginas-de-cidade-causa-e-tipo)).
-- **Título do perfil na busca:** "Nome — Categoria em Cidade, UF". Na categoria "Outros", só "Nome em Cidade, UF". A descrição é o resumo.
+- **Título do perfil na busca:** "Nome — Categoria em Localização"; a localização inclui bairro, localidade e região preenchidos, terminando em Cidade, UF. Na categoria "Outros", só "Nome em Localização". A descrição é o resumo.
 - **Dados estruturados:** o perfil público leva a ficha do negócio (`LocalBusiness`) com nome, resumo, foto, cidade, UF, WhatsApp, e-mail, Instagram, site, categoria e causas. São os mesmos dados que a página já mostra. O caminho até o perfil passa pela página da cidade: "Início › Recife, PE › Padaria Florescer".
+  - Com a publicação do endereço autorizada, inclui também o CEP e o logradouro, número e complemento preenchidos. Sem autorização, esses campos não aparecem no JSON-LD.
 - **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Perfil assumido". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
 - **Prévia das outras páginas:** a página de cada cidade tem a sua (ver [seção 11](#páginas-de-cidade-causa-e-tipo)). As outras páginas públicas (início, `/sobre`, `/explorar`, `/cidades`, `/participar`, causas e tipos) levam a imagem geral do site, com o logo e o lema.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
@@ -746,7 +769,7 @@ Código: `src/app/painel/`.
   - a seção "Minha conta", com a troca de senha, ou o link para criar uma na conta sem senha (veja [Cadastro e login](#cadastro-e-login));
   - o aviso da ação anterior (`?aviso=`), como "Senha trocada".
 - **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). No topo, aparece quantas pessoas favoritaram o negócio. Nele, o dono:
-  - **edita o perfil:** foto, informações, contatos, causas e história;
+  - **edita o perfil:** foto, informações, localização/endereço e sua publicação, contatos, causas e história;
   - **pede a troca do @,** que só vale quando a moderação aprova (veja [Pedido de troca do @](#pedido-de-troca-do-));
   - **responde depoimentos:** até 1.000 caracteres. A resposta pode ser trocada a qualquer momento, e apagar o texto tira a resposta;
   - **oculta ou mostra o negócio no diretório.**
@@ -911,13 +934,17 @@ A ordem, de cima para baixo:
   - **Nome (A–Z)**.
   - Não existe ranking por nota nem anúncio pago.
 - **Busca por texto:**
-  - procura no nome, no resumo, na categoria, na cidade, na UF e no @;
+  - procura no nome, no resumo, na categoria, na cidade, na UF, no @, na região administrativa, no bairro e na localidade;
   - **não** procura na história nem nas causas, que têm filtro próprio;
   - é feita sobre o campo `busca`, que guarda esses textos em minúsculas e sem acento e é atualizado a cada indicação e edição;
   - por isso, "sao paulo" encontra "São Paulo";
+  - vírgulas separam palavras. Um sufixo `, UF` válido restringe ao estado informado: `Taguatinga, DF` não encontra o município de Taguatinga/TO;
   - cada palavra digitada precisa aparecer, e só valem as 6 primeiras palavras e os 100 primeiros caracteres.
 - **"Onde?":**
   - sugere os estados e as cidades que já têm negócios, com quantos há em cada um. Sem texto, mostra "Todo o Brasil" e as cidades com mais negócios;
+  - também sugere regiões, bairros e localidades com negócios publicados. A opção inclui município e UF (`Centro — Recife, PE`) para distinguir lugares de mesmo nome. Um negócio com o mesmo nome no bairro e na localidade conta uma vez naquela sugestão;
+  - aceita `Ceilândia` e `Taguatinga, DF` como regiões de Brasília. `Taguatinga, TO` continua sendo o município tocantinense. Se o nome sem UF também é de um município com negócios, ele tem preferência; escolha a sugestão completa para especificar a região;
+  - bairro/localidade sem município ou UF pode abranger mais de um lugar; a sugestão completa restringe ao município e estado escolhidos. Acentos e maiúsculas não diferenciam as grafias;
   - junta a mesma cidade escrita de jeitos diferentes no banco ("Florianopolis" e "Florianópolis"), sem diferenciar acentos, maiúsculas, espaços, hífen e apóstrofo ("São João del-Rei" e "São João del Rei"), e com a UF da própria cidade grudada no fim ("Tubarão-SC"). Ela aparece uma vez só, com o nome oficial do IBGE e o total de todas as grafias, e o filtro acha os negócios de todas elas. Fora da lista do IBGE, vale a grafia mais usada;
   - aceita um estado ("PE", "Pernambuco" ou "Pernambuco (estado)"), "Cidade, UF" ou só o nome da cidade, sem diferenciar acentos e maiúsculas;
   - um nome que é de estado e de cidade (São Paulo) sem a UF vale como estado, que inclui a cidade;
@@ -930,7 +957,7 @@ A ordem, de cima para baixo:
   - **só perfis assumidos.**
   - Cada opção mostra quantos negócios aparecem se ela for marcada. Nos tipos, a conta ignora os tipos já marcados. Opções com zero ficam apagadas.
 - **Filtros em uso** aparecem acima dos resultados, cada um com um "✕" para tirar.
-- **Grade ou lista:** a lista mostra um negócio por linha, com resumo, categoria e cidade.
+- **Grade ou lista:** mostra resumo, categoria e localização (bairro, localidade e região preenchidos, cidade e UF).
 - **Paginação:** 18 negócios por página, até a página 500, com os números das páginas. Com mais de 7 páginas, aparecem a primeira, a última e as vizinhas da atual.
 - **Os filtros ficam na URL** (`/explorar?q=…&onde=…&tipo=…&causa=…&verificados=sim&ordem=…&vista=lista&pagina=…`), então dá para compartilhar uma busca. O tipo vai como slug (`cafe-e-padaria`). Links antigos com `?uf=PE` viram "Pernambuco (estado)". Os links da página inicial de antes do diretório (`/?q=…`, `/?causa=…`, `/?uf=…`, `/?pagina=…`) são redirecionados para `/explorar` com os mesmos filtros (`redirects` em `next.config.ts`).
 - **Com qualquer filtro, o endereço canônico continua `/explorar`:** as combinações de filtros não entram na busca do Google. Quem busca por cidade, causa ou tipo cai nas páginas fixas abaixo.
@@ -1140,7 +1167,8 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Nome completo e CPF informados no pedido de verificação | `LiberacaoClube.nomeCompleto` e `cpfMascarado` | Só a moderação. O CPF inteiro **nunca é guardado**: só os 6 dígitos do meio (`***.982.247-**`), os mesmos que a Receita mostra dos sócios. Serve para comparar com o quadro de sócios. A pessoa autoriza numa caixa obrigatória do formulário. Somem se a conta for apagada. |
 | Foto do RG ou da CNH, no pedido de verificação | Bucket R2 privado `DOCUMENTOS` (a chave em `LiberacaoClube.documentoChaves`) | Só a moderação, por uma rota protegida, com cada abertura na auditoria. Apagada quando a moderação decide, ou depois de 30 dias sem decisão. Nunca em endereço público. |
-| Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
+| Dados do perfil do negócio, incluindo cidade, UF, bairro, região e localidade | `Empresa` | **Público** quando o negócio está publicado, exceto os detalhes postais abaixo. |
+| CEP, logradouro, número e complemento | `Empresa` | Donos e moderação na edição. Só se tornam públicos quando um deles autoriza em `enderecoPublico`; a indicação nunca concede essa autorização. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
 | CNPJ da liberação do clube | `LiberacaoClube` | Só a moderação, na ficha do negócio. |
@@ -1224,6 +1252,10 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Nome do negócio | 2 a 80 caracteres | `src/acoes/empresas.ts` |
 | Resumo | 10 a 160 caracteres | `src/acoes/empresas.ts` |
 | Sugestões do campo de cidade | até 8, a partir de 2 letras | `src/lib/municipios.ts` |
+| Bairro e distrito/localidade | até 100 caracteres cada | `src/lib/formulario.ts` |
+| Logradouro e complemento | até 200 caracteres cada | `src/lib/formulario.ts` |
+| Número do endereço | até 30 caracteres, inclusive letras e `s/n` | `src/lib/formulario.ts` |
+| CEP | 8 dígitos, hífen opcional na entrada | `src/lib/formulario.ts` |
 | Motivo da indicação | até 600 caracteres | `src/acoes/empresas.ts` |
 | História | até 20 mil caracteres | `src/acoes/empresas.ts` |
 | Depoimento | 20 a 1.500 caracteres | `src/acoes/depoimentos.ts` |
