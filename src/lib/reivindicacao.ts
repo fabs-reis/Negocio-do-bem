@@ -18,6 +18,7 @@
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db, type Prisma } from "@/lib/db";
 import { suspenderOfertasQueValem } from "@/lib/ofertas";
+import { OPCOES_TRANSACAO_FOTOS, validarReferenciasFotos } from "@/lib/publicacao-fotos";
 import { formatarDataHora } from "@/lib/texto";
 
 const VALIDADE_ANALISE_DIAS = 30;
@@ -164,6 +165,8 @@ export async function solicitarPorDocumento(params: {
   await exigirQueNaoSejaDono(params.empresaId, params.usuarioId);
 
   const { reivindicacao, tiradaDosDonos } = await db.$transaction(async (tx) => {
+    // Acquire photo admission before user and company row locks.
+    await validarReferenciasFotos(tx, { site: params.site });
     await bloquearPessoa(tx, params.usuarioId);
     const emAnalise = await tx.reivindicacao.findFirst({
       where: { empresaId: params.empresaId, usuarioId: params.usuarioId, metodo: "documento", status: "pendente" },
@@ -187,7 +190,7 @@ export async function solicitarPorDocumento(params: {
       },
     });
     return { reivindicacao: criada, tiradaDosDonos: tirada };
-  });
+  }, OPCOES_TRANSACAO_FOTOS);
 
   const empresa = await db.empresa.findUniqueOrThrow({ where: { id: params.empresaId }, include: { membros: true } });
   if (!aprovaSozinhoPorDocumento(empresa, tiradaDosDonos)) return reivindicacao;

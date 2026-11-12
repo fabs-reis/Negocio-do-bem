@@ -764,7 +764,7 @@ Código: `src/app/painel/`.
 - É a resposta para "meu negócio foi indicado e eu não quero aparecer": a pessoa reivindica o perfil e oculta.
 - **Auditoria:** registra `empresa.ocultada` e `empresa.reexibida`. Se a auditoria falhar, a visibilidade não muda.
 
-**Toda edição** atualiza o texto de busca do negócio e fica na auditoria (`empresa.editada`, `empresa.foto_trocada`, `empresa.foto_removida`). Se a auditoria falhar, a edição, a troca e a remoção da foto não são gravadas. A foto antiga só é apagada depois da confirmação.
+**Toda edição** atualiza o texto de busca do negócio e fica na auditoria (`empresa.editada`, `empresa.foto_trocada`, `empresa.foto_removida`). Se a auditoria falhar, a edição, a troca e a remoção da foto não são gravadas. A foto antiga continua no armazenamento (veja a [seção 9](#9-fotos)).
 
 ---
 
@@ -799,7 +799,7 @@ Código: `src/lib/fotos.ts`, `src/lib/armazenamento.ts`, `src/components/reduzir
 
 **Quem envia:**
 
-- **Foto do perfil:** o dono ou a moderação. Trocar ou remover apaga a foto antiga do armazenamento.
+- **Profile photo:** the owner or moderation can replace or remove the profile reference. The stored object remains, including unused Instagram uploads.
 - **Foto do perfil vinda do Instagram:** a rotina de fotos, para negócios que ainda não têm foto (veja abaixo).
 - **Foto do embaixador:** a moderação, ou a consulta ao Instagram para quem está sem foto (veja [Embaixadores do bem](#19-embaixadores-do-bem)).
 - **Foto da história:** o dono ou a moderação, pelo botão "Foto" do editor. Ela é guardada na hora e entra no texto onde está o cursor.
@@ -836,6 +836,23 @@ Código: `scripts/fotos-instagram.ts` (roda no computador de quem cuida do proje
   - em produção sem o binding ou a URL pública R2, a pessoa vê uma mensagem de erro em vez de o site quebrar.
 
 **O site só mostra fotos guardadas por ele mesmo** (`ehFotoDoSite`): endereços do domínio do bucket R2 configurado ou da pasta `/enviados/`. As fotos antigas do Vercel Blob foram copiadas para o R2, e um endereço do Blob também não aparece. Uma imagem de outro endereço avisaria aquele servidor a cada visita ao perfil, então ela simplesmente não aparece.
+
+### Unused story photos and manual retirement
+
+Code: `src/lib/ciclo-fotos.ts`, `src/lib/publicacao-fotos.ts`, `src/lib/fotos-historias.ts` and `scripts/limpar-fotos-historias.ts`.
+
+- **Diagnosis is read-only:** run `npm run fotos:limpar -- listar`. The command requires an explicit `DATABASE_URL` and does not load `.env` files. It identifies the database and storage without displaying credentials. Incomplete remote configuration does not select local storage.
+- **Deletion requires an explicit selection:** run `npm run fotos:limpar -- descartar URL [URL ...]`. Only generated `historias/` keys in the selected storage qualify. Profile objects, legacy Blob objects and ambiguous paths remain outside the deletion scope. Inventory excludes existing symbolic links.
+- **Saved references protect objects.** Diagnosis checks every company, including hidden, pending and rejected companies. Profile references, ambassador profile references, shared story references, company website links and saved claim website links count. Claim status does not exclude its saved URL. The Markdown/GFM parser includes images, definitions and links. Key matching also preserves possible aliases, encoded paths, query parameters and fragments. Conservative matching can retain an unused object.
+- **Retirement precedes physical deletion.** The database stores `FotoAposentada`, keyed by storage domain and object key. The domain identifies the public origin or the absolute local storage directory. Audit history is not the safety store. The first retirement also records `foto.descarte_iniciado` as history in the same transaction. Retirement remains after success, failure, interruption or an uncertain response.
+- **Publication and retirement use one PostgreSQL transaction lock with `READ COMMITTED`.** If publication commits first, retirement must preserve the object. If retirement commits first, publication must reject the reference. The form retains its text and requests another upload. Actions, Instagram, migration and seed use reference admission. Key checks span retirement domains to reject possible aliases conservatively.
+- **Local deletion requires Linux and `/proc/self/fd`.** The command opens each directory component with `O_NOFOLLOW`. Deletion uses the verified directory descriptor, not its replaceable pathname. It never follows a final symbolic link. A replacement link can itself be unlinked after the file check, without touching its target. This does not prove an atomic regular-file-only unlink. Other platforms retain read-only diagnosis and refuse local deletion.
+- **Local confirmation checks the current storage chain.** The command reopens that chain without following symbolic links and compares its directory identity with the pinned directory. A changed, missing or inaccessible current directory fails confirmation. The selected key must be absent from the reopened directory, even after an earlier `ENOENT`. Confirmation records this absence observation, not permanent future absence. It never removes a replacement object to obtain confirmation.
+- **Storage must confirm absence.** Local deletion checks the filesystem. R2 deletion checks the storage API, not the public domain or CDN. A failed check reports `falha`, never confirmed deletion. Repeat the same explicit selection after an interruption. A retirement record permits that check even when the object disappeared from inventory.
+- **Activation requires a complete reference domain.** Keep `FOTOS_DOMINIO_EXCLUSIVO` unset until all databases, storage aliases and writers are known. Remove write access from incompatible versions and old requests before setting it to `confirmado`. One database lock cannot coordinate independent databases. Refuse deletion when completeness or coordination is unknown.
+- **Configuration is not production proof.** Production has one configured photos bucket. Previews have another shared bucket, not proven isolation per PR. R2 metadata checks establish some associations, not every consumer. The earlier read-only database move does not prove current maintenance conditions. Its session termination covers only the same database role. Arbitrary SQL and restores can bypass admission.
+- **Retention continues by default.** Site edits do not physically delete photos, even locally. Unused profile objects and abandoned story uploads can remain and incur storage costs. This change reclaims selected unused objects. It does not prevent new orphan uploads, add quotas or install a service or scheduler.
+- **Keep retirement records.** Do not remove them with audit history. Reconcile restores and database copies before permitting publication or cleanup. Disabling cleanup does not release retired keys.
 
 ---
 
@@ -1048,12 +1065,12 @@ Toda decisão e edição importante grava quem fez, o quê, em qual alvo e quand
 A aba "Auditoria" do painel mostra os registros do mais novo ao mais antigo, 50 por página:
 
 - cada ação aparece com uma descrição em português (`ACOES_AUDITORIA`, em `src/lib/dominio.ts`) e com o código embaixo;
-- quem fez leva à ficha da conta, e o alvo leva ao negócio, à conta, ao perfil do depoimento ou ao embaixador, enquanto ele existir. Alvo apagado aparece como "removido";
-- **filtros:** por ação (a lista mostra quantas vezes cada uma aparece), por quem fez (inclusive "sistema") e por alvo. O link "histórico" de cada linha, o "Histórico" da aba Negócios e o "Tudo o que esta conta fez" da ficha usam esses filtros.
+- quem fez leva à ficha da conta, e o alvo leva ao negócio, à conta, ao perfil do depoimento ou ao embaixador, enquanto ele existir. Alvo apagado aparece como "removido". O alvo de tipo foto não tem página: aparece como "Foto" e o nome do arquivo (`historias/…` ou `perfis/…`), e a tela não diz se o arquivo ainda existe;
+- **filtros:** por ação (a lista mostra quantas vezes cada uma aparece), por quem fez (inclusive "sistema") e por alvo (empresa, conta, pedido, depoimento, embaixador ou foto). O link "histórico" de cada linha, o "Histórico" da aba Negócios e o "Tudo o que esta conta fez" da ficha usam esses filtros.
 
 Nas Server Actions de indicação, edição do perfil, visibilidade, foto do perfil, decisões de moderação e cadastro dos embaixadores, e na gravação da foto importada do Instagram (dos negócios e dos embaixadores), a alteração no banco e sua auditoria são confirmadas na mesma transação. Se o registro de auditoria falhar, a alteração no banco também é desfeita. Na foto importada, a escrita continua condicional: a foto enviada pelo dono sempre vale mais do que a importada.
 
-O armazenamento das fotos não participa da transação do banco. A foto antiga só é apagada depois de confirmar a alteração e a auditoria. Se o envio da foto nova funcionar e a transação falhar, o perfil mantém a foto antiga, mas o arquivo novo pode ficar sem referência no armazenamento. Se o resultado da confirmação for incerto, nenhum arquivo é apagado. A foto importada só é apagada quando a transação confirma que o dono já tinha uma foto.
+O armazenamento das fotos não participa da transação do banco. Trocar ou remover a foto do perfil, de um negócio ou de um embaixador, não apaga o arquivo antigo, e a foto importada do Instagram que perde a corrida também fica no armazenamento. Se o envio da foto nova funcionar e a transação falhar, o perfil mantém a foto antiga, mas o arquivo novo pode ficar sem referência no armazenamento. Só o descarte manual da seção 9 apaga arquivos, e apenas os de `historias/`.
 
 These tests use a real PostgreSQL database and mock external storage. They do not verify the behavior of a live R2 bucket. [Issue #82](https://github.com/fabs-reis/Negocio-do-bem/issues/82) and [PR #94](https://github.com/fabs-reis/Negocio-do-bem/pull/94) cover safe reconciliation of files without database references. That work is separate from the audit transaction guarantee.
 
@@ -1065,6 +1082,7 @@ These tests use a real PostgreSQL database and mock external storage. They do no
 | `empresa.foto_trocada` / `empresa.foto_removida` | O dono trocou ou removeu a foto do perfil. |
 | `empresa.arroba_trocado` | O dono trocou o @ do Instagram. Os detalhes trazem o @ antigo e o novo. Com `_pela_moderacao`, foi a moderação. |
 | `empresa.foto_do_instagram` | A rotina de fotos colocou a foto do Instagram num negócio sem foto. Os detalhes trazem o @. |
+| `foto.descarte_iniciado` ("Iniciou o descarte de uma foto sem uso") | O arquivo deixou de ter referências e entrou no protocolo de descarte. A identidade fica em `alvoId`. O registro não pode ser removido por retenção genérica da auditoria. |
 | `empresa.editada_pela_moderacao`, `empresa.foto_trocada_pela_moderacao`, `empresa.foto_removida_pela_moderacao` | As mesmas, feitas pela moderação. Os detalhes trazem o @. |
 | `empresa.ocultada` / `empresa.reexibida` | O dono tirou ou devolveu o negócio ao diretório. |
 | `empresa.arroba_pedido` | O dono pediu a troca do @. Os detalhes trazem o @ atual e o pedido. |
@@ -1357,7 +1375,8 @@ O sistema funciona hoje assim. Algumas destas situações podem ser intencionais
 
 **Fotos**
 
-- Fotos da história que saem do texto, ou que foram enviadas e nunca salvas, continuam no armazenamento.
+- Fotos da história que saem do texto, ou que foram enviadas e nunca salvas, aguardam o diagnóstico e descarte manual descritos na seção 9. Sem domínio exclusivo confirmado, permanecem no armazenamento.
+- Fotos de perfil de negócios e de embaixadores, trocadas ou removidas, e a que perde a corrida do Instagram, também ficam em `perfis/` enquanto a exclusão estiver bloqueada. O diagnóstico lista só `historias/`, então essas fotos ainda não aparecem nele.
 
 Os [próximos passos do README](../README.md#próximos-passos-sugeridos) listam outras ideias.
 
@@ -1381,8 +1400,8 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 - **Onde atua:** uma cidade da lista do IBGE ou um estado inteiro.
 - **Ordem:** de 0 a 999, do menor para o maior, na faixa e em `/embaixadores`. O empate vai pelo nome.
 - **"Na faixa da página inicial"** e **"Aparece no site":** fora do site, o embaixador não aparece em lugar nenhum.
-- **Excluir** apaga o cadastro e a foto, e pede para marcar "Confirmo". Para só tirar do site, basta desmarcar "Aparece no site".
-- Cada cadastro, edição, troca de foto e exclusão vai para a [auditoria](#13-auditoria), na mesma transação: se a auditoria falhar, nada muda. A foto antiga só é apagada depois disso.
+- **Excluir** apaga o cadastro, mas o arquivo da foto continua no armazenamento, e pede para marcar "Confirmo". Para só tirar do site, basta desmarcar "Aparece no site".
+- Cada cadastro, edição, troca de foto e exclusão vai para a [auditoria](#13-auditoria), na mesma transação: se a auditoria falhar, nada muda. A foto antiga continua no armazenamento, como a do negócio (veja a [seção 9](#9-fotos)).
 
 ### Onde aparece
 
@@ -1438,7 +1457,7 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 
 ### Foto
 
-- A moderação envia, troca ou remove, como a foto do negócio.
+- A moderação envia, troca ou remove, como a foto do negócio. Trocar ou remover não apaga o arquivo antigo, e uma foto que entrou em descarte não pode voltar a ser usada.
 - Um embaixador sem foto ganha a do Instagram na próxima consulta, como "Sistema" na auditoria (`embaixador.foto_do_instagram`). A foto enviada pela moderação nunca é trocada.
 - Sem foto nenhuma, aparecem as iniciais.
 
