@@ -77,6 +77,7 @@ describe("listas permitidas", () => {
   it("inclui páginas públicas do diretório e reduz rotas dinâmicas a caminhos genéricos", () => {
     expect(paginaPermitida("/embaixadores")).toEqual({ caminho: "/embaixadores", titulo: "Embaixadores do bem" });
     expect(paginaPermitida("/clube-do-bem")).toEqual({ caminho: "/clube-do-bem", titulo: "Clube do Bem" });
+    expect(paginaPermitida("/vagas")).toEqual({ caminho: "/vagas", titulo: "Vagas" });
     expect(paginaPermitida("/tipos")).toEqual({ caminho: "/tipos", titulo: "Categorias" });
     expect(paginaPermitida("/tipos/cafe-e-padaria")).toEqual({ caminho: "/tipos/tipo", titulo: "Negócios por categoria" });
     expect(paginaPermitida("/cupons")).toEqual({ caminho: "/cupons", titulo: "Ofertas do Clube do Bem" });

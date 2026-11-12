@@ -260,7 +260,7 @@ A página inicial juntava apresentação, busca, filtros de causas e a lista de 
 
 - **A página inicial ficou para começar:** o número de negócios cadastrados em destaque, a busca "O que você procura?" + "Onde?", atalhos e os tipos de negócio com seus totais.
 - **O diretório ganhou endereço próprio, `/explorar`.** Ele abre ao buscar ou ao escolher um tipo, com os filtros ao lado (tipo, causas, só perfis assumidos), grade ou lista e paginação numerada.
-- **Os filtros são links, não um formulário.** Cada opção é um link para a URL com aquele filtro trocado (`mudarFiltro`, em `src/lib/diretorio.ts`). Assim funciona sem JavaScript e toda busca pode ser compartilhada. Só a ordenação usa um `<select>` com JavaScript.
+- **Os filtros são links, não um formulário.** Cada opção é um link para a URL com aquele filtro trocado (`mudarFiltro`, em `src/lib/diretorio.ts`). Assim funciona antes de o JavaScript carregar e toda busca pode ser compartilhada. A ordenação também: é um menu (`<details>`) com um link para cada ordem. Com o JavaScript desligado, o conteúdo dentro de `<Suspense>` não aparece, porque um script é que o revela.
 - **Cada opção mostra quantos negócios aparecem ao marcá-la.** São poucas consultas por página: um `groupBy` por categoria ignorando os tipos marcados, e um `groupBy` das causas entre os resultados.
 - **O "Onde?" sugere só lugares com negócios** (`listarCidades`). A lista é pequena e vai pronta para o navegador. O texto escolhido ("Recife, PE") vai na URL e o servidor o interpreta, então digitar à mão também funciona.
 
@@ -850,11 +850,11 @@ Erros que podem ser mostrados para a pessoa usam uma classe própria (`ErroReivi
 ### Interface
 
 - **Componentes de formulário:** `Campo` (rótulo, ajuda e erro), `BotaoEnviar` (mostra "Enviando…"), `Aviso`.
-- **Classes de `globals.css`:** `.botao`, `.botao-coral`, `.botao-claro`, `.cartao`, `.campo`, `.link` e `.historia`. Prefira essas classes a repetir utilitários do Tailwind.
-- **Cores do tema:** `papel`, `superficie`, `tinta`, `suave`, `linha`, `coral` e `folha`. Para algo que só muda no escuro, use a variante `escuro:`.
+- **Classes de `globals.css`:** `.botao`, `.botao-coral`, `.botao-claro`, `.cartao`, `.campo`, `.link` e `.historia`. Prefira essas classes a repetir utilitários do Tailwind. O `.cartao` não tem borda no claro, só a sombra `shadow-cartao`; no escuro a sombra some e a borda volta. O que flutua (barra do celular) usa `shadow-flutuante`.
+- **Cores do tema:** `papel` (fundo, branco quente), `superficie` (cards, campos, menus), `areia` (o creme da marca, para faixas, chips, blocos dentro de cards e botões leves), `tinta`, `suave`, `linha`, `coral` e `folha`. Coral é para ação; folha, para causas e selos. Para algo que só muda no escuro, use a variante `escuro:`.
 - **Cores da marca:** `marca-laranja`, `marca-verde`, `marca-marrom` e `marca-creme` são as do manual e não mudam no escuro. Use para a marca, não para a interface. O logo é o componente `Logo`, e a altura vem do `className`.
 - **Cor fixa nunca:** `bg-white` e afins não mudam no modo escuro. Use `superficie`.
-- **Tipografia:** textos longos usam a fonte serifada (Newsreader), e a interface usa a Inter.
+- **Tipografia:** títulos e números usam `font-display` (Bricolage Grotesque); a interface e o texto corrido usam a Inter. A serifada (Newsreader, `font-serif`) fica para a palavra de destaque em itálico dos títulos, citações, depoimentos e a história do negócio. As imagens de compartilhamento ainda usam a Newsreader.
 
 ---
 

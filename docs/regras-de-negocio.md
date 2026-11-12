@@ -28,6 +28,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 18. [Comportamentos atuais que valem conhecer](#18-comportamentos-atuais-que-valem-conhecer)
 19. [Embaixadores do bem](#19-embaixadores-do-bem)
 20. [Clube do Bem](#20-clube-do-bem)
+21. [Vagas](#21-vagas)
 
 ---
 
@@ -45,6 +46,8 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | Oferta | `Oferta` | Um desconto por pouco tempo (até 15 dias) que um dono liberado cria para o Clube do Bem. |
 | Cupom | `Cupom` | O código que uma pessoa gera para usar a oferta na compra. Uso único, validado pelo dono. |
 | Liberação do clube | `LiberacaoClube` | A permissão que a moderação dá a um dono, depois de conferir o CNPJ na Receita, para criar ofertas do Clube do Bem. |
+| Vaga | `Vaga` | Uma vaga, estágio, freela ou bico que um dono divulga ([#339](https://github.com/fabs-reis/Negocio-do-bem/issues/339)). |
+| Candidatura | `Candidatura` | O pedido de uma pessoa para uma vaga, com os dados e o currículo. |
 | Favorito | `EmpresaFavorita` | Um negócio que uma conta guardou com o coração, para achar de novo na página Favoritos. É a primeira parte do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)). |
 | Denúncia | campos `denunciado`, `motivoDenuncia` e `denunciadoPorId` do `Depoimento` | O aviso de que um depoimento tem algo errado. |
 | Causa | `EmpresaCausa` + lista em `src/lib/causas.ts` | Um valor que o negócio pratica, como "Escala 5x2" ou "Antirracista". Vira selo no perfil e filtro na busca. |
@@ -380,7 +383,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
 
 ### O cadastro por etapas
 
-- **Uma entrada só:** `/participar` é o "Cadastrar" do menu e o destino dos botões de indicar. O `/indicar` antigo redireciona para lá, com a busca (`?instagram=<@>&dono=sim`), que vira o @ e a escolha de dono já preenchidos.
+- **Uma entrada só:** `/participar` é o "Adicionar empresa" do menu e o destino dos botões de indicar. O `/indicar` antigo redireciona para lá, com a busca (`?instagram=<@>&dono=sim`), que vira o @ e a escolha de dono já preenchidos.
 - **Uma pergunta por vez.** Primeiro o @, depois "O que você quer fazer?". As respostas ficam num formulário só: voltar não perde nada, Enter avança, e cada etapa confere os próprios campos antes de seguir. O servidor confere tudo de novo no envio, e um erro dele leva a pessoa de volta à etapa do campo errado.
 - **As etapas:** quem indica passa por @, escolha, nome e categoria, cidade e frase, causas (com o "por que você indica?") e revisão. O dono tem duas a mais antes da revisão: os contatos do negócio e o contato dele.
 - **A procura do @** (`procurarArroba` em `src/acoes/participacao.ts`) não precisa de login e só lê. As opções da etapa seguinte dependem do que ela acha (`casoDaProcura` em `src/lib/participacao.ts`):
@@ -718,7 +721,7 @@ Código: `favoritar` em `src/acoes/favoritos.ts`, o coração em `src/components
   - só a própria pessoa vê os favoritos dela;
   - **o perfil mostra quantas pessoas favoritaram** ("1 pessoa favoritou", "12 pessoas favoritaram"), para todo mundo, ao lado do coração. Com zero, nada aparece, para um negócio novo não ficar exposto com "0";
   - o dono vê o mesmo número no perfil, ao lado de "Editar meu perfil", e no `/painel` e no `/painel/<@>`, mas não quem favoritou;
-  - o número não aparece nos cards nem muda a ordem do diretório, porque o site não tem ranking.
+  - o número não aparece nos cards nem muda a ordem do diretório. Ele só aparece fora do perfil no ranking "Os mais queridos" da página inicial (veja [Diretório e busca](#11-diretório-e-busca)).
 - **Sem e-mail:** o dono não é avisado quando alguém favorita.
 - **Clube do Bem:** favoritar vai ser a condição para gerar cupom ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)).
 
@@ -879,18 +882,28 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 
 ## 11. Diretório e busca
 
-Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/consultas.ts` (`resumoDoDiretorio`, `listarCidades`, `buscarDiretorio`), páginas `src/app/page.tsx` e `src/app/explorar/page.tsx`.
+Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/consultas.ts` (`resumoDoDiretorio`, `listarCidades`, `buscarDiretorio`, `maisQueridos`, `destaquesDaVitrine`, com o sorteio em `src/lib/sorteio.ts`), o carrossel em `src/components/CarrosselDeCidades.tsx`, páginas `src/app/page.tsx` e `src/app/explorar/page.tsx`.
 
 - **Quem aparece:** só negócios com `moderacao = "aprovada"` e `oculta = false`. Os números da página inicial contam os mesmos negócios.
 
 ### Página inicial
 
-- **O número de negócios cadastrados** aparece em destaque, subindo de zero até o total ao abrir a página (direto no total para quem pede menos movimento no sistema). Embaixo, quantas cidades, quantos estados e quantos perfis foram assumidos.
+A ordem, de cima para baixo:
+
+- **Primeira tela:** um selo com quantos negócios há e em quantas cidades, o título, a busca e os atalhos. Ao lado (embaixo, no celular), um carrossel com as fotos das 5 cidades com mais negócios entre as que têm foto, cada uma com o nome e o total, levando à página da cidade. Troca sozinho a cada 5 segundos, para com o mouse em cima ou com o foco dentro, e pode ser trocado pelos pontos; para quem pediu menos movimento no sistema, só troca pelos pontos. Por cima das fotos, dois negócios sorteados a cada visita (o segundo só no computador). Só entram negócios do diretório com foto do site. O sorteio é primeiro entre os que têm algum favorito ou depoimento publicado, com chance proporcional à soma dos dois (quem tem 4 aparece, em média, quatro vezes mais que quem tem 1); se faltar gente, completa com outros com foto, entre os 40 mais recentes, todos com a mesma chance. Sem cidade com foto, a vitrine não aparece.
 - **A busca** tem dois campos, "O que você procura?" e "Onde?", e leva ao diretório.
 - **"Experimente:"** tem atalhos fixos para um tipo de negócio e algumas causas.
-- **Os 16 tipos de negócio** aparecem com quantos negócios cada um tem. Clicar num tipo abre o diretório com ele marcado. Tipos sem negócios ficam apagados, mas continuam clicáveis.
-- **A faixa dos embaixadores** fica entre as cidades e "Como funciona" (veja [Embaixadores do bem](#19-embaixadores-do-bem)).
-- A página inicial não lista negócios nem filtros de causa: isso fica no diretório.
+- **Os números:** quantos negócios (subindo até o total ao abrir a página, direto no total para quem pede menos movimento no sistema), cidades, estados e perfis assumidos.
+- **Os 16 tipos de negócio** aparecem com quantos negócios cada um tem. Clicar num tipo abre o diretório com ele marcado. Tipos sem negócios ficam apagados, mas continuam clicáveis. No celular, deslizam para o lado.
+- **"Os mais queridos":** até 4 negócios do diretório, em duas abas:
+  - **Mais favoritados:** pelo número de favoritos, com o número no card ("12 favoritos"). É o mesmo número que o perfil já mostra para todo mundo;
+  - **Mais depoimentos:** pelo número de depoimentos publicados;
+  - só entra quem tem pelo menos um. No empate, vem primeiro quem recebeu o favorito (ou o depoimento) mais recente. Cada card mostra a posição (1º, 2º…) no lugar dos selos de perfil e cupom;
+  - uma aba sem ninguém não aparece; sem nenhuma das duas, a seção some.
+- **A faixa dos embaixadores** (veja [Embaixadores do bem](#19-embaixadores-do-bem)).
+- **Explore por cidade:** as 12 cidades com mais negócios. As 4 primeiras que têm foto aparecem como cartões com a foto; as outras, como botões.
+- **"Como funciona"** e o convite para donos de negócio.
+- A página inicial não tem filtros de causa: isso fica no diretório.
 
 ### Diretório (`/explorar`)
 
@@ -922,7 +935,7 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 - **Filtros em uso** aparecem acima dos resultados, cada um com um "✕" para tirar.
 - **Grade ou lista:** a lista mostra um negócio por linha, com resumo, categoria e cidade.
 - **Paginação:** 18 negócios por página, até a página 500, com os números das páginas. Com mais de 7 páginas, aparecem a primeira, a última e as vizinhas da atual.
-- **Os filtros ficam na URL** (`/explorar?q=…&onde=…&tipo=…&causa=…&verificados=sim&ordem=…&vista=lista&pagina=…`), então dá para compartilhar uma busca. O tipo vai como slug (`cafe-e-padaria`). Links antigos com `?uf=PE` viram "Pernambuco (estado)".
+- **Os filtros ficam na URL** (`/explorar?q=…&onde=…&tipo=…&causa=…&verificados=sim&ordem=…&vista=lista&pagina=…`), então dá para compartilhar uma busca. O tipo vai como slug (`cafe-e-padaria`). Links antigos com `?uf=PE` viram "Pernambuco (estado)". Os links da página inicial de antes do diretório (`/?q=…`, `/?causa=…`, `/?uf=…`, `/?pagina=…`) são redirecionados para `/explorar` com os mesmos filtros (`redirects` em `next.config.ts`).
 - **Com qualquer filtro, o endereço canônico continua `/explorar`:** as combinações de filtros não entram na busca do Google. Quem busca por cidade, causa ou tipo cai nas páginas fixas abaixo.
 
 ### Páginas de cidade, causa e tipo
@@ -988,6 +1001,7 @@ Regras:
 - **Quem marca as causas:** quem indica, o dono e a moderação. É autodeclarado: ninguém confere se o negócio pratica a causa. Quem indica é orientado a marcar só o que sabe que é verdade, e o dono, só o que vive no dia a dia.
 - **Ordem:** os selos aparecem sempre na ordem da lista oficial.
 - **Nos cards do diretório,** aparecem até 3 selos e um "+N" para o resto.
+- **Cor:** os selos de causa são todos verdes, a cor das causas no site. O grupo e o emoji aparecem nos filtros do diretório e nas páginas das causas.
 - **Para criar uma causa,** basta acrescentá-la à lista. O banco guarda só o slug.
 - **Trocar o slug de uma causa existente** exige uma migração que atualize as linhas de `EmpresaCausa`. Sem isso, os negócios perdem a causa na tela (os slugs desconhecidos são descartados ao exibir), mas as linhas continuam no banco.
 
@@ -1129,6 +1143,9 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Nome completo e CPF informados no pedido de verificação | `LiberacaoClube.nomeCompleto` e `cpfMascarado` | Só a moderação. O CPF inteiro **nunca é guardado**: só os 6 dígitos do meio (`***.982.247-**`), os mesmos que a Receita mostra dos sócios. Serve para comparar com o quadro de sócios. A pessoa autoriza numa caixa obrigatória do formulário. Somem se a conta for apagada. |
 | Foto do RG ou da CNH, no pedido de verificação | Bucket R2 privado `DOCUMENTOS` (a chave em `LiberacaoClube.documentoChaves`) | Só a moderação, por uma rota protegida, com cada abertura na auditoria. Apagada quando a moderação decide, ou depois de 30 dias sem decisão. Nunca em endereço público. |
+| Vagas | `Vaga` | **Públicas** no site enquanto abertas e dentro do prazo. |
+| Candidaturas (nome, e-mail, WhatsApp, cidade, mensagem, link) | `Candidatura` | Só os donos do negócio da vaga e a moderação. Nunca aparecem no site público. |
+| Currículo de uma candidatura | Bucket R2 privado `DOCUMENTOS` (a chave em `Candidatura.curriculoChave`) | Só os donos do negócio da vaga e a moderação, por `/api/curriculos/<id>`, com cada abertura na auditoria. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1269,7 +1286,7 @@ O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `
 
 **A navegação no celular** (`src/components/BarraInferior.tsx`)
 
-Em telas pequenas (abaixo de `sm`, 640 px), uma barra fixa no rodapé substitui o menu do topo, que fica só com o logo e a busca. No computador nada muda. A barra respeita a área do botão home do iPhone (`viewportFit: "cover"`) e o rodapé do site ganha folga para ela não cobrir os links.
+Em telas pequenas (abaixo de `sm`, 640 px), uma barra flutuante no rodapé substitui o menu do topo, que fica só com o logo, a busca e o botão laranja "+ Adicionar" (no computador, "+ Adicionar empresa", também em laranja), que leva a `/participar`. No computador nada muda. A barra respeita a área do botão home do iPhone (`viewportFit: "cover"`) e o rodapé do site ganha folga para ela não cobrir os links.
 
 - **Quem compra** (entrou ou não): Início, Explorar, Cupons, Favoritos e Conta. A aba Cupons mostra quantas ofertas estão valendo agora.
 - **Dono com negócio liberado no clube** (liberação "liberada" e ainda dono): Início, Cupons, **Validar** (botão grande no centro), Negócio e Conta. Dono sem liberação, suspensa ou recusada, vê a barra de quem compra e chega ao negócio pela Conta.
@@ -1374,7 +1391,7 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 
 ### Onde aparece
 
-- **Página inicial:** a faixa escura entre "Explore por cidade" e "Como funciona", só com os marcados para ela. Sem nenhum marcado, a faixa não aparece.
+- **Página inicial:** a faixa entre "Os mais queridos" e "Explore por cidade", só com os marcados para ela. Sem nenhum marcado, a faixa não aparece.
   - Os rostos passam sozinhos num loop, 5 segundos por embaixador, quando não cabem na largura. Cabendo, ficam parados e no centro.
   - A faixa para com o mouse em cima, com o foco do teclado e com o botão "Pausar". Para quem pede menos movimento no aparelho, fica parada e rola para o lado.
   - O loop usa uma cópia dos rostos, que fica fora do leitor de tela e do Tab. Os links da cópia continuam funcionando no clique, porque boa parte da faixa na tela é a cópia.
@@ -1493,7 +1510,7 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 - **Código:** 6 caracteres, sem 0, O, 1 e I, que se confundem ao ditar. Aparece no perfil e em **Meus cupons** (`/cupons/meus`, na aba Cupons e na Conta), com o prazo.
 - **Validade:** até o fim previsto da oferta, mesmo se o dono encerrar antes ou ocultar o perfil. Com a oferta suspensa (por suspensão da liberação, troca de contato ou @ pelo dono, remoção do dono que criou a oferta ou rejeição do negócio pela moderação), o cupom não vale. Quando o negócio sai do diretório sem suspensão da oferta (oculto pelo dono), **Meus cupons** mostra o nome sem link e o aviso "Este negócio saiu do diretório. O cupom vale no balcão até o fim da oferta."
 - **Aviso fixo** no perfil e em Meus cupons: o Negócio do Bem nunca pede Pix nem pagamento para liberar cupom; o desconto vale na hora da compra, e quem garante é o negócio.
-- **No diretório,** o card de um negócio com oferta valendo ganha o selo "🎟️ Cupom" (no `/explorar`, nas páginas de cidade, causa e tipo, nos favoritos e nos negócios parecidos).
+- **No diretório,** o card de um negócio com oferta valendo ganha o selo "Cupom" (no `/explorar`, nas páginas de cidade, causa e tipo, nos favoritos e nos negócios parecidos).
 
 ### Validação no balcão
 
@@ -1504,3 +1521,20 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 ### O que fica para depois
 
 O QR code, o e-mail de fim de oferta com "Repetir oferta", o agendamento, a revisão das primeiras ofertas, o filtro "Com cupom" no `/explorar`, a denúncia de oferta e os avisos no celular.
+
+---
+
+## 21. Vagas
+
+Código: `src/lib/vagas.ts`, `src/acoes/vagas.ts`, `/vagas`, `/painel/<@>/vagas` e `/moderacao/vagas` ([#339](https://github.com/fabs-reis/Negocio-do-bem/issues/339)).
+
+- **Quem publica:** qualquer dono de um negócio aprovado e fora do modo oculto, no painel (`/painel/<@>/vagas`). A vaga vai ao ar na hora; a moderação tira do ar depois, como nos depoimentos e nas ofertas. Cada negócio tem no máximo 10 vagas abertas por vez.
+- **O que a vaga tem:** cargo (5 a 80 caracteres), área, tipo de contratação (CLT, PJ ou MEI, estágio, temporário, freela, diária ou bico), modalidade (presencial, híbrido, remoto), o que a pessoa vai fazer (30 a 2000), requisitos (10 a 1500), benefícios (opcional, até 500), jornada ou prazo, cidade (lista do IBGE) e o último dia para se candidatar (até 60 dias, contando hoje; termina às 23h59 de Brasília).
+- **O valor é obrigatório:** de R$ 1 a R$ 1.000.000, um valor só ou uma faixa, por mês, hora, dia ou projeto. Não existe "a combinar".
+- **O texto não leva contato nem discriminação:** links, e-mails, telefones, documentos e Pix são recusados (mesma regra das ofertas), porque as candidaturas chegam pela plataforma. Exigências de sexo, idade, "boa aparência", cor ou filhos também são recusadas. O dono marca o compromisso com a lei trabalhista e com a seleção sem discriminação.
+- **Quem vê:** `/vagas` lista as vagas abertas, dentro do prazo, de negócios do diretório, da mais nova para a mais antiga, 20 por página. Os filtros (busca, área, contratação, modalidade, estado) são um formulário GET e funcionam sem JavaScript. Cada vaga tem página própria (`/vagas/<id>`) com dados estruturados `JobPosting` para o Google, e as vagas abertas também aparecem no perfil do negócio. Vaga encerrada, vencida, suspensa ou de negócio oculto dá 404.
+- **Encerrar e suspender:** qualquer dono encerra a vaga (as candidaturas continuam no painel). A moderação suspende com um motivo, que o dono vê, ou devolve ao ar, em `/moderacao/vagas`. Tudo fica na auditoria (`vaga.criada`, `vaga.encerrada`, `vaga.suspensa`, `vaga.reativada`).
+- **Candidatura:** não precisa de conta. É um formulário em três etapas (dados, currículo, mensagem e envio); sem JavaScript, as três etapas aparecem juntas. Pede nome, e-mail, o currículo em PDF, DOC ou DOCX de até 5 MB **ou** um link (currículo ou LinkedIn), e o consentimento para enviar os dados à empresa. WhatsApp, cidade e mensagem (até 1000) são opcionais. O tipo do arquivo é conferido pelos primeiros bytes, não pela extensão. Cada e-mail se candidata uma vez por vaga, e uma vaga recebe no máximo 500 candidaturas.
+- **Privacidade:** os dados e o currículo só chegam aos donos do negócio e à moderação. O currículo fica no bucket R2 privado `DOCUMENTOS` (o mesmo da verificação do clube, com nome aleatório e sem endereço público) e só abre por `/api/curriculos/<id>`, que responde 404 a todos os outros, nunca vai para cache e registra cada abertura na auditoria (`candidatura.curriculo_visto`).
+- **Apagar:** o dono apaga uma candidatura e o currículo dela no painel (também quando a pessoa pede, pelo e-mail de confirmação). Fica na auditoria (`candidatura.apagada`). Ainda não há apagamento automático por prazo.
+- **Avisos por e-mail:** os donos recebem "Nova candidatura" (só o nome do candidato e o link do painel, sem dados nem currículo) e o candidato recebe a confirmação.

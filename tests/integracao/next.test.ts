@@ -284,20 +284,29 @@ describe("Next em produção", () => {
   });
 
   it("libera na CSP o Google Analytics e o Cloudflare Web Analytics", async () => {
+    const lerCsp = (cabecalho: string | null) =>
+      new Map(
+        (cabecalho ?? "")
+          .split(";")
+          .map((trecho) => trecho.trim().split(/\s+/))
+          .map(([nome, ...fontes]) => [nome, fontes] as const),
+      );
     const resposta = await fetch(`${origem}/sobre`);
     await resposta.text();
-    const diretivas = new Map(
-      (resposta.headers.get("content-security-policy") ?? "")
-        .split(";")
-        .map((trecho) => trecho.trim().split(/\s+/))
-        .map(([nome, ...fontes]) => [nome, fontes] as const),
-    );
-    // O Cloudflare injeta o script do Web Analytics, e o GA4 também envia para www.google.com/g/collect.
-    expect(diretivas.get("script-src")).toEqual(expect.arrayContaining(["https://*.googletagmanager.com", "https://static.cloudflareinsights.com"]));
-    expect(diretivas.get("connect-src")).toEqual(
-      expect.arrayContaining(["https://*.google-analytics.com", "https://*.google.com", "https://cloudflareinsights.com"]),
-    );
+    const diretivas = lerCsp(resposta.headers.get("content-security-policy"));
+    // O Cloudflare injeta o script do Web Analytics; o GA4 fica isolado em /api/analytics e envia para www.google.com/g/collect.
+    expect(diretivas.get("script-src")).toContain("https://static.cloudflareinsights.com");
+    expect(diretivas.get("connect-src")).toContain("https://cloudflareinsights.com");
     expect(diretivas.get("frame-ancestors")).toEqual(["'none'"]);
+
+    const medicao = await fetch(`${origem}/api/analytics`);
+    await medicao.text();
+    const diretivasMedicao = lerCsp(medicao.headers.get("content-security-policy"));
+    expect(diretivasMedicao.get("script-src")).toContain("https://www.googletagmanager.com");
+    expect(diretivasMedicao.get("connect-src")).toEqual(
+      expect.arrayContaining(["https://*.google-analytics.com", "https://*.google.com"]),
+    );
+    expect(diretivasMedicao.get("frame-ancestors")).toEqual(["'self'"]);
   });
 
   describe.each(["visitante", "membro"])("%s", (papel) => {

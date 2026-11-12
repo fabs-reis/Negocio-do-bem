@@ -58,6 +58,7 @@ export const PAGINAS_ANALYTICS: Record<string, string> = {
   "/cidades": "Cidades",
   "/embaixadores": "Embaixadores do bem",
   "/clube-do-bem": "Clube do Bem",
+  "/vagas": "Vagas",
   "/tipos": "Categorias",
   "/cupons": "Ofertas do Clube do Bem",
   "/favoritos": "Favoritos",
