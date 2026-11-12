@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Prisma, PrismaClient } from "../src/generated/prisma/client";
-import { configuracaoDoBanco, identificadorSql } from "../src/lib/banco";
+import { PrismaClient } from "../src/generated/prisma/client";
+import { configuracaoDoBanco } from "../src/lib/banco";
 import {
   FalhaLimpezaSessoes,
   lerOpcoesLimpezaSessoes,
@@ -33,11 +33,10 @@ async function main() {
       process.env.DEPLOY_ENV ? process.env.BANCO_PREVIEW_ID : process.env.VERCEL_DEPLOYMENT_ID,
       process.env.DEPLOY_ENV ? "cloudflare" : "vercel",
     );
-    const esquemaSql = Prisma.raw(identificadorSql(configuracao.esquema));
     banco = `${url.hostname}${url.pathname}`;
     const inicio = new Date();
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: configuracao.url ?? conexao }, { schema: configuracao.esquema }) });
-    const [relogio] = await db.$queryRaw<{ agora: Date }[]>`SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS "agora", 1 AS ${esquemaSql}`;
+    const [relogio] = await db.$queryRaw<{ agora: Date }[]>`SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS "agora"`;
     const referencia = referenciaLimpezaSessoes(inicio, relogio.agora);
     resultado = await limparSessoesVencidas(db, opcoes, referencia);
   } catch (erro) {

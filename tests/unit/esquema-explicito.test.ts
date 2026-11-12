@@ -47,7 +47,8 @@ function verificarEsquemaExplicito(texto: string) {
       continue;
     }
     const corpo = trecho(texto, achado.index + achado[0].length);
-    if (!corpo?.includes("esquemaSql")) {
+    // Consultas escalares (sem tabelas) não dependem de search_path.
+    if (!corpo || (/\b(FROM|JOIN|INTO|UPDATE|TRUNCATE|ALTER|CREATE|DROP)\b/i.test(corpo) && !corpo.includes("esquemaSql"))) {
       problemas.push(`$${achado[1]} sem esquemaSql: qualifique a tabela com \${esquemaSql}."Tabela"`);
     }
   }
@@ -70,6 +71,10 @@ describe("detector de acesso ao banco sem esquema explícito", () => {
     expect(verificarEsquemaExplicito('db.$queryRaw<Linha[]>`SELECT 1 FROM "Empresa"`').problemas).toHaveLength(1);
     expect(verificarEsquemaExplicito('db.$queryRawUnsafe("SELECT 1")').problemas).toHaveLength(1);
     expect(verificarEsquemaExplicito('db.$executeRaw(Prisma.sql`UPDATE "Empresa" SET "x" = 1`)').problemas).toHaveLength(1);
+  });
+
+  it("aceita consulta escalar sem acesso a tabelas", () => {
+    expect(verificarEsquemaExplicito('db.$queryRaw`SELECT CURRENT_TIMESTAMP AT TIME ZONE \'UTC\' AS "agora"`').problemas).toEqual([]);
   });
 
   it("aceita SQL bruto que qualifica a tabela com esquemaSql", () => {
