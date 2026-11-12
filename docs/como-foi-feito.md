@@ -260,7 +260,7 @@ A página inicial juntava apresentação, busca, filtros de causas e a lista de 
 
 - **A página inicial ficou para começar:** o número de negócios cadastrados em destaque, a busca "O que você procura?" + "Onde?", atalhos e os tipos de negócio com seus totais.
 - **O diretório ganhou endereço próprio, `/explorar`.** Ele abre ao buscar ou ao escolher um tipo, com os filtros ao lado (tipo, causas, só perfis assumidos), grade ou lista e paginação numerada.
-- **Os filtros são links, não um formulário.** Cada opção é um link para a URL com aquele filtro trocado (`mudarFiltro`, em `src/lib/diretorio.ts`). Assim funciona sem JavaScript e toda busca pode ser compartilhada. Só a ordenação usa um `<select>` com JavaScript.
+- **Os filtros são links, não um formulário.** Cada opção é um link para a URL com aquele filtro trocado (`mudarFiltro`, em `src/lib/diretorio.ts`). Assim funciona antes de o JavaScript carregar e toda busca pode ser compartilhada. A ordenação também: é um menu (`<details>`) com um link para cada ordem. Com o JavaScript desligado, o conteúdo dentro de `<Suspense>` não aparece, porque um script é que o revela.
 - **Cada opção mostra quantos negócios aparecem ao marcá-la.** São poucas consultas por página: um `groupBy` por categoria ignorando os tipos marcados, e um `groupBy` das causas entre os resultados.
 - **O "Onde?" sugere só lugares com negócios** (`listarCidades`). A lista é pequena e vai pronta para o navegador. O texto escolhido ("Recife, PE") vai na URL e o servidor o interpreta, então digitar à mão também funciona.
 
@@ -449,6 +449,14 @@ Quem esquecia a senha só voltava pelo "Entrar por link" e continuava sem senha,
 - **A conta sem senha cria a primeira pelo link.** A conta criada pelo Google não tem senha atual para digitar, e criar uma só com a sessão aberta daria a senha a quem roubou o cookie. O painel manda o mesmo link de "Esqueci minha senha" para o e-mail da conta, que serve também para quem esqueceu a senha atual.
 - **Um e-mail avisa de toda troca** (`avisarSenhaTrocada`), porque é o que permite notar uma invasão. Gasta a cota do Resend, mas trocas de senha são raras.
 
+### 31 de outubro: o projeto da Vercel é excluído ([#206](https://github.com/fabs-reis/Negocio-do-bem/issues/206))
+
+Depois da troca, o Google ainda mostrava o `negociodobem.vercel.app` nos resultados, com a página "deployment paused" da Vercel no lugar do site. O projeto `negocio_do_bem` foi excluído da Vercel.
+
+- **O `negociodobem.vercel.app` responde 404.** Sem o projeto, não há como redirecioná-lo para o `www`. Foram pedidas ao Google as remoções das páginas principais desse endereço, para os resultados antigos saírem mais rápido.
+- **Na equipe da Vercel ficaram só armazenamentos, sem projeto conectado:** o Neon antigo de produção (só para leitura, apagado depois, em 7 de novembro) e o Blob das fotos antigas, como reserva; o Neon dos previews (`negocio-do-bem-preview`), que os previews do Cloudflare ainda usam; e um Blob de teste.
+- **O código deixou de ler o que vinha do deploy da Vercel:** o `vercel.live` da CSP dos previews, o `VERCEL_PROJECT_PRODUCTION_URL` do endereço do site, o `VERCEL_URL` do link por e-mail, o `x-vercel-forwarded-for` do limite de tentativas e o branch, o commit e a região da aba "Sistema". Nada disso valia no Cloudflare. Ficaram só o `VERCEL_ENV` e o `VERCEL` no seed, que continua se recusando a rodar com variáveis de produção copiadas da Vercel.
+
 ### 31 de outubro: cadastros, indicações e contatos no Analytics ([#203](https://github.com/fabs-reis/Negocio-do-bem/issues/203))
 
 O Analytics contava visitas, mas não dizia quantas pessoas criavam conta, quantos negócios eram indicados nem de onde vinham as pessoas que faziam isso. A lista dos eventos está na [seção de medição das regras de negócio](regras-de-negocio.md#medição-de-visitas).
@@ -629,6 +637,18 @@ Nos primeiros testes do clube em produção, a conta que assumiu um perfil não 
 - **A remoção trava a linha do negócio** (`FOR NO KEY UPDATE`) antes de contar os donos que sobraram. Assim, duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, não deixam um perfil sem dono marcado como assumido.
 - **Confirmação no servidor também.** A caixa "Confirmo" é `required` no HTML, e a ação confere `confirmo=sim` de novo, porque uma Server Action pode ser chamada sem o formulário.
 - **A transferência continua como era.** Quem sai dos donos numa transferência não recebe e-mail, e as ofertas que criou não são suspensas. Fica para outra issue, se a moderação precisar.
+
+### 7 de novembro: o dono pede a troca do @, e a moderação aprova ([#299](https://github.com/fabs-reis/Negocio-do-bem/issues/299))
+
+O [#298](https://github.com/fabs-reis/Negocio-do-bem/issues/298) deixou o dono trocar o @ direto no painel, com o endereço antigo levando ao novo. No mesmo dia, um negócio entrou com o @ errado (`@fabsreis` em vez de `@ofabsreis`), e a conversa sobre como corrigir mostrou o risco da troca direta. Agora o dono pede, e a moderação aprova numa fila nova. As regras estão em [Pedido de troca do @](regras-de-negocio.md#pedido-de-troca-do-).
+
+- **Pedido, e não troca direta.** O dono pode ter assumido o perfil só com os dados do negócio, sem provar que controla o Instagram. Com a troca direta, ele poderia pôr o @ de outro negócio que ainda não está no site. A fila mostra o que a Meta enxerga do @ novo (nome, site e seguidores), para a moderação conferir sem sair da tela.
+- **A troca aprovada é a do #298.** O pedido só decide quando ela acontece: a aprovação chama `trocarArroba` como troca da moderação, com o redirecionamento do endereço antigo e sem suspender o Clube do Bem, porque a moderação já conferiu o @. A troca direta continua na edição do perfil pela moderação.
+- **Tabela própria (`TrocaDeArroba`).** Guarda o @ de antes e o pedido, quem pediu e quem decidiu. Um negócio pode ter vários pedidos ao longo do tempo, e o histórico fica na tabela, não só na auditoria.
+- **Um pedido em análise por negócio.** O pedido trava a linha do negócio (`FOR NO KEY UPDATE`) antes de contar os pedidos em análise, como na cota de indicações.
+- **A aprovação confere de novo** se o @ do negócio ainda é o do pedido e se o @ novo continua livre, na mesma transação que troca o @.
+- **Os IDs do Instagram saem na troca.** `instagramUserId` e `instagramIgsid` eram da conta do @ antigo; mantê-los ligaria o negócio a uma conta que não é mais a dele.
+
 ---
 
 ### 7 de novembro: menu do celular e aba de cupons ([#308](https://github.com/fabs-reis/Negocio-do-bem/issues/308))
@@ -641,6 +661,16 @@ Quem instalou o app não tem a barra do navegador, e o menu ficava atrás de um 
 - **"Pegar cupom" na lista** usa a mesma ação do perfil (`gerarCupomAcao`), com um campo `origem` para voltar a Meus cupons em vez de ao perfil. Uma regra só para gerar cupom.
 - **Validar tem tela própria,** mas o painel do clube continua validando. O cartão do cupom conferido (`CupomConferido`) virou um componente dos dois lugares, e a ação `usarCupomAcao` volta para a tela de onde o dono veio.
 - **`viewportFit: "cover"`** no layout: sem ele o iPhone não informa a área do botão home, e a barra ficaria por cima dele.
+
+### 7 de novembro: a conta nova vem com o contato do cadastro ([#317](https://github.com/fabs-reis/Negocio-do-bem/issues/317))
+
+Quem cadastrava o próprio negócio sem ter conta digitava o e-mail e o telefone duas vezes: na etapa "Como a gente fala com você?" e de novo no `/cadastrar`. As regras estão em [Cadastro e login](regras-de-negocio.md#cadastro-e-login).
+
+- **O mesmo rascunho do navegador, e não a URL.** O cadastro já guardava as respostas em `ndb:cadastro` antes de mandar a pessoa criar a conta. O formulário da conta lê esse rascunho, e nenhum dado pessoal vai no endereço, onde ficaria no histórico e nos logs de acesso.
+- **A leitura do aparelho virou um módulo só** (`src/components/rascunho-no-aparelho.ts`), usado pelo cadastro por etapas e pelos formulários da conta. A chave e o caminho de volta (`VOLTA_AO_CADASTRO`) ficam em `src/lib/rascunho-do-cadastro.ts`, junto com a regra (`voltaAoCadastro` e `contatoDoRascunho`), que tem testes em `tests/unit/`.
+- **Sem remontar o formulário.** O rascunho só existe depois da hidratação. Os campos são não controlados, e o React atualiza o `defaultValue`: o campo ainda intocado mostra o valor novo, e o que a pessoa já digitou fica.
+- **O nome não vem.** O cadastro pede o nome do negócio, não o da pessoa. Um campo de nome no cadastro só mudaria a digitação de lugar.
+- **Pelo Google, só o telefone.** O e-mail da conta é o que o Google verificou, e a regra de quem veio do cadastro usa o `voltar` guardado no `CadastroGoogle`.
 
 ## 4. Arquitetura
 
@@ -660,9 +690,9 @@ Quem instalou o app não tem a barra do navegador, e o menu ficava atrás de um 
 
 A autenticação é feita no próprio projeto (`src/lib/auth/`), com e-mail, senha (scrypt), link por e-mail e sessão em cookie. Isso evita depender de um serviço externo para algo simples.
 
-O scrypt que protege as senhas custa ~32 MB de memória por conferência, então login e cadastro têm limite de tentativas por IP e por e-mail, conferido antes dele (`src/lib/auth/tentativas.ts`). A contagem fica numa tabela do Postgres (`TentativaAcesso`), e não na memória, porque no Vercel o site roda em várias instâncias. Cada tentativa é somada num `INSERT ... ON CONFLICT DO UPDATE` só, que também abre a janela nova quando a anterior venceu: assim, tentativas simultâneas não zeram a contagem umas das outras. Um serviço próprio para contadores (Upstash, Vercel KV) traria mais uma dependência e mais uma variável.
+O scrypt que protege as senhas custa ~32 MB de memória por conferência, então login e cadastro têm limite de tentativas por IP e por e-mail, conferido antes dele (`src/lib/auth/tentativas.ts`). A contagem fica numa tabela do Postgres (`TentativaAcesso`), e não na memória, porque o site roda em várias instâncias do Worker. Cada tentativa é somada num `INSERT ... ON CONFLICT DO UPDATE` só, que também abre a janela nova quando a anterior venceu: assim, tentativas simultâneas não zeram a contagem umas das outras. Um serviço próprio para contadores (como o Upstash) traria mais uma dependência e mais uma variável.
 
-O limite por IP só vale com um IP confiável. No Cloudflare, `ipDoCabecalho` usa apenas `cf-connecting-ip` quando `CLOUDFLARE_DEPLOY=1`. No Vercel, usa apenas `x-vercel-forwarded-for`. Em outra hospedagem, usa o último `x-forwarded-for` apenas com `AUTENTICACAO_PROXY_CONFIAVEL=1`. Quando não há IP confiável, em produção as ações de login, cadastro e senha são recusadas antes do scrypt e o log orienta a configuração. Em desenvolvimento e nos testes não há limite por IP, mas o limite por e-mail continua. Não há contador de IP compartilhado.
+O limite por IP só vale com um IP confiável. No Cloudflare, `ipDoCabecalho` usa apenas `cf-connecting-ip` quando `CLOUDFLARE_DEPLOY=1`. Em outra hospedagem, usa o último `x-forwarded-for` apenas com `AUTENTICACAO_PROXY_CONFIAVEL=1`. Quando não há IP confiável, em produção as ações de login, cadastro e senha são recusadas antes do scrypt e o log orienta a configuração. Em desenvolvimento e nos testes não há limite por IP, mas o limite por e-mail continua. Não há contador de IP compartilhado.
 
 O IP passa por `normalizarIp` antes de virar chave do contador. O IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) volta a ser IPv4. Os endereços IPv6 viram o prefixo /64, porque quem recebe uma rede IPv6 escolhe qualquer endereço dela a cada requisição: sem isso, cada endereço abriria um contador novo, e o limite por IP não valeria contra quem tem IPv6. A contrapartida é que uma rede /64 inteira, como a de uma casa, divide uma cota só. Um prefixo maior que /64 (como um /56) ainda tem um contador para cada /64, e o cadastro só tem o limite por IP.
 
@@ -677,7 +707,7 @@ Toda resposta leva cabeçalhos de segurança (`headers()` no `next.config.ts`):
 - **`Content-Security-Policy`:** scripts, estilos, imagens e conexões só do próprio site, do Google Analytics e do Cloudflare Web Analytics.
   - **Google Analytics:** o `connect-src` libera também `*.google.com`, porque o GA4 manda parte dos envios para `www.google.com/g/collect`. O [guia de CSP do Google](https://developers.google.com/tag-platform/security/guides/csp) pede isso mesmo sem os recursos de anúncios.
   - **Cloudflare Web Analytics:** o script `static.cloudflareinsights.com` e os envios para `cloudflareinsights.com`. O Cloudflare injeta esse script na resposta, e sem a liberação o navegador o barrava em todas as páginas (issue #289).
-  - **Fotos e previews:** as imagens podem vir também do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`). Nos previews, também do `vercel.live`, a barra de comentários do Vercel.
+  - **Fotos e previews:** as imagens podem vir também do domínio das fotos no R2 (`NEXT_PUBLIC_R2_PUBLIC_URL`).
   - **Embutir e enviar para fora:** `frame-ancestors 'none'` impede que outro site embuta as páginas num iframe (clickjacking), e `form-action 'self'` impede formulários de enviar dados para fora.
 - **Sem nonce:** a CSP aceita scripts inline (`'unsafe-inline'`), como o script do tema no `layout.tsx` e os do próprio Next. Uma CSP com nonce obriga toda página a ser renderizada a cada acesso e é incompatível com o Partial Prerendering, que o projeto usa com o Cache Components. Ficaríamos sem pré-render e sem cache na CDN.
 - **`Strict-Transport-Security`** (2 anos), **`X-Frame-Options: DENY`** (para navegadores antigos), **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: strict-origin-when-cross-origin`** (sites abertos a partir do perfil não recebem o endereço completo) e **`Permissions-Policy`** (sem câmera, microfone, localização, pagamento, USB nem `browsing-topics`).
@@ -796,7 +826,7 @@ No cliente, os formulários com `useActionState` usam `enviarSemLimpar` (`src/co
 - **Os dados do banco não usam `use cache`,** para estarem sempre atualizados.
 - `usuarioAtual()` usa o `cache` do React: a sessão é lida uma vez por requisição, mesmo que vários componentes perguntem.
 - **Quando algo falha no servidor**, como o banco fora do ar ([#141](https://github.com/fabs-reis/Negocio-do-bem/issues/141)), três peças evitam a tela padrão do Next, em inglês:
-  - `src/app/error.tsx` fica no lugar da página, com "Tentar de novo" (o `retry()` do Next), um link para o início e o código do erro (o `digest`, que acha a mensagem nos logs do Vercel). O cabeçalho e o rodapé continuam na tela;
+  - `src/app/error.tsx` fica no lugar da página, com "Tentar de novo" (o `retry()` do Next), um link para o início e o código do erro (o `digest`, que acha a mensagem nos logs do Worker). O cabeçalho e o rodapé continuam na tela;
   - o `error.tsx` não cobre o layout do mesmo nível, e o menu da conta, que lê a sessão no banco, fica no layout. Por isso o `MenuUsuario` vai dentro do `ProtecaoDoMenu` (`catchError` do Next), que mostra o "Entrar" se a leitura falhar;
   - `src/app/global-error.tsx` é o último recurso, para uma falha no próprio layout. Ele substitui a página inteira e por isso traz o `<html>`, as fontes, o CSS e o script do tema.
 
@@ -810,14 +840,40 @@ O melhor exemplo é `src/lib/reivindicacao.ts`: as Server Actions e as rotas do 
 
 Erros que podem ser mostrados para a pessoa usam uma classe própria (`ErroReivindicacao`). Os outros erros sobem normalmente.
 
+### Photo retirement
+
+Story uploads precede text publication. Abandoned edits still create unused objects. The manual command reclaims selected objects without changing that upload sequence.
+
+`FotoAposentada` stores a public storage origin or absolute local directory, an object key, and retirement timestamps. Its composite primary key prevents duplicate retirement. Audit retention does not control safety. The first retirement also creates `foto.descarte_iniciado` as history, within the same transaction. Its read-only history filter accepts canonical R2 URLs and historical Blob or local URLs. This display filter does not authorize storage operations. This is not an upload registry and has no permanent trigger.
+
+Reference publication and retirement use `pg_advisory_xact_lock(7346019)` in `READ COMMITTED` transactions. The retirement scan runs after lock acquisition. It reads every saved story, company profile reference, ambassador profile reference, company website link and claim website link, without status filters. It commits retirement before storage I/O. Storage failure cannot release the key. Successful storage verification sets `confirmadaEm`. A later database failure still reports failure and retains retirement.
+
+`publicacao-fotos.ts` contains the admission check without a runtime `server-only` import. Server Actions, Instagram, claim submission, the migration CAS and seed use it within their write transaction. Company creation and claim submission acquire photo admission before user or company row locks. Claim approval does not copy its website URL into the company. It introduces no new URL reference and takes no photo lock. Migration keeps its comparison of the previous story and profile values. The parser uses the installed `react-markdown` and GFM pipeline. Candidate identity stays strict. Reference matching retains possible aliases by key, including encoded paths and normalized URL paths. Cross-domain matches can refuse an otherwise valid save.
+
+Diagnosis reads without the publication lock and never writes retirement. Its output is an observation, not deletion authority. Explicit deletion repeats the reference scan under the lock. A previous retirement permits a retry when inventory no longer contains the object. Local filesystem checks and R2 API checks confirm absence without consulting the CDN. Legacy Blob and `perfis/` objects remain outside cleanup. Site edits and lost Instagram races retain their physical uploads.
+
+Local deletion requires Linux and `/proc/self/fd`. The command opens the working directory, then each storage component through its parent descriptor with `O_DIRECTORY` and `O_NOFOLLOW`. It compares the final descriptor identity with the selected directory. File checks and deletion use that pinned descriptor. Replacing a pathname cannot redirect deletion to an external directory.
+
+Before confirmation, the command reopens the current storage chain without following symbolic links. The reopened directory must match the pinned directory identity. A changed, missing or inaccessible current directory fails confirmation. Confirmation requires `ENOENT` for the selected entry in that reopened directory. An earlier `ENOENT` from the file check or deletion does not skip this verification. Confirmation records this observation through the checked chain, not permanent future absence.
+
+The final `lstat` and `unlink` are not atomic. Inventory excludes existing symbolic links, and deletion never follows a final symbolic link. A replacement link can itself be unlinked after the file check, without touching its external target. Confirmation does not prove an atomic regular-file-only unlink. Other platforms retain diagnosis but refuse local deletion.
+
+Before activation, identify every database and writer that shares the storage. Remove write access from incompatible versions and old requests. Keep `FOTOS_DOMINIO_EXCLUSIVO` unset until this prerequisite holds. R2 checks compare active Worker versions, bucket domains and the Hyperdrive database identity. These checks do not prove a complete reference domain. Independent databases cannot share the lock. Refuse cleanup if that coordination is absent.
+
+The configured preview photos bucket is shared. It does not prove isolation per PR. The historical database move used a read-only default and terminated sessions of the same role. It does not establish current maintenance conditions or exclude other roles. No production activation or arbitrary-SQL guarantee follows from these procedures.
+
+Keep retirement records during audit retention, deployment changes, database copies and restores. Reconcile imported references and retirement before restoring write access. Do not reuse retired keys. To stop new cleanup, disable its activation variable. Retirement remains necessary for delayed storage requests and stale forms.
+
+Tests use synthetic objects, disposable PostgreSQL and the actual CLI against disposable local storage. They force both race orders through the real save action. Process tests run the seed and migration entrypoints without the Vitest `server-only` alias. Those process tests prove import viability, not managed-reference publication. Separate writer tests cover the migration CAS and real form publication. Remote transport tests do not establish production readiness.
+
 ### Interface
 
 - **Componentes de formulário:** `Campo` (rótulo, ajuda e erro), `BotaoEnviar` (mostra "Enviando…"), `Aviso`.
-- **Classes de `globals.css`:** `.botao`, `.botao-coral`, `.botao-claro`, `.cartao`, `.campo`, `.link` e `.historia`. Prefira essas classes a repetir utilitários do Tailwind.
-- **Cores do tema:** `papel`, `superficie`, `tinta`, `suave`, `linha`, `coral` e `folha`. Para algo que só muda no escuro, use a variante `escuro:`.
+- **Classes de `globals.css`:** `.botao`, `.botao-coral`, `.botao-claro`, `.cartao`, `.campo`, `.link` e `.historia`. Prefira essas classes a repetir utilitários do Tailwind. O `.cartao` não tem borda no claro, só a sombra `shadow-cartao`; no escuro a sombra some e a borda volta. O que flutua (barra do celular) usa `shadow-flutuante`.
+- **Cores do tema:** `papel` (fundo, branco quente), `superficie` (cards, campos, menus), `areia` (o creme da marca, para faixas, chips, blocos dentro de cards e botões leves), `tinta`, `suave`, `linha`, `coral` e `folha`. Coral é para ação; folha, para causas e selos. Para algo que só muda no escuro, use a variante `escuro:`.
 - **Cores da marca:** `marca-laranja`, `marca-verde`, `marca-marrom` e `marca-creme` são as do manual e não mudam no escuro. Use para a marca, não para a interface. O logo é o componente `Logo`, e a altura vem do `className`.
 - **Cor fixa nunca:** `bg-white` e afins não mudam no modo escuro. Use `superficie`.
-- **Tipografia:** textos longos usam a fonte serifada (Newsreader), e a interface usa a Inter.
+- **Tipografia:** títulos e números usam `font-display` (Bricolage Grotesque); a interface e o texto corrido usam a Inter. A serifada (Newsreader, `font-serif`) fica para a palavra de destaque em itálico dos títulos, citações, depoimentos e a história do negócio. As imagens de compartilhamento ainda usam a Newsreader.
 
 ---
 
@@ -849,6 +905,7 @@ npm run typecheck
 - The test setup removes inherited Blob selectors and the public R2 URL. Unit tests enable external storage only with a replacement SDK. The HTTP proof does not upload photos. In CI, Next uses the disposable PostgreSQL database that the database tests prepare.
 - **`npm run test:cloudflare`:** runs a separate Cloudflare proof. Set `TEST_DATABASE_URL` to a disposable PostgreSQL server at `127.0.0.1`. Include an explicit port, user, password, and database name that contains `test`. Do not include query parameters or a fragment. The account must have permission to create databases.
 - The command creates a separate database with a random name. It runs preview migrations and seed through `scripts/cloudflare-build.sh`, then builds the Worker with OpenNext. It prepares the local R2 cache with `opennextjs-cloudflare populateCache local`. The cache state stays in the temporary directory. It starts `wrangler dev --local` on a free loopback port.
+- A prova define `CLOUDFLARE_CF_FETCH_ENABLED=false` nos subprocessos. O Miniflare usa metadados `cf` locais, sem consultar `workers.cloudflare.com`. Erros do Worker continuam fazendo a prova falhar.
 - The public route must render the seeded business and its structured data. Anonymous access to `/moderacao` must return the Next 404 refusal without action forms. Worker errors fail the command. The Next HTTP tests still check authorized writes and denied writes against the database.
 - The command creates a temporary Wrangler configuration without production routes or the upload binding. The R2 cache is local only. `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, and Hyperdrive use the same separate database. Child processes receive only explicit test settings. Local `.env*` and `.dev.vars*` files stop execution before migration, except `.example` templates. The command does not read these files.
 - O ambiente fechado da prova fixa `CLOUDFLARE_CF_FETCH_ENABLED=false`, a opção oficial do Miniflare que impede a busca externa de `Request.cf`. Isso mantém a prova local sem rede externa. A detecção de erros do Worker continua ativa, sem filtros para ocultar falhas de rede.
@@ -879,8 +936,9 @@ A B2 ainda precisa tratar o esquema aditivo e a cópia dos dados. A B3 troca cad
 | Peça | Onde | Observação |
 | --- | --- | --- |
 | Site | Cloudflare Workers, adaptador OpenNext | Produção na branch `main`; previews para `stage` e PRs. |
-| Banco de produção | PlanetScale Postgres (PS-5, nó único), São Paulo, criado e cobrado pelo Cloudflare | O Worker conecta pelo Hyperdrive `negocio-do-bem` (cache desligado, até 8 conexões; o PS-5 tem 25). O build usa a `DATABASE_URL`, direta e com `?sslmode=verify-full`. O Neon antigo ficou só para leitura, como reserva. |
-| Banco dos previews | Projeto Neon separado (da integração do Vercel) | Não compartilha credenciais de produção. Configure em Worker Previews. |
+| Banco de produção | PlanetScale Postgres (PS-5, nó único), São Paulo, criado e cobrado pelo Cloudflare | O Worker conecta pelo Hyperdrive `negocio-do-bem` (cache desligado, até 8 conexões; o PS-5 tem 25). O build usa a `DATABASE_URL`, direta e com `?sslmode=verify-full`. O Neon antigo, que ficou só para leitura como reserva depois da troca, foi apagado em 7 de novembro. |
+| Banco dos previews | Projeto Neon `negocio-do-bem-preview`, da integração do Vercel (plano Launch, cobrado por uso; custa centavos por mês) | Não compartilha credenciais de produção. O console do Neon abre pela Vercel (Storage → o banco → "Open in Neon"). Não use o "Delete Neon" da integração: ele apaga também este banco. |
+| Reserva na Vercel | Vercel Blob das fotos antigas, na equipe da Vercel | Sem projeto conectado desde 31/10, quando o projeto da Vercel foi excluído. O site não mostra mais endereços do Blob; ele fica só como reserva da cópia para o R2. |
 | Domínio | `www.negociodobem.com` como domínio personalizado do Worker | O domínio sem `www` passa pelo proxy do Cloudflare e uma regra de redirecionamento da zona manda para o `www` (301, com caminho e consulta). |
 | Fotos | Cloudflare R2 | Bucket privado para cache; bucket de uploads servido por domínio próprio em produção. Em POC, pode usar a Public Development URL (`r2.dev`), que expõe os objetos publicamente e tem limite de requisições. Configure buckets separados para produção e previews. |
 | Medição | Google Analytics 4 | `NEXT_PUBLIC_GA_ID` só nas variáveis de build da produção. |
