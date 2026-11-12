@@ -932,6 +932,17 @@ npm run typecheck
     - Fica uma exceção conhecida: o `minimatch` do ESLint e dos plugins dele ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), moderada). A correção só existe no `minimatch` 11, que não pode mais ser chamado como função, e os plugins do ESLint chamam o 3 assim. Ele só roda no lint, com padrões do próprio repositório. Some quando o ESLint e os plugins subirem o `minimatch`.
   - O **Dependabot** abre PRs para a `stage` toda segunda com as versões novas do npm e das Actions, só depois de alguns dias publicadas (`.github/dependabot.yml`). As Actions ficam presas pelo SHA do commit.
 
+### Preparação da autenticação: B1 da #208
+
+A B1 (#229) prepara os testes e o seed para a troca futura do motor. Não muda regras de autenticação nem o esquema.
+
+- `tests/fixtures/autenticacao.ts` concentra a criação dos dados de contas com senha real. Cada chamada informa nome, e-mail e senha, inclusive `null` para conta sem senha. O helper não confirma e-mail nem acrescenta telefone, papel ou Google.
+- Os testes mantêm suas asserções de comportamento. Hashes inválidos, sessões sintéticas, contas legadas sem telefone e vínculos Google sem confirmação continuam explícitos nos casos que precisam deles.
+- `prisma/contas-exemplo.ts` concentra as cinco contas do seed. Elas continuam confirmadas, com a mesma senha de demonstração e sem telefone. Uma delas continua com o papel de moderação.
+- `tests/db/seed.test.ts` executa o seed real no Postgres de teste. Confere contas, senha, indicações, donos, causas, depoimentos e reivindicação. Repetir o seed preserva os dados existentes. A presença de `moderacao@exemplo.com` ainda encerra o seed. Em deploy, qualquer conta existente impede o preenchimento. Produção continua recusada.
+
+A B2 ainda precisa tratar o esquema aditivo e a cópia dos dados. A B3 troca cadastro, login, saída e sessão. A B4 integra links, redefinição de senha e Google. A B5 remove o código e as colunas antigos depois do período de observação. Nenhuma dessas etapas faz parte da B1. O aceite da A1 não autoriza a B2 nem uma migração de produção.
+
 **A regra do projeto:** mudou uma regra em `src/lib/reivindicacao.ts`, atualize ou crie o teste em `tests/db/`. Para outras regras de `src/lib/`, um teste em `tests/unit/` é muito bem-vindo.
 
 ---

@@ -5,7 +5,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { ambienteDeDeploy } from "../src/lib/ambiente";
-import { gerarHashSenha } from "../src/lib/auth/senha";
+import { criarContasExemplo, SENHA_DEMO } from "./contas-exemplo";
 import { textoDeBusca } from "../src/lib/texto";
 import { OPCOES_TRANSACAO_FOTOS, validarReferenciasFotos } from "../src/lib/publicacao-fotos";
 
@@ -18,7 +18,6 @@ if (emProducao) {
 }
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
-const SENHA_DEMO = "senha-demo-123";
 
 type NegocioExemplo = {
   instagramUsername: string;
@@ -219,16 +218,7 @@ async function main() {
     return;
   }
 
-  const senhaHash = await gerarHashSenha(SENHA_DEMO);
-  // As contas de exemplo já vêm com o e-mail confirmado, para indicar e escrever sem abrir link nenhum.
-  const emailConfirmadoEm = new Date();
-  const pessoas = {
-    moderacao: await db.usuario.create({ data: { nome: "Equipe de Moderação", email: "moderacao@exemplo.com", senhaHash, emailConfirmadoEm, papel: "moderador" } }),
-    ana: await db.usuario.create({ data: { nome: "Ana Lúcia Santos", email: "ana@exemplo.com", senhaHash, emailConfirmadoEm } }),
-    joao: await db.usuario.create({ data: { nome: "João Batista", email: "joao@exemplo.com", senhaHash, emailConfirmadoEm } }),
-    bia: await db.usuario.create({ data: { nome: "Bia Fernandes", email: "bia@exemplo.com", senhaHash, emailConfirmadoEm } }),
-    carla: await db.usuario.create({ data: { nome: "Carla Moreira", email: "carla@exemplo.com", senhaHash, emailConfirmadoEm } }),
-  };
+  const pessoas = await criarContasExemplo(db);
 
   const empresas = new Map<string, string>();
   for (const [i, n] of NEGOCIOS.entries()) {
