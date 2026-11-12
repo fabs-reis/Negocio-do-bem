@@ -69,6 +69,58 @@ export async function avisarDecisaoDaReivindicacao(reivindicacaoId: string): Pro
   }
 }
 
+/** Para a moderação: um dono pediu a troca do @ do negócio. */
+export async function avisarNovaTrocaDeArroba(empresaId: string): Promise<void> {
+  if (!envioLigado()) return;
+  const troca = await db.trocaDeArroba.findFirst({
+    where: { empresaId, status: "pendente" },
+    include: { empresa: { select: { nome: true } } },
+  });
+  if (!troca) return;
+  await avisarModeracao(
+    `Pedido de troca do @: @${troca.arrobaAntigo} → @${troca.arrobaNovo}`,
+    corpo(
+      `Um dono de ${troca.empresa.nome} pediu para trocar o @ do negócio de @${troca.arrobaAntigo} para @${troca.arrobaNovo}.`,
+      `Confira o perfil no Instagram e decida na fila:\n${ENDERECO_DO_SITE}${hrefModeracao("arroba")}`,
+    ),
+  );
+}
+
+/** Para o dono: a moderação aprovou ou recusou a troca do @ que ele pediu. */
+export async function avisarDecisaoDaTrocaDeArroba(empresaId: string, usuarioId: string): Promise<void> {
+  if (!envioLigado()) return;
+  const troca = await db.trocaDeArroba.findFirst({
+    where: { empresaId, usuarioId, status: { in: ["aprovada", "recusada"] } },
+    orderBy: { decididoEm: "desc" },
+    include: { usuario: { select: { nome: true, email: true } }, empresa: { select: { nome: true, instagramUsername: true } } },
+  });
+  if (!troca) return;
+  const { usuario, empresa } = troca;
+  const ola = `Olá, ${primeiroNome(usuario.nome)}!`;
+  if (troca.status === "aprovada") {
+    await enviarEmail({
+      para: usuario.email,
+      assunto: `${empresa.nome} agora é @${troca.arrobaNovo}`,
+      texto: corpo(
+        ola,
+        `A moderação aprovou a troca do @ de ${empresa.nome}: agora é @${troca.arrobaNovo}.`,
+        `O endereço da página mudou junto, e o antigo continua levando para o novo:\n${ENDERECO_DO_SITE}/empresas/${empresa.instagramUsername}`,
+      ),
+    });
+  } else {
+    await enviarEmail({
+      para: usuario.email,
+      assunto: `A troca do @ de ${empresa.nome} não foi aprovada`,
+      texto: corpo(
+        ola,
+        `A moderação analisou o pedido para trocar o @ de ${empresa.nome} para @${troca.arrobaNovo} e não aprovou desta vez.`,
+        `Motivo: ${comPontoFinal(troca.motivo ?? "não informado")}`,
+        `Você pode pedir de novo no painel:\n${ENDERECO_DO_SITE}/painel/${empresa.instagramUsername}#arroba`,
+      ),
+    });
+  }
+}
+
 /** Para quem deixou de ser dono: a moderação tirou a conta dos donos do negócio, com o motivo. */
 export async function avisarDonoRemovido(empresaId: string, usuarioId: string, motivo: string): Promise<void> {
   if (!envioLigado()) return;
@@ -221,6 +273,45 @@ export async function avisarSenhaTrocada(conta: { nome: string; email: string },
         ? "A senha da sua conta acabou de ser trocada no painel, e os outros aparelhos saíram da conta."
         : "A senha da sua conta acabou de ser trocada pelo link de “Esqueci minha senha”, e os outros aparelhos saíram da conta.",
       `Não foi você? Peça um link para criar uma senha nova e confira se só você tem acesso a este e-mail:\n${ENDERECO_DO_SITE}/esqueci-a-senha`,
+    ),
+  });
+}
+
+/** Para os donos: chegou uma candidatura. O e-mail não leva os dados nem o currículo: eles ficam no painel. */
+export async function avisarNovaCandidatura(candidaturaId: string): Promise<void> {
+  if (!envioLigado()) return;
+  const candidatura = await db.candidatura.findUnique({
+    where: { id: candidaturaId },
+    include: {
+      vaga: {
+        select: {
+          id: true,
+          titulo: true,
+          empresa: { select: { nome: true, instagramUsername: true, membros: { select: { usuario: { select: { nome: true, email: true } } } } } },
+        },
+      },
+    },
+  });
+  if (!candidatura) return;
+  const { vaga } = candidatura;
+  for (const { usuario } of vaga.empresa.membros) {
+    await enviarEmail({
+      para: usuario.email,
+      assunto: `Nova candidatura: ${vaga.titulo}`,
+      texto: corpo(
+        `Olá, ${primeiroNome(usuario.nome)}!`,
+        `${candidatura.nome} se candidatou à vaga "${vaga.titulo}" de ${vaga.empresa.nome}.`,
+        `Veja os dados e o currículo no painel:\n${ENDERECO_DO_SITE}/painel/${vaga.empresa.instagramUsername}/vagas`,
+      ),
+    });
+  }
+  await enviarEmail({
+    para: candidatura.email,
+    assunto: `Recebemos sua candidatura: ${vaga.titulo}`,
+    texto: corpo(
+      `Olá, ${primeiroNome(candidatura.nome)}!`,
+      `Sua candidatura à vaga "${vaga.titulo}" de ${vaga.empresa.nome} foi enviada. Seus dados foram só para a empresa, que entra em contato se seguir com você.`,
+      `Quer apagar seus dados? Responda este e-mail.`,
     ),
   });
 }

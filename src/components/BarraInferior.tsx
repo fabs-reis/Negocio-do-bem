@@ -20,12 +20,7 @@ function Icone({ children }: { children: ReactNode }) {
 
 const ICONES = {
   inicio: <path d="M3 11l9-7.5L21 11M5.5 9.5V20h13V9.5M10 20v-6h4v6" />,
-  explorar: (
-    <>
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="M16 16l4.5 4.5" />
-    </>
-  ),
+  vagas: <path d="M4 8.5h16V19H4zM9 8.5V6a1 1 0 011-1h4a1 1 0 011 1v2.5M4 13.5h16" />,
   cupons: <path d="M3 9V6.5A1.5 1.5 0 014.5 5h15A1.5 1.5 0 0121 6.5V9a3 3 0 000 6v2.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5V15a3 3 0 000-6zM14 5.5v13" strokeDasharray="2 2.4" />,
   favoritos: <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.3a4.3 4.3 0 017.5 2.5C19.5 15.4 12 20 12 20z" />,
   conta: (
@@ -66,7 +61,8 @@ export function BarraInferior({ perfil }: { perfil: PerfilDaBarra }) {
         ]
       : [
           inicio,
-          { rotulo: "Explorar", href: "/explorar", icone: "explorar", rotas: ["/explorar", "/empresas", "/cidades", "/causas", "/tipos"] },
+          // A busca (Explorar) fica no ícone da lupa no topo; a aba é de Vagas.
+          { rotulo: "Vagas", href: "/vagas", icone: "vagas", rotas: ["/vagas"] },
           cupons,
           { rotulo: "Favoritos", href: "/favoritos", icone: "favoritos", rotas: ["/favoritos"] },
           conta,
@@ -75,9 +71,9 @@ export function BarraInferior({ perfil }: { perfil: PerfilDaBarra }) {
   return (
     <nav
       aria-label="Menu principal"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-linha bg-superficie/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden"
+      className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-40 rounded-[1.75rem] border border-linha/80 bg-superficie/90 shadow-flutuante backdrop-blur-lg sm:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-5 items-end px-1 pt-1.5 pb-1.5">
+      <ul className="mx-auto grid max-w-md grid-cols-5 items-end px-1 py-1.5">
         {abas.map((aba) => {
           const ativa = COMECA_COM(caminho, aba.rotas);
           return (
@@ -86,10 +82,9 @@ export function BarraInferior({ perfil }: { perfil: PerfilDaBarra }) {
                 href={aba.href}
                 aria-current={ativa ? "page" : undefined}
                 className={`relative flex w-full min-w-0 flex-col items-center gap-0.5 py-1.5 text-[11px] leading-none font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-coral ${
-                  aba.centro ? "-mt-6 font-bold text-coral-700" : ativa ? "font-bold text-coral-700" : "text-suave"
+                  aba.centro ? "-mt-7 font-bold text-coral-700" : ativa ? "font-bold text-coral-700" : "text-suave"
                 }`}
               >
-                {ativa && !aba.centro && <span aria-hidden="true" className="absolute -top-1.5 h-[3px] w-6 rounded-b-full bg-coral" />}
                 {aba.centro ? (
                   <span className={`grid h-13 w-13 place-items-center rounded-full border-4 border-superficie bg-coral text-white shadow-lg shadow-coral/40 ${ativa ? "ring-2 ring-coral-700" : ""}`}>
                     <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true" {...TRACO}>
