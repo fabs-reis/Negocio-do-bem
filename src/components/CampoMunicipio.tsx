@@ -118,7 +118,7 @@ export function CampoMunicipio({ valorInicial, erro }: { valorInicial: string; e
           id={lista}
           role="listbox"
           aria-label="Cidades"
-          className={`absolute z-20 mt-1.5 max-h-80 w-full min-w-64 overflow-auto rounded-2xl border border-linha bg-superficie p-1.5 shadow-xl shadow-tinta/10 ${sugestoes.length > 0 ? "" : "hidden"}`}
+          className={`absolute z-20 mt-1.5 max-h-80 w-full min-w-64 overflow-auto rounded-2xl border border-borda-controle bg-superficie p-1.5 shadow-xl shadow-tinta/10 ${sugestoes.length > 0 ? "" : "hidden"}`}
         >
           {sugestoes.map((sugestao, i) => (
             <li
@@ -144,7 +144,7 @@ export function CampoMunicipio({ valorInicial, erro }: { valorInicial: string; e
           ))}
         </ul>
         {semResultado && (
-          <p className="absolute z-20 mt-1.5 w-full rounded-2xl border border-linha bg-superficie px-4 py-3 text-sm text-suave shadow-xl shadow-tinta/10">
+          <p className="absolute z-20 mt-1.5 w-full rounded-2xl border border-borda-controle bg-superficie px-4 py-3 text-sm text-suave shadow-xl shadow-tinta/10">
             Nenhuma cidade com esse nome. Confira a grafia.
           </p>
         )}

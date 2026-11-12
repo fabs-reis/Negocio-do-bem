@@ -1,12 +1,13 @@
-import "@fontsource-variable/bricolage-grotesque/opsz.css";
-import "@fontsource-variable/inter";
-import "@fontsource-variable/newsreader";
-import "@fontsource-variable/newsreader/opsz-italic.css";
+import "@fontsource-variable/bricolage-grotesque/standard.css";
+import "@fontsource-variable/figtree";
+import "@fontsource-variable/figtree/wght-italic.css";
 import "./globals.css";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { Abertura } from "@/components/Abertura";
+import { CortinaDePagina } from "@/components/cortina/CortinaDePagina";
 import { AlternarTema } from "@/components/AlternarTema";
 import { AvisoSemConexao } from "@/components/AvisoSemConexao";
 import { EventosAnalytics } from "@/components/EventosAnalytics";
@@ -18,7 +19,6 @@ import { ProtecaoDaBarra } from "@/components/ProtecaoDaBarra";
 import { ProtecaoDoMenu } from "@/components/ProtecaoDoMenu";
 import { RegistrarServiceWorker } from "@/components/RegistrarServiceWorker";
 import { REPOSITORIO } from "@/lib/dominio";
-import { CORES_DA_MARCA } from "@/lib/marca";
 import { DESCRICAO_DO_SITE, ENDERECO_DO_SITE, NOME_DO_SITE, TITULO_DO_SITE } from "@/lib/seo";
 import { SCRIPT_TEMA } from "@/lib/tema";
 
@@ -49,13 +49,13 @@ export const metadata: Metadata = {
   },
 };
 
-// Cor da barra do navegador no celular: o creme da marca, ou o fundo do modo escuro.
+// Cor da barra do navegador no celular: o papel do tema claro ou do escuro.
 export const viewport: Viewport = {
   // Sem isso o iPhone não informa a área do botão home, e a barra de baixo ficaria por cima dele.
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: CORES_DA_MARCA.creme },
-    { media: "(prefers-color-scheme: dark)", color: "#17120e" },
+    { media: "(prefers-color-scheme: light)", color: "#f7f0e3" },
+    { media: "(prefers-color-scheme: dark)", color: "#17130f" },
   ],
 };
 
@@ -63,6 +63,11 @@ export const viewport: Viewport = {
 // no código durante o build. No seu computador, nos previews e em cópias do
 // projeto o Analytics não carrega.
 const ID_ANALYTICS = process.env.NEXT_PUBLIC_GA_ID;
+
+const LINK_DO_TOPO =
+  "whitespace-nowrap rounded-full px-1.5 py-1.5 text-tinta/80 transition hover:bg-superficie hover:text-tinta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tinta md:px-2.5 lg:px-3";
+const LINK_DO_RODAPE =
+  "underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current";
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -73,44 +78,51 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <header className="sticky top-0 z-30 bg-papel/85 backdrop-blur-lg">
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:h-[4.5rem] sm:gap-4 sm:px-6">
-            <Link href="/" className="shrink-0" aria-label="Negócio do Bem — início">
+        {/* Primeiro no <body>: o script da abertura roda antes da primeira pintura. Só age em "/". */}
+        <Abertura />
+        <Suspense fallback={null}><CortinaDePagina /></Suspense>
+
+        <header className="sticky top-0 z-30 border-b border-linha bg-papel">
+          <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-4 py-2 sm:gap-2 sm:px-4 md:gap-4 md:px-6">
+            <Link
+              href="/"
+              className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-tinta"
+              aria-label="Negócio do Bem — início"
+            >
               <Logo />
             </Link>
-            <nav className="flex items-center gap-1 text-sm font-medium sm:gap-2">
-              <Link href="/explorar" className="hidden rounded-full px-3 py-2 text-suave transition hover:bg-areia hover:text-tinta sm:block">
+            <nav aria-label="Principal" className="flex flex-wrap items-center justify-end gap-0.5 text-sm font-semibold sm:gap-1 sm:text-[13px] lg:gap-1.5 lg:text-[15px]">
+              <Link href="/explorar" className={`hidden sm:block ${LINK_DO_TOPO}`}>
                 Explorar
               </Link>
-              <Link href="/vagas" className="hidden rounded-full px-3 py-2 text-suave transition hover:bg-areia hover:text-tinta lg:block">
+              <Link href="/vagas" className={`hidden lg:block ${LINK_DO_TOPO}`}>
                 Vagas
               </Link>
-              <Link href="/clube-do-bem" className="hidden rounded-full px-3 py-2 text-suave transition hover:bg-areia hover:text-tinta lg:block">
+              <Link href="/clube-do-bem" className={`hidden sm:block ${LINK_DO_TOPO}`}>
                 Clube do Bem
               </Link>
-              <Link href="/sobre" className="hidden rounded-full px-3 py-2 text-suave transition hover:bg-areia hover:text-tinta sm:block">
+              <Link href="/sobre" className={`hidden sm:block ${LINK_DO_TOPO}`}>
                 Como funciona
               </Link>
               {/* No celular, a barra de baixo e a aba Conta cuidam do resto: o topo fica com a busca. */}
-              <Link href="/explorar" aria-label="Buscar negócios" className="grid h-10 w-10 place-items-center rounded-full text-suave transition hover:text-tinta sm:hidden">
+              <Link
+                href="/explorar"
+                aria-label="Buscar negócios"
+                className="grid h-10 w-10 place-items-center rounded-full text-tinta/80 transition hover:bg-superficie hover:text-tinta focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tinta sm:hidden"
+              >
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                   <circle cx="11" cy="11" r="6.5" />
                   <path d="M16 16l4.5 4.5" />
                 </svg>
               </Link>
-              {/* A ação principal do site: em laranja, também no celular (lá, só "Adicionar"). */}
-              <Link href="/participar" className="botao-coral gap-1.5 max-sm:py-2 max-sm:pr-3.5 max-sm:pl-3 max-sm:text-[13px] sm:pl-4">
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                <span className="sm:hidden">Adicionar</span>
-                <span className="max-sm:hidden">Adicionar empresa</span>
+              <Link href="/participar" className={`hidden sm:block ${LINK_DO_TOPO}`}>
+                Cadastrar
               </Link>
               <div className="hidden sm:block">
                 <AlternarTema />
               </div>
               <div className="hidden sm:block">
-                <Suspense fallback={<div className="h-9 w-20 rounded-full bg-linha/60" />}>
+                <Suspense fallback={<div className="ml-1 h-8 w-[4.25rem] rounded-full bg-linha/70" />}>
                   <ProtecaoDoMenu>
                     <MenuUsuario />
                   </ProtecaoDoMenu>
@@ -122,32 +134,42 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
 
         <main className="flex-1">{children}</main>
 
-        <footer className="mt-24 border-t border-linha max-sm:pb-28">
-          <div className="mx-auto grid grid-cols-1 max-w-6xl gap-8 px-4 py-12 text-sm text-suave sm:grid-cols-[2fr_1fr_1fr] sm:px-6">
-            <div className="space-y-3">
-              <Logo className="h-12" />
-              <p className="max-w-sm leading-relaxed">
-                Um movimento independente para fortalecer negócios que cuidam das pessoas, da comunidade e do planeta.
-                Feito pela comunidade, para a comunidade.
-              </p>
-              <InstalarApp />
-              <a href={REPOSITORIO} target="_blank" rel="noopener noreferrer" className="link inline-block">
-                Código aberto no GitHub ↗
-              </a>
-            </div>
-            <div className="space-y-2">
-              <p className="font-semibold text-tinta">Comunidade</p>
-              <Link href="/explorar" className="block hover:text-tinta">Explorar negócios</Link>
-              <Link href="/cidades" className="block hover:text-tinta">Negócios por cidade</Link>
-              <Link href="/embaixadores" className="block hover:text-tinta">Embaixadores do bem</Link>
-              <Link href="/participar" className="block hover:text-tinta">Cadastrar um negócio</Link>
-            </div>
-            <div className="space-y-2">
-              <p className="font-semibold text-tinta">Para negócios</p>
-              <Link href="/sobre#dono" className="block hover:text-tinta">Reivindicar meu perfil</Link>
-              <Link href="/clube-do-bem" className="block hover:text-tinta">Clube do Bem</Link>
-              <Link href="/vagas" className="block hover:text-tinta">Divulgar vagas</Link>
-              <Link href="/sobre#privacidade" className="block hover:text-tinta">Privacidade e remoção</Link>
+        <footer className="mt-24 bg-verde-escuro text-sobre-verde-escuro max-sm:pb-24">
+          <div className="mx-auto max-w-6xl px-4 pt-14 pb-10 sm:px-6 sm:pt-20">
+            {/* Uma frase por linha: no celular, cada metade quebra sozinha e não sobra um "a" no fim. */}
+            <p className="font-display text-[clamp(2.6rem,8vw,5.5rem)] leading-[0.9] font-extrabold uppercase">
+              <span className="block text-balance">Feito pela comunidade,</span>
+              <span className="block text-balance">para a comunidade.</span>
+            </p>
+            <div className="mt-12 grid grid-cols-1 gap-10 border-t border-sobre-verde-escuro/20 pt-10 text-[15px] sm:grid-cols-[2fr_1fr_1fr]">
+              <div className="space-y-4">
+                <Logo versao="creme" className="h-11" />
+                <p className="max-w-sm leading-relaxed text-sobre-verde-escuro/85">
+                  Um movimento independente para fortalecer negócios que cuidam das pessoas, da comunidade e do planeta.
+                </p>
+                <InstalarApp />
+                <a href={REPOSITORIO} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1.5 font-semibold ${LINK_DO_RODAPE}`}>
+                  Código aberto no GitHub
+                  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 11 11 5M6 5h5v5" />
+                  </svg>
+                  <span className="sr-only">(abre em outra aba)</span>
+                </a>
+              </div>
+              <nav aria-label="Comunidade" className="space-y-2.5">
+                <p className="font-display text-xl font-bold uppercase">Comunidade</p>
+                <Link href="/explorar" className={`block w-fit ${LINK_DO_RODAPE}`}>Explorar negócios</Link>
+                <Link href="/cidades" className={`block w-fit ${LINK_DO_RODAPE}`}>Negócios por cidade</Link>
+                <Link href="/embaixadores" className={`block w-fit ${LINK_DO_RODAPE}`}>Embaixadores do bem</Link>
+                <Link href="/participar" className={`block w-fit ${LINK_DO_RODAPE}`}>Cadastrar um negócio</Link>
+              </nav>
+              <nav aria-label="Para negócios" className="space-y-2.5">
+                <p className="font-display text-xl font-bold uppercase">Para negócios</p>
+                <Link href="/sobre#dono" className={`block w-fit ${LINK_DO_RODAPE}`}>Reivindicar meu perfil</Link>
+                <Link href="/clube-do-bem" className={`block w-fit ${LINK_DO_RODAPE}`}>Clube do Bem</Link>
+                <Link href="/vagas" className={`block w-fit ${LINK_DO_RODAPE}`}>Divulgar vagas</Link>
+                <Link href="/sobre#privacidade" className={`block w-fit ${LINK_DO_RODAPE}`}>Privacidade e remoção</Link>
+              </nav>
             </div>
           </div>
         </footer>

@@ -25,7 +25,7 @@ function BotaoDoSistema({ rotulo, children }: { rotulo: string; children: ReactN
     <span
       role="img"
       aria-label={rotulo}
-      className="mx-0.5 inline-grid h-7 w-7 place-items-center rounded-lg border border-linha bg-superficie align-middle text-sky-800"
+      className="mx-0.5 inline-grid h-7 w-7 place-items-center rounded-lg border border-linha bg-superficie align-middle text-sky-900"
     >
       {children}
     </span>

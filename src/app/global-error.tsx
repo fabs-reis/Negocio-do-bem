@@ -1,7 +1,7 @@
 "use client";
 
-import "@fontsource-variable/inter";
-import "@fontsource-variable/newsreader";
+import "@fontsource-variable/bricolage-grotesque/standard.css";
+import "@fontsource-variable/figtree";
 import "./globals.css";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";

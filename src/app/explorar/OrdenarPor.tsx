@@ -9,21 +9,21 @@ export function OrdenarPor({ atual, links }: { atual: Ordem; links: Record<Ordem
       <details key={atual} className="group relative">
         <summary
           aria-describedby="rotulo-ordenar"
-          className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-areia py-2 pr-3 pl-3 font-medium text-tinta [&::-webkit-details-marker]:hidden"
+          className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-borda-controle bg-superficie py-2 pr-3 pl-3 font-medium text-tinta [&::-webkit-details-marker]:hidden"
         >
           {ORDENS[atual]}
           <svg viewBox="0 0 20 20" className="h-4 w-4 text-suave transition group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m5 7.5 5 5 5-5" />
           </svg>
         </summary>
-        <ul className="absolute left-0 z-20 mt-2 w-max min-w-full rounded-2xl border border-linha bg-superficie p-1.5 shadow-lg sm:right-0 sm:left-auto">
+        <ul className="absolute left-0 z-20 mt-2 w-max min-w-full rounded-2xl border border-borda-controle bg-superficie p-1.5 shadow-lg sm:right-0 sm:left-auto">
           {(Object.keys(ORDENS) as Ordem[]).map((ordem) => (
             <li key={ordem}>
               <Link
                 href={links[ordem]}
                 scroll={false}
                 aria-current={atual === ordem ? "true" : undefined}
-                className={`flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition hover:bg-areia ${
+                className={`flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition hover:bg-papel ${
                   atual === ordem ? "font-semibold text-tinta" : "text-suave hover:text-tinta"
                 }`}
               >

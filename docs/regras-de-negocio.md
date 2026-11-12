@@ -410,7 +410,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
 - **Dados pedidos:** o @ do Instagram (ou "sem Instagram"), nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Causas e "por que você indica" são opcionais.
 - **Quem indica não publica contatos** (#105): site, WhatsApp, e-mail, telefone comercial e contato do dono ficam vazios numa indicação, mesmo que o envio traga algum. Quem cuida dos contatos é o dono.
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa. Sem Instagram, não há recusa: o endereço ganha `-2`, `-3`….
-- **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
+- **Motivo da indicação:** até 600 caracteres, opcional. Até o dono escrever a história, aparece no perfil e na página inicial com o nome de quem indicou. Nos cards de `/explorar`, aparece sem o nome.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
 - **Limite:** cada conta faz no máximo **10 indicações em 24 horas**. Conta todo negócio criado por ela no período. A conferência e a criação acontecem na mesma transação, com a linha da conta travada: envios simultâneos da mesma conta esperam a vez e nunca passam do limite.
 - **Resultado:** o negócio entra `aprovada` e `indicada`, já aparece no diretório, e a pessoa volta para o perfil com o aviso "Obrigado por indicar! O perfil já está no diretório." Não há moderação antes: a moderação tira do ar depois o que for impróprio ([seção 5](#5-moderação-das-indicações)).
@@ -888,22 +888,19 @@ Código: filtros e "Onde?" em `src/lib/diretorio.ts`, consultas em `src/lib/cons
 
 ### Página inicial
 
-A ordem, de cima para baixo:
+- **O cortejo animado** mostra quatro pessoas, com placas que formam a frase "Compre de quem faz o bem", e um cachorro. As figuras são desenho: não levam a nenhum tipo de negócio, não mostram contagem e ficam fora do leitor de tela, porque as placas repetem o título. Elas trocam de técnica sem mostrar o nome dela. O cortejo tem controle de pausa e respeita a preferência por menos movimento.
+- **Os números do diretório** ficam numa faixa entre o cortejo e a busca:
+  - negócios do bem no diretório;
+  - cidades, com o número de estados;
+  - indicados pela comunidade: os negócios ainda sem dono (status "indicada");
+  - administrados pelo próprio dono: os perfis assumidos (status "verificada").
 
-- **Primeira tela:** um selo com quantos negócios há e em quantas cidades, o título, a busca e os atalhos. Ao lado (embaixo, no celular), um carrossel com as fotos das 5 cidades com mais negócios entre as que têm foto, cada uma com o nome e o total, levando à página da cidade. Troca sozinho a cada 5 segundos, para com o mouse em cima ou com o foco dentro, e pode ser trocado pelos pontos; para quem pediu menos movimento no sistema, só troca pelos pontos. Por cima das fotos, dois negócios sorteados a cada visita (o segundo só no computador). Só entram negócios do diretório com foto do site. O sorteio é primeiro entre os que têm algum favorito ou depoimento publicado, com chance proporcional à soma dos dois (quem tem 4 aparece, em média, quatro vezes mais que quem tem 1); se faltar gente, completa com outros com foto, entre os 40 mais recentes, todos com a mesma chance. Sem cidade com foto, a vitrine não aparece.
+  Indicados e administrados somam o total. Os números contam só os negócios do diretório, como os outros números do site. Sem nenhum negócio no diretório, a faixa não aparece.
 - **A busca** tem dois campos, "O que você procura?" e "Onde?", e leva ao diretório.
-- **"Experimente:"** tem atalhos fixos para um tipo de negócio e algumas causas.
-- **Os números:** quantos negócios (subindo até o total ao abrir a página, direto no total para quem pede menos movimento no sistema), cidades, estados e perfis assumidos.
-- **Os 16 tipos de negócio** aparecem com quantos negócios cada um tem. Clicar num tipo abre o diretório com ele marcado. Tipos sem negócios ficam apagados, mas continuam clicáveis. No celular, deslizam para o lado.
-- **"Os mais queridos":** até 4 negócios do diretório, em duas abas:
-  - **Mais favoritados:** pelo número de favoritos, com o número no card ("12 favoritos"). É o mesmo número que o perfil já mostra para todo mundo;
-  - **Mais depoimentos:** pelo número de depoimentos publicados;
-  - só entra quem tem pelo menos um. No empate, vem primeiro quem recebeu o favorito (ou o depoimento) mais recente. Cada card mostra a posição (1º, 2º…) no lugar dos selos de perfil e cupom;
-  - uma aba sem ninguém não aparece; sem nenhuma das duas, a seção some.
-- **A faixa dos embaixadores** (veja [Embaixadores do bem](#19-embaixadores-do-bem)).
-- **Explore por cidade:** as 12 cidades com mais negócios. As 4 primeiras que têm foto aparecem como cartões com a foto; as outras, como botões.
-- **"Como funciona"** e o convite para donos de negócio.
-- A página inicial não tem filtros de causa: isso fica no diretório.
+- **"Quem faz o bem"** mostra até quatro negócios do diretório com foto do site, dos mais recentes para os mais antigos. Sem história, mostra o motivo da indicação e quem indicou. Sem motivo, mostra o resumo. Sem negócios com foto, a seção não aparece.
+- **As três faixas de causas** mostram todas as causas, por grupo, com links para suas páginas. Cada faixa para com o mouse em cima, e o clique em qualquer causa visível abre a página dela, inclusive na cópia que fecha o laço. Com o foco do teclado, a faixa volta ao começo e esconde a cópia. A cópia fica fora do Tab e do leitor de tela.
+- **O convite aos donos** leva a `/participar`.
+- **A faixa dos embaixadores** fica depois das faixas de causas (veja [Embaixadores do bem](#19-embaixadores-do-bem)).
 
 ### Diretório (`/explorar`)
 
@@ -973,7 +970,7 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
 - **"Outros" não tem página:** não diz nada para quem busca.
 - **Quem chega às páginas:**
   - o perfil público liga o tipo, a cidade e cada causa às suas páginas;
-  - a página inicial mostra as 12 cidades com mais negócios, em "Explore por cidade";
+  - a página inicial liga as causas às suas páginas;
   - "Como funciona" liga cada causa à sua página;
   - o rodapé tem "Negócios por cidade";
   - o sitemap e o `llms.txt` listam as páginas.
@@ -1279,14 +1276,14 @@ O site pode ser instalado como app (PWA), com o nome, as cores e os ícones de `
 
 **A navegação no celular** (`src/components/BarraInferior.tsx`)
 
-Em telas pequenas (abaixo de `sm`, 640 px), uma barra flutuante no rodapé substitui o menu do topo, que fica só com o logo, a busca e o botão laranja "+ Adicionar" (no computador, "+ Adicionar empresa", também em laranja), que leva a `/participar`. No computador nada muda. A barra respeita a área do botão home do iPhone (`viewportFit: "cover"`) e o rodapé do site ganha folga para ela não cobrir os links.
+Em telas pequenas (abaixo de `sm`, 640 px), uma barra no rodapé substitui o menu do topo, que fica só com o logo e a busca. Acima disso, o topo traz Explorar, Vagas, Clube do Bem, Como funciona, Cadastrar, o tema e a conta. A barra respeita a área do botão home do iPhone (`viewportFit: "cover"`) e o rodapé do site ganha folga para ela não cobrir os links.
 
 - **Quem compra** (entrou ou não): Início, Explorar, Cupons, Favoritos e Conta. A aba Cupons mostra quantas ofertas estão valendo agora.
 - **Dono com negócio liberado no clube** (liberação "liberada" e ainda dono): Início, Cupons, **Validar** (botão grande no centro), Negócio e Conta. Dono sem liberação, suspensa ou recusada, vê a barra de quem compra e chega ao negócio pela Conta.
 - **Cupons** (`/cupons`) tem duas partes. **Ofertas** lista todas as ofertas valendo de negócios aprovados e fora do modo oculto (a mesma regra do perfil), da que termina primeiro para a última, com filtro por cidade. "Pegar cupom" gera o cupom (e favorita o negócio, como no perfil) e leva a **Meus cupons** (`/cupons/meus`). Quem não entrou vê "Entre para pegar o cupom".
 - **Validar** (`/validar`): o dono liberado digita o código e confere a oferta e o primeiro nome do cliente. "Marcar como usado" é a mesma ação do painel do clube, com as mesmas regras. Com mais de um negócio liberado, ele escolhe qual no topo. A tela lista os 5 últimos cupons usados no negócio. O painel do clube continua com a validação.
 - **Negócio** (`/negocio`): atalho para Validar, Ofertas do clube, Editar perfil, Depoimentos (quantos sem resposta) e perfil público. Quem ainda não foi liberado vê o convite para a verificação.
-- **Conta** (`/conta`) reúne o que ficava no menu suspenso: painel, favoritos, meus cupons, moderação, modo escuro, instalar o app, Como funciona e Sair. Quem não entrou vê "Entrar" e "Cadastrar um negócio".
+- **Conta** (`/conta`) reúne o que ficava no menu suspenso: painel, favoritos, meus cupons, moderação, modo escuro, instalar o app, Clube do Bem, Como funciona e Sair. Quem não entrou vê "Entrar" e "Cadastrar um negócio".
 
 **A página de instalação** (`src/app/instalacao/`)
 
@@ -1446,7 +1443,7 @@ Embaixadores são pessoas, em geral influenciadores, que levam o projeto para um
 
 O clube é a [issue #248](https://github.com/fabs-reis/Negocio-do-bem/issues/248): negócios oferecem descontos por pouco tempo a quem chega pelo site. Os [favoritos](#favoritos) são a primeira parte; esta seção junta as próximas.
 
-A página pública `/clube-do-bem` explica o clube com prints, para quem compra e para o dono, e repete as proteções contra golpe e as dúvidas comuns. Ela está no sitemap e é ligada pelo cartão do clube no perfil ("Como funciona"), por Meus cupons, pelo painel do clube, pela página Como funciona e pelo rodapé. Quando uma regra desta seção mudar, confira se o texto da página e os prints ainda valem.
+A página pública `/clube-do-bem` explica o clube com prints, para quem compra e para o dono, e repete as proteções contra golpe e as dúvidas comuns. Ela está no sitemap e é ligada pelo cabeçalho (acima de `sm`), pela Conta no celular, pelo cartão do clube no perfil ("Como funciona"), por Meus cupons, pelo painel do clube, pela página Como funciona e pelo rodapé. Quando uma regra desta seção mudar, confira se o texto da página e os prints ainda valem.
 
 ### Liberação para o clube
 
