@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { configuracaoDoBanco } from "../src/lib/banco";
 
 const BUCKET = process.env.FOTOS_R2_BUCKET || "negocio-do-bem-fotos";
 const URL_PUBLICA = (process.env.FOTOS_R2_URL || "https://fotos.negociodobem.com").replace(/\/$/, "");
@@ -34,13 +35,14 @@ const CHAVE_SEGURA = /^[A-Za-z0-9][A-Za-z0-9/._-]*$/;
 const TIPOS: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const DOWNLOADS_SIMULTANEOS = 8;
 
-const urlDoBanco = process.env.DATABASE_URL;
+const banco = configuracaoDoBanco(process.env.DATABASE_URL, process.env.DEPLOY_ENV || process.env.VERCEL_ENV, process.env.DEPLOY_ENV ? process.env.BANCO_PREVIEW_ID : process.env.VERCEL_DEPLOYMENT_ID, process.env.DEPLOY_ENV ? "cloudflare" : "vercel");
+const urlDoBanco = banco.url;
 if (!urlDoBanco) {
   console.error("Falta DATABASE_URL. Configure no .env ou passe na frente do comando.");
   process.exit(1);
 }
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: urlDoBanco }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: urlDoBanco }, { schema: banco.esquema }) });
 
 type Foto = { antiga: string; chave: string; nova: string; arquivo?: string; tipo?: string; erro?: string };
 

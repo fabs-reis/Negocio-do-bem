@@ -54,5 +54,6 @@ next-env.d.ts
 /public/enviados/
 /.documentos-privados/
 
-# schema temporário do build Cloudflare (scripts/cloudflare-build.sh)
+# Arquivos gerados pelo build Cloudflare.
 /prisma/schema.cloudflare.prisma
+/public/banco-preview.json

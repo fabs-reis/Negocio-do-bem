@@ -16,7 +16,7 @@
 // moderação decidir.
 
 import { registrarAuditoria } from "@/lib/auditoria";
-import { db, type Prisma } from "@/lib/db";
+import { db, esquemaSql, type Prisma } from "@/lib/db";
 import { suspenderOfertasQueValem } from "@/lib/ofertas";
 import { formatarDataHora } from "@/lib/texto";
 
@@ -51,12 +51,12 @@ async function exigirQueNaoSejaDono(empresaId: string, usuarioId: string) {
  * a aprovação não espera pela trava da cota enquanto segura a empresa.
  */
 async function bloquearPessoa(tx: Prisma.TransactionClient, usuarioId: string) {
-  await tx.$queryRaw`SELECT id FROM "Usuario" WHERE id = ${usuarioId} FOR NO KEY UPDATE`;
+  await tx.$queryRaw`SELECT id FROM ${esquemaSql()}."Usuario" WHERE id = ${usuarioId} FOR NO KEY UPDATE`;
 }
 
 // Antecipa a trava da chave estrangeira: empresa antes de pedidos, como em aprovar.
 async function bloquearEmpresa(tx: Prisma.TransactionClient, empresaId: string) {
-  await tx.$queryRaw`SELECT id FROM "Empresa" WHERE id = ${empresaId} FOR KEY SHARE`;
+  await tx.$queryRaw`SELECT id FROM ${esquemaSql()}."Empresa" WHERE id = ${empresaId} FOR KEY SHARE`;
 }
 
 /** Só vale depois de `bloquearPessoa`, na mesma transação que cria o pedido. */
@@ -439,7 +439,7 @@ export async function removerDono(params: {
     // Trava o negócio: duas remoções ao mesmo tempo, ou uma remoção e uma aprovação, contam
     // os donos que sobraram uma depois da outra.
     const [empresa] = await tx.$queryRaw<{ instagramUsername: string }[]>`
-      SELECT "instagramUsername" FROM "Empresa" WHERE id = ${empresaId} FOR NO KEY UPDATE`;
+      SELECT "instagramUsername" FROM ${esquemaSql()}."Empresa" WHERE id = ${empresaId} FOR NO KEY UPDATE`;
     if (!empresa) return null;
     const username = empresa.instagramUsername;
     const { count } = await tx.empresaMembro.deleteMany({ where: { empresaId, usuarioId } });

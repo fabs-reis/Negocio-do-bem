@@ -9,7 +9,7 @@
 import "server-only";
 import { permanentRedirect, redirect } from "next/navigation";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { db, type Prisma } from "@/lib/db";
+import { db, esquemaSql, type Prisma } from "@/lib/db";
 import { rotuloDoInstagram } from "@/lib/endereco";
 import { normalizarUsername } from "@/lib/instagram";
 import { MOTIVO_ARROBA, suspenderPorContatoAlterado } from "@/lib/ofertas";
@@ -134,7 +134,7 @@ export async function pedirTrocaDeArroba({
 
   await db.$transaction(async (tx) => {
     // Trava o negócio: dois pedidos ao mesmo tempo esperam a vez, e só um entra.
-    await tx.$queryRaw`SELECT id FROM "Empresa" WHERE id = ${empresaId} FOR NO KEY UPDATE`;
+    await tx.$queryRaw`SELECT id FROM ${esquemaSql()}."Empresa" WHERE id = ${empresaId} FOR NO KEY UPDATE`;
     const pendente = await tx.trocaDeArroba.count({ where: { empresaId, status: "pendente" } });
     if (pendente > 0) throw new ErroTroca("pedido_em_analise");
     await tx.trocaDeArroba.create({ data: { empresaId, usuarioId, arrobaAntigo: atual, arrobaNovo: novo } });
@@ -182,7 +182,7 @@ function aprovar(trocaId: string, moderadorId: string): Promise<Decisao> {
   return db.$transaction(async (tx) => {
     const troca = await tx.trocaDeArroba.findUnique({ where: { id: trocaId }, select: { empresaId: true } });
     if (!troca) throw new ErroTroca("ja_decidido");
-    await tx.$queryRaw`SELECT id FROM "Empresa" WHERE id = ${troca.empresaId} FOR NO KEY UPDATE`;
+    await tx.$queryRaw`SELECT id FROM ${esquemaSql()}."Empresa" WHERE id = ${troca.empresaId} FOR NO KEY UPDATE`;
     const [pedido, empresa] = await Promise.all([
       tx.trocaDeArroba.findUniqueOrThrow({ where: { id: trocaId } }),
       tx.empresa.findUniqueOrThrow({ where: { id: troca.empresaId } }),

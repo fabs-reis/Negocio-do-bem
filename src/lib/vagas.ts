@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { db, type Prisma } from "@/lib/db";
+import { db, esquemaSql, type Prisma } from "@/lib/db";
 import { fimDoDia, hojeEmBrasilia, somarDias, temContatoOuPagamento } from "@/lib/ofertas";
 import { campoEmail, campoMunicipio, campoWhatsapp } from "@/lib/formulario";
 import { normalizarTexto } from "@/lib/texto";
@@ -114,7 +114,7 @@ export async function criarVaga(empresaId: string, usuarioId: string, vaga: Dado
   return db.$transaction(async (tx) => {
     // Trava o negócio: com dois envios ao mesmo tempo, o segundo vê a vaga do primeiro.
     const [empresa] = await tx.$queryRaw<{ instagramUsername: string; moderacao: string; oculta: boolean }[]>`
-      SELECT "instagramUsername", moderacao, oculta FROM "Empresa" WHERE id = ${empresaId} FOR UPDATE`;
+      SELECT "instagramUsername", moderacao, oculta FROM ${esquemaSql()}."Empresa" WHERE id = ${empresaId} FOR UPDATE`;
     const dono = await tx.empresaMembro.findFirst({ where: { empresaId, usuarioId }, select: { usuarioId: true } });
     if (!empresa || !dono) throw new ErroVaga("Só quem é dono do negócio publica vagas.");
     if (empresa.moderacao !== "aprovada" || empresa.oculta) throw new ErroVaga("Seu negócio precisa estar no diretório para divulgar vagas.");
@@ -263,7 +263,7 @@ export async function candidatar(
   if (!curriculo && !dados.link) throw new ErroCandidatura("sem_curriculo");
   return db.$transaction(async (tx) => {
     const [vaga] = await tx.$queryRaw<{ id: string }[]>`
-      SELECT v.id FROM "Vaga" v JOIN "Empresa" e ON e.id = v."empresaId"
+      SELECT v.id FROM ${esquemaSql()}."Vaga" v JOIN ${esquemaSql()}."Empresa" e ON e.id = v."empresaId"
       WHERE v.id = ${vagaId} AND v.status = 'aberta' AND v.prazo > now() AND e.moderacao = 'aprovada' AND e.oculta = false
       FOR UPDATE OF v`;
     if (!vaga) throw new ErroCandidatura("indisponivel");

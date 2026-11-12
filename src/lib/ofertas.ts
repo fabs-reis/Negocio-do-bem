@@ -3,7 +3,7 @@ import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { podeCriarOfertas } from "@/lib/clube";
-import { db, type Prisma } from "@/lib/db";
+import { db, esquemaSql, type Prisma } from "@/lib/db";
 
 // Ofertas e cupons do Clube do Bem (#248). Só um dono liberado pela moderação cria ofertas
 // (src/lib/clube.ts), e só quem favoritou o negócio gera cupom: gerar o cupom já favorita.
@@ -151,7 +151,7 @@ export async function criarOferta(empresaId: string, usuarioId: string, oferta: 
   return db.$transaction(async (tx) => {
     // Trava o negócio: com dois envios ao mesmo tempo, o segundo vê a oferta do primeiro.
     const [empresa] = await tx.$queryRaw<{ instagramUsername: string; moderacao: string; oculta: boolean }[]>`
-      SELECT "instagramUsername", moderacao, oculta FROM "Empresa" WHERE id = ${empresaId} FOR UPDATE`;
+      SELECT "instagramUsername", moderacao, oculta FROM ${esquemaSql()}."Empresa" WHERE id = ${empresaId} FOR UPDATE`;
     if (!empresa || empresa.moderacao !== "aprovada" || empresa.oculta) {
       throw new ErroOferta("Seu negócio precisa estar no diretório para criar ofertas.");
     }
@@ -239,7 +239,7 @@ export async function gerarCupom(ofertaId: string, usuarioId: string): Promise<R
     try {
       const { cupom, favoritou } = await db.$transaction(async (tx) => {
         const reservados = await tx.$executeRaw`
-          UPDATE "Oferta" SET "cuponsGerados" = "cuponsGerados" + 1
+          UPDATE ${esquemaSql()}."Oferta" SET "cuponsGerados" = "cuponsGerados" + 1
           WHERE id = ${ofertaId} AND status = 'ativa' AND fim > ${new Date()} AND (limite IS NULL OR "cuponsGerados" < limite)`;
         if (reservados === 0) throw new SemCupom();
         const { count } = await tx.empresaFavorita.createMany({ data: [{ empresaId: empresa.id, usuarioId }], skipDuplicates: true });
