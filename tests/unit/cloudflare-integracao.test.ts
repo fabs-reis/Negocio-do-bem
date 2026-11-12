@@ -64,6 +64,12 @@ describe("isolamento da prova Cloudflare", () => {
     expect(fonte).not.toContain('["populateCache", "remote"');
   });
 
+  it("usa metadados cf locais sem buscar a rede externa", () => {
+    const fonte = readFileSync(new URL("../../scripts/testar-cloudflare.ts", import.meta.url), "utf8");
+    const ambiente = fonte.match(/const ambiente = \{([\s\S]*?)\n  \};/)?.[1];
+    expect(ambiente).toMatch(/CLOUDFLARE_CF_FETCH_ENABLED:\s*"false"/);
+  });
+
   it("recusa uma configuração com banco remoto", () => {
     expect(() => configuracaoLocal("postgresql://postgres:postgres@remote.example/negocio_test", "/tmp/projeto")).toThrow();
   });
