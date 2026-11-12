@@ -82,6 +82,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/explorar" className="hidden rounded-full px-3 py-2 text-suave transition hover:bg-areia hover:text-tinta sm:block">
                 Explorar
               </Link>
+              <Link href="/vagas" className="hidden rounded-full px-3 py-2 text-suave transition hover:bg-areia hover:text-tinta lg:block">
+                Vagas
+              </Link>
               <Link href="/clube-do-bem" className="hidden rounded-full px-3 py-2 text-suave transition hover:bg-areia hover:text-tinta lg:block">
                 Clube do Bem
               </Link>
@@ -143,6 +146,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <p className="font-semibold text-tinta">Para negócios</p>
               <Link href="/sobre#dono" className="block hover:text-tinta">Reivindicar meu perfil</Link>
               <Link href="/clube-do-bem" className="block hover:text-tinta">Clube do Bem</Link>
+              <Link href="/vagas" className="block hover:text-tinta">Divulgar vagas</Link>
               <Link href="/sobre#privacidade" className="block hover:text-tinta">Privacidade e remoção</Link>
             </div>
           </div>
