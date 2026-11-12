@@ -28,6 +28,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 18. [Comportamentos atuais que valem conhecer](#18-comportamentos-atuais-que-valem-conhecer)
 19. [Embaixadores do bem](#19-embaixadores-do-bem)
 20. [Clube do Bem](#20-clube-do-bem)
+21. [Vagas](#21-vagas)
 
 ---
 
@@ -45,6 +46,8 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | Oferta | `Oferta` | Um desconto por pouco tempo (até 15 dias) que um dono liberado cria para o Clube do Bem. |
 | Cupom | `Cupom` | O código que uma pessoa gera para usar a oferta na compra. Uso único, validado pelo dono. |
 | Liberação do clube | `LiberacaoClube` | A permissão que a moderação dá a um dono, depois de conferir o CNPJ na Receita, para criar ofertas do Clube do Bem. |
+| Vaga | `Vaga` | Uma vaga, estágio, freela ou bico que um dono divulga ([#339](https://github.com/fabs-reis/Negocio-do-bem/issues/339)). |
+| Candidatura | `Candidatura` | O pedido de uma pessoa para uma vaga, com os dados e o currículo. |
 | Favorito | `EmpresaFavorita` | Um negócio que uma conta guardou com o coração, para achar de novo na página Favoritos. É a primeira parte do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)). |
 | Denúncia | campos `denunciado`, `motivoDenuncia` e `denunciadoPorId` do `Depoimento` | O aviso de que um depoimento tem algo errado. |
 | Causa | `EmpresaCausa` + lista em `src/lib/causas.ts` | Um valor que o negócio pratica, como "Escala 5x2" ou "Antirracista". Vira selo no perfil e filtro na busca. |
@@ -1140,6 +1143,9 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Links por e-mail | `LinkEmail` | Ninguém vê o token: só o hash é guardado, com o e-mail para onde o link foi, para onde ele leva e quando foi usado. Os vencidos há mais de uma hora são apagados quando a conta recebe outro link. |
 | Nome completo e CPF informados no pedido de verificação | `LiberacaoClube.nomeCompleto` e `cpfMascarado` | Só a moderação. O CPF inteiro **nunca é guardado**: só os 6 dígitos do meio (`***.982.247-**`), os mesmos que a Receita mostra dos sócios. Serve para comparar com o quadro de sócios. A pessoa autoriza numa caixa obrigatória do formulário. Somem se a conta for apagada. |
 | Foto do RG ou da CNH, no pedido de verificação | Bucket R2 privado `DOCUMENTOS` (a chave em `LiberacaoClube.documentoChaves`) | Só a moderação, por uma rota protegida, com cada abertura na auditoria. Apagada quando a moderação decide, ou depois de 30 dias sem decisão. Nunca em endereço público. |
+| Vagas | `Vaga` | **Públicas** no site enquanto abertas e dentro do prazo. |
+| Candidaturas (nome, e-mail, WhatsApp, cidade, mensagem, link) | `Candidatura` | Só os donos do negócio da vaga e a moderação. Nunca aparecem no site público. |
+| Currículo de uma candidatura | Bucket R2 privado `DOCUMENTOS` (a chave em `Candidatura.curriculoChave`) | Só os donos do negócio da vaga e a moderação, por `/api/curriculos/<id>`, com cada abertura na auditoria. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1508,3 +1514,20 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 ### O que fica para depois
 
 O QR code, o e-mail de fim de oferta com "Repetir oferta", o agendamento, a revisão das primeiras ofertas, o filtro "Com cupom" no `/explorar`, a denúncia de oferta e os avisos no celular.
+
+---
+
+## 21. Vagas
+
+Código: `src/lib/vagas.ts`, `src/acoes/vagas.ts`, `/vagas`, `/painel/<@>/vagas` e `/moderacao/vagas` ([#339](https://github.com/fabs-reis/Negocio-do-bem/issues/339)).
+
+- **Quem publica:** qualquer dono de um negócio aprovado e fora do modo oculto, no painel (`/painel/<@>/vagas`). A vaga vai ao ar na hora; a moderação tira do ar depois, como nos depoimentos e nas ofertas. Cada negócio tem no máximo 10 vagas abertas por vez.
+- **O que a vaga tem:** cargo (5 a 80 caracteres), área, tipo de contratação (CLT, PJ ou MEI, estágio, temporário, freela, diária ou bico), modalidade (presencial, híbrido, remoto), o que a pessoa vai fazer (30 a 2000), requisitos (10 a 1500), benefícios (opcional, até 500), jornada ou prazo, cidade (lista do IBGE) e o último dia para se candidatar (até 60 dias, contando hoje; termina às 23h59 de Brasília).
+- **O valor é obrigatório:** de R$ 1 a R$ 1.000.000, um valor só ou uma faixa, por mês, hora, dia ou projeto. Não existe "a combinar".
+- **O texto não leva contato nem discriminação:** links, e-mails, telefones, documentos e Pix são recusados (mesma regra das ofertas), porque as candidaturas chegam pela plataforma. Exigências de sexo, idade, "boa aparência", cor ou filhos também são recusadas. O dono marca o compromisso com a lei trabalhista e com a seleção sem discriminação.
+- **Quem vê:** `/vagas` lista as vagas abertas, dentro do prazo, de negócios do diretório, da mais nova para a mais antiga, 20 por página. Os filtros (busca, área, contratação, modalidade, estado) são um formulário GET e funcionam sem JavaScript. Cada vaga tem página própria (`/vagas/<id>`) com dados estruturados `JobPosting` para o Google, e as vagas abertas também aparecem no perfil do negócio. Vaga encerrada, vencida, suspensa ou de negócio oculto dá 404.
+- **Encerrar e suspender:** qualquer dono encerra a vaga (as candidaturas continuam no painel). A moderação suspende com um motivo, que o dono vê, ou devolve ao ar, em `/moderacao/vagas`. Tudo fica na auditoria (`vaga.criada`, `vaga.encerrada`, `vaga.suspensa`, `vaga.reativada`).
+- **Candidatura:** não precisa de conta. É um formulário em três etapas (dados, currículo, mensagem e envio); sem JavaScript, as três etapas aparecem juntas. Pede nome, e-mail, o currículo em PDF, DOC ou DOCX de até 5 MB **ou** um link (currículo ou LinkedIn), e o consentimento para enviar os dados à empresa. WhatsApp, cidade e mensagem (até 1000) são opcionais. O tipo do arquivo é conferido pelos primeiros bytes, não pela extensão. Cada e-mail se candidata uma vez por vaga, e uma vaga recebe no máximo 500 candidaturas.
+- **Privacidade:** os dados e o currículo só chegam aos donos do negócio e à moderação. O currículo fica no bucket R2 privado `DOCUMENTOS` (o mesmo da verificação do clube, com nome aleatório e sem endereço público) e só abre por `/api/curriculos/<id>`, que responde 404 a todos os outros, nunca vai para cache e registra cada abertura na auditoria (`candidatura.curriculo_visto`).
+- **Apagar:** o dono apaga uma candidatura e o currículo dela no painel (também quando a pessoa pede, pelo e-mail de confirmação). Fica na auditoria (`candidatura.apagada`). Ainda não há apagamento automático por prazo.
+- **Avisos por e-mail:** os donos recebem "Nova candidatura" (só o nome do candidato e o link do painel, sem dados nem currículo) e o candidato recebe a confirmação.
