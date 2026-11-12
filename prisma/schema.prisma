@@ -42,8 +42,12 @@ model Usuario {
   registrosAuditoria RegistroAuditoria[]
   liberacoesClube    LiberacaoClube[]    @relation("LiberadoNoClube")
   decisoesClube      LiberacaoClube[]    @relation("DecisaoNoClube")
+  trocasDeArroba     TrocaDeArroba[]     @relation("TrocaPedida")
+  decisoesDeArroba   TrocaDeArroba[]     @relation("TrocaDecidida")
   ofertasCriadas     Oferta[]            @relation("OfertasCriadas")
   cupons             Cupom[]             @relation("CuponsGerados")
+  vagasCriadas       Vaga[]              @relation("VagasCriadas")
+  candidaturas       Candidatura[]       @relation("Candidaturas")
   cuponsValidados    Cupom[]             @relation("CuponsValidados")
 }
 
@@ -154,7 +158,9 @@ model Empresa {
   enderecosAntigos EnderecoAntigo[]
   liberacoesClube  LiberacaoClube[]
   ofertas          Oferta[]
+  vagas            Vaga[]
   reivindicacoes   Reivindicacao[]
+  trocasDeArroba   TrocaDeArroba[]
 
   @@index([moderacao, oculta, status])
   @@index([uf])
@@ -205,6 +211,33 @@ model EmpresaFavorita {
 
   @@id([empresaId, usuarioId])
   @@index([usuarioId, criadoEm])
+}
+
+// Pedido de um dono para trocar o @ do negócio (#299). O @ é o endereço da página e
+// o dono pode ter assumido o perfil sem provar que controla o Instagram: por isso a
+// troca só vale quando a moderação aprova (ver src/lib/troca-de-arroba.ts). Um pedido
+// em análise por negócio.
+model TrocaDeArroba {
+  id            String    @id @default(cuid())
+  empresaId     String
+  empresa       Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarioId     String
+  usuario       Usuario   @relation("TrocaPedida", fields: [usuarioId], references: [id], onDelete: Cascade)
+  // O endereço quando o pedido foi feito e o @ pedido, minúsculo e sem "@".
+  arrobaAntigo  String
+  arrobaNovo    String
+  // "pendente" | "aprovada" | "recusada" | "cancelada"
+  status        String    @default("pendente")
+  // Motivo da recusa, escrito pela moderação. O dono vê no painel.
+  motivo        String?
+  decididoPorId String?
+  decididoPor   Usuario?  @relation("TrocaDecidida", fields: [decididoPorId], references: [id], onDelete: SetNull)
+  decididoEm    DateTime?
+  criadoEm      DateTime  @default(now())
+
+  @@index([status, criadoEm])
+  @@index([empresaId, status])
+  @@index([usuarioId])
 }
 
 // Liberação de um dono para criar ofertas do Clube do Bem (#248). Nesta versão, só a
@@ -396,4 +429,67 @@ model RegistroAuditoria {
 
   @@index([criadoEm])
   @@index([alvoTipo, alvoId])
+}
+
+// Vaga de emprego, estágio, freela ou bico divulgada por um dono de negócio (#339). Vai ao ar
+// na hora; a moderação pode suspender (ver src/lib/vagas.ts).
+model Vaga {
+  id           String   @id @default(cuid())
+  empresaId    String
+  empresa      Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  criadaPorId  String?
+  criadaPor    Usuario? @relation("VagasCriadas", fields: [criadaPorId], references: [id], onDelete: SetNull)
+  titulo       String
+  // Chaves de AREAS, CONTRATOS e MODALIDADES em src/lib/vagas.ts.
+  area         String
+  contrato     String
+  modalidade   String
+  descricao    String
+  requisitos   String
+  beneficios   String?
+  jornada      String
+  // O valor é obrigatório. Em reais inteiros; `valorMax` vazio quando é um valor só.
+  valorMin     Int
+  valorMax     Int?
+  // "mes" | "hora" | "dia" | "projeto"
+  valorPeriodo String
+  cidade       String
+  uf           String
+  // 23h59 (Brasília) do último dia para se candidatar.
+  prazo        DateTime
+  // "aberta" | "encerrada" (pelo dono) | "suspensa" (pela moderação)
+  status       String   @default("aberta")
+  motivo       String?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  candidaturas Candidatura[]
+
+  @@index([status, prazo])
+  @@index([empresaId, status])
+}
+
+// Candidatura a uma vaga. Os dados e o currículo só o dono da vaga e a moderação veem. O
+// currículo fica no bucket privado (ver src/lib/documentos.ts) e some com a candidatura.
+model Candidatura {
+  id             String    @id @default(cuid())
+  vagaId         String
+  vaga           Vaga      @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  usuarioId      String?
+  usuario        Usuario?  @relation("Candidaturas", fields: [usuarioId], references: [id], onDelete: SetNull)
+  nome           String
+  email          String
+  whatsapp       String?
+  cidade         String?
+  // Chave do arquivo no bucket privado e o nome original, para o download.
+  curriculoChave String?
+  curriculoNome  String?
+  // Link do currículo ou do LinkedIn, quando não há arquivo.
+  link           String?
+  mensagem       String?
+  vistaEm        DateTime?
+  criadoEm       DateTime  @default(now())
+
+  @@unique([vagaId, email])
+  @@index([vagaId, criadoEm])
 }

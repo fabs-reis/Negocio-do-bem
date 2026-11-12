@@ -95,6 +95,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/explorar" className={`hidden sm:block ${LINK_DO_TOPO}`}>
                 Explorar
               </Link>
+              <Link href="/vagas" className={`hidden lg:block ${LINK_DO_TOPO}`}>
+                Vagas
+              </Link>
               <Link href="/clube-do-bem" className={`hidden sm:block ${LINK_DO_TOPO}`}>
                 Clube do Bem
               </Link>
@@ -164,6 +167,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <p className="font-display text-xl font-bold uppercase">Para negócios</p>
                 <Link href="/sobre#dono" className={`block w-fit ${LINK_DO_RODAPE}`}>Reivindicar meu perfil</Link>
                 <Link href="/clube-do-bem" className={`block w-fit ${LINK_DO_RODAPE}`}>Clube do Bem</Link>
+                <Link href="/vagas" className={`block w-fit ${LINK_DO_RODAPE}`}>Divulgar vagas</Link>
                 <Link href="/sobre#privacidade" className={`block w-fit ${LINK_DO_RODAPE}`}>Privacidade e remoção</Link>
               </nav>
             </div>

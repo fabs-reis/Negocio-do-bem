@@ -29,6 +29,7 @@
   --color-papel: #f7f0e3;
   /* Fundo de cards, campos e menus: quase branco no claro, quase preto no escuro. */
   --color-superficie: #fffaf2;
+  --color-areia: #efe5d4;
   --color-tinta: #1e1a16;
   --color-suave: #5e564c;
   --color-linha: #e6dccb;
@@ -70,6 +71,9 @@
   --color-amber-200: #f2d272;
   --color-amber-800: #7d5c08;
   --color-amber-900: #5c4306;
+
+  --shadow-cartao: 0 1px 2px rgb(34 28 22 / 0.05), 0 8px 24px -12px rgb(34 28 22 / 0.14);
+  --shadow-flutuante: 0 2px 4px rgb(34 28 22 / 0.06), 0 24px 48px -20px rgb(34 28 22 / 0.28);
 }
 
 /*
@@ -80,6 +84,7 @@
   color-scheme: dark;
   --color-papel: #17130f;
   --color-superficie: #221c17;
+  --color-areia: #2b241d;
   --color-tinta: #f7f0e3;
   --color-suave: #b5a998;
   --color-linha: #3a3129;
@@ -121,6 +126,12 @@ html {
   scrollbar-color: color-mix(in oklab, var(--color-tinta) 28%, transparent) var(--color-papel);
 }
 
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
 body {
   background: var(--color-papel);
   color: var(--color-tinta);
@@ -153,8 +164,9 @@ textarea,
   .botao-pequeno {
     @apply px-3.5 py-1.5 text-xs;
   }
+  /* Sem borda no claro, só a sombra leve; no escuro a sombra some e a borda volta. */
   .cartao {
-    @apply rounded-3xl border border-linha bg-superficie;
+    @apply rounded-3xl border border-transparent bg-superficie shadow-cartao escuro:border-linha escuro:shadow-none;
   }
   .rotulo {
     @apply mb-1.5 block text-sm font-medium text-tinta;

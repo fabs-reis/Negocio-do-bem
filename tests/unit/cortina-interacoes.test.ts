@@ -92,6 +92,25 @@ describe("cortina só na busca", () => {
     expect(evento.stopPropagation).not.toHaveBeenCalled();
   });
 
+  it("Escape durante o fechamento pula a cortina, mas preserva a busca enviada", () => {
+    const evento = enviar(busca());
+    expect(evento.preventDefault).toHaveBeenCalledOnce();
+    expect(navegar).not.toHaveBeenCalled();
+
+    ouvintes.keydown({ key: "Escape" } as unknown as Event);
+
+    expect(atualizarFase).toHaveBeenCalledWith("oculta");
+    expect(navegar).toHaveBeenCalledExactlyOnceWith("/explorar?q=padaria&onde=");
+    vi.runAllTimers();
+    expect(navegar).toHaveBeenCalledTimes(1);
+  });
+
+  it("Escape sem busca pendente não inicia navegação", () => {
+    ouvintes.keydown({ key: "Escape" } as unknown as Event);
+    expect(navegar).not.toHaveBeenCalled();
+    expect(atualizarFase).not.toHaveBeenCalled();
+  });
+
   it("não escuta cliques em links: a navegação comum segue sem cortina", () => {
     expect(ouvintes.click).toBeUndefined();
   });

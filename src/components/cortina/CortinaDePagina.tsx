@@ -65,7 +65,9 @@ export function CortinaDePagina() {
     }
 
     function tecla(evento: KeyboardEvent) {
-      if (evento.key === "Escape") liberar();
+      // O formulário já teve o envio nativo cancelado: Escape pula a animação,
+      // mas não pode descartar a busca que a pessoa acabou de enviar.
+      if (evento.key === "Escape" && pendente.current) seguirSemCortina();
     }
     function preferencia() {
       if (movimento.matches) seguirSemCortina();

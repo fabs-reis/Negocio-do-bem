@@ -28,11 +28,14 @@ export type EmpresaResumo = {
 
 const MAX_BADGES = 3;
 
+/** Posição no ranking da página inicial ("Os mais queridos") e o número que a explica. */
+export type DestaqueDoCard = { posicao: number; numero: string };
+
 /**
  * Uma apresentação do negócio, com a voz da comunidade quando ela é pública.
  * Com `favorito`, o coração fica ao lado do nome, fora de todo link (um botão não pode ficar dentro de um link).
  */
-export function EmpresaCard({ empresa, compacta = false, favorito }: { empresa: EmpresaResumo; compacta?: boolean; favorito?: EstadoFavorito }) {
+export function EmpresaCard({ empresa, compacta = false, favorito }: { empresa: EmpresaResumo; compacta?: boolean; favorito?: EstadoFavorito; destaque?: DestaqueDoCard }) {
   const causas = filtrarCausas(empresa.causas.map((c) => c.causa));
   const depoimentos = empresa._count.depoimentos;
   const href = `/empresas/${empresa.instagramUsername}`;
