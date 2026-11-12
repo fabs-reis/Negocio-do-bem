@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { rotuloDoInstagram } from "@/lib/endereco";
 import { normalizarEndereco } from "@/lib/instagram";
+import { FormMotivo } from "./FormMotivo";
 import { Clube } from "./Clube";
 import { Donos } from "./Donos";
 import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
@@ -71,6 +72,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/moderacao/neg
       <Donos empresa={empresa} aviso={daSecao("dono_")} />
 
       <EdicaoEmpresa empresa={empresa} voltar={`/moderacao/negocios/${empresa.instagramUsername}`} trocaDoArroba />
+      <FormMotivo empresaId={empresa.id} motivo={empresa.motivoIndicacao} />
 
       <Clube
         empresa={empresa}
