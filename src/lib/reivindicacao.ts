@@ -18,6 +18,7 @@
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db, type Prisma } from "@/lib/db";
 import { suspenderOfertasQueValem } from "@/lib/ofertas";
+import { OPCOES_TRANSACAO_FOTOS, validarReferenciasFotos } from "@/lib/publicacao-fotos";
 import { formatarDataHora } from "@/lib/texto";
 
 const VALIDADE_ANALISE_DIAS = 30;
@@ -164,6 +165,8 @@ export async function solicitarPorDocumento(params: {
   await exigirQueNaoSejaDono(params.empresaId, params.usuarioId);
 
   const { reivindicacao, tiradaDosDonos } = await db.$transaction(async (tx) => {
+    // Acquire photo admission before user and company row locks.
+    await validarReferenciasFotos(tx, { site: params.site });
     await bloquearPessoa(tx, params.usuarioId);
     const emAnalise = await tx.reivindicacao.findFirst({
       where: { empresaId: params.empresaId, usuarioId: params.usuarioId, metodo: "documento", status: "pendente" },
@@ -187,7 +190,7 @@ export async function solicitarPorDocumento(params: {
       },
     });
     return { reivindicacao: criada, tiradaDosDonos: tirada };
-  });
+  }, OPCOES_TRANSACAO_FOTOS);
 
   const empresa = await db.empresa.findUniqueOrThrow({ where: { id: params.empresaId }, include: { membros: true } });
   if (!aprovaSozinhoPorDocumento(empresa, tiradaDosDonos)) return reivindicacao;
@@ -299,6 +302,12 @@ export type ModoAprovacao = "adicionar" | "transferir";
  * Aprova a reivindicação: a pessoa vira dona e o perfil fica marcado como assumido.
  * `revisorId` null significa aprovação automática.
  * `transferir` remove os donos anteriores (usado em disputas).
+ *
+ * A primeira instrução trava o negócio com FOR UPDATE: toda aprovação segue a ordem negócio,
+ * depois pedidos, a mesma de quem cria pedidos. Sem isso, duas aprovações de pedidos da mesma
+ * pessoa podem esperar uma pela outra (deadlock). O nível é FOR UPDATE porque a aprovação pode
+ * trocar o ID do Instagram, que é chave única: essa escrita conflita com o FOR KEY SHARE de
+ * `bloquearEmpresa`, então a trava já nasce no mesmo nível.
  */
 export async function aprovar(params: {
   reivindicacaoId: string;
@@ -309,10 +318,18 @@ export async function aprovar(params: {
   const { reivindicacaoId, revisorId, modo = "adicionar" } = params;
 
   await db.$transaction(async (tx) => {
-    const reivindicacao = await tx.reivindicacao.findUnique({ where: { id: reivindicacaoId } });
-    if (!reivindicacao || reivindicacao.status !== "pendente") {
-      throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
-    }
+    const travados = await tx.$queryRaw<{ id: string }[]>`
+      SELECT e.id FROM "Empresa" e
+      WHERE e.id = (SELECT r."empresaId" FROM "Reivindicacao" r WHERE r.id = ${reivindicacaoId})
+      FOR UPDATE OF e`;
+    if (travados.length === 0) throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
+
+    const { count } = await tx.reivindicacao.updateMany({
+      where: { id: reivindicacaoId, status: "pendente" },
+      data: { status: "aprovada", revisadoPorId: revisorId, revisadoEm: new Date() },
+    });
+    if (count === 0) throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
+    const reivindicacao = await tx.reivindicacao.findUniqueOrThrow({ where: { id: reivindicacaoId } });
     // Só pedidos antigos por código de DM trazem o IGSID de quem mandou a DM.
     const { empresaId, usuarioId, instagramIgsid } = reivindicacao;
     const instagramUserId = params.instagramUserId ?? reivindicacao.instagramUserId;
@@ -352,12 +369,7 @@ export async function aprovar(params: {
 
     await tx.reivindicacao.update({
       where: { id: reivindicacaoId },
-      data: {
-        status: "aprovada",
-        revisadoPorId: revisorId,
-        revisadoEm: new Date(),
-        instagramUserId,
-      },
+      data: { instagramUserId, instagramIgsid },
     });
     await tx.reivindicacao.updateMany({
       where: { empresaId, usuarioId, status: "pendente", id: { not: reivindicacaoId } },
@@ -376,12 +388,8 @@ export async function aprovar(params: {
 
 export async function recusar(params: { reivindicacaoId: string; revisorId: string; motivo: string }): Promise<void> {
   await db.$transaction(async (tx) => {
-    const reivindicacao = await tx.reivindicacao.findUnique({ where: { id: params.reivindicacaoId } });
-    if (!reivindicacao || reivindicacao.status !== "pendente") {
-      throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
-    }
-    await tx.reivindicacao.update({
-      where: { id: params.reivindicacaoId },
+    const { count } = await tx.reivindicacao.updateMany({
+      where: { id: params.reivindicacaoId, status: "pendente" },
       data: {
         status: "recusada",
         motivoRecusa: params.motivo,
@@ -389,6 +397,8 @@ export async function recusar(params: { reivindicacaoId: string; revisorId: stri
         revisadoEm: new Date(),
       },
     });
+    if (count === 0) throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
+    const reivindicacao = await tx.reivindicacao.findUniqueOrThrow({ where: { id: params.reivindicacaoId } });
     await registrarAuditoria(tx, {
       usuarioId: params.revisorId,
       acao: "reivindicacao.recusada",
