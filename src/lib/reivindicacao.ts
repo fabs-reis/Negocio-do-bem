@@ -25,6 +25,7 @@ const LIMITE_SOLICITACOES_POR_DIA = 10;
 
 /** Erro com mensagem que pode ser mostrada para a pessoa. */
 export class ErroReivindicacao extends Error {}
+class NegocioRetiradoDoAr extends ErroReivindicacao {}
 
 function daquiA(ms: number): Date {
   return new Date(Date.now() + ms);
@@ -76,6 +77,7 @@ async function exigirLimiteDiario(tx: Prisma.TransactionClient, usuarioId: strin
 export type ResultadoLoginInstagram =
   | { tipo: "verificada" }
   | { tipo: "em_analise" }
+  | { tipo: "em_analise_fora_do_ar" }
   | { tipo: "conta_diferente"; conectada: string };
 
 /** Recebe a conta que o Instagram confirmou no login e decide o que fazer. */
@@ -86,12 +88,12 @@ export async function processarLoginInstagram(params: {
 }): Promise<ResultadoLoginInstagram> {
   const { empresaId, usuarioId, conta } = params;
   const empresa = await db.empresa.findUnique({ where: { id: empresaId }, include: { membros: true } });
-  if (!empresa) throw new ErroReivindicacao("Negócio não encontrado.");
+  if (!empresa || empresa.moderacao === "rejeitada") throw new ErroReivindicacao("Negócio não encontrado.");
 
   if (conta.username !== empresa.instagramUsername) {
     return { tipo: "conta_diferente", conectada: conta.username };
   }
-  if (empresa.membros.some((m) => m.usuarioId === usuarioId)) {
+  if (empresa.oficial && empresa.membros.some((m) => m.usuarioId === usuarioId)) {
     return { tipo: "verificada" };
   }
 
@@ -119,7 +121,12 @@ export async function processarLoginInstagram(params: {
   });
 
   if (conflitos.length > 0) return { tipo: "em_analise" };
-  await aprovar({ reivindicacaoId: reivindicacao.id, revisorId: null });
+  try {
+    await aprovar({ reivindicacaoId: reivindicacao.id, revisorId: null });
+  } catch (erro) {
+    if (erro instanceof NegocioRetiradoDoAr) return { tipo: "em_analise_fora_do_ar" };
+    throw erro;
+  }
   return { tipo: "verificada" };
 }
 
@@ -317,9 +324,19 @@ export async function aprovar(params: {
     const { empresaId, usuarioId, instagramIgsid } = reivindicacao;
     const instagramUserId = params.instagramUserId ?? reivindicacao.instagramUserId;
 
+    // A mesma trava protege a contagem de donos e o selo em todos os caminhos.
+    const empresas = await tx.$queryRaw<{ moderacao: string }[]>`
+      SELECT moderacao FROM "Empresa" WHERE id = ${empresaId} FOR UPDATE`;
+    if (revisorId === null && reivindicacao.metodo === "instagram_login" &&
+        (empresas.length === 0 || empresas[0].moderacao === "rejeitada")) {
+      throw new NegocioRetiradoDoAr("Negócio não encontrado.");
+    }
+
     if (modo === "transferir") {
       await tx.empresaMembro.deleteMany({ where: { empresaId, usuarioId: { not: usuarioId } } });
     }
+    const peloInstagram = reivindicacao.metodo === "instagram_login" || reivindicacao.metodo === "codigo_dm";
+    const outrosDonos = await tx.empresaMembro.count({ where: { empresaId, usuarioId: { not: usuarioId } } });
     await tx.empresaMembro.upsert({
       where: { empresaId_usuarioId: { empresaId, usuarioId } },
       create: { empresaId, usuarioId, papel: "dono" },
@@ -345,6 +362,7 @@ export async function aprovar(params: {
       data: {
         status: "verificada",
         moderacao: "aprovada",
+        ...(peloInstagram ? { oficial: true } : outrosDonos === 0 ? { oficial: false } : {}),
         ...(instagramUserId ? { instagramUserId } : {}),
         ...(instagramIgsid ? { instagramIgsid } : {}),
       },
@@ -473,8 +491,22 @@ export async function removerDono(params: {
       agora,
     );
 
-    const semDono = (await tx.empresaMembro.count({ where: { empresaId } })) === 0;
-    if (semDono) await tx.empresa.update({ where: { id: empresaId }, data: { status: "indicada", oculta: false } });
+    const membros = await tx.empresaMembro.findMany({ where: { empresaId }, select: { usuarioId: true } });
+    const semDono = membros.length === 0;
+    const oficial =
+      !semDono &&
+      (await tx.reivindicacao.count({
+        where: {
+          empresaId,
+          usuarioId: { in: membros.map((membro) => membro.usuarioId) },
+          status: "aprovada",
+          metodo: { in: ["instagram_login", "codigo_dm"] },
+        },
+      })) > 0;
+    await tx.empresa.update({
+      where: { id: empresaId },
+      data: semDono ? { status: "indicada", oficial: false, oculta: false } : { oficial },
+    });
 
     await registrarAuditoria(tx, {
       usuarioId: moderadorId,

@@ -139,6 +139,8 @@ model Empresa {
   telefoneDoDono    String?
   // "indicada" (sem dono) | "verificada" (perfil assumido por uma conta; não certifica a identidade)
   status            String   @default("indicada")
+  // Um dono confirmou o controle pelo Instagram.
+  oficial           Boolean  @default(false)
   // "pendente" | "aprovada" | "rejeitada" — só "aprovada" aparece no diretório
   moderacao         String   @default("pendente")
   // O dono pode tirar o negócio do diretório a qualquer momento.

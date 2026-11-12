@@ -349,6 +349,7 @@ O negócio tem três informações de estado que andam separadas:
 | --- | --- | --- |
 | `moderacao` | `pendente` · `aprovada` · `rejeitada` | Se o negócio está no ar. Toda indicação entra `aprovada`, e a moderação pode tirar do ar (`rejeitada`) e publicar de novo. `pendente` só existe em negócios indicados antes da publicação automática. Só `aprovada` pode aparecer no diretório. |
 | `status` | `indicada` · `verificada` | Se o perfil foi assumido. Vira `verificada` quando a primeira reivindicação é aprovada e só volta a `indicada` quando a moderação tira o último dono (veja [Tirar um dono](#tirar-um-dono)). O nome interno não significa certificação de identidade ou das causas. |
+| `oficial` | `false` · `true` | Se o perfil recebeu o selo por confirmação pelo Instagram. |
 | `oculta` | `false` · `true` | Se o dono tirou o negócio do diretório. |
 
 **Um negócio aparece para o público quando `moderacao = "aprovada"` e `oculta = false`.** Fora disso, só o dono, a moderação e quem indicou veem o perfil (ver [seção 7](#quem-vê-um-perfil-que-não-está-no-diretório)).
@@ -478,7 +479,7 @@ Código: regras em `src/lib/reivindicacao.ts` (com testes em `tests/db/reivindic
 ### Quem pode pedir
 
 - **Qualquer conta logada** que ainda não seja dona daquele negócio. Quem já é dono vê "Você já é dono deste perfil" e o link para o painel.
-- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"Sou o dono"** do perfil, pelo "Sou dono deste negócio" do cadastro (`/participar`) ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis assumidos.
+- A página fica em **`/empresas/<@>/reivindicar`**. Chega-se nela pelo botão **"É meu negócio"** do perfil, pelo "Sou dono deste negócio" do cadastro (`/participar`) ou pelo link "Este perfil é seu e outra pessoa assumiu? Fale com a moderação" dos perfis assumidos.
 - **Negócio tirado do ar:** a página responde 404.
 - **Negócio que já tem dono:** o pedido é aceito, com um aviso de que vai para a moderação. Serve para co-donos e para troca de responsáveis.
 
@@ -563,9 +564,13 @@ O que a moderação confere: se o CNPJ, o site e o contato batem com o @ do Inst
 6. Cancela os **outros pedidos pendentes da mesma pessoa** para o mesmo negócio. Pedidos de **outras pessoas** para o mesmo negócio continuam pendentes, e a moderação decide cada um.
 7. Registra na auditoria `reivindicacao.aprovada` ou `reivindicacao.aprovada_com_transferencia`.
 
+**Login do Instagram:** um negócio retirado do ar não aceita o início do login. A aprovação automática confere a moderação de novo e trava o negócio até a decisão. Se o negócio for retirado do ar depois da criação do pedido, ele continua pendente e conta na cota. O retorno agenda o aviso normal à moderação e leva a pessoa ao painel com a confirmação de que o pedido está em análise. Só a moderação pode aprovar esse pedido.
+
+**Selo oficial:** aprovar um pedido pelo login do Instagram ou um pedido antigo por DM marca `oficial = true`. Ao aprovar pelos dados, o selo continua se outro dono permanece. Se nenhum outro dono permanece, o selo é retirado. Toda aprovação trava a mesma linha do negócio antes de contar os donos e decidir o selo. Assim, aprovações simultâneas pelo Instagram e pelos dados não apagam uma confirmação que continua válida. A migração marca como oficiais os negócios cujo dono atual tem um pedido aprovado pelo Instagram ou por DM.
+
 **Duas pessoas da moderação ao mesmo tempo:** se um pedido já foi decidido, a segunda decisão é recusada com o aviso "Esta solicitação já tinha sido decidida por outra pessoa da moderação".
 
-**Depois da decisão,** a pessoa recebe um e-mail com o resultado ([seção 14](#14-avisos-por-e-mail)) e acompanha em `/painel`, em "Minhas solicitações de reivindicação". Aparecem as 20 mais recentes, menos as canceladas, com o status e, se recusada, o motivo.
+**Depois da decisão,** a pessoa recebe um e-mail com o resultado ([seção 14](#14-avisos-por-e-mail)) e acompanha em `/painel`, em "Minhas solicitações". Aparecem as 20 mais recentes, menos as canceladas, com o status e, se recusada, o motivo.
 
 ### Tirar um dono
 
@@ -632,7 +637,8 @@ O perfil fica ligado ao **ID fixo da conta** do Instagram, não só ao @, porque
 - **O token não é guardado.** Ele só serve para perguntar ao Instagram qual conta autorizou.
 - **Resultado:**
   - conta conectada diferente do @ do negócio: aviso de erro, e nada é criado;
-  - a pessoa já é dona: tudo certo;
+  - a pessoa já é dona e o perfil é oficial: tudo certo;
+  - a pessoa já é dona e o perfil não é oficial: o login pode confirmar o perfil, sujeito às mesmas regras de conflito;
   - caso contrário: aplica o limite diário, cancela tentativas anteriores pelo mesmo caminho, cria o pedido e aprova na hora se não houver conflito.
 
 ### Pedidos antigos por código de DM
@@ -657,8 +663,10 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - sem foto da cidade, o banner da marca: o ícone em creme sobre o laranja e "Compre de quem faz o bem.".
 - **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @. Fica sobre a capa.
 - **Selo:**
-  - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
+  - **"Perfil oficial"** quando `status = "verificada"` e `oficial = true`. O texto de ajuda explica que o controle da conta do Instagram foi confirmado. Não certifica a identidade legal nem as causas do negócio.
+  - **"Perfil assumido"** quando `status = "verificada"` e `oficial = false`. O acesso por uma conta não certifica identidade nem causas. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
+- **Convite ao cadastro (`/participar`):** explica que assumir o perfil permite editar os dados e ocultar o negócio no painel, respeitando a moderação. Consultar o perfil e solicitar acesso não substituem a confirmação pelo Instagram, que é um processo separado.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**
 - **Ação principal e "Compartilhar".** O botão grande é "Chamar no WhatsApp"; sem WhatsApp, "Ver no Instagram" (só para quem tem Instagram); sem nenhum dos dois, não há botão. Quando o botão já leva ao Instagram, o @ não repete o link abaixo do nome; com WhatsApp, o @ continua com link ali. "Compartilhar" copia o endereço do perfil e só aparece para perfis do diretório.
 - **"Favoritar",** com o coração, ao lado de "Compartilhar", num negócio do diretório, para quem não é dono, junto com quantas pessoas já favoritaram (veja [Favoritos](#favoritos)). O dono vê esse número ao lado de "Editar meu perfil".
@@ -675,7 +683,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - para os outros, o motivo da indicação e o nome de quem indicou, se houver;
   - senão, "A história deste negócio ainda vai ser contada."
 - **"O que este negócio defende":** as causas como selos, separadas nos grupos do filtro do diretório (trabalho digno, diversidade e respeito, comunidade e planeta). Só os grupos com causas aparecem, e cada selo leva à página da causa nos perfis do diretório.
-- **"Este negócio é seu? Sou o dono",** se o perfil ainda não foi assumido e quem vê não é dono.
+- **"Este negócio é seu? É meu negócio",** se o perfil ainda não foi assumido e quem vê não é dono.
 - **Depoimentos** (ver [seção 10](#10-depoimentos-e-denúncias)). A lista vem antes do formulário. O dono vê um botão para copiar o link dos depoimentos e mandar a clientes.
 - **"Este perfil é seu e outra pessoa assumiu? Fale com a moderação",** se o perfil já foi assumido e quem vê não é dono. O link leva à página de reivindicação.
 - **"Mais negócios do bem em {cidade}":** até 4 outros negócios do diretório na mesma cidade e UF (`negociosParecidos`), os do mesmo tipo primeiro e, em cada grupo, os assumidos antes. Só nos perfis do diretório e só quando há outro negócio na cidade.
@@ -732,7 +740,7 @@ Código: `src/app/sitemap.ts`, `src/app/robots.ts`, `src/lib/seo.ts`, `src/app/o
 - **Só perfis do diretório vão para os buscadores.** O sitemap lista os negócios aprovados e não ocultos, lido do banco a cada pedido: um negócio aprovado entra na hora, e um oculto sai na hora. Ele também lista as páginas de cidade, causa e tipo que têm negócios (ver [seção 11](#páginas-de-cidade-causa-e-tipo)).
 - **Título do perfil na busca:** "Nome — Categoria em Cidade, UF". Na categoria "Outros", só "Nome em Cidade, UF". A descrição é o resumo.
 - **Dados estruturados:** o perfil público leva a ficha do negócio (`LocalBusiness`) com nome, resumo, foto, cidade, UF, WhatsApp, e-mail, Instagram, site, categoria e causas. São os mesmos dados que a página já mostra. O caminho até o perfil passa pela página da cidade: "Início › Recife, PE › Padaria Florescer".
-- **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Perfil assumido". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
+- **Prévia do link** (WhatsApp, Instagram, LinkedIn…): foto ou monograma, nome, categoria, cidade, até três causas e o selo "Perfil oficial" ou "Perfil assumido". Uma foto em WebP vira monograma, porque o gerador da imagem não lê WebP.
 - **Prévia das outras páginas:** a página de cada cidade tem a sua (ver [seção 11](#páginas-de-cidade-causa-e-tipo)). As outras páginas públicas (início, `/sobre`, `/explorar`, `/cidades`, `/participar`, causas e tipos) levam a imagem geral do site, com o logo e o lema.
 - **Perfil fora do diretório:** para quem pode vê-lo, a página leva `noindex`. A prévia do link é a geral do site, sem dados do negócio.
 - **Fora da busca:** login, cadastro, painel, Favoritos, Meus cupons, reivindicação e moderação levam `noindex`. `/painel`, `/favoritos`, `/cupons` (a lista de ofertas e Meus cupons), `/moderacao` e `/api/` também ficam bloqueados no `robots.txt`.
@@ -748,7 +756,7 @@ Código: `src/app/painel/`.
   - as indicações dela, com a situação de cada uma na moderação;
   - a seção "Minha conta", com a troca de senha, ou o link para criar uma na conta sem senha (veja [Cadastro e login](#cadastro-e-login));
   - o aviso da ação anterior (`?aviso=`), como "Senha trocada".
-- **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). No topo, aparece quantas pessoas favoritaram o negócio. Nele, o dono:
+- **`/painel/<@>`** só abre para os donos daquele negócio (os outros recebem 404). No topo, aparece quantas pessoas favoritaram o negócio. Uma lista de boas-vindas mostra o que falta entre foto, causas e história, e convida à confirmação pelo Instagram quando o login está disponível, o negócio não foi tirado do ar e o perfil ainda não é oficial. Nele, o dono:
   - **edita o perfil:** foto, informações, contatos, causas e história;
   - **pede a troca do @,** que só vale quando a moderação aprova (veja [Pedido de troca do @](#pedido-de-troca-do-));
   - **responde depoimentos:** até 1.000 caracteres. A resposta pode ser trocada a qualquer momento, e apagar o texto tira a resposta;

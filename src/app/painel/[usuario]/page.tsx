@@ -8,10 +8,11 @@ import { responderDepoimento } from "@/acoes/depoimentos";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { exigirUsuario } from "@/lib/auth/sessao";
+import { checklistDoPerfil } from "@/lib/boas-vindas";
 import { db } from "@/lib/db";
 import { MODERACAO_EMPRESA } from "@/lib/dominio";
 import { rotuloDoInstagram, temInstagram } from "@/lib/endereco";
-import { normalizarEndereco } from "@/lib/instagram";
+import { configLogin, normalizarEndereco } from "@/lib/instagram";
 import { comPontoFinal, formatarData, formatarFavoritos } from "@/lib/texto";
 import { ultimaTrocaDeArroba } from "@/lib/troca-de-arroba";
 import { EdicaoEmpresa } from "./EdicaoEmpresa";
@@ -51,6 +52,7 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
   if (!empresa) await seguirEnderecoAntigo(username, (atual) => `/painel/${atual}`);
   if (!empresa || !empresa.membros.some((m) => m.usuarioId === usuario.id)) notFound();
   const { aviso } = await searchParams;
+  const checklist = checklistDoPerfil(empresa, temInstagram(username) && !!configLogin());
   const [liberacao, troca] = await Promise.all([
     db.liberacaoClube.findUnique({
       where: { empresaId_usuarioId: { empresaId: empresa.id, usuarioId: usuario.id } },
@@ -88,6 +90,10 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         <AvisoDaUrl codigo={aviso} />
         <ChamadaDoClube username={empresa.instagramUsername} status={liberacao?.status} />
       </div>
+
+      {checklist.mostrar && (
+        <BoasVindas nome={usuario.nome.split(" ")[0]!} username={empresa.instagramUsername} checklist={checklist} />
+      )}
 
       <EdicaoEmpresa empresa={empresa} voltar={`/painel/${empresa.instagramUsername}`} />
 
@@ -146,6 +152,50 @@ async function Conteudo({ params, searchParams }: Pick<PageProps<"/painel/[usuar
         </form>
       </section>
     </div>
+  );
+}
+
+/** Enquanto falta algo no perfil, o painel recebe o dono e mostra o que falta. */
+function BoasVindas({
+  nome,
+  username,
+  checklist,
+}: {
+  nome: string;
+  username: string;
+  checklist: ReturnType<typeof checklistDoPerfil>;
+}) {
+  return (
+    <section className="rounded-3xl border border-coral/20 bg-coral-50/60 p-6 sm:p-8">
+      <h2 className="font-serif text-2xl font-semibold">Que bom ter você aqui, {nome}!</h2>
+      <p className="mt-1 text-suave">Três coisas deixam o perfil com a sua cara:</p>
+      <ul className="mt-4 space-y-2">
+        {checklist.itens.map((item) => (
+          <li key={item.href}>
+            <a href={item.href} className="group inline-flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${item.feito ? "bg-folha text-papel" : "border-2 border-coral/40"}`}
+              >
+                {item.feito ? "✓" : ""}
+              </span>
+              <span className={item.feito ? "text-suave line-through" : "font-medium group-hover:text-coral-700"}>
+                {item.rotulo}
+              </span>
+              <span className="sr-only">{item.feito ? "(feito)" : "(falta)"}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      {checklist.pedirSelo && (
+        <p className="mt-5 text-sm">
+          Quer o selo de perfil oficial?{" "}
+          <Link href={`/empresas/${username}/reivindicar`} className="link">
+            Confirme pelo Instagram do negócio.
+          </Link>
+        </p>
+      )}
+    </section>
   );
 }
 

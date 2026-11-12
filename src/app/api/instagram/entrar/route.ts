@@ -8,8 +8,8 @@ import { configLogin, COOKIE_ESTADO, urlAutorizacao } from "@/lib/instagram";
 export async function GET(request: NextRequest) {
   const origem = request.nextUrl.origin;
   const empresaId = request.nextUrl.searchParams.get("empresa") ?? "";
-  const empresa = await db.empresa.findUnique({ where: { id: empresaId }, select: { instagramUsername: true } });
-  if (!empresa) return NextResponse.redirect(new URL("/", origem));
+  const empresa = await db.empresa.findUnique({ where: { id: empresaId }, select: { instagramUsername: true, moderacao: true } });
+  if (!empresa || empresa.moderacao === "rejeitada") return NextResponse.redirect(new URL("/", origem));
 
   const voltar = `/empresas/${empresa.instagramUsername}/reivindicar`;
   const config = configLogin();

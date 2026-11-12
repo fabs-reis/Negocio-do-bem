@@ -86,7 +86,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
             <Link href="/explorar" className="link">
               diretório
             </Link>{" "}
-            e clique em &ldquo;Sou o dono&rdquo;.
+            e clique em &ldquo;É meu negócio&rdquo;.
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -102,7 +102,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <SeloStatus status={empresa.status} />
+                  <SeloStatus status={empresa.status} oficial={empresa.oficial} />
                   {empresa.oculta && <Etiqueta status="expirada" texto="Oculto do diretório" />}
                   {!empresa.historia.trim() && <Etiqueta status="pendente" texto="Falta contar a história" />}
                 </div>
@@ -122,7 +122,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
 
       {reivindicacoes.length > 0 && (
         <section>
-          <h2 className="font-display text-2xl font-semibold">Minhas solicitações de reivindicação</h2>
+          <h2 className="font-display text-2xl font-semibold">Minhas solicitações</h2>
           <ul className="cartao mt-4 divide-y divide-linha">
             {reivindicacoes.map((r) => (
               <li key={r.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between">

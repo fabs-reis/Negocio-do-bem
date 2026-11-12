@@ -338,7 +338,10 @@ async function CidadesComMaisNegocios() {
 function ComoFunciona() {
   const passos = [
     { titulo: "A comunidade indica", texto: "Qualquer pessoa indica um negócio pelo @ do Instagram e conta por que ele faz o bem." },
-    { titulo: "O dono assume o perfil", texto: "Quem cuida do negócio envia CNPJ, site e contato e passa a contar a própria história." },
+    {
+      titulo: "O dono assume o perfil",
+      texto: "Quem cuida do negócio confirma pelo Instagram ou envia os dados e já passa a contar a própria história no perfil.",
+    },
     { titulo: "Todo mundo fortalece", texto: "Clientes deixam depoimentos, escolhem pelas causas que importam e espalham a palavra." },
   ];
   return (
@@ -365,7 +368,7 @@ function ComoFunciona() {
             <h2 className="font-display text-3xl font-semibold tracking-tight">Tem um negócio do bem?</h2>
             <p className="mt-2 text-papel/70 escuro:text-suave">Cadastre, mostre as causas que você abraça e conte a sua história.</p>
           </div>
-          <Link href="/sobre#dono" className="botao-coral shrink-0 px-6 py-3.5 text-base">
+          <Link href="/participar" className="botao-coral shrink-0 px-6 py-3.5 text-base">
             Sou dono de um negócio
           </Link>
         </div>

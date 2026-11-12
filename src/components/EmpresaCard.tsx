@@ -15,6 +15,7 @@ export type EmpresaResumo = {
   cidade: string;
   uf: string;
   status: string;
+  oficial?: boolean;
   causas: { causa: string }[];
   _count: { depoimentos: number };
   // A oferta do Clube do Bem que está valendo, se houver (o selo de cupom).
@@ -88,7 +89,7 @@ export function EmpresaCard({
           ) : (
             <>
               <span className="flex flex-wrap items-center gap-1.5">
-                <SeloStatus status={empresa.status} />
+                <SeloStatus status={empresa.status} oficial={empresa.oficial} />
                 {!!empresa.ofertas?.length && (
                   <span className="rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-700">Cupom</span>
                 )}

@@ -118,7 +118,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <SeloStatus status={empresa.status} verificado={parceiro} />
+              <SeloStatus status={empresa.status} oficial={empresa.oficial} verificado={parceiro} />
               {parceiro && (
                 <span className="rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-700">Parceiro do Clube do Bem</span>
               )}
@@ -536,11 +536,11 @@ function ChamadaReivindicar({ username }: { username: string }) {
       <div>
         <p className="font-semibold">Este negócio é seu?</p>
         <p className="text-sm text-suave">
-          Reivindique o perfil para contar a sua história, escolher suas causas e responder à comunidade.
+          Assuma o perfil para contar a sua história, escolher suas causas e responder à comunidade.
         </p>
       </div>
       <Link href={`/empresas/${username}/reivindicar`} className="botao-coral shrink-0">
-        Sou o dono
+        É meu negócio
       </Link>
     </aside>
   );
