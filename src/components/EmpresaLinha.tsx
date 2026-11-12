@@ -13,7 +13,7 @@ export function EmpresaLinha({ empresa, favorito }: { empresa: EmpresaResumo; fa
       <FotoEmpresa empresa={empresa} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="line-clamp-2 min-w-0 break-words font-serif text-lg leading-tight font-semibold group-hover:text-coral-700">{empresa.nome}</span>
+          <span className="line-clamp-2 min-w-0 break-words font-display text-lg leading-tight font-semibold group-hover:text-coral-700">{empresa.nome}</span>
           {empresa.status === "verificada" &&
             (empresa.oficial ? (
               <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 text-folha" role="img" aria-label="Perfil oficial">

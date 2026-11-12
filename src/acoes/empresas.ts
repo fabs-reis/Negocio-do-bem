@@ -327,16 +327,22 @@ export async function enviarFotoDaHistoria(dados: FormData): Promise<{ url?: str
   }
 }
 
-/** Troca o @ do Instagram do negócio (#298): o dono ou a moderação. O endereço antigo redireciona para o novo. */
+/**
+ * A moderação troca o @ do Instagram do negócio (#298). O endereço antigo redireciona para
+ * o novo. O dono não troca direto: pede, e a moderação aprova (#299, src/acoes/arroba.ts).
+ */
 export async function trocarArrobaDaEmpresa(_estado: EstadoFormulario, dados: FormData): Promise<EstadoFormulario> {
-  const { usuario, empresa, pelaModeracao } = await exigirEditor(texto(dados, "empresaId"), "/painel");
+  const { usuario, empresa } = await exigirEditor(texto(dados, "empresaId"), "/painel");
   const valores = valoresDoFormulario(dados);
+  if (!usuario.moderador) {
+    return { erros: { instagram: "Peça a troca na seção \"@ do Instagram\" do painel: a moderação confere o perfil antes." }, valores };
+  }
   const novo = normalizarUsername(texto(dados, "instagram"));
   if (!novo) return { erros: { instagram: "Digite o novo @ do Instagram do negócio (ex.: @padariadobairro)." }, valores };
 
   let resultado: ResultadoDaTroca;
   try {
-    resultado = await db.$transaction((tx) => trocarArroba(tx, empresa, novo, { usuarioId: usuario.id, pelaModeracao }));
+    resultado = await db.$transaction((tx) => trocarArroba(tx, empresa, novo, { usuarioId: usuario.id, pelaModeracao: true }));
   } catch (erro) {
     if (!violouUnicidade(erro)) throw erro;
     resultado = "ocupado";

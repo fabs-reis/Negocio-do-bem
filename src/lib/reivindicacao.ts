@@ -491,8 +491,22 @@ export async function removerDono(params: {
       agora,
     );
 
-    const semDono = (await tx.empresaMembro.count({ where: { empresaId } })) === 0;
-    if (semDono) await tx.empresa.update({ where: { id: empresaId }, data: { status: "indicada", oficial: false, oculta: false } });
+    const membros = await tx.empresaMembro.findMany({ where: { empresaId }, select: { usuarioId: true } });
+    const semDono = membros.length === 0;
+    const oficial =
+      !semDono &&
+      (await tx.reivindicacao.count({
+        where: {
+          empresaId,
+          usuarioId: { in: membros.map((membro) => membro.usuarioId) },
+          status: "aprovada",
+          metodo: { in: ["instagram_login", "codigo_dm"] },
+        },
+      })) > 0;
+    await tx.empresa.update({
+      where: { id: empresaId },
+      data: semDono ? { status: "indicada", oficial: false, oculta: false } : { oficial },
+    });
 
     await registrarAuditoria(tx, {
       usuarioId: moderadorId,

@@ -23,16 +23,19 @@ type Empresa = {
   causas: { causa: string }[];
 };
 
-/** Foto e formulário do perfil, usados no painel do dono e na edição pela moderação. */
-export function EdicaoEmpresa({ empresa, voltar }: { empresa: Empresa; voltar: string }) {
+/**
+ * Foto e formulário do perfil, usados no painel do dono e na edição pela moderação. Só a
+ * moderação troca o @ direto (`trocaDoArroba`); o dono pede a troca na seção do painel.
+ */
+export function EdicaoEmpresa({ empresa, voltar, trocaDoArroba = false }: { empresa: Empresa; voltar: string; trocaDoArroba?: boolean }) {
   return (
     <>
       <section id="foto" className="cartao scroll-mt-24 space-y-4 p-6 sm:p-8">
-        <h2 className="font-serif text-2xl font-semibold">Foto do perfil</h2>
+        <h2 className="font-display text-2xl font-semibold">Foto do perfil</h2>
         <FormFoto empresa={fotoDe(empresa)} voltar={voltar} />
       </section>
 
-      <FormInstagram empresa={empresa} voltar={voltar} />
+      {trocaDoArroba && <FormInstagram empresa={empresa} voltar={voltar} />}
 
       <FormEmpresa
         voltar={voltar}

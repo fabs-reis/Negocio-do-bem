@@ -27,6 +27,7 @@ import {
   ErroReivindicacao,
   processarLoginInstagram,
   recusar,
+  removerDono,
   solicitarPorDocumento,
 } from "@/lib/reivindicacao";
 
@@ -737,6 +738,35 @@ describe("selo de perfil oficial", () => {
     });
     await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
     expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({ oficial: true });
+  });
+
+  it("retira o selo quando o dono que confirmou o Instagram sai e resta um dono por documento", async () => {
+    const [confirmou, outraDona, moderador] = await Promise.all([criarUsuario(), criarUsuario(), criarUsuario()]);
+    const empresa = await criarEmpresa("selo.remocao");
+    await processarLoginInstagram({
+      empresaId: empresa.id,
+      usuarioId: confirmou.id,
+      conta: { userId: "id-confirmou", username: empresa.instagramUsername },
+    });
+    const pedido = await solicitarPorDocumento({
+      empresaId: empresa.id,
+      usuarioId: outraDona.id,
+      cnpj: null,
+      site: null,
+      relacao: "Sócia",
+      contato: "contato",
+      mensagem: null,
+    });
+    await aprovar({ reivindicacaoId: pedido.id, revisorId: moderador.id });
+    expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).oficial).toBe(true);
+
+    await removerDono({ empresaId: empresa.id, usuarioId: confirmou.id, moderadorId: moderador.id, motivo: "Remoção autorizada" });
+
+    expect(await donos(empresa.id)).toEqual([outraDona.id]);
+    expect(await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).toMatchObject({
+      status: "verificada",
+      oficial: false,
+    });
   });
 
   it("a transferência por dados retira o selo de quem saiu", async () => {
