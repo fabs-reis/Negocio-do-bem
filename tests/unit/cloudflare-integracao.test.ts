@@ -77,9 +77,8 @@ describe("isolamento da prova Cloudflare", () => {
   });
 
   it("usa metadados cf locais sem buscar a rede externa", () => {
-    const fonte = readFileSync(new URL("../../scripts/testar-cloudflare.ts", import.meta.url), "utf8");
-    const ambiente = fonte.match(/const ambiente = \{([\s\S]*?)\n  \};/)?.[1];
-    expect(ambiente).toMatch(/CLOUDFLARE_CF_FETCH_ENABLED:\s*"false"/);
+    const ambiente = ambienteDaProva("postgresql://postgres:postgres@localhost/negocio_test", "/tmp/projeto", "/tmp/prova-local");
+    expect(ambiente.CLOUDFLARE_CF_FETCH_ENABLED).toBe("false");
   });
 
   it("recusa uma configuração com banco remoto", () => {
