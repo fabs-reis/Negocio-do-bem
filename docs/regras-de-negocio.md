@@ -69,7 +69,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - telefone obrigatório, do Brasil, com DDD: celular (9 e mais 8 dígitos) ou fixo (começa com 2 a 5). Aceita "(11) 99148-8052" ou "+55 11 99148-8052" e guarda só os dígitos, com o 55 (`5511991488052`), como o WhatsApp do negócio. Serve só para avisos sobre a conta e o negócio da pessoa, e o campo diz isso;
   - senha de 8 a 200 caracteres.
 - **Contas sem telefone:** as criadas antes do telefone ser obrigatório ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191)) continuam sem ele e funcionam igual. Ninguém é obrigado a informar depois.
-- **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?").
+- **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?"). Dois envios ao mesmo tempo com o mesmo e-mail criam uma conta só: o outro recebe o mesmo aviso, sem sessão.
 - **Conta criada no meio do cadastro de um negócio:** o formulário já vem com o e-mail e o telefone que o dono deu na etapa "Como a gente fala com você?", com o aviso "Trouxemos o contato que você deu no cadastro do negócio. Pode mudar." ([#317](https://github.com/fabs-reis/Negocio-do-bem/issues/317)).
   - Os dois vêm do rascunho do navegador (`ndb:cadastro`, veja [O cadastro por etapas](#o-cadastro-por-etapas)), nunca pela URL, e só quando o `voltar` leva de volta ao cadastro (`/participar?continuar=1`). Em outra entrada no `/cadastrar`, o formulário começa vazio.
   - Quem só indicou não deu contato, e nada é preenchido. O nome da pessoa continua sendo pedido aqui: o cadastro do negócio não pede.
@@ -847,7 +847,7 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 - **Precisa de login.**
 - Só em negócios **publicados e não ocultos.**
 - **Donos não escrevem depoimento no próprio negócio.** Eles respondem.
-- **Um depoimento por pessoa por negócio.**
+- **Um depoimento por pessoa por negócio.** Vale também para dois envios ao mesmo tempo: o segundo recebe "Você já deixou um depoimento para este negócio".
 - **Tamanho:** de 20 a 1.500 caracteres.
 - **Vai ao ar na hora,** sem moderação prévia, com o nome de quem escreveu e a data.
 - **Os donos recebem um e-mail** com o texto e o link para responder ([seção 14](#14-avisos-por-e-mail)).
