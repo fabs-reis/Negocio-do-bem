@@ -33,6 +33,18 @@ if [ -n "$WORKERS_CI_BRANCH" ]; then
   export DEPLOY_ENV DATABASE_URL DATABASE_URL_UNPOOLED APP_URL NEXT_PUBLIC_R2_PUBLIC_URL
 fi
 
+# O APP_URL entra no HTML pré-renderizado: canônico, sitemap e links dos e-mails.
+# Na produção, faltar ou apontar para localhost é engano de configuração, e o
+# build para aqui, como o dos previews sem PREVIEW_APP_URL (#361).
+if [ "$DEPLOY_ENV" = "production" ]; then
+  case "$APP_URL" in
+    "" | *localhost* | *127.0.0.1*)
+      echo "Falta o APP_URL de produção (ex.: https://www.negociodobem.com) nas variáveis de build." >&2
+      exit 1
+      ;;
+  esac
+fi
+
 case "$DEPLOY_ENV" in
   production | preview)
     # Migrações precisam de conexão direta. O Neon fornece DATABASE_URL_UNPOOLED;

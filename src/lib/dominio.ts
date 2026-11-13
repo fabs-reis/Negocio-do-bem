@@ -127,5 +127,8 @@ export const ACOES_AUDITORIA: Record<string, string> = {
 /** A caixa de e-mail do projeto, para quem quer falar com a equipe (ex.: ser embaixador). */
 export const EMAIL_DO_PROJETO = "ola@negociodobem.com";
 
+/** O domínio público da produção, o mesmo da rota do wrangler.jsonc. */
+export const DOMINIO_OFICIAL = "https://www.negociodobem.com";
+
 /** Onde fica o código aberto do projeto. */
 export const REPOSITORIO = "https://github.com/fabs-reis/Negocio-do-bem";
