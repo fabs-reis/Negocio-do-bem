@@ -121,7 +121,8 @@ export async function processarLoginInstagram(params: {
 
   if (conflitos.length > 0) return { tipo: "em_analise" };
   await aprovar({ reivindicacaoId: reivindicacao.id, revisorId: null });
-  return { tipo: "verificada" };
+  const { status } = await db.reivindicacao.findUniqueOrThrow({ where: { id: reivindicacao.id }, select: { status: true } });
+  return { tipo: status === "aprovada" ? "verificada" : "em_analise" };
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,7 @@ export function aprovaSozinhoPorDocumento(empresa: { moderacao: string; membros:
   return !tiradaDosDonos && empresa.moderacao !== "rejeitada" && empresa.membros.length === 0;
 }
 
+const NOTA_JA_TEM_DONO = "O negócio já tem dono: decida entre adicionar como co-dono ou transferir.";
 const NOTA_TIRADA_DOS_DONOS = "A moderação já tirou esta conta dos donos deste negócio. Confira antes de aprovar.";
 
 /** Se a moderação já tirou esta conta dos donos do negócio (um pedido dela ficou "revogada"). */
@@ -280,7 +282,7 @@ async function conflitosDeVerificacao(params: {
   const conflitos: string[] = [];
 
   if (empresa.membros.some((m) => m.usuarioId !== usuarioId)) {
-    conflitos.push("O negócio já tem dono: decida entre adicionar como co-dono ou transferir.");
+    conflitos.push(NOTA_JA_TEM_DONO);
   }
   if (empresa.instagramUserId && empresa.instagramUserId !== instagramUserId) {
     conflitos.push("A conta do Instagram é diferente da registrada antes: o @ pode ter mudado de dono.");
@@ -300,7 +302,9 @@ export type ModoAprovacao = "adicionar" | "transferir";
 
 /**
  * Aprova a reivindicação: a pessoa vira dona e o perfil fica marcado como assumido.
- * `revisorId` null significa aprovação automática.
+ * `revisorId` null significa aprovação automática: se, com o negócio travado, já houver dono
+ * de outra pessoa, o pedido continua pendente com a nota "O negócio já tem dono" e a moderação
+ * decide como sempre.
  * `transferir` remove os donos anteriores (usado em disputas).
  *
  * A primeira instrução trava o negócio com FOR UPDATE: toda aprovação segue a ordem negócio,
@@ -323,6 +327,15 @@ export async function aprovar(params: {
       WHERE e.id = (SELECT r."empresaId" FROM "Reivindicacao" r WHERE r.id = ${reivindicacaoId})
       FOR UPDATE OF e`;
     if (travados.length === 0) throw new ErroReivindicacao("Esta solicitação não está mais pendente.");
+
+    if (revisorId === null) {
+      const pedido = await tx.reivindicacao.findFirst({ where: { id: reivindicacaoId, status: "pendente" } });
+      if (pedido && (await tx.empresaMembro.count({ where: { empresaId: pedido.empresaId, usuarioId: { not: pedido.usuarioId } } })) > 0) {
+        const nota = linhaDeNota(NOTA_JA_TEM_DONO);
+        await tx.reivindicacao.update({ where: { id: reivindicacaoId }, data: { notas: pedido.notas ? `${pedido.notas}\n${nota}` : nota } });
+        return;
+      }
+    }
 
     const { count } = await tx.reivindicacao.updateMany({
       where: { id: reivindicacaoId, status: "pendente" },

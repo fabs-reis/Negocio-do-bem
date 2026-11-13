@@ -284,6 +284,35 @@ describe("documento e moderação", () => {
     expect((await db.empresa.findUniqueOrThrow({ where: { id: empresa.id } })).moderacao).toBe("rejeitada");
   });
 
+  it("garante um só dono quando duas pessoas pedem ao mesmo tempo um negócio sem dono", async () => {
+    const [primeira, segunda] = await Promise.all([criarUsuario("Primeira"), criarUsuario("Segunda")]);
+    const empresa = await criarEmpresa("disputa.livre");
+
+    const pedidos = await Promise.all(
+      [primeira, segunda].map((pessoa) => solicitarPorDocumento({ empresaId: empresa.id, usuarioId: pessoa.id, ...dadosDoNegocio })),
+    );
+
+    expect(await db.empresaMembro.count({ where: { empresaId: empresa.id } })).toBe(1);
+    expect(pedidos.map((p) => p.status).sort()).toEqual(["aprovada", "pendente"]);
+    const pendente = await db.reivindicacao.findFirstOrThrow({ where: { empresaId: empresa.id, status: "pendente" } });
+    expect(pendente.notas).toContain("O negócio já tem dono");
+    expect(await db.reivindicacao.count({ where: { empresaId: empresa.id, status: "aprovada", revisadoPorId: null } })).toBe(1);
+  });
+
+  it("garante um só dono quando duas pessoas entram com o Instagram do mesmo negócio sem dono", async () => {
+    const [primeira, segunda] = await Promise.all([criarUsuario("Primeira"), criarUsuario("Segunda")]);
+    const empresa = await criarEmpresa("disputa.instagram");
+    const conta = { userId: "ig-disputa", username: "disputa.instagram" };
+
+    const resultados = await Promise.all(
+      [primeira, segunda].map((pessoa) => processarLoginInstagram({ empresaId: empresa.id, usuarioId: pessoa.id, conta })),
+    );
+
+    expect(await db.empresaMembro.count({ where: { empresaId: empresa.id } })).toBe(1);
+    expect(resultados.map((r) => r.tipo).sort()).toEqual(["em_analise", "verificada"]);
+    expect(await db.reivindicacao.count({ where: { empresaId: empresa.id, status: "pendente" } })).toBe(1);
+  });
+
   it("aprova a fila antiga por ordem de chegada, só nos negócios sem dono e no ar", async () => {
     const [primeira, segunda, terceira, quarta, dono, moderador] = await Promise.all(
       ["Primeira", "Segunda", "Terceira", "Quarta", "Dono", "Moderação"].map((nome) => criarUsuario(nome)),
