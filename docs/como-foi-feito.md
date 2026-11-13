@@ -973,7 +973,7 @@ A B2 ainda precisa tratar o esquema aditivo e a cópia dos dados. A B3 troca cad
 1. Workers Builds conectado ao repositório executa builds de produção na `main` e previews em branches não produtivas. Configure preview bindings e secrets com o banco e buckets de teste; eles não devem apontar para recursos de produção.
 2. O PR da `stage` para `main` leva o que foi homologado para produção. O merge na `main` publica a produção. O merge é sempre com **"Create a merge commit"**, a única opção que o ruleset da `main` aceita.
 3. `scripts/cloudflare-build.sh` aplica `prisma migrate deploy` antes do bundle, usando `DATABASE_URL_UNPOOLED` quando existe. Em preview, roda também o seed, que só preenche banco vazio.
-   - **O ambiente vem da branch, e não de uma variável.** As variáveis de build da produção e as dos previews ficam em abas diferentes do painel, e um engano ali não pode levar a migração de um PR ao banco de produção. O script lê a `WORKERS_CI_BRANCH`: só a `main` é produção. As outras branches usam as variáveis `PREVIEW_*` e falham se faltar alguma. Assim, a migração de um PR ainda não aprovado nunca chega ao banco de produção.
+   - **O ambiente vem da branch, e não de uma variável.** As variáveis de build da produção e as dos previews ficam em abas diferentes do painel, e um engano ali não pode levar a migração de um PR ao banco de produção. O script lê a `WORKERS_CI_BRANCH`: só a `main` é produção. As outras branches usam as variáveis `PREVIEW_*` e falham se faltar alguma. A `main` falha se faltar o `APP_URL`. Assim, a migração de um PR ainda não aprovado nunca chega ao banco de produção.
 4. Na `main`, o `opennextjs-cloudflare deploy` preenche o cache das páginas no bucket de produção e publica. Nas outras branches, o `npm run cf:preview` (`scripts/cloudflare-preview.sh`) preenche o cache no bucket dos previews e roda o `wrangler preview`.
 
 **Segurança dos previews:**
@@ -990,7 +990,7 @@ A B2 ainda precisa tratar o esquema aditivo e a cópia dos dados. A B3 troca cad
 | --- | --- | --- |
 | `DATABASE_URL` | Sim | Conexão com o Postgres. Configure valores separados para Production e Preview. |
 | `DATABASE_URL_UNPOOLED` | Não | Conexão direta para as migrações, quando a `DATABASE_URL` passa por um pooler (como no Neon). No PlanetScale, a `DATABASE_URL` já é direta. |
-| `APP_URL` | Sim, no build e no runtime | Endereço público canônico, sem barra no final. Entra no HTML pré-renderizado, então precisa estar no build. |
+| `APP_URL` | Sim, no build e no runtime | Endereço público canônico, sem barra no final. Entra no HTML pré-renderizado, então precisa estar no build. Na produção, o `cloudflare-build.sh` falha se ele faltar ou apontar para localhost. Se faltar só no runtime da produção, `ENDERECO_DO_SITE` usa o domínio oficial (`DOMINIO_OFICIAL`, em `src/lib/dominio.ts`), nunca localhost. |
 | `DEPLOY_ENV` | No `wrangler.jsonc` | `production` ou `preview`; controla indexação, seed e envio de e-mails. No build do Workers Builds, o script define pela branch. Lida por `ambienteDeDeploy()` (`src/lib/ambiente.ts`). |
 | `PREVIEW_DATABASE_URL`, `PREVIEW_DATABASE_URL_UNPOOLED`, `PREVIEW_APP_URL`, `PREVIEW_R2_PUBLIC_URL` | No build dos previews | Variáveis de build que o `cloudflare-build.sh` usa nas branches que não são a `main`, no lugar das de produção. |
 | `NEXT_PUBLIC_R2_PUBLIC_URL` | Sim em deploy | Origem HTTPS pública do bucket de uploads R2 (domínio próprio em produção; `r2.dev` pode ser usado em POC/previews). Configure também durante o build. |

@@ -4,21 +4,28 @@
 import type { Metadata } from "next";
 import { ambienteDeDeploy } from "@/lib/ambiente";
 import { hrefCidade } from "@/lib/diretorio";
-import { REPOSITORIO } from "@/lib/dominio";
+import { DOMINIO_OFICIAL, REPOSITORIO } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
 import { ehFotoDoSite } from "@/lib/fotos";
 import type { FotoDaCidade } from "@/lib/fotos-das-cidades";
 import { linkPerfil, perfilOficial } from "@/lib/instagram";
 import { nomeOficial } from "@/lib/municipios";
 
+const AMBIENTE = ambienteDeDeploy();
+
 /**
  * Endereço público do site, sem barra no final, para os links absolutos (canônico,
- * sitemap, imagens de compartilhamento). APP_URL é o domínio público canônico.
+ * sitemap, imagens de compartilhamento, e-mails). APP_URL é o domínio público
+ * canônico e sempre tem prioridade. Sem ele, a produção usa o domínio oficial, e
+ * não localhost; o build da produção já falha sem APP_URL (#361), então isto só
+ * cobre a falta dele no runtime.
  */
-export const ENDERECO_DO_SITE = (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+export const ENDERECO_DO_SITE = (
+  process.env.APP_URL || (AMBIENTE === "production" ? DOMINIO_OFICIAL : "http://localhost:3000")
+).replace(/\/+$/, "");
 
 /** Só a produção entra nos buscadores; previews ficam de fora. */
-export const INDEXAVEL = ambienteDeDeploy() ? ambienteDeDeploy() === "production" : process.env.NODE_ENV === "production";
+export const INDEXAVEL = AMBIENTE ? AMBIENTE === "production" : process.env.NODE_ENV === "production";
 
 export const NOME_DO_SITE = "Negócio do Bem";
 
