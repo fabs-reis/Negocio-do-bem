@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { criarSenhaComLink, entrar, mandarLinkDeSenhaNova, pedirRedefinicaoDeSenha, trocarSenha, usarLinkDoEmail } from "@/acoes/conta";
+import { criarSenhaComLink, entrar, mandarLinkDeSenhaNova, pedirLinkDeAcesso, pedirRedefinicaoDeSenha, trocarSenha, usarLinkDoEmail } from "@/acoes/conta";
 import { COOKIE_LINK, criarLink, enviarLink, LIMITE_LINKS_POR_HORA, lerLink, redefinirSenhaComLink } from "@/lib/auth/links";
 import { verificarSenha } from "@/lib/auth/senha";
 import { LIMITE_POR_EMAIL, LIMITE_POR_IP, reservarTentativaDoEmail, tentativaDoIpLiberada } from "@/lib/auth/tentativas";
@@ -304,6 +304,32 @@ describe("pedirRedefinicaoDeSenha", () => {
       await rodarDepois();
     }
     expect(enviados()).toHaveLength(LIMITE_LINKS_POR_HORA);
+  });
+});
+
+describe("pedirLinkDeAcesso", () => {
+  it("para no limite por IP, sem criar link nem mandar e-mail", async () => {
+    await criarConta();
+    for (let i = 0; i < LIMITE_POR_IP; i++) await redirecionou(pedirLinkDeAcesso({}, dadosEmail(`x${i}@exemplo.com`)));
+    const resposta = await pedirLinkDeAcesso({}, dadosEmail("ana@exemplo.com"));
+    expect(resposta?.erro).toMatch(/Muitas tentativas/);
+    await rodarDepois();
+    expect(enviados()).toHaveLength(0);
+    expect(await db.linkEmail.count()).toBe(0);
+  });
+
+  it("os links de entrar de uma conta não impedem o link de senha nova dela", async () => {
+    await criarConta();
+    for (let i = 0; i < LIMITE_LINKS_POR_HORA + 3; i++) {
+      contexto.cabecalhos = { "cf-connecting-ip": `203.0.113.${10 + i}` };
+      await redirecionou(pedirLinkDeAcesso({}, dadosEmail("ana@exemplo.com")));
+      await rodarDepois();
+    }
+    contexto.cabecalhos = { "cf-connecting-ip": "203.0.113.99" };
+    await redirecionou(pedirRedefinicaoDeSenha({}, dadosEmail("ana@exemplo.com")));
+    await rodarDepois();
+
+    expect(enviados().filter((e) => e.assunto.includes("senha nova"))).toHaveLength(1);
   });
 });
 

@@ -102,7 +102,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - Cancelar no Google, ou qualquer falha, volta para `/entrar` com um aviso, mantendo o `voltar`.
   - O login pelo Google não passa pelo limite de tentativas, porque não confere senha.
 - **Limite de tentativas** (`src/lib/auth/tentativas.ts`), conferido antes do scrypt, porque cada conferência de senha custa ~32 MB de memória:
-  - **por IP:** 10 tentativas de login, cadastro, troca de senha no painel, pedido de senha nova em `/esqueci-a-senha` e senha nova pelo link, somadas, a cada 15 minutos;
+  - **por IP:** 10 tentativas de login, cadastro, troca de senha no painel, pedido de senha nova em `/esqueci-a-senha`, pedido de "Entrar por link" e senha nova pelo link, somadas, a cada 15 minutos;
   - **de onde vem o IP:** no Cloudflare, só do cabeçalho `cf-connecting-ip`, escrito pela rede, quando `CLOUDFLARE_DEPLOY=1`. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
   - **IPv6:** o IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) conta como o IPv4. Os outros endereços IPv6 contam pelo prefixo /64, então todos os endereços da mesma rede dividem a cota;
   - **sem IP confiável:** em produção, login, cadastro, pedido de recuperação, envio de senha pelo link e troca no painel são recusados antes da senha e sem criar contador. O servidor registra um aviso de configuração. Em desenvolvimento e nos testes, essas ações seguem sem limite por IP, e o limite por e-mail continua valendo;
@@ -114,7 +114,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - a comparação é em tempo constante.
 - **Esqueci minha senha** (`/esqueci-a-senha`, `pedirRedefinicaoDeSenha` e `criarSenhaComLink`). Usa o mesmo sistema de [links por e-mail](#e-mail-confirmado-e-links-por-e-mail), com o link de senha nova:
   - a pessoa digita o e-mail e volta para `/entrar` com "Se existe uma conta com esse e-mail, mandamos um link para criar uma senha nova". A resposta é a mesma com ou sem conta, e o link é criado e mandado depois da resposta, para o tempo também não revelar quais e-mails têm conta;
-  - cada pedido gasta uma tentativa do limite por IP, o mesmo do login. A conta também tem o limite de 5 links por hora: depois dele, a resposta é a mesma e o e-mail não sai;
+  - cada pedido gasta uma tentativa do limite por IP, o mesmo do login. A conta também tem o limite de 5 links de senha nova por hora: depois dele, a resposta é a mesma e o e-mail não sai;
   - o link vale **1 hora** e **uma vez só**, e funciona também na conta criada pelo Google, que passa a ter senha;
   - o link abre `/link`, "Crie uma senha nova", com a conta e os campos da senha nova e da repetição dela. A página não redireciona quem já está logado: quem desconfia de invasão abre o link na conta aberta;
   - a senha nova segue a regra do cadastro (8 a 200 caracteres) e precisa ser igual à repetição. Um erro no formulário não gasta o link. A troca passa pelo limite por IP, porque calcula o scrypt;
@@ -182,7 +182,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
   - O token sai do endereço no redirecionamento. A página `/link` é excluída da medição opcional.
 - **Depois do clique,** o link de entrar leva ao `voltar` de quando foi pedido. O de confirmar mostra "E-mail confirmado" e um botão para continuar de onde a pessoa estava.
 - **O banco guarda só o SHA-256 do token,** como na sessão.
-- **Limite:** no máximo **5 links por conta a cada hora**, somando os três tipos.
+- **Limite:** no máximo **5 links por conta a cada hora, de cada tipo**: os links de entrar não gastam a cota do link de senha nova. O "Entrar por link" também gasta uma tentativa do limite por IP.
   - Ao mandar de novo a confirmação, ou o link de senha nova pelo painel, quem passou do limite vê "Você pediu muitos e-mails na última hora".
   - No "Entrar por link" e no "Esqueci minha senha", a resposta continua a mesma, e o e-mail simplesmente não sai.
   - Os links vencidos há mais de uma hora são apagados quando a conta recebe outro.
