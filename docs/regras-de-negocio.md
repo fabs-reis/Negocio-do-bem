@@ -29,6 +29,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 19. [Embaixadores do bem](#19-embaixadores-do-bem)
 20. [Clube do Bem](#20-clube-do-bem)
 21. [Vagas](#21-vagas)
+22. [Banco de talentos](#22-banco-de-talentos)
 
 ---
 
@@ -48,6 +49,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | Liberação do clube | `LiberacaoClube` | A permissão que a moderação dá a um dono, depois de conferir o CNPJ na Receita, para criar ofertas do Clube do Bem. |
 | Vaga | `Vaga` | Uma vaga, estágio, freela ou bico que um dono divulga ([#339](https://github.com/fabs-reis/Negocio-do-bem/issues/339)). |
 | Candidatura | `Candidatura` | O pedido de uma pessoa para uma vaga, com os dados e o currículo. |
+| Talento | `Talento` | O perfil "aberto a trabalho" de uma conta no banco de talentos: o que sabe fazer, o que procura, contato e currículo ([#347](https://github.com/fabs-reis/Negocio-do-bem/issues/347)). |
 | Favorito | `EmpresaFavorita` | Um negócio que uma conta guardou com o coração, para achar de novo na página Favoritos. É a primeira parte do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)). |
 | Denúncia | campos `denunciado`, `motivoDenuncia` e `denunciadoPorId` do `Depoimento` | O aviso de que um depoimento tem algo errado. |
 | Causa | `EmpresaCausa` + lista em `src/lib/causas.ts` | Um valor que o negócio pratica, como "Escala 5x2" ou "Antirracista". Vira selo no perfil e filtro na busca. |
@@ -1166,6 +1168,9 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Vagas | `Vaga` | **Públicas** no site enquanto abertas e dentro do prazo. |
 | Candidaturas (nome, e-mail, WhatsApp, cidade, mensagem, link) | `Candidatura` | Só os donos do negócio da vaga e a moderação. Nunca aparecem no site público. |
 | Currículo de uma candidatura | Bucket R2 privado `DOCUMENTOS` (a chave em `Candidatura.curriculoChave`) | Só os donos do negócio da vaga e a moderação, por `/api/curriculos/<id>`, com cada abertura na auditoria. |
+| Perfil de talento (nome, título, sobre, habilidades, o que procura, cidade) | `Talento` | **Público** em `/vagas/talentos` enquanto a pessoa está aberta a trabalho e a moderação não suspendeu. Fora do Google (`noindex`) e do sitemap. |
+| Contato do talento (e-mail, WhatsApp, link) | `Talento` | Só a própria pessoa, a moderação e quem é dono de um negócio aprovado e fora do modo oculto. |
+| Currículo do talento | Bucket R2 privado `DOCUMENTOS` (a chave em `Talento.curriculoChave`) | Os mesmos do contato, por `/api/talentos/<id>/curriculo`, com cada abertura por outra conta na auditoria. Apagado quando a pessoa troca, remove ou apaga o perfil. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1559,3 +1564,17 @@ Código: `src/lib/vagas.ts`, `src/acoes/vagas.ts`, `/vagas`, `/painel/<@>/vagas`
 - **Privacidade:** os dados e o currículo só chegam aos donos do negócio e à moderação. O currículo fica no bucket R2 privado `DOCUMENTOS` (o mesmo da verificação do clube, com nome aleatório e sem endereço público) e só abre por `/api/curriculos/<id>`, que responde 404 a todos os outros, nunca vai para cache e registra cada abertura na auditoria (`candidatura.curriculo_visto`).
 - **Apagar:** o dono apaga uma candidatura e o currículo dela no painel (também quando a pessoa pede, pelo e-mail de confirmação). Fica na auditoria (`candidatura.apagada`). Ainda não há apagamento automático por prazo.
 - **Avisos por e-mail:** os donos recebem "Nova candidatura" (só o nome do candidato e o link do painel, sem dados nem currículo) e o candidato recebe a confirmação.
+
+## 22. Banco de talentos
+
+Código: `src/lib/talentos.ts`, `src/acoes/talentos.ts`, `/vagas/talentos`, `/vagas/talentos/meu-perfil`, `/vagas/talentos/<id>` e `/moderacao/vagas` ([#347](https://github.com/fabs-reis/Negocio-do-bem/issues/347)).
+
+- **O que é:** o "aberto a trabalho" de quem procura emprego. A pessoa conta o que sabe fazer e o que procura, e os negócios do diretório chegam até ela, mesmo sem vaga aberta. Em `/vagas`, as abas "Vagas abertas" e "Banco de talentos" levam de um lado ao outro.
+- **Quem cria:** qualquer conta com o e-mail confirmado, em `/vagas/talentos/meu-perfil`. Um perfil por conta; salvar de novo atualiza o mesmo perfil.
+- **O que o perfil tem:** como a pessoa quer aparecer (3 a 80 caracteres), título profissional (5 a 100), sobre (30 a 1500), o que procura (10 a 500), de 1 a 15 habilidades separadas por vírgula (2 a 40 caracteres cada, sem repetidas), pelo menos uma área, um tipo de contratação e uma modalidade (as mesmas listas das vagas), cidade (lista do IBGE) e e-mail. WhatsApp, link (LinkedIn, portfólio ou currículo online) e o currículo em PDF, DOC ou DOCX de até 5 MB são opcionais. A pessoa marca o consentimento para os negócios verem o contato.
+- **O texto público não leva contato:** título, sobre, o que procura e habilidades recusam links, e-mails, telefones e Pix (a mesma regra das vagas e ofertas). O contato vai nos campos próprios, que só os negócios veem.
+- **Aberto ou pausado:** a caixa "Estou aberto a trabalho" (ou o botão Pausar) tira o perfil da base sem apagar. Pausado, só a própria pessoa e a moderação veem a página do perfil.
+- **Quem vê:** `/vagas/talentos` lista os perfis abertos e não suspensos, do atualizado mais recente para o mais antigo, 20 por página, com filtros (busca por nome, título, habilidades, o que procura e cidade; área; contratação; modalidade; estado) num formulário GET que funciona sem JavaScript. A lista e os perfis ficam fora do Google. Contato e currículo aparecem só para a própria pessoa, a moderação e donos de negócios aprovados e fora do modo oculto (os mesmos que podem publicar vagas); os outros veem um convite para entrar ou cadastrar o negócio.
+- **Currículo:** fica no bucket privado `DOCUMENTOS`, com o tipo conferido pelos primeiros bytes, e só abre por `/api/talentos/<id>/curriculo`, que responde 404 a todos os outros e nunca vai para cache. Cada abertura por outra conta fica na auditoria (`talento.curriculo_visto`). Trocar ou remover o currículo apaga o arquivo antigo.
+- **Moderação:** em `/moderacao/vagas` (e na página do perfil), a moderação tira o perfil da base com um motivo, que a pessoa vê em "Meu perfil", ou devolve. Fica na auditoria (`talento.suspenso`, `talento.reativado`).
+- **Apagar:** a pessoa apaga o perfil e o currículo em "Meu perfil" (`talento.apagado` na auditoria). As candidaturas que ela já enviou para vagas continuam com as empresas.

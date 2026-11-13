@@ -48,6 +48,7 @@ model Usuario {
   cupons             Cupom[]             @relation("CuponsGerados")
   vagasCriadas       Vaga[]              @relation("VagasCriadas")
   candidaturas       Candidatura[]       @relation("Candidaturas")
+  talento            Talento?
   cuponsValidados    Cupom[]             @relation("CuponsValidados")
 }
 
@@ -503,4 +504,44 @@ model Candidatura {
 
   @@unique([vagaId, email])
   @@index([vagaId, criadoEm])
+}
+
+// Perfil "aberto a trabalho" do banco de talentos (#347). Um por conta; a pessoa liga e
+// desliga `aberto` sem apagar. Contato e currículo só para donos de negócios do diretório
+// e para a moderação.
+model Talento {
+  id             String   @id @default(cuid())
+  usuarioId      String   @unique
+  usuario        Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  // Como a pessoa quer aparecer na base.
+  nome           String
+  // Título profissional: "Confeiteira com 5 anos de experiência".
+  titulo         String
+  sobre          String
+  // O que procura, em texto livre, e os filtros: chaves de AREAS, CONTRATOS e MODALIDADES.
+  procura        String
+  habilidades    String[]
+  areas          String[]
+  contratos      String[]
+  modalidades    String[]
+  cidade         String
+  uf             String
+  email          String
+  // Só os dígitos, com o 55.
+  whatsapp       String?
+  // Currículo online, LinkedIn ou portfólio.
+  link           String?
+  // Chave do arquivo no bucket privado DOCUMENTOS e o nome original.
+  curriculoChave String?
+  curriculoNome  String?
+  aberto         Boolean  @default(true)
+  // "ativo" | "suspenso" (pela moderação)
+  status         String   @default("ativo")
+  motivo         String?
+  // Nome, título, habilidades, procura e cidade, minúsculos e sem acentos.
+  busca          String
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
+  @@index([aberto, status, atualizadoEm])
 }

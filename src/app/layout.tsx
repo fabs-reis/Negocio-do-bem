@@ -146,6 +146,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/sobre#dono" className="block hover:text-tinta">Reivindicar meu perfil</Link>
               <Link href="/clube-do-bem" className="block hover:text-tinta">Clube do Bem</Link>
               <Link href="/vagas" className="block hover:text-tinta">Divulgar vagas</Link>
+              <Link href="/vagas/talentos" className="block hover:text-tinta">Banco de talentos</Link>
               <Link href="/sobre#privacidade" className="block hover:text-tinta">Privacidade e remoção</Link>
               {ID_ANALYTICS && <PreferenciasAnalytics />}
             </div>

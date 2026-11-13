@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { AbasDeVagas } from "@/components/AbasDeVagas";
 import { AvisoDaUrl } from "@/components/Avisos";
 import { Paginacao } from "@/components/Paginacao";
+import { SeletorDeFiltro } from "@/components/SeletorDeFiltro";
 import { VagaCard } from "@/components/VagaCard";
 import { db } from "@/lib/db";
 import { UFS } from "@/lib/dominio";
@@ -34,6 +36,7 @@ export default function Vagas(props: PageProps<"/vagas">) {
         Toda vaga mostra o valor, tem contratação dentro da lei e seleção sem discriminação. Você se candidata aqui mesmo, e seus dados vão só
         para a empresa da vaga.
       </p>
+      <AbasDeVagas ativa="vagas" />
       <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-3xl bg-superficie" />}>
         <Conteudo searchParams={props.searchParams} />
       </Suspense>
@@ -85,10 +88,10 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/vagas">, "searchParam
           </label>
           <input id="busca" name="busca" defaultValue={filtros.busca} maxLength={80} className="campo" placeholder="Ex.: atendente, padaria, Recife" />
         </div>
-        <Seletor id="area" rotulo="Área" valor={filtros.area} opcoes={Object.entries(AREAS)} vazio="Todas as áreas" />
-        <Seletor id="contrato" rotulo="Contratação" valor={filtros.contrato} opcoes={Object.entries(CONTRATOS)} vazio="Qualquer tipo" />
-        <Seletor id="modalidade" rotulo="Modalidade" valor={filtros.modalidade} opcoes={Object.entries(MODALIDADES)} vazio="Qualquer modalidade" />
-        <Seletor id="uf" rotulo="Estado" valor={filtros.uf} opcoes={ufsComVaga.map((uf) => [uf, uf])} vazio="Todos os estados" />
+        <SeletorDeFiltro id="area" rotulo="Área" valor={filtros.area} opcoes={Object.entries(AREAS)} vazio="Todas as áreas" />
+        <SeletorDeFiltro id="contrato" rotulo="Contratação" valor={filtros.contrato} opcoes={Object.entries(CONTRATOS)} vazio="Qualquer tipo" />
+        <SeletorDeFiltro id="modalidade" rotulo="Modalidade" valor={filtros.modalidade} opcoes={Object.entries(MODALIDADES)} vazio="Qualquer modalidade" />
+        <SeletorDeFiltro id="uf" rotulo="Estado" valor={filtros.uf} opcoes={ufsComVaga.map((uf) => [uf, uf])} vazio="Todos os estados" />
         <div className="flex items-end gap-2">
           <button type="submit" className="botao flex-1">
             Filtrar
@@ -121,30 +124,27 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/vagas">, "searchParam
       <Paginacao atual={pagina} total={paginas} href={(p) => enderecoDaPagina(filtros, p)} />
 
       <section className="cartao mt-12 p-6 sm:p-8">
-        <h2 className="font-display text-2xl font-semibold">Tem um negócio e precisa de gente?</h2>
-        <p className="mt-2 text-suave">Quem é dono de um negócio do diretório publica vagas de graça, no painel, e recebe as candidaturas por aqui.</p>
-        <Link href="/painel" className="botao-coral mt-4">
-          Publicar uma vaga
+        <h2 className="font-display text-2xl font-semibold">Procurando trabalho?</h2>
+        <p className="mt-2 text-suave">
+          Entre no banco de talentos: conte o que você sabe fazer e o que procura, e os negócios do diretório chegam até você, mesmo antes de abrir uma vaga.
+        </p>
+        <Link href="/vagas/talentos/meu-perfil" className="botao-coral mt-4">
+          Estou aberto a trabalho
         </Link>
       </section>
-    </>
-  );
-}
 
-function Seletor({ id, rotulo, valor, opcoes, vazio }: { id: string; rotulo: string; valor?: string; opcoes: (readonly [string, string])[] | [string, string][]; vazio: string }) {
-  return (
-    <div>
-      <label htmlFor={id} className="rotulo">
-        {rotulo}
-      </label>
-      <select id={id} name={id} defaultValue={valor ?? ""} className="campo">
-        <option value="">{vazio}</option>
-        {opcoes.map(([chave, nome]) => (
-          <option key={chave} value={chave}>
-            {nome}
-          </option>
-        ))}
-      </select>
-    </div>
+      <section className="cartao mt-4 p-6 sm:p-8">
+        <h2 className="font-display text-2xl font-semibold">Tem um negócio e precisa de gente?</h2>
+        <p className="mt-2 text-suave">Quem é dono de um negócio do diretório publica vagas de graça, no painel, e recebe as candidaturas por aqui.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href="/painel" className="botao">
+            Publicar uma vaga
+          </Link>
+          <Link href="/vagas/talentos" className="botao-claro">
+            Ver o banco de talentos
+          </Link>
+        </div>
+      </section>
+    </>
   );
 }
