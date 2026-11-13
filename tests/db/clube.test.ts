@@ -17,6 +17,23 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
+// O bucket R2 de mentira, para os testes em que a exclusão do documento falha.
+const r2 = vi.hoisted(() => ({ objetos: new Set<string>(), apagarFalha: false }));
+vi.mock("@opennextjs/cloudflare", () => ({
+  getCloudflareContext: () => ({
+    env: {
+      DOCUMENTOS: {
+        put: async (chave: string) => void r2.objetos.add(chave),
+        get: async () => null,
+        delete: async (chaves: string | string[]) => {
+          if (r2.apagarFalha) throw new Error("R2 indisponível");
+          for (const chave of [chaves].flat()) r2.objetos.delete(chave);
+        },
+      },
+    },
+  }),
+}));
+
 // Os documentos da verificação vão para uma pasta de teste, e não para o bucket privado.
 const PASTA_DOS_DOCUMENTOS = mkdtempSync(path.join(tmpdir(), "ndb-documentos-"));
 process.env.DOCUMENTOS_PASTA = PASTA_DOS_DOCUMENTOS;
@@ -93,6 +110,8 @@ const liberacao = () => db.liberacaoClube.findUnique({ where: { empresaId_usuari
 const auditoria = () => db.registroAuditoria.findMany({ where: { alvoId: empresaId }, orderBy: { criadoEm: "asc" } });
 
 beforeEach(async () => {
+  r2.objetos.clear();
+  r2.apagarFalha = false;
   for (const arquivo of arquivosGuardados()) rmSync(path.join(PASTA_DOS_DOCUMENTOS, arquivo));
   await limparBanco();
   moderador = await db.usuario.create({ data: { nome: "Mona Moderação", email: "mona@exemplo.com", papel: "moderador" } });
@@ -116,7 +135,11 @@ beforeEach(async () => {
   sessao.usuario = { id: dona.id, emailConfirmado: true };
   vi.mocked(after).mockClear();
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
 afterAll(async () => {
   rmSync(PASTA_DOS_DOCUMENTOS, { recursive: true, force: true });
   await limparBanco();
@@ -380,6 +403,56 @@ describe("o dono pede a verificação com o CNPJ", () => {
 
     expect(arquivosGuardados()).toEqual([]);
     expect((await liberacao())!.documentoChaves).toEqual([]);
+  });
+
+  describe("quando a exclusão do documento no bucket falha", () => {
+    // Pedido feito com o bucket funcionando; a falha vem só na hora de apagar.
+    async function pedidoNoBucket() {
+      vi.stubEnv("DOCUMENTOS_PASTA", "");
+      vi.stubEnv("NEXT_PUBLIC_R2_PUBLIC_URL", "https://fotos.exemplo.com");
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      receitaCom("ATIVA");
+      await pedir();
+      expect(r2.objetos.size).toBe(1);
+      r2.apagarFalha = true;
+    }
+
+    it("liberar mantém a chave na linha, e a fila do clube tenta de novo", async () => {
+      await pedidoNoBucket();
+
+      await liberar().catch(() => undefined);
+
+      expect((await liberacao())!).toMatchObject({ status: "liberada", documentoChaves: [expect.any(String)] });
+      expect(r2.objetos.size).toBe(1);
+
+      r2.apagarFalha = false;
+      expect(await apagarDocumentosVencidos()).toBe(1);
+      expect(r2.objetos.size).toBe(0);
+      expect((await liberacao())!.documentoChaves).toEqual([]);
+    });
+
+    it("recusar mantém a chave na linha, e a fila do clube tenta de novo", async () => {
+      await pedidoNoBucket();
+      const { id } = (await liberacao())!;
+
+      await recusarPedidoDoClube(formulario({ liberacaoId: id, motivo: "Não bate" })).catch(() => undefined);
+
+      expect((await liberacao())!).toMatchObject({ status: "recusada", documentoChaves: [expect.any(String)] });
+      expect(r2.objetos.size).toBe(1);
+
+      r2.apagarFalha = false;
+      expect(await apagarDocumentosVencidos()).toBe(1);
+      expect(r2.objetos.size).toBe(0);
+      expect((await liberacao())!.documentoChaves).toEqual([]);
+    });
+
+    it("a fila do clube não mexe no documento de um pedido pendente com menos de 30 dias", async () => {
+      await pedidoNoBucket();
+      r2.apagarFalha = false;
+
+      expect(await apagarDocumentosVencidos()).toBe(0);
+      expect(r2.objetos.size).toBe(1);
+    });
   });
 
   it("os documentos de um pedido parado há mais de 30 dias saem quando a fila abre", async () => {
