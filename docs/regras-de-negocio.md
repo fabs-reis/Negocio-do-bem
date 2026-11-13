@@ -29,6 +29,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 19. [Embaixadores do bem](#19-embaixadores-do-bem)
 20. [Clube do Bem](#20-clube-do-bem)
 21. [Vagas](#21-vagas)
+22. [Banco de talentos](#22-banco-de-talentos)
 
 ---
 
@@ -48,6 +49,7 @@ O raciocínio por trás das decisões e a história do projeto estão em [Como o
 | Liberação do clube | `LiberacaoClube` | A permissão que a moderação dá a um dono, depois de conferir o CNPJ na Receita, para criar ofertas do Clube do Bem. |
 | Vaga | `Vaga` | Uma vaga, estágio, freela ou bico que um dono divulga ([#339](https://github.com/fabs-reis/Negocio-do-bem/issues/339)). |
 | Candidatura | `Candidatura` | O pedido de uma pessoa para uma vaga, com os dados e o currículo. |
+| Talento | `Talento` | O perfil "aberto a trabalho" de uma conta no banco de talentos: o que sabe fazer, o que procura, contato e currículo ([#347](https://github.com/fabs-reis/Negocio-do-bem/issues/347)). |
 | Favorito | `EmpresaFavorita` | Um negócio que uma conta guardou com o coração, para achar de novo na página Favoritos. É a primeira parte do Clube do Bem ([#248](https://github.com/fabs-reis/Negocio-do-bem/issues/248)). |
 | Denúncia | campos `denunciado`, `motivoDenuncia` e `denunciadoPorId` do `Depoimento` | O aviso de que um depoimento tem algo errado. |
 | Causa | `EmpresaCausa` + lista em `src/lib/causas.ts` | Um valor que o negócio pratica, como "Escala 5x2" ou "Antirracista". Vira selo no perfil e filtro na busca. |
@@ -100,7 +102,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - Cancelar no Google, ou qualquer falha, volta para `/entrar` com um aviso, mantendo o `voltar`.
   - O login pelo Google não passa pelo limite de tentativas, porque não confere senha.
 - **Limite de tentativas** (`src/lib/auth/tentativas.ts`), conferido antes do scrypt, porque cada conferência de senha custa ~32 MB de memória:
-  - **por IP:** 10 tentativas de login, cadastro, troca de senha no painel, pedido de senha nova em `/esqueci-a-senha` e senha nova pelo link, somadas, a cada 15 minutos;
+  - **por IP:** 10 tentativas de login, cadastro, troca de senha no painel, pedido de senha nova em `/esqueci-a-senha`, pedido de "Entrar por link" e senha nova pelo link, somadas, a cada 15 minutos;
   - **de onde vem o IP:** no Cloudflare, só do cabeçalho `cf-connecting-ip`, escrito pela rede, quando `CLOUDFLARE_DEPLOY=1`. Em outra hospedagem, de nenhum cabeçalho, a menos que quem cuida do site defina `AUTENTICACAO_PROXY_CONFIAVEL=1` (há um proxy seu na frente, que escreve o `x-forwarded-for`): então vale o último valor desse cabeçalho, se for um IP. Um cabeçalho que o visitante pode escrever nunca vale;
   - **IPv6:** o IPv4 escrito como IPv6 (`::ffff:203.0.113.5`) conta como o IPv4. Os outros endereços IPv6 contam pelo prefixo /64, então todos os endereços da mesma rede dividem a cota;
   - **sem IP confiável:** em produção, login, cadastro, pedido de recuperação, envio de senha pelo link e troca no painel são recusados antes da senha e sem criar contador. O servidor registra um aviso de configuração. Em desenvolvimento e nos testes, essas ações seguem sem limite por IP, e o limite por e-mail continua valendo;
@@ -112,7 +114,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - a comparação é em tempo constante.
 - **Esqueci minha senha** (`/esqueci-a-senha`, `pedirRedefinicaoDeSenha` e `criarSenhaComLink`). Usa o mesmo sistema de [links por e-mail](#e-mail-confirmado-e-links-por-e-mail), com o link de senha nova:
   - a pessoa digita o e-mail e volta para `/entrar` com "Se existe uma conta com esse e-mail, mandamos um link para criar uma senha nova". A resposta é a mesma com ou sem conta, e o link é criado e mandado depois da resposta, para o tempo também não revelar quais e-mails têm conta;
-  - cada pedido gasta uma tentativa do limite por IP, o mesmo do login. A conta também tem o limite de 5 links por hora: depois dele, a resposta é a mesma e o e-mail não sai;
+  - cada pedido gasta uma tentativa do limite por IP, o mesmo do login. A conta também tem o limite de 5 links de senha nova por hora: depois dele, a resposta é a mesma e o e-mail não sai;
   - o link vale **1 hora** e **uma vez só**, e funciona também na conta criada pelo Google, que passa a ter senha;
   - o link abre `/link`, "Crie uma senha nova", com a conta e os campos da senha nova e da repetição dela. A página não redireciona quem já está logado: quem desconfia de invasão abre o link na conta aberta;
   - a senha nova segue a regra do cadastro (8 a 200 caracteres) e precisa ser igual à repetição. Um erro no formulário não gasta o link. A troca passa pelo limite por IP, porque calcula o scrypt;
@@ -177,10 +179,10 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
 - **Abrir o link não usa o link.** `/api/link` guarda o token num cookie (`ndb_link`, `httpOnly`, só no caminho `/link`) e leva a `/link`, que mostra a conta e pede um clique em "Entrar" ou em "Confirmar meu e-mail", ou mostra os campos da senha nova.
   - Chegar a `/api/link` sem token apaga o cookie: num computador dividido, a próxima pessoa não herda um link que ainda vale. Um token novo substitui o anterior.
   - Filtros de e-mail que abrem links sozinhos (Outlook, antivírus) não gastam o link nem confirmam um e-mail sem a pessoa.
-  - O token sai do endereço antes de a página carregar o Google Analytics.
+  - O token sai do endereço no redirecionamento. A página `/link` é excluída da medição opcional.
 - **Depois do clique,** o link de entrar leva ao `voltar` de quando foi pedido. O de confirmar mostra "E-mail confirmado" e um botão para continuar de onde a pessoa estava.
 - **O banco guarda só o SHA-256 do token,** como na sessão.
-- **Limite:** no máximo **5 links por conta a cada hora**, somando os três tipos.
+- **Limite:** no máximo **5 links por conta a cada hora, de cada tipo**: os links de entrar não gastam a cota do link de senha nova. O "Entrar por link" também gasta uma tentativa do limite por IP.
   - Ao mandar de novo a confirmação, ou o link de senha nova pelo painel, quem passou do limite vê "Você pediu muitos e-mails na última hora".
   - No "Entrar por link" e no "Esqueci minha senha", a resposta continua a mesma, e o e-mail simplesmente não sai.
   - Os links vencidos há mais de uma hora são apagados quando a conta recebe outro.
@@ -526,7 +528,7 @@ O @ do Instagram não é pedido: é o do próprio perfil.
 
 ### A decisão da moderação
 
-Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar, pedidos de contas já removidas dos donos e pedidos feitos antes da aprovação automática. Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
+Na aba "Reivindicações" (`/moderacao?aba=reivindicacoes`) ficam os pedidos que não foram aprovados na hora: disputas, negócios tirados do ar, pedidos de contas já removidas dos donos e pedidos feitos antes da aprovação automática. Se duas pessoas pedem o mesmo negócio sem dono ao mesmo tempo, só a primeira aprovação vale e a outra cai aqui como disputa, com a nota "O negócio já tem dono". Eles aparecem dos mais antigos para os mais novos, até 50 por vez.
 
 **Fila antiga:** quando há pedidos pendentes que podem ser aprovados sozinhos (`pendentesQueAprovamSozinhos`: negócio sem dono e no ar, de conta que não foi removida dos donos dele), o topo da aba mostra o botão **"Aprovar os N pedidos sem dono"** (`aprovarPendentesSemDono`). Ele aplica a mesma regra da aprovação na hora a esses pedidos, por ordem de chegada. Se duas pessoas pediram o mesmo negócio, só a primeira elegível é aprovada, e o pedido da segunda continua na fila, agora como disputa. A auditoria registra quem da moderação clicou.
 
@@ -538,7 +540,7 @@ Cada pedido mostra:
 - no pedido por dados do negócio:
   - relação, contato, CNPJ formatado e site;
   - a mensagem;
-  - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI na hora. A consulta manda um User-Agent próprio, porque sem ele a BrasilAPI responde 403. Ela é só um apoio: se falhar, aparece "Não foi possível consultar a Receita agora" e a análise segue;
+  - **os dados da Receita para o CNPJ** (razão social, nome fantasia, situação cadastral, município e UF), consultados na BrasilAPI. Somente o resultado público bem-sucedido fica em cache por CNPJ normalizado, com revalidação após 24 horas. Documentos equivalentes compartilham a consulta. A consulta mantém o User-Agent próprio para evitar o 403 e o timeout de cinco segundos. Sem sucesso anterior, uma falha mostra "Não foi possível consultar a Receita agora" e a análise segue. O próximo carregamento pode tentar novamente. Se a revalidação falhar, o sucesso anterior permanece disponível até uma atualização bem-sucedida. A janela diária não garante idade máxima durante indisponibilidade. Esse cache não inclui fichas, contatos, sessões nem permissões.
 - num pedido antigo por código de DM, o código e o lembrete de conferir se a DM veio do @ do negócio;
 - as anotações automáticas do sistema, quando houver;
 - os donos atuais (nome e e-mail), quando houver.
@@ -1166,6 +1168,9 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 | Vagas | `Vaga` | **Públicas** no site enquanto abertas e dentro do prazo. |
 | Candidaturas (nome, e-mail, WhatsApp, cidade, mensagem, link) | `Candidatura` | Só os donos do negócio da vaga e a moderação. Nunca aparecem no site público. |
 | Currículo de uma candidatura | Bucket R2 privado `DOCUMENTOS` (a chave em `Candidatura.curriculoChave`) | Só os donos do negócio da vaga e a moderação, por `/api/curriculos/<id>`, com cada abertura na auditoria. |
+| Perfil de talento (nome, título, sobre, habilidades, o que procura, cidade) | `Talento` | **Público** em `/vagas/talentos` enquanto a pessoa está aberta a trabalho e a moderação não suspendeu. Fora do Google (`noindex`) e do sitemap. |
+| Contato do talento (e-mail, WhatsApp, link) | `Talento` | Só a própria pessoa, a moderação e quem é dono de um negócio aprovado e fora do modo oculto. |
+| Currículo do talento | Bucket R2 privado `DOCUMENTOS` (a chave em `Talento.curriculoChave`) | Os mesmos do contato, por `/api/talentos/<id>/curriculo`, com cada abertura por outra conta na auditoria. Apagado quando a pessoa troca, remove ou apaga o perfil. |
 | Dados do perfil do negócio | `Empresa` | **Público** quando o negócio está publicado. |
 | Dados do pedido de reivindicação (relação, contato, CNPJ, site, mensagem) | `Reivindicacao` | Só a moderação. A pessoa vê o status e o motivo da recusa. |
 | Depoimentos | `Depoimento` | **Públicos**, com nome e data. |
@@ -1189,35 +1194,42 @@ O site manda poucos e-mails: só quando alguém precisa agir ou saber de uma dec
 
 ### Medição de visitas
 
-- O site usa o **Google Analytics 4**, só em produção: ele só carrega quando `NEXT_PUBLIC_GA_ID` está configurado, e essa variável só existe nas variáveis de build da produção do Cloudflare.
-- A "medição otimizada" está ligada. Ela conta:
-  - páginas vistas;
-  - rolagem;
-  - cliques para outros sites;
-  - buscas no diretório (o parâmetro `q` da URL).
-- O site manda também estes eventos (`src/lib/medicao.ts`):
+Código: `src/components/PreferenciasAnalytics.tsx`, `src/components/EventosAnalytics.tsx`, `src/lib/consentimento-analytics.ts`, `src/lib/medicao.ts`, `src/lib/medicao-servidor.ts` e `src/app/api/analytics/route.ts`.
 
-  | Evento | Quando | Parâmetros |
+- O provedor continua sendo **Google Analytics 4**, conforme #13, #203 e a restauração de produção em #246. A remoção proposta no PR #144 é histórica e não define a direção atual do produto. Nenhum provedor novo foi adicionado.
+- **Finalidade e necessidade:** entender visitas, páginas públicas, classes de origem do tráfego e interações mínimas. A medição não é necessária ao serviço. A base adotada para esse tratamento opcional é a escolha positiva prévia. A validação jurídica pelo responsável continua pendente na #109.
+- **Antes de aceitar, após recusar ou sem armazenamento disponível:** não há carregador Google, listener de cliques da medição, fila de eventos ou cookie opcional novo. `NEXT_PUBLIC_GA_ID` continua sendo uma variável de build exclusiva da produção do Cloudflare, mas sua presença não autoriza medição.
+- **Escolha:** aceitar e recusar têm o mesmo estilo e destaque. O site continua acessível após a recusa. O botão **Preferências de privacidade**, no rodapé, reabre os controles e permite revogar. `ndb_consentimento` guarda apenas versão do aviso, escolha e instante, por até 180 dias. Uma versão inválida, antiga ou vencida não autoriza medição.
+- **Separação funcional:** sessão (`ndb_sessao`), cookies de OAuth e links de acesso, tema e rascunhos não são medição. Aceitar, recusar e revogar não os apagam e não condicionam o login.
+- **Rotas permitidas:** início, explorar, sobre, cidades, embaixadores, Clube do Bem, categorias (`/tipos`), cupons, favoritos, participar e instruções de instalação. Perfis públicos, páginas de cidades e páginas de categorias usam caminhos e títulos genéricos, sem identificadores. Conta, login, reivindicação, painel, moderação, causas e rotas desconhecidas ficam fora. Nenhum parâmetro de consulta ou fragmento entra nos eventos.
+- **Isolamento:** o carregador fica no endpoint local `/api/analytics`, com `sandbox="allow-scripts"` no iframe e `sandbox allow-scripts` na CSP da resposta. `allow-same-origin` não é permitido. A origem opaca impede o script de ler a página principal, cookies, localStorage e rascunhos. Não foi criado outro domínio ou provedor. A resposta permite Google apenas nesse documento (incluindo `*.google.com` para `/g/collect`) e usa `frame-ancestors 'self'`. A página principal não permite conexões Google.
+- **Mensagens:** o parent envia somente parâmetros saneados à referência `contentWindow` daquele frame. O destino `*` é necessário para a origem opaca. O parent só aceita a mensagem de pronto com `source` igual ao frame atual e `origin` igual a `null`. O documento só aceita mensagens do seu `parent`, com a origem real do site, e valida de novo rotas, eventos e parâmetros. Nunca recebe o endereço privado ou os campos da página.
+- **Armazenamento da medição e `client_id` estável:** o sandbox impede cookies GA e o acesso ao armazenamento do site. A inicialização declara `analytics_storage`, `ad_storage`, `ad_user_data` e `ad_personalization` como negados por padrão e, após validar a escolha positiva, atualiza `analytics_storage: 'granted'` com um `client_id` derivado da escolha vigente, mantendo o mesmo frame durante a navegação entre páginas públicas permitidas.
+- **Troca de rota e limpeza:** a navegação entre páginas públicas permitidas reutiliza o mesmo frame. Entrar em área excluída ou revogar o consentimento remove o frame e interrompe seus scripts e filas em memória. A medição otimizada remota não observa a página principal. Páginas vistas são enviadas explicitamente com endereço genérico, título fixo e referrer vazio.
+- **Origem do tráfego:** apenas `direto`, `busca`, `rede_social`, `interno` ou `outro`, por lista fixa de domínios conhecidos. Não são enviados domínio de origem, caminho, busca ou referrer privado.
+- **Eventos permitidos (listas fechadas, sem cidade nem identificadores pessoais):**
+
+  | Evento | Comportamento atual | Parâmetros permitidos |
   | --- | --- | --- |
-  | `sign_up` | Conta criada | `method`: `senha` ou `google` |
-  | `login` | Entrou numa conta que já existia | `method`: `senha`, `google` ou `link` |
-  | `negocio_cadastrado` | Negócio publicado no diretório | `tipo` (`indicacao` ou `dono`), `categoria`, `uf`, `cidade`, `com_instagram` (`sim` ou `nao`) |
-  | `perfil_reivindicado` | Pedido de dono enviado | `method` (`documento` ou `instagram`), `resultado` (`verificada` ou `em_analise`) |
-  | `depoimento_publicado` | Depoimento publicado | `categoria` |
-  | `negocio_favoritado` | Alguém pôs um negócio nos favoritos (também ao gerar o cupom). Quem já tinha favoritado não conta de novo | `categoria`, `uf` |
-  | `oferta_criada` | Um dono criou uma oferta do clube | `categoria`, `uf` |
-  | `cupom_gerado` | Alguém gerou um cupom. Pedir de novo o mesmo cupom não conta | `categoria`, `uf` |
-  | `cupom_usado` | Um dono marcou um cupom como usado | `categoria`, `uf` |
-  | `contato_negocio` | Clique em Ligar, WhatsApp, Instagram, site ou e-mail no perfil de um negócio público, menos do próprio dono | `canal` (`telefone`, `whatsapp`, `instagram`, `site` ou `email`), `categoria`, `uf` |
-  | `cadastro_etapa` | Cada etapa do cadastro por etapas em `/participar` | `etapa` e, depois da escolha, `tipo` |
-  | `app_instalado` | Site instalado como app pelo Chrome ou pelo Edge. O Safari não avisa quando alguém instala | — |
-  | `app_aberto` | Site aberto pelo ícone do app instalado, uma vez por abertura | — |
-  | `instalacao_aparelho` | Escolha do celular em `/instalacao` | `aparelho` (`iphone` ou `android`) |
+  | `sign_up` | Só após criação de conta e escolha positiva | `method` (`senha` ou `google`) |
+  | `login` | Só após login e escolha positiva | `method` (`senha`, `google` ou `link`) |
+  | `negocio_cadastrado` | Só após publicação e escolha positiva | `tipo`, `categoria`, `uf`, `com_instagram` |
+  | `perfil_reivindicado` | Só após pedido e escolha positiva | `method` (`documento` ou `instagram`), `resultado` (`verificada` ou `em_analise`) |
+  | `depoimento_publicado` | Só após publicação e escolha positiva | `categoria` |
+  | `negocio_favoritado` | Só após favoritar e escolha positiva | `categoria`, `uf` |
+  | `oferta_criada` | Só após criar oferta e escolha positiva | `categoria`, `uf` |
+  | `cupom_gerado` | Só após gerar cupom e escolha positiva | `categoria`, `uf` |
+  | `cupom_usado` | Só após validar cupom e escolha positiva | `categoria`, `uf` |
+  | `contato_negocio` | Contato no perfil público, exceto pelo próprio dono | `canal`, `categoria`, `uf` |
+  | `cadastro_etapa` | Etapa fixa do cadastro público | `etapa`, `tipo` opcional |
+  | `app_instalado` | Instalação do app | — |
+  | `app_aberto` | Abertura pelo app instalado | — |
+  | `instalacao_aparelho` | Escolha do aparelho em `/instalacao` | `aparelho` (`iphone` ou `android`) |
 
-- Os eventos de ação só contam o que deu certo no servidor, nunca a tentativa. A ação deixa o evento no cookie `ndb_eventos` (5 minutos, legível pelo navegador), e o navegador o manda ao Analytics na página seguinte, em até 1 segundo, e apaga o cookie. Sem o Analytics configurado, o cookie não é criado.
-- O Analytics usa cookies e não recebe nome, e-mail, telefone, @ nem o nome do negócio. Os eventos levam só a categoria, a cidade e a UF do negócio, que já são públicas no perfil. O site não manda `user_id`.
-- O **Cloudflare Web Analytics** também mede as visitas. Ele é ligado no painel do Cloudflare, e não no código: o Cloudflare injeta nas páginas o script `static.cloudflareinsights.com/beacon.min.js`, que conta as visitas e o tempo de carregamento sem cookies e sem identificar quem visita. Para desligar, desative o Web Analytics do domínio no painel do Cloudflare.
-- Por decisão do projeto, o site não mostra aviso de cookies. A página "Como funciona" explica a medição na seção de privacidade.
+- `page_view` mede páginas permitidas. Cidade, causas, texto livre, títulos reais, nomes, e-mails, telefones, @, nome do negócio e `user_id` não são enviados. Valores fora das listas fixas são recusados.
+- **Cloudflare Web Analytics:** mede visitas e tempo de carregamento sem cookies e sem identificar quem visita, injetado pelo Cloudflare (`static.cloudflareinsights.com/beacon.min.js`).
+- **Fila:** só ações bem-sucedidas e consentidas criam `ndb_eventos`, por até 5 minutos e com até cinco eventos mínimos. A fila é vinculada ao valor exato da escolha. Aceitar não recupera eventos anteriores. Revogar descarta a fila e remove cookies opcionais acessíveis, sem tocar nos funcionais. Não há Measurement Protocol ou fingerprint.
+- **Limite da prova local:** os testes usam ID sintético e interceptam chamadas externas. Eles não contatam o Google nem comprovam recebimento na propriedade real. Retenção, compartilhamento, recursos de publicidade, dados já recebidos e configuração efetiva da conta Google precisam de verificação pelo responsável. O código desativa sinais Google e personalização de publicidade na inicialização, mas isso não substitui essa verificação. A #109 continua aberta até a aceitação dessas pendências.
 
 ### Proteções da interface
 
@@ -1552,3 +1564,17 @@ Código: `src/lib/vagas.ts`, `src/acoes/vagas.ts`, `/vagas`, `/painel/<@>/vagas`
 - **Privacidade:** os dados e o currículo só chegam aos donos do negócio e à moderação. O currículo fica no bucket R2 privado `DOCUMENTOS` (o mesmo da verificação do clube, com nome aleatório e sem endereço público) e só abre por `/api/curriculos/<id>`, que responde 404 a todos os outros, nunca vai para cache e registra cada abertura na auditoria (`candidatura.curriculo_visto`).
 - **Apagar:** o dono apaga uma candidatura e o currículo dela no painel (também quando a pessoa pede, pelo e-mail de confirmação). Fica na auditoria (`candidatura.apagada`). Ainda não há apagamento automático por prazo.
 - **Avisos por e-mail:** os donos recebem "Nova candidatura" (só o nome do candidato e o link do painel, sem dados nem currículo) e o candidato recebe a confirmação.
+
+## 22. Banco de talentos
+
+Código: `src/lib/talentos.ts`, `src/acoes/talentos.ts`, `/vagas/talentos`, `/vagas/talentos/meu-perfil`, `/vagas/talentos/<id>` e `/moderacao/vagas` ([#347](https://github.com/fabs-reis/Negocio-do-bem/issues/347)).
+
+- **O que é:** o "aberto a trabalho" de quem procura emprego. A pessoa conta o que sabe fazer e o que procura, e os negócios do diretório chegam até ela, mesmo sem vaga aberta. Em `/vagas`, as abas "Vagas abertas" e "Banco de talentos" levam de um lado ao outro.
+- **Quem cria:** qualquer conta com o e-mail confirmado, em `/vagas/talentos/meu-perfil`. Um perfil por conta; salvar de novo atualiza o mesmo perfil.
+- **O que o perfil tem:** como a pessoa quer aparecer (3 a 80 caracteres), título profissional (5 a 100), sobre (30 a 1500), o que procura (10 a 500), de 1 a 15 habilidades separadas por vírgula (2 a 40 caracteres cada, sem repetidas), pelo menos uma área, um tipo de contratação e uma modalidade (as mesmas listas das vagas), cidade (lista do IBGE) e e-mail. WhatsApp, link (LinkedIn, portfólio ou currículo online) e o currículo em PDF, DOC ou DOCX de até 5 MB são opcionais. A pessoa marca o consentimento para os negócios verem o contato.
+- **O texto público não leva contato:** título, sobre, o que procura e habilidades recusam links, e-mails, telefones e Pix (a mesma regra das vagas e ofertas). O contato vai nos campos próprios, que só os negócios veem.
+- **Aberto ou pausado:** a caixa "Estou aberto a trabalho" (ou o botão Pausar) tira o perfil da base sem apagar. Pausado, só a própria pessoa e a moderação veem a página do perfil.
+- **Quem vê:** `/vagas/talentos` lista os perfis abertos e não suspensos, do atualizado mais recente para o mais antigo, 20 por página, com filtros (busca por nome, título, habilidades, o que procura e cidade; área; contratação; modalidade; estado) num formulário GET que funciona sem JavaScript. A lista e os perfis ficam fora do Google. Contato e currículo aparecem só para a própria pessoa, a moderação e donos de negócios aprovados e fora do modo oculto (os mesmos que podem publicar vagas); os outros veem um convite para entrar ou cadastrar o negócio.
+- **Currículo:** fica no bucket privado `DOCUMENTOS`, com o tipo conferido pelos primeiros bytes, e só abre por `/api/talentos/<id>/curriculo`, que responde 404 a todos os outros e nunca vai para cache. Cada abertura por outra conta fica na auditoria (`talento.curriculo_visto`). Trocar ou remover o currículo apaga o arquivo antigo.
+- **Moderação:** em `/moderacao/vagas` (e na página do perfil), a moderação tira o perfil da base com um motivo, que a pessoa vê em "Meu perfil", ou devolve. Fica na auditoria (`talento.suspenso`, `talento.reativado`).
+- **Apagar:** a pessoa apaga o perfil e o currículo em "Meu perfil" (`talento.apagado` na auditoria). As candidaturas que ela já enviou para vagas continuam com as empresas.
