@@ -40,6 +40,19 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "**/*": ["./node_modules/pg-cloudflare/dist/**", "./node_modules/pg-cloudflare/esm/**"],
   },
+  // Ferramentas de build e de desenvolvimento que o trace pega por engano e que
+  // nunca rodam no Worker: a CLI do Prisma (compiladores de outros bancos, schema
+  // engine), o PGlite do `prisma dev` e o compilador do Tailwind. Juntas, passavam
+  // de 40 MiB e deixavam o Worker no limite de 64 MiB do Cloudflare (#363).
+  outputFileTracingExcludes: {
+    "**/*": [
+      "./node_modules/prisma/**",
+      "./node_modules/@prisma/dev/**",
+      "./node_modules/@electric-sql/**",
+      "./node_modules/@tailwindcss/**",
+      "./node_modules/tailwindcss/**",
+    ],
+  },
   async headers() {
     return [
       { source: "/:caminho*", headers: cabecalhosDeSeguranca },
