@@ -32,6 +32,40 @@ export const campoSite = z
     }
   });
 
+// Só Google Maps e Apple Maps: o botão "Ver no mapa" não pode levar a outro site.
+function ehLinkDeMapa(url: URL): boolean {
+  if (url.username || url.password || url.port) return false;
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (["maps.app.goo.gl", "maps.apple.com", "maps.apple"].includes(host)) return true;
+  if (/^maps\.google\.com(\.br)?$/.test(host)) return true;
+  return (/^google\.com(\.br)?$/.test(host) || host === "goo.gl") && (url.pathname === "/maps" || url.pathname.startsWith("/maps/"));
+}
+
+/** Link do mapa opcional: aceita links do Google Maps e do Apple Maps e guarda com https, ou null se vazio. */
+export const campoMapa = z
+  .string()
+  .trim()
+  .max(1000, "Link muito longo.")
+  .transform((valor, ctx) => {
+    if (!valor) return null;
+    try {
+      const url = new URL(/^https?:\/\//i.test(valor) ? valor : `https://${valor}`);
+      if (ehLinkDeMapa(url)) {
+        url.protocol = "https:";
+        const normalizada = url.toString();
+        if (normalizada.length > 1000) {
+          ctx.addIssue({ code: "custom", message: "Link muito longo." });
+          return z.NEVER;
+        }
+        return normalizada;
+      }
+    } catch {
+      // cai na mensagem abaixo
+    }
+    ctx.addIssue({ code: "custom", message: "Cole o link do Google Maps ou do Apple Maps (ex.: https://maps.app.goo.gl/...)." });
+    return z.NEVER;
+  });
+
 /** Número do Brasil com DDD: "(11) 99148-8052" ou "+55 11 99148-8052" vira "5511991488052". Null se não for um. */
 function numeroDoBrasil(valor: string): string | null {
   let digitos = valor.replace(/\D/g, "").replace(/^0+/, "");

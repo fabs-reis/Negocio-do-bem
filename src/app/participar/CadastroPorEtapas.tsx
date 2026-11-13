@@ -54,6 +54,7 @@ const ETAPA_DO_CAMPO: Record<string, Etapa> = {
   telefoneComercial: "contatos",
   site: "contatos",
   emailContato: "contatos",
+  mapaUrl: "contatos",
   emailDoDono: "voce",
   telefoneDoDono: "voce",
 };
@@ -442,7 +443,10 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
                 </Campo>
               </div>
               <div className="mt-5">
-                <Campo id="site" rotulo="Site (opcional)" erro={erro("site")} ajuda={doInstagram.site ? "Veio do Instagram. Pode mudar." : undefined}>
+                <Campo id="mapaUrl" rotulo="Link do mapa (opcional)" erro={erro("mapaUrl")} ajuda="Cole o link de compartilhamento do Google Maps ou Apple Maps.">
+                <input id="mapaUrl" name="mapaUrl" maxLength={1000} placeholder="https://maps.app.goo.gl/..." defaultValue={inicial?.mapaUrl ?? ""} onChange={() => limpar("mapaUrl")} className="campo" />
+              </Campo>
+              <Campo id="site" rotulo="Site (opcional)" erro={erro("site")} ajuda={doInstagram.site ? "Veio do Instagram. Pode mudar." : undefined}>
                   <input id="site" name="site" maxLength={200} placeholder="www.negocio.com.br" defaultValue={inicial?.site ?? sitePrevia} className="campo" autoCapitalize="none" />
                 </Campo>
               </div>

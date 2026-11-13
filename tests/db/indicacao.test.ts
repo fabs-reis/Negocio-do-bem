@@ -221,6 +221,7 @@ function contatosCompletos(dados: FormData) {
   dados.set("whatsapp", "(81) 98888-7777");
   dados.set("site", "padaria.com.br");
   dados.set("emailContato", "ola@padaria.com.br");
+  dados.set("mapaUrl", "maps.google.com/?q=padaria");
   dados.set("emailDoDono", "Ana@Exemplo.com");
   dados.set("telefoneDoDono", "81 99999-0000");
   return dados;
@@ -255,6 +256,7 @@ describe("cadastro do próprio negócio", () => {
       whatsapp: "5581988887777",
       site: "https://padaria.com.br/",
       emailContato: "ola@padaria.com.br",
+      mapaUrl: "https://maps.google.com/?q=padaria",
       emailDoDono: "ana@exemplo.com",
       telefoneDoDono: "5581999990000",
     });
@@ -271,6 +273,7 @@ describe("cadastro do próprio negócio", () => {
       whatsapp: null,
       site: null,
       emailContato: null,
+      mapaUrl: null,
       emailDoDono: null,
       telefoneDoDono: null,
     });

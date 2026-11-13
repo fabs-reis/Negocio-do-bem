@@ -443,6 +443,14 @@ function CartaoDeContato({ empresa, medir, lugarComLink }: { empresa: Perfil; me
             </a>
           </li>
         )}
+        {empresa.mapaUrl && (
+          <li>
+            <a href={empresa.mapaUrl} target="_blank" rel="noopener noreferrer nofollow" className={linha}>
+              <span className={rotulo}>Localização</span>
+              <span className="font-medium">Ver no mapa ↗</span>
+            </a>
+          </li>
+        )}
         {empresa.emailContato && (
           <li>
             {/* break-all: um e-mail comprido quebra em vez de passar da largura do celular. */}

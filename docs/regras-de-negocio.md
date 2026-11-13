@@ -329,6 +329,7 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 | Site | Não | Até 200 caracteres. Sem `http`, ganha `https://`. Precisa ter um ponto no domínio. |
 | WhatsApp | Só no cadastro do dono | Número brasileiro com DDD (ver abaixo). |
 | E-mail de contato | Não | E-mail válido, até 200 caracteres, guardado em minúsculas. |
+| Link do mapa | Não | Até 1.000 caracteres após normalizar. Google Maps (`maps.app.goo.gl`, `maps.google.com`, `google.com/maps`, `goo.gl/maps`, também com `.br`) ou Apple Maps (`maps.apple.com`, `maps.apple`). Sem esquema ganha `https://`; `http` vira `https`. Nos hosts com `/maps`, só esse segmento ou seus subcaminhos são aceitos. |
 | E-mail e telefone do dono | Só no cadastro do dono | O contato de quem cadastrou o negócio como dono, com as regras do e-mail e do telefone. **Não aparecem no perfil:** só os donos (no painel) e a moderação (na fila de indicações e na edição) veem. |
 | Causas | Não | Qualquer combinação da lista oficial. Slugs desconhecidos são descartados. |
 | História | Não | Markdown, até 20 mil caracteres (ver [seção 8](#8-história-do-negócio)). |
@@ -410,7 +411,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
 
 - **Precisa de login**, como antes.
 - **Dados pedidos:** o @ do Instagram (ou "sem Instagram"), nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Causas e "por que você indica" são opcionais.
-- **Quem indica não publica contatos** (#105): site, WhatsApp, e-mail, telefone comercial e contato do dono ficam vazios numa indicação, mesmo que o envio traga algum. Quem cuida dos contatos é o dono.
+- **Quem indica não publica contatos** (#105): site, WhatsApp, e-mail, telefone comercial e contato do dono ficam vazios numa indicação, mesmo que o envio traga algum. Quem cuida dos contatos é o dono. Isso inclui o link do mapa: indicações de terceiros não publicam esse campo.
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa. Sem Instagram, não há recusa: o endereço ganha `-2`, `-3`….
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
@@ -671,6 +672,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - Instagram (só para quem tem Instagram);
   - site, que mostra o domínio sem `www`;
   - e-mail, que abre `mailto:`;
+  - **Ver no mapa**, que abre o link informado pelo dono ou pela moderação em outra aba, sem carregar mapas de terceiros durante a visita;
   - cidade, com link para a página da cidade nos perfis do diretório.
 - **Resumo.**
 - **"Nossa história",** com "N min de leitura · atualizada em …". Sem história:

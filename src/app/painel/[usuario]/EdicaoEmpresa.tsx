@@ -16,6 +16,7 @@ type Empresa = {
   site: string | null;
   whatsapp: string | null;
   emailContato: string | null;
+  mapaUrl: string | null;
   telefoneComercial: string | null;
   emailDoDono: string | null;
   telefoneDoDono: string | null;
@@ -49,6 +50,7 @@ export function EdicaoEmpresa({ empresa, voltar, trocaDoArroba = false }: { empr
           site: empresa.site ?? "",
           whatsapp: empresa.whatsapp ? formatarTelefone(empresa.whatsapp) : "",
           emailContato: empresa.emailContato ?? "",
+          mapaUrl: empresa.mapaUrl ?? "",
           telefoneComercial: empresa.telefoneComercial ? formatarTelefone(empresa.telefoneComercial) : "",
           emailDoDono: empresa.emailDoDono ?? "",
           telefoneDoDono: empresa.telefoneDoDono ? formatarTelefone(empresa.telefoneDoDono) : "",

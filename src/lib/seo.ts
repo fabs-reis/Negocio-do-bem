@@ -126,6 +126,7 @@ type NegocioPublico = {
   site: string | null;
   whatsapp: string | null;
   emailContato: string | null;
+  mapaUrl?: string | null;
   telefoneComercial: string | null;
 };
 
@@ -150,6 +151,7 @@ export function jsonLdDoNegocio(empresa: NegocioPublico, causas: string[]) {
         },
         ...(empresa.telefoneComercial || empresa.whatsapp ? { telephone: `+${empresa.telefoneComercial ?? empresa.whatsapp}` } : {}),
         ...(empresa.emailContato ? { email: empresa.emailContato } : {}),
+        ...(empresa.mapaUrl ? { hasMap: empresa.mapaUrl } : {}),
         sameAs: [
           ...(temInstagram(empresa.instagramUsername) ? [linkPerfil(empresa.instagramUsername)] : []),
           ...(empresa.site ? [empresa.site] : []),
