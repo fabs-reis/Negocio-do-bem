@@ -931,10 +931,16 @@ A ordem, de cima para baixo:
 
 - **Abre** pela busca da página inicial, pelos tipos de negócio, pelos atalhos e pelo "Explorar" do menu.
 - **Ordem:**
-  - **Assumidos primeiro** (padrão): os perfis que já foram assumidos e, dentro de cada grupo, os atualizados mais recentemente;
+  - **Relevância** (padrão, #367). A conta é feita no banco a cada consulta (`idsPorPontuacao` em `src/lib/consultas.ts`), então reflete na hora qualquer mudança:
+    1. com busca por texto, os negócios cujo nome tem todos os termos vêm primeiro;
+    2. depois, o nível de confiança: perfil verificado, depois assumido, depois indicado pela comunidade. Um nível nunca passa à frente do outro;
+    3. dentro do nível, os pontos de qualidade: foto do site 3, história preenchida 3, algum contato (WhatsApp, site ou e-mail) 2, 1 por causa (até 5), 2 por depoimento publicado (até 10), 1 por favorito (até 20) e 5 pelo cupom do Clube do Bem valendo;
+    4. no empate, os atualizados mais recentemente.
+  - **Mais queridos:** favoritos mais depoimentos publicados; no empate, mais favoritos, depois o nível de confiança e os atualizados mais recentemente.
   - **Mais recentes:** pela data de entrada no diretório;
   - **Nome (A–Z)**.
-  - Não existe ranking por nota nem anúncio pago.
+  - Os links antigos com `?ordem=verificados` ("Assumidos primeiro") abrem na relevância.
+  - Não existe anúncio pago: nenhum ponto pode ser comprado, e todos estão descritos aqui.
 - **Busca por texto:**
   - procura no nome, no resumo, na categoria, na cidade, na UF e no @;
   - **não** procura na história nem nas causas, que têm filtro próprio;
@@ -973,7 +979,7 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
 | Causa | `/causas/opcoes-veganas` (o slug da causa) | o título da causa, como "Negócios com opções veganas" |
 | Tipo | `/tipos/cafe-e-padaria` (o slug do tipo) | "Negócios de café e padaria" |
 
-- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (perfis assumidos primeiro) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
+- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (relevância) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
 - **Links para continuar:**
   - na cidade: os tipos e as causas que existem nela, que abrem o diretório com a cidade e aquele filtro, e as outras cidades do mesmo estado;
   - na causa: as cidades e os tipos que têm a causa, que abrem o diretório com os dois filtros, e as outras causas do mesmo grupo;

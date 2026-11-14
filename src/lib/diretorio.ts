@@ -8,7 +8,8 @@ import { CATEGORIAS, NOMES_UF, UFS, type Uf } from "@/lib/dominio";
 import { normalizarTexto } from "@/lib/texto";
 
 export const ORDENS = {
-  verificados: "Assumidos primeiro",
+  relevancia: "Relevância",
+  queridos: "Mais queridos",
   recentes: "Mais recentes",
   az: "Nome (A–Z)",
 } as const;
@@ -33,7 +34,7 @@ export const SEM_FILTROS: FiltrosDiretorio = {
   tipos: [],
   causas: [],
   verificados: false,
-  ordem: "verificados",
+  ordem: "relevancia",
   vista: "grade",
   pagina: 1,
 };
@@ -77,7 +78,8 @@ export function lerFiltros(params: Record<string, string | string[] | undefined>
     tipos: CATEGORIAS.filter((c) => tipos.has(c)),
     causas: filtrarCausas(lista(params.causa)),
     verificados: primeiro("verificados") === "sim",
-    ordem: Object.hasOwn(ORDENS, ordem) ? (ordem as Ordem) : "verificados",
+    // "verificados" era a ordem padrão antiga ("Assumidos primeiro"); links antigos caem na relevância.
+    ordem: Object.hasOwn(ORDENS, ordem) ? (ordem as Ordem) : "relevancia",
     vista: primeiro("vista") === "lista" ? "lista" : "grade",
     pagina: Number.isFinite(pagina) && pagina > 0 ? Math.min(pagina, 500) : 1,
   };
@@ -92,7 +94,7 @@ export function hrefDiretorio(filtros: Partial<FiltrosDiretorio> = {}): string {
   for (const tipo of f.tipos) params.append("tipo", slugCategoria(tipo));
   for (const causa of f.causas) params.append("causa", causa);
   if (f.verificados) params.set("verificados", "sim");
-  if (f.ordem !== "verificados") params.set("ordem", f.ordem);
+  if (f.ordem !== "relevancia") params.set("ordem", f.ordem);
   if (f.vista !== "grade") params.set("vista", f.vista);
   if (f.pagina > 1) params.set("pagina", String(f.pagina));
   const texto = params.toString();

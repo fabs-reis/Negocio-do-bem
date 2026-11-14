@@ -2,7 +2,8 @@ import "server-only";
 import { cache } from "react";
 import type { EstadoFavorito } from "@/components/CoracaoFavorito";
 import type { UsuarioSessao } from "@/lib/auth/sessao";
-import { db, type Prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
+import { db } from "@/lib/db";
 import { interpretarLocal, slugCidade, type CidadeComNegocios, type FiltrosDiretorio, type Local, type Ordem } from "@/lib/diretorio";
 import { ehFotoDoSite } from "@/lib/fotos";
 import { nomeOficial } from "@/lib/municipios";
@@ -16,12 +17,86 @@ export const POR_PAGINA = 18;
 /** Só aparecem no diretório os negócios publicados que o dono não escondeu. */
 export const NO_DIRETORIO = { moderacao: "aprovada", oculta: false } satisfies Prisma.EmpresaWhereInput;
 
-const ORDENACAO: Record<Ordem, Prisma.EmpresaOrderByWithRelationInput[]> = {
-  // Perfis assumidos primeiro, depois os atualizados mais recentemente.
-  verificados: [{ status: "desc" }, { atualizadoEm: "desc" }],
-  recentes: [{ criadoEm: "desc" }],
-  az: [{ nome: "asc" }],
-};
+/** Ordens que o próprio Prisma resolve. "Relevância" e "Mais queridos" usam a pontuação abaixo. */
+const ORDENACAO_SIMPLES = {
+  recentes: [{ criadoEm: "desc" }, { id: "asc" }],
+  az: [{ nome: "asc" }, { id: "asc" }],
+} satisfies Partial<Record<Ordem, Prisma.EmpresaOrderByWithRelationInput[]>>;
+
+type OrdemPontuada = Exclude<Ordem, keyof typeof ORDENACAO_SIMPLES>;
+
+/** O que um card do diretório precisa. */
+const INCLUIR_NO_DIRETORIO = {
+  causas: { select: { causa: true } },
+  _count: { select: { depoimentos: { where: { status: "publicado" } } } },
+  ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
+  ...INCLUIR_VERIFICACAO,
+} satisfies Prisma.EmpresaInclude;
+
+/**
+ * Ordena por pontuação os negócios que atendem a `where` e devolve os ids de uma página (#367).
+ * A pontuação é calculada no banco a cada consulta, então já reflete qualquer mudança.
+ *
+ * - "Relevância": com busca, os negócios cujo nome tem todos os termos vêm primeiro. Depois,
+ *   o nível de confiança (verificado, assumido, indicado) e, dentro dele, os pontos de
+ *   qualidade: foto 3, história 3, contato 2, 1 por causa (até 5), 2 por depoimento
+ *   publicado (até 10), 1 por favorito (até 20) e 5 pelo cupom valendo.
+ * - "Mais queridos": favoritos mais depoimentos publicados; no empate, mais favoritos,
+ *   depois o nível de confiança.
+ *
+ * No fim, os atualizados mais recentemente. A foto só conta se o site a mostra
+ * (`ehFotoDoSite`), e isso depende do domínio do R2, por isso sai do JavaScript.
+ */
+async function idsPorPontuacao(where: Prisma.EmpresaWhereInput, ordem: OrdemPontuada, termos: string[], skip: number, take: number) {
+  const candidatos = await db.empresa.findMany({ where, select: { id: true, nome: true, fotoUrl: true } });
+  if (candidatos.length === 0) return [];
+  const ids = candidatos.map((c) => c.id);
+  const comFoto = candidatos.filter((c) => ehFotoDoSite(c.fotoUrl)).map((c) => c.id);
+  const nomeBate =
+    termos.length > 0 ? candidatos.filter((c) => termos.every((t) => normalizarTexto(c.nome).includes(t))).map((c) => c.id) : [];
+
+  const confianca = Prisma.sql`(CASE
+    WHEN EXISTS (
+      SELECT 1 FROM "LiberacaoClube" l
+      JOIN "EmpresaMembro" m ON m."empresaId" = l."empresaId" AND m."usuarioId" = l."usuarioId"
+      WHERE l."empresaId" = e.id AND l.status = 'liberada'
+    ) THEN 2
+    WHEN e.status = 'verificada' THEN 1
+    ELSE 0 END)`;
+  const depoimentos = Prisma.sql`(SELECT count(*) FROM "Depoimento" d WHERE d."empresaId" = e.id AND d.status = 'publicado')`;
+  const favoritos = Prisma.sql`(SELECT count(*) FROM "EmpresaFavorita" f WHERE f."empresaId" = e.id)`;
+  const qualidade = Prisma.sql`(
+    (e.id = ANY(${comFoto}::text[]))::int * 3
+    + (length(trim(e.historia)) > 0)::int * 3
+    + (e.whatsapp IS NOT NULL OR e.site IS NOT NULL OR e."emailContato" IS NOT NULL)::int * 2
+    + LEAST((SELECT count(*) FROM "EmpresaCausa" c WHERE c."empresaId" = e.id), 5)
+    + LEAST(${depoimentos}, 10) * 2
+    + LEAST(${favoritos}, 20)
+    + (EXISTS (SELECT 1 FROM "Oferta" o WHERE o."empresaId" = e.id AND o.status = 'ativa' AND o.fim > now()))::int * 5
+  )`;
+  const criterios =
+    ordem === "queridos"
+      ? Prisma.sql`${favoritos} + ${depoimentos} DESC, ${favoritos} DESC, ${confianca} DESC`
+      : Prisma.sql`(e.id = ANY(${nomeBate}::text[])) DESC, ${confianca} DESC, ${qualidade} DESC`;
+
+  const linhas = await db.$queryRaw<{ id: string }[]>`
+    SELECT e.id FROM "Empresa" e
+    WHERE e.id = ANY(${ids}::text[])
+    ORDER BY ${criterios}, e."atualizadoEm" DESC, e.id
+    LIMIT ${take} OFFSET ${skip}`;
+  return linhas.map((l) => l.id);
+}
+
+/** Os negócios de uma página, na ordem pedida. */
+async function paginaDoDiretorio(where: Prisma.EmpresaWhereInput, ordem: Ordem, termos: string[], skip: number, take: number) {
+  if (ordem === "recentes" || ordem === "az") {
+    return db.empresa.findMany({ where, orderBy: ORDENACAO_SIMPLES[ordem], skip, take, include: INCLUIR_NO_DIRETORIO });
+  }
+  const ids = await idsPorPontuacao(where, ordem, termos, skip, take);
+  const itens = await db.empresa.findMany({ where: { id: { in: ids } }, include: INCLUIR_NO_DIRETORIO });
+  const porId = new Map(itens.map((e) => [e.id, e]));
+  return ids.flatMap((id) => porId.get(id) ?? []);
+}
 
 /**
  * Quantos negócios do diretório há em cada cidade, do jeito que ela está escrita no banco.
@@ -111,8 +186,12 @@ export const resumoDoDiretorio = cache(async () => {
  * Condição do banco para os filtros. `ignorar` tira um grupo de filtros, para
  * contar quantos negócios cada opção daquele grupo mostraria.
  */
+function termosDaBusca(q: string) {
+  return normalizarTexto(q).split(" ").filter(Boolean).slice(0, 6);
+}
+
 function condicao(filtros: FiltrosDiretorio, lugar: Prisma.EmpresaWhereInput, ignorar?: "tipos" | "verificados") {
-  const termos = normalizarTexto(filtros.q).split(" ").filter(Boolean).slice(0, 6);
+  const termos = termosDaBusca(filtros.q);
   return {
     ...NO_DIRETORIO,
     ...lugar,
@@ -134,18 +213,7 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
 
   const [total, itens, categorias, causas, verificados] = await Promise.all([
     db.empresa.count({ where: onde }),
-    db.empresa.findMany({
-      where: onde,
-      orderBy: ORDENACAO[filtros.ordem],
-      skip: (filtros.pagina - 1) * POR_PAGINA,
-      take: POR_PAGINA,
-      include: {
-        causas: { select: { causa: true } },
-        _count: { select: { depoimentos: { where: { status: "publicado" } } } },
-        ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
-        ...INCLUIR_VERIFICACAO,
-      },
-    }),
+    paginaDoDiretorio(onde, filtros.ordem, termosDaBusca(filtros.q), (filtros.pagina - 1) * POR_PAGINA, POR_PAGINA),
     db.empresa.groupBy({ by: ["categoria"], where: condicao(filtros, lugar, "tipos"), _count: { _all: true } }),
     // Entre os resultados, quantos têm cada causa: é o que sobra ao marcar mais uma.
     db.empresaCausa.groupBy({ by: ["causa"], where: { empresa: onde }, _count: { _all: true } }),
@@ -183,20 +251,11 @@ export async function listarParaSitemap() {
 
 /**
  * Outros negócios do diretório na mesma cidade, para o fim do perfil. Os do mesmo
- * tipo vêm primeiro; dentro de cada grupo, a ordem do diretório (assumidos primeiro).
+ * tipo vêm primeiro; dentro de cada grupo, a ordem do diretório (relevância).
  */
 export async function negociosParecidos(empresa: { id: string; cidade: string; uf: string; categoria: string }, limite = 4) {
-  const candidatos = await db.empresa.findMany({
-    where: { ...NO_DIRETORIO, cidade: empresa.cidade, uf: empresa.uf, id: { not: empresa.id } },
-    orderBy: ORDENACAO.verificados,
-    take: 24,
-    include: {
-      causas: { select: { causa: true } },
-      _count: { select: { depoimentos: { where: { status: "publicado" } } } },
-      ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
-      ...INCLUIR_VERIFICACAO,
-    },
-  });
+  const where = { ...NO_DIRETORIO, cidade: empresa.cidade, uf: empresa.uf, id: { not: empresa.id } };
+  const candidatos = await paginaDoDiretorio(where, "relevancia", [], 0, 24);
   const mesmoTipo = candidatos.filter((c) => c.categoria === empresa.categoria);
   const outros = candidatos.filter((c) => c.categoria !== empresa.categoria);
   return [...mesmoTipo, ...outros].slice(0, limite);
