@@ -2,9 +2,11 @@ import Link from "next/link";
 import { CoracaoFavorito, type EstadoFavorito } from "@/components/CoracaoFavorito";
 import type { EmpresaResumo } from "@/components/EmpresaCard";
 import { FotoEmpresa } from "@/components/FotoEmpresa";
+import { perfilVerificado } from "@/lib/verificacao";
 
 /** O negócio numa linha, para o diretório em modo lista. Com `favorito`, o coração fica à direita, fora do link. */
 export function EmpresaLinha({ empresa, favorito }: { empresa: EmpresaResumo; favorito?: EstadoFavorito }) {
+  const verificado = empresa.status === "verificada" && perfilVerificado(empresa);
   const linha = (
     <Link
       href={`/empresas/${empresa.instagramUsername}`}
@@ -14,15 +16,26 @@ export function EmpresaLinha({ empresa, favorito }: { empresa: EmpresaResumo; fa
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="line-clamp-2 min-w-0 break-words font-display text-lg leading-tight font-semibold group-hover:text-coral-700">{empresa.nome}</span>
-          {empresa.status === "verificada" && (
+          {verificado ? (
             <span
               role="img"
-              aria-label="Perfil assumido"
-              title="Uma conta assumiu o perfil. Identidade e causas não certificadas."
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-linha bg-superficie text-sm text-suave"
+              aria-label="Perfil verificado"
+              title="A moderação conferiu o CNPJ e a identidade de quem cuida deste perfil."
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-folha-50 text-xs font-semibold text-folha"
             >
-              •
+              ✓
             </span>
+          ) : (
+            empresa.status === "verificada" && (
+              <span
+                role="img"
+                aria-label="Perfil assumido"
+                title="Uma conta assumiu o perfil. Identidade e causas não certificadas."
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-linha bg-superficie text-sm text-suave"
+              >
+                •
+              </span>
+            )
           )}
         </span>
         <span className="mt-0.5 block truncate text-sm text-tinta/85">{empresa.resumo}</span>
