@@ -82,11 +82,12 @@ describe("rótulos de perfil assumido", () => {
     expect(pagina).toContain("<LinkInstagram endereco={r.empresa.instagramUsername}");
   });
 
-  it("muda o rótulo da ordenação sem quebrar os parâmetros existentes", () => {
-    expect(ORDENS.verificados).toBe("Assumidos primeiro");
+  it("troca \"Assumidos primeiro\" pela relevância sem quebrar os links antigos (#367)", () => {
+    expect(Object.values(ORDENS)).not.toContain("Assumidos primeiro");
+    expect(ORDENS.relevancia).toBe("Relevância");
     expect(lerFiltros({ verificados: "sim", ordem: "verificados" })).toMatchObject({
       verificados: true,
-      ordem: "verificados",
+      ordem: "relevancia",
     });
   });
 });
