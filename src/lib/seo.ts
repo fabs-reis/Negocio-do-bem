@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import { ambienteDeDeploy } from "@/lib/ambiente";
+import type { Endereco } from "@/lib/endereco";
 import { hrefCidade } from "@/lib/diretorio";
 import { REPOSITORIO } from "@/lib/dominio";
 import { temInstagram } from "@/lib/endereco";
@@ -115,7 +116,7 @@ export function jsonLdDoSite() {
   };
 }
 
-type NegocioPublico = {
+type NegocioPublico = Endereco & {
   instagramUsername: string;
   nome: string;
   resumo: string;
@@ -147,6 +148,10 @@ export function jsonLdDoNegocio(empresa: NegocioPublico, causas: string[]) {
           addressLocality: empresa.cidade,
           addressRegion: empresa.uf,
           addressCountry: "BR",
+          ...(empresa.enderecoPublico && empresa.cep ? { postalCode: empresa.cep } : {}),
+          ...(empresa.enderecoPublico && empresa.logradouro ? {
+            streetAddress: [empresa.logradouro, empresa.numero, empresa.complemento].filter(Boolean).join(", "),
+          } : {}),
         },
         ...(empresa.telefoneComercial || empresa.whatsapp ? { telephone: `+${empresa.telefoneComercial ?? empresa.whatsapp}` } : {}),
         ...(empresa.emailContato ? { email: empresa.emailContato } : {}),

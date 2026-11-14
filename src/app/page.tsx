@@ -11,7 +11,7 @@ import { FaixaEmbaixadores } from "@/components/FaixaEmbaixadores";
 import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { IconeCategoria } from "@/components/IconeCategoria";
 import { JsonLd } from "@/components/JsonLd";
-import { destaquesDaVitrine, listarCidades, maisQueridos, resumoDoDiretorio } from "@/lib/consultas";
+import { destaquesDaVitrine, listarCidades, listarLocalidades, maisQueridos, resumoDoDiretorio } from "@/lib/consultas";
 import { hrefCidade, hrefDiretorio } from "@/lib/diretorio";
 import { CATEGORIAS } from "@/lib/dominio";
 import { fotoDaCidade } from "@/lib/fotos-das-cidades";
@@ -132,7 +132,8 @@ async function SeloComNumeros() {
 }
 
 async function BuscaComCidades() {
-  return <BuscaDiretorio cidades={await listarCidades()} />;
+  const [cidades, localidades] = await Promise.all([listarCidades(), listarLocalidades()]);
+  return <BuscaDiretorio cidades={cidades} localidades={localidades} />;
 }
 
 /**

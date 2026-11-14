@@ -4,8 +4,9 @@ import { CoracaoFavorito, type EstadoFavorito } from "@/components/CoracaoFavori
 import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { SeloStatus } from "@/components/SeloStatus";
 import { filtrarCausas } from "@/lib/causas";
+import { formatarLocalizacao, type Endereco } from "@/lib/endereco";
 
-export type EmpresaResumo = {
+export type EmpresaResumo = Endereco & {
   id: string;
   instagramUsername: string;
   nome: string;
@@ -55,7 +56,7 @@ export function EmpresaCard({
               {empresa.nome}
             </h3>
             <p className="mt-0.5 truncate text-[13px] text-suave">
-              {empresa.categoria} · {empresa.cidade}, {empresa.uf}
+              {empresa.categoria} · {formatarLocalizacao(empresa)}
             </p>
           </div>
         </div>

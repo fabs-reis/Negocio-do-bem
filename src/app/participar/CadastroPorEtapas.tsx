@@ -16,7 +16,7 @@ import { procurarArroba, type ResultadoProcura } from "@/acoes/participacao";
 import { Aviso } from "@/components/Aviso";
 import { BotaoEnviar } from "@/components/BotaoEnviar";
 import { Campo } from "@/components/Campo";
-import { CampoMunicipio } from "@/components/CampoMunicipio";
+import { CamposEndereco } from "@/components/CamposEndereco";
 import { ConfirmarEmail } from "@/components/ConfirmarEmail";
 import { enviarSemLimpar } from "@/components/envio";
 import { Monograma } from "@/components/Monograma";
@@ -48,6 +48,13 @@ const ETAPA_DO_CAMPO: Record<string, Etapa> = {
   nome: "nome",
   categoria: "nome",
   municipio: "onde",
+  regiaoAdministrativa: "onde",
+  bairro: "onde",
+  localidade: "onde",
+  cep: "onde",
+  logradouro: "onde",
+  numero: "onde",
+  complemento: "onde",
   resumo: "onde",
   motivo: "causas",
   whatsapp: "contatos",
@@ -384,7 +391,7 @@ export function CadastroPorEtapas({ conta, instagramInicial, donoInicial, contin
         </Secao>
 
         <Secao etapa="onde" atual={etapa} titulo="Onde fica e o que ele faz?">
-          <CampoMunicipio valorInicial={inicial?.municipio ?? ""} erro={erro("municipio")} />
+          <CamposEndereco valor={(campo) => String(estado?.valores?.[campo] ?? inicial?.[campo] ?? "")} erros={{ ...errosLocais, ...estado?.erros }} />
           <div className="mt-5">
             <Campo id="resumo" rotulo="Em uma frase, o que este negócio faz?" erro={erro("resumo")} ajuda="Até 160 caracteres.">
               <input

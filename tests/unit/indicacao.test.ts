@@ -29,6 +29,15 @@ describe("lerPreenchimento", () => {
 });
 
 describe("lerRascunho", () => {
+  it("preserva o endereço ao voltar do login sem autorizar sua publicação", () => {
+    const endereco = {
+      municipio: "Brasília, DF", regiaoAdministrativa: "Ceilândia", bairro: "Setor Norte",
+      localidade: "Área comercial", cep: "01001-000", logradouro: "Quadra 1",
+      numero: "s/n", complemento: "Bloco B, lote 4",
+    };
+    expect(lerRascunho({ ...endereco, enderecoPublico: "sim" })).toEqual(endereco);
+  });
+
   it("guarda só os campos conhecidos, em texto e no tamanho de cada um", () => {
     expect(
       lerRascunho({
