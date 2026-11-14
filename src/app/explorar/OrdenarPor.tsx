@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ORDENS, type Ordem } from "@/lib/diretorio";
+import { MenuSuspenso } from "@/components/MenuSuspenso";
 
 /** Seletor de ordenação: um menu com um link para cada ordem, e funciona antes de o JavaScript carregar. */
 export function OrdenarPor({ atual, links }: { atual: Ordem; links: Record<Ordem, string> }) {
   return (
     <div className="inline-flex items-center gap-2 text-sm text-suave">
       <span id="rotulo-ordenar" className="max-sm:sr-only">Ordenar</span>
-      <details key={atual} className="group relative">
+      <MenuSuspenso key={atual} className="group relative">
         <summary
           aria-describedby="rotulo-ordenar"
           className="flex cursor-pointer list-none items-center gap-2 rounded-full bg-areia py-2 pr-3 pl-3 font-medium text-tinta [&::-webkit-details-marker]:hidden"
@@ -37,7 +38,7 @@ export function OrdenarPor({ atual, links }: { atual: Ordem; links: Record<Ordem
             </li>
           ))}
         </ul>
-      </details>
+      </MenuSuspenso>
     </div>
   );
 }
