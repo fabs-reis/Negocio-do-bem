@@ -13,6 +13,7 @@ import { METODOS_REIVINDICACAO, MODERACAO_EMPRESA, STATUS_REIVINDICACAO } from "
 import { rotuloDoInstagram } from "@/lib/endereco";
 import { formatarData, formatarFavoritos } from "@/lib/texto";
 import { FORA_DA_BUSCA } from "@/lib/seo";
+import { INCLUIR_VERIFICACAO, perfilVerificado } from "@/lib/verificacao";
 
 export const metadata: Metadata = { title: "Meu painel", robots: FORA_DA_BUSCA };
 
@@ -47,7 +48,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
   const [empresas, reivindicacoes, indicacoes, conta] = await Promise.all([
     db.empresaMembro.findMany({
       where: { usuarioId: usuario.id },
-      include: { empresa: { include: { _count: { select: { favoritos: true } } } } },
+      include: { empresa: { include: { _count: { select: { favoritos: true } }, ...INCLUIR_VERIFICACAO } } },
       orderBy: { criadoEm: "asc" },
     }),
     db.reivindicacao.findMany({
@@ -102,7 +103,7 @@ async function Conteudo({ searchParams }: Pick<PageProps<"/painel">, "searchPara
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <SeloStatus status={empresa.status} />
+                  <SeloStatus status={empresa.status} verificado={perfilVerificado(empresa)} />
                   {empresa.oculta && <Etiqueta status="expirada" texto="Oculto do diretório" />}
                   {!empresa.historia.trim() && <Etiqueta status="pendente" texto="Falta contar a história" />}
                 </div>

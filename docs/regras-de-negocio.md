@@ -660,6 +660,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - sem foto da cidade, o banner da marca: o ícone em creme sobre o laranja e "Compre de quem faz o bem.".
 - **Foto ou monograma.** Sem foto, aparecem as iniciais do nome com uma cor que é sempre a mesma para cada @. Fica sobre a capa.
 - **Selo:**
+  - **"Perfil verificado"** quando um dono atual tem a liberação do Clube do Bem valendo (veja [Clube do Bem](#clube-do-bem)), com um visto e cores verdes. A regra fica em `perfilVerificado` (`src/lib/verificacao.ts`) e vale igual no perfil, nos cards do diretório (`/explorar`, cidade, causa, tipo, página inicial, favoritos, negócios parecidos), no indicador da lista e no painel do dono.
   - **"Perfil assumido"** quando `status = "verificada"`. O aviso explica que uma conta assumiu o perfil e que o selo não certifica a identidade nem as causas. Vale também para aprovações automáticas, sem afirmar conferência da moderação. O selo e o indicador da lista usam um ponto e cores neutras, sem símbolo de verificação.
   - **"Indicado pela comunidade"** quando ainda não tem dono.
 - **Nome, @** (com o ícone e o link para o Instagram, ou "sem Instagram"), **categoria, cidade e UF.**

@@ -9,6 +9,7 @@ import { nomeOficial } from "@/lib/municipios";
 import { condicaoDeOfertaAtiva } from "@/lib/ofertas";
 import { sortearComPeso } from "@/lib/sorteio";
 import { normalizarTexto } from "@/lib/texto";
+import { INCLUIR_VERIFICACAO } from "@/lib/verificacao";
 
 export const POR_PAGINA = 18;
 
@@ -142,6 +143,7 @@ export async function buscarDiretorio(filtros: FiltrosDiretorio) {
         causas: { select: { causa: true } },
         _count: { select: { depoimentos: { where: { status: "publicado" } } } },
         ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
+        ...INCLUIR_VERIFICACAO,
       },
     }),
     db.empresa.groupBy({ by: ["categoria"], where: condicao(filtros, lugar, "tipos"), _count: { _all: true } }),
@@ -192,6 +194,7 @@ export async function negociosParecidos(empresa: { id: string; cidade: string; u
       causas: { select: { causa: true } },
       _count: { select: { depoimentos: { where: { status: "publicado" } } } },
       ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
+      ...INCLUIR_VERIFICACAO,
     },
   });
   const mesmoTipo = candidatos.filter((c) => c.categoria === empresa.categoria);
@@ -262,6 +265,7 @@ export async function buscarFavoritos(usuarioId: string, paginaPedida: number) {
           causas: { select: { causa: true } },
           _count: { select: { depoimentos: { where: { status: "publicado" } } } },
           ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
+          ...INCLUIR_VERIFICACAO,
         },
       },
     },
@@ -293,6 +297,7 @@ const INCLUIR_NO_CARD = {
   causas: { select: { causa: true } },
   _count: { select: { depoimentos: { where: { status: "publicado" } }, favoritos: true } },
   ofertas: { where: condicaoDeOfertaAtiva(), select: { id: true }, take: 1 },
+  ...INCLUIR_VERIFICACAO,
 } satisfies Prisma.EmpresaInclude;
 
 /** Busca os negócios pelos ids e devolve na ordem dos ids (o findMany não garante a ordem). */
