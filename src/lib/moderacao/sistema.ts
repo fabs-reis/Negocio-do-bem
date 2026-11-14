@@ -54,7 +54,7 @@ export function integracoes(): Integracao[] {
     {
       nome: "Google Analytics",
       ligada: Boolean(process.env.NEXT_PUBLIC_GA_ID),
-      ligadaTexto: "As visitas são medidas pelo Google Analytics.",
+      ligadaTexto: "O Google Analytics só mede páginas públicas após consentimento neste navegador.",
       desligadaTexto: "Só a produção mede visitas.",
     },
     {
@@ -66,15 +66,12 @@ export function integracoes(): Integracao[] {
   ];
 }
 
-/** Em que ambiente o site está rodando e de qual commit ele veio, quando o host informa. */
+/** Em que ambiente o site está rodando. */
 export function ambiente() {
   return {
     nome: ambienteDeDeploy() ?? process.env.NODE_ENV ?? "desconhecido",
     endereco: ENDERECO_DO_SITE,
     indexavel: INDEXAVEL,
-    branch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
-    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
-    regiao: process.env.VERCEL_REGION ?? null,
   };
 }
 

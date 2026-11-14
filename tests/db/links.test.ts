@@ -119,13 +119,21 @@ describe("criar e usar um link", () => {
 });
 
 describe("limite de links por conta", () => {
-  it(`manda no máximo ${LIMITE_LINKS_POR_HORA} links por hora`, async () => {
+  it(`manda no máximo ${LIMITE_LINKS_POR_HORA} links por hora de cada finalidade`, async () => {
     const conta = await criarConta();
-    for (let i = 0; i < LIMITE_LINKS_POR_HORA; i++) expect(await criarLink(conta, i % 2 ? "entrar" : "confirmar")).toBeTruthy();
+    for (let i = 0; i < LIMITE_LINKS_POR_HORA; i++) expect(await criarLink(conta, "entrar")).toBeTruthy();
 
     expect(await criarLink(conta, "entrar")).toBeNull();
     // O limite é de cada conta: outra pessoa continua recebendo.
     expect(await criarLink(await criarConta("bia@exemplo.com"), "entrar")).toBeTruthy();
+  });
+
+  it("os links de uma finalidade não gastam a cota das outras", async () => {
+    const conta = await criarConta();
+    for (let i = 0; i < LIMITE_LINKS_POR_HORA; i++) await criarLink(conta, "entrar");
+
+    expect(await criarLink(conta, "redefinir")).toBeTruthy();
+    expect(await criarLink(conta, "confirmar")).toBeTruthy();
   });
 
   it("os links de mais de uma hora atrás não contam", async () => {
@@ -174,7 +182,7 @@ describe("envio do link", () => {
   });
 
   it("na produção sem envio configurado, o link não vai para o log", async () => {
-    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("DEPLOY_ENV", "production");
     vi.mocked(envioLigado).mockReturnValueOnce(false);
     const log = vi.spyOn(console, "info").mockImplementation(() => {});
     await enviarLink(await criarConta(), "entrar", "abc");
@@ -182,9 +190,8 @@ describe("envio do link", () => {
     expect(log).not.toHaveBeenCalled();
   });
 
-  it("nos previews, o link aponta para o próprio preview", () => {
-    vi.stubEnv("VERCEL_ENV", "preview");
-    vi.stubEnv("VERCEL_URL", "negocio-do-bem-git-teste.vercel.app");
-    expect(urlDoLink("abc")).toBe("https://negocio-do-bem-git-teste.vercel.app/api/link?t=abc");
+  it("nos previews, o link usa o endereço configurado, como na produção", () => {
+    vi.stubEnv("DEPLOY_ENV", "preview");
+    expect(urlDoLink("abc")).toBe(`${ENDERECO_DO_SITE}/api/link?t=abc`);
   });
 });

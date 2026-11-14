@@ -16,7 +16,7 @@ export default function Sobre() {
   return (
     <div className="mx-auto max-w-3xl px-4 pt-14 sm:px-6">
       <p className="text-xs font-semibold tracking-[0.2em] text-coral-700 uppercase">Manifesto</p>
-      <h1 className="mt-2 font-serif text-5xl leading-tight font-semibold tracking-tight text-balance">
+      <h1 className="mt-2 font-display text-5xl leading-tight font-semibold tracking-tight text-balance">
         Escolher onde gastar também é escolher o mundo que a gente quer.
       </h1>
 
@@ -93,11 +93,23 @@ export default function Sobre() {
           público, e é apagada quando a moderação decide (ou depois de 30 dias, se o pedido ficar parado).
         </p>
         <p>
-          <strong>Vocês medem as visitas?</strong> Sim, com o Google Analytics, para saber quantas pessoas visitam o site,
-          quais páginas e buscas são mais comuns, quantas contas e negócios são cadastrados e quantos contatos os negócios
-          recebem pelo site. Ele usa cookies no seu navegador e não recebe seu nome, seu e-mail, seu telefone nem o nome do
-          negócio: só a categoria, a cidade e o estado, que já estão no perfil. O Cloudflare, que hospeda o site, também
-          conta as visitas e mede quanto as páginas demoram para abrir, sem cookies e sem identificar quem visita.
+          <strong>Vocês medem as visitas?</strong> Só se você aceitar. O Google Analytics mede visitas,
+          páginas públicas e interações permitidas, como contatos com negócios, em um documento isolado.
+          Esse documento não acessa o conteúdo da página nem o armazenamento do site. A origem do tráfego entra apenas como
+          direto, busca, rede social, interno ou outro, sem o endereço de onde você veio. A medição não é necessária para usar o site.
+          Você pode recusar ou revogar em &ldquo;Preferências de privacidade&rdquo;, no rodapé. O login continua funcionando.
+        </p>
+        <p>
+          Não enviamos buscas, fragmentos da URL, formulários, nomes, e-mails, telefones, @, nomes de negócios nem identificador
+          da sua conta. Os endereços e títulos enviados são genéricos. Conta, reivindicação, moderação e páginas de causas
+          ficam fora da medição. A escolha fica neste navegador por até 180 dias, com a versão do aviso e a data.
+          Sessão, segurança do login, tema e rascunhos têm funções separadas e não dependem dessa escolha.
+        </p>
+        <p>
+          A revogação impede novos envios e descarta filas opcionais. Ela não apaga dados já recebidos pelo Google.
+          Além disso, o Cloudflare Web Analytics mede visitas e tempo de carregamento das páginas sem usar cookies e sem identificar quem visita.
+          A retenção, o compartilhamento, os recursos de publicidade e as demais configurações da conta Google precisam
+          de verificação pelo responsável. Estes controles técnicos não são uma declaração de conformidade jurídica.
         </p>
         <p>
           <strong>E os depoimentos?</strong> Ficam no ar com o nome de quem escreveu. Donos podem responder, mas não
@@ -126,7 +138,7 @@ export default function Sobre() {
       <div className="mt-8 space-y-8">
         {(Object.keys(GRUPOS) as GrupoCausa[]).map((grupo) => (
           <section key={grupo}>
-            <h3 className="font-serif text-xl font-semibold">{GRUPOS[grupo]}</h3>
+            <h3 className="font-display text-xl font-semibold">{GRUPOS[grupo]}</h3>
             <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {CAUSAS.filter((c) => c.grupo === grupo).map((causa) => (
                 <li key={causa.slug} className="cartao p-4">

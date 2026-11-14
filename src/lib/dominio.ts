@@ -87,6 +87,10 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "empresa.foto_removida": "Removeu a foto do próprio negócio",
   "empresa.foto_removida_pela_moderacao": "Removeu a foto pela moderação",
   "empresa.foto_do_instagram": "Colocou a foto do Instagram",
+  "empresa.arroba_pedido": "Pediu a troca do @ do negócio",
+  "empresa.arroba_trocado": "Trocou o @ do próprio negócio",
+  "empresa.arroba_trocado_pela_moderacao": "Trocou o @ pela moderação",
+  "empresa.arroba_recusado": "Recusou a troca do @ do negócio",
   "empresa.ocultada": "Tirou o próprio negócio do diretório",
   "empresa.reexibida": "Devolveu o próprio negócio ao diretório",
   "reivindicacao.aprovada": "Aprovou um pedido de reivindicação",
@@ -97,6 +101,7 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "depoimento.removido": "Removeu um depoimento denunciado",
   "usuario.senha_trocada": "Trocou a própria senha no painel",
   "usuario.senha_redefinida": "Trocou a senha pelo link do e-mail",
+  "foto.descarte_iniciado": "Iniciou o descarte de uma foto sem uso",
   "usuario.moderacao_dada": "Deu a moderação a uma conta",
   "usuario.moderacao_tirada": "Tirou a moderação de uma conta",
   "perfil_profissional.salvo": "Atualizou o perfil profissional",
@@ -120,6 +125,11 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "clube.suspenso": "Suspendeu um dono do Clube do Bem",
   "oferta.criada": "Criou uma oferta do Clube do Bem",
   "oferta.encerrada": "Encerrou uma oferta do Clube do Bem",
+  "talento.criado": "Entrou no banco de talentos",
+  "talento.apagado": "Apagou o próprio perfil de talento",
+  "talento.suspenso": "Tirou um perfil do banco de talentos",
+  "talento.reativado": "Devolveu um perfil ao banco de talentos",
+  "talento.curriculo_visto": "Abriu o currículo de um talento",
 };
 
 /** A caixa de e-mail do projeto, para quem quer falar com a equipe (ex.: ser embaixador). */
