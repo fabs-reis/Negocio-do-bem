@@ -307,12 +307,15 @@ export function conferirIdentidade(
   return { nomeBate, cpfBate };
 }
 
-/** Apaga os documentos de um pedido do bucket privado e limpa as chaves. Chamado quando a moderação decide. */
+/**
+ * Apaga os documentos de um pedido do bucket privado e limpa as chaves. Chamado quando a moderação
+ * decide. Se a exclusão falhar, as chaves ficam na linha e `apagarDocumentosVencidos` tenta de novo.
+ */
 export async function apagarDocumentosDaLiberacao(empresaId: string, usuarioId: string): Promise<void> {
   const chave = { empresaId_usuarioId: { empresaId, usuarioId } };
   const liberacao = await db.liberacaoClube.findUnique({ where: chave, select: { documentoChaves: true } });
   if (!liberacao || liberacao.documentoChaves.length === 0) return;
-  await apagarDocumentosGuardados(liberacao.documentoChaves);
+  if (!(await apagarDocumentosGuardados(liberacao.documentoChaves))) return;
   await db.liberacaoClube.update({ where: chave, data: { documentoChaves: [] } });
 }
 
@@ -320,13 +323,17 @@ export async function apagarDocumentosDaLiberacao(empresaId: string, usuarioId: 
 export const DIAS_DO_DOCUMENTO = 30;
 
 /**
- * Apaga os documentos dos pedidos que esperam a moderação há mais de 30 dias. Não há rotina
- * agendada: roda quando a fila do clube abre. Devolve quantos pedidos foram limpos.
+ * Apaga os documentos dos pedidos que esperam a moderação há mais de 30 dias e tenta de novo os
+ * dos pedidos já decididos que ainda têm chaves. Não há rotina agendada: roda quando a fila do
+ * clube abre. Devolve quantos pedidos foram tentados.
  */
 export async function apagarDocumentosVencidos(): Promise<number> {
   const limite = new Date(Date.now() - DIAS_DO_DOCUMENTO * 24 * 60 * 60 * 1000);
   const vencidos = await db.liberacaoClube.findMany({
-    where: { status: "pendente", decididoEm: { lt: limite }, NOT: { documentoChaves: { isEmpty: true } } },
+    where: {
+      NOT: { documentoChaves: { isEmpty: true } },
+      OR: [{ status: "pendente", decididoEm: { lt: limite } }, { status: { not: "pendente" } }],
+    },
     select: { empresaId: true, usuarioId: true },
   });
   for (const { empresaId, usuarioId } of vencidos) await apagarDocumentosDaLiberacao(empresaId, usuarioId);

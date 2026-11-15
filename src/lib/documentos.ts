@@ -122,14 +122,16 @@ export async function lerDocumento(chave: string): Promise<{ conteudo: ArrayBuff
   }
 }
 
-/** Apaga documentos. Se falhar, no pior caso sobra um arquivo sem nenhuma linha no banco apontando para ele. */
-export async function apagarDocumentosGuardados(chaves: string[]): Promise<void> {
+/** Apaga documentos e diz se deu certo. Quem guarda a chave no banco só a limpa quando devolve `true`. */
+export async function apagarDocumentosGuardados(chaves: string[]): Promise<boolean> {
   const validas = chaves.filter((chave) => /^[0-9a-f]{32}\.[a-z]{3,4}$/.test(chave));
-  if (validas.length === 0) return;
+  if (validas.length === 0) return true;
   try {
     if (usaBucket()) await bucket().delete(validas);
     else await Promise.all(validas.map((chave) => unlink(path.join(pastaLocal(), chave)).catch(() => undefined)));
+    return true;
   } catch (erro) {
     console.error("Não foi possível apagar documentos", validas.length, erro);
+    return false;
   }
 }
