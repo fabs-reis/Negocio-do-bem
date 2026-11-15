@@ -72,9 +72,9 @@ Assim, um depoimento negativo e honesto não some só porque incomodou o dono, e
 - **Só imagens próprias:** o site só mostra fotos que ele mesmo guardou, porque uma imagem de outro endereço avisaria aquele servidor a cada visita.
 - **Direito de não aparecer:** o dono oculta o negócio a qualquer momento. É a resposta para quem foi indicado e não quer estar no diretório.
 
-### Sem ranking e sem anúncio pago
+### Ordem transparente e sem anúncio pago
 
-A ordem do diretório é simples e transparente: perfis assumidos primeiro, depois os atualizados mais recentemente. Não existe nota, destaque pago nem algoritmo de relevância.
+A ordem padrão do diretório é a relevância (#367): o nome que bate com a busca, depois o nível de confiança (verificado, assumido, indicado) e, dentro dele, pontos por perfil completo, depoimentos, favoritos e cupom valendo. Os pesos estão todos em `docs/regras-de-negocio.md`, e nenhum ponto pode ser comprado. A conta é feita no banco a cada consulta, sem coluna guardada, para não ficar desatualizada quando uma oferta vence ou alguém favorita. Antes, a ordem era só "assumidos primeiro"; ela deixava o perfil verificado e o completo sem destaque e subia quem editou por último.
 
 ### Funcionar sem depender de terceiros
 

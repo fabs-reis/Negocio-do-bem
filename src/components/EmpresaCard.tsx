@@ -4,6 +4,7 @@ import { CoracaoFavorito, type EstadoFavorito } from "@/components/CoracaoFavori
 import { FotoEmpresa } from "@/components/FotoEmpresa";
 import { SeloStatus } from "@/components/SeloStatus";
 import { filtrarCausas } from "@/lib/causas";
+import { perfilVerificado } from "@/lib/verificacao";
 
 export type EmpresaResumo = {
   id: string;
@@ -19,6 +20,9 @@ export type EmpresaResumo = {
   _count: { depoimentos: number };
   // A oferta do Clube do Bem que está valendo, se houver (o selo de cupom).
   ofertas?: { id: string }[];
+  // Para o selo "Perfil verificado" (INCLUIR_VERIFICACAO). Sem eles, o card não mostra o selo.
+  membros?: { usuarioId: string }[];
+  liberacoesClube?: { usuarioId: string }[];
 };
 
 const MAX_BADGES = 3;
@@ -88,7 +92,7 @@ export function EmpresaCard({
           ) : (
             <>
               <span className="flex flex-wrap items-center gap-1.5">
-                <SeloStatus status={empresa.status} />
+                <SeloStatus status={empresa.status} verificado={perfilVerificado(empresa)} />
                 {!!empresa.ofertas?.length && (
                   <span className="rounded-full bg-coral-50 px-2.5 py-1 text-xs font-semibold text-coral-700">Cupom</span>
                 )}

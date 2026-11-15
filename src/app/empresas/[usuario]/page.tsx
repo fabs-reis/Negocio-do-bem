@@ -35,6 +35,7 @@ import { FORA_DA_BUSCA, jsonLdDoNegocio, metadadosDaPagina, paginaDaCidade } fro
 import { formatarData, formatarFavoritos, formatarTelefone, tempoDeLeitura } from "@/lib/texto";
 import { FormDepoimento } from "./FormDepoimento";
 import { seguirEnderecoAntigo } from "@/lib/troca-de-arroba";
+import { perfilVerificado } from "@/lib/verificacao";
 
 export async function generateMetadata(props: PageProps<"/empresas/[usuario]">): Promise<Metadata> {
   const username = normalizarEndereco((await props.params).usuario);
@@ -77,7 +78,7 @@ async function Perfil({ params, searchParams }: Pick<PageProps<"/empresas/[usuar
     ? (await coracoesDaLista(usuario, [empresa.id], `/empresas/${empresa.instagramUsername}`))(empresa.id)
     : undefined;
   // Parceiro do Clube do Bem: um dono liberado pela moderação, que ainda é dono.
-  const parceiro = empresa.liberacoesClube.some((liberacao) => empresa.membros.some((m) => m.usuarioId === liberacao.usuarioId));
+  const parceiro = perfilVerificado(empresa);
   // A hora atual só depois da sessão e dos parâmetros: o Cache Components não deixa antes.
   const oferta = publico && empresa.ofertas[0] && empresa.ofertas[0].fim > new Date() ? empresa.ofertas[0] : undefined;
   const meuCupom =

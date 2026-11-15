@@ -150,6 +150,78 @@ describe("buscarDiretorio", () => {
   });
 });
 
+describe("ordenação por pontuação (#367)", () => {
+  async function usuario(email: string) {
+    return db.usuario.create({ data: { nome: "Pessoa", email } });
+  }
+
+  async function verificar(username: string) {
+    const dono = await usuario(`dono.${username}@exemplo.test`);
+    const empresa = await db.empresa.findUniqueOrThrow({ where: { instagramUsername: username } });
+    await db.empresaMembro.create({ data: { empresaId: empresa.id, usuarioId: dono.id } });
+    await db.liberacaoClube.create({ data: { empresaId: empresa.id, usuarioId: dono.id, cnpj: "00000000000191", status: "liberada" } });
+  }
+
+  async function favoritar(username: string, quantos: number) {
+    const empresa = await db.empresa.findUniqueOrThrow({ where: { instagramUsername: username } });
+    for (let i = 0; i < quantos; i++) {
+      const pessoa = await usuario(`fa${i}.${username}@exemplo.test`);
+      await db.empresaFavorita.create({ data: { empresaId: empresa.id, usuarioId: pessoa.id } });
+    }
+  }
+
+  const ordem = async (mudanca: Partial<FiltrosDiretorio>) =>
+    (await buscarDiretorio(filtros(mudanca))).itens.map((e) => e.instagramUsername);
+
+  it("abre em relevância: verificado, depois assumido, depois indicado", async () => {
+    // O ateliê fica mais completo, mas o verificado vem antes de qualquer assumido.
+    await db.empresa.update({
+      where: { instagramUsername: "atelie.raiz" },
+      data: { historia: "Nossa história", whatsapp: "5581999999999" },
+    });
+    await verificar("padaria.florescer");
+    expect(SEM_FILTROS.ordem).toBe("relevancia");
+    expect(await ordem({})).toEqual(["padaria.florescer", "atelie.raiz", "cafe.arcoiris"]);
+  });
+
+  it("entre os do mesmo nível, o perfil mais completo e mais querido vem antes", async () => {
+    await db.empresa.update({ where: { instagramUsername: "atelie.raiz" }, data: { historia: "Nossa história" } });
+    expect((await ordem({})).slice(0, 2)).toEqual(["atelie.raiz", "padaria.florescer"]);
+    await favoritar("padaria.florescer", 5);
+    expect((await ordem({})).slice(0, 2)).toEqual(["padaria.florescer", "atelie.raiz"]);
+  });
+
+  it("com busca, quem tem o termo no nome vem primeiro", async () => {
+    await criarEmpresa("doceria", {
+      nome: "Doceria da Vila",
+      categoria: "Café e padaria",
+      cidade: "Recife",
+      uf: "PE",
+      status: "verificada",
+    });
+    await db.empresa.update({ where: { instagramUsername: "doceria" }, data: { resumo: "Pães e bolos", busca: "doceria da vila paes e bolos padaria" } });
+    await verificar("doceria");
+    // A doceria é verificada e só tem "padaria" no texto; a Padaria Florescer tem no nome.
+    expect(await ordem({ q: "padaria" })).toEqual(["padaria.florescer", "doceria", "cafe.arcoiris"]);
+  });
+
+  it("\"Mais queridos\" ordena por favoritos e depoimentos", async () => {
+    await favoritar("cafe.arcoiris", 2);
+    await favoritar("atelie.raiz", 1);
+    expect(await ordem({ ordem: "queridos" })).toEqual(["cafe.arcoiris", "atelie.raiz", "padaria.florescer"]);
+  });
+
+  it("pagina sem repetir nem pular negócios", async () => {
+    for (let i = 0; i < 20; i++) {
+      await criarEmpresa(`extra.${i}`, { nome: `Extra ${i}`, categoria: "Pet", cidade: "Recife", uf: "PE" });
+    }
+    const primeira = await ordem({});
+    const segunda = await ordem({ pagina: 2 });
+    expect(primeira).toHaveLength(18);
+    expect(new Set([...primeira, ...segunda]).size).toBe(23);
+  });
+});
+
 describe("listarParaSitemap", () => {
   it("lista só os negócios do diretório, do atualizado mais recentemente ao mais antigo", async () => {
     await db.empresa.update({ where: { instagramUsername: "cafe.arcoiris" }, data: { resumo: "Atualizado agora" } });
