@@ -186,7 +186,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
   - Ao mandar de novo a confirmação, ou o link de senha nova pelo painel, quem passou do limite vê "Você pediu muitos e-mails na última hora".
   - No "Entrar por link" e no "Esqueci minha senha", a resposta continua a mesma, e o e-mail simplesmente não sai.
   - Os links vencidos há mais de uma hora são apagados quando a conta recebe outro.
-- **O endereço do link vem da configuração** (`ENDERECO_DO_SITE`, ou o domínio canônico configurado por ambiente), nunca do cabeçalho `Host` da requisição.
+- **O endereço do link vem da configuração** (`ENDERECO_DO_SITE`, ou o domínio canônico configurado por ambiente), nunca do cabeçalho `Host` da requisição. Na produção sem `APP_URL`, vale o domínio oficial `https://www.negociodobem.com`, nunca localhost.
 - **Sem o envio de e-mail configurado,** o link vai para o log do servidor no `npm run dev` e nos previews, para dar para testar. Na produção, ele não vai para o log.
 
 ### Papéis

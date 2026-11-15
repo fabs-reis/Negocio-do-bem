@@ -35,6 +35,19 @@ describe("endereço do site", () => {
     expect(seo.INDEXAVEL).toBe(true);
   });
 
+  it("sem APP_URL em produção, usa o domínio oficial em vez de localhost", async () => {
+    const seo = await seoCom({ DEPLOY_ENV: "production", APP_URL: "" });
+    expect(seo.ENDERECO_DO_SITE).toBe("https://www.negociodobem.com");
+    expect(seo.urlAbsoluta("/empresas/x")).toBe("https://www.negociodobem.com/empresas/x");
+    expect(seo.INDEXAVEL).toBe(true);
+  });
+
+  it("sem APP_URL no preview, mantém o endereço local e fica fora dos buscadores", async () => {
+    const seo = await seoCom({ DEPLOY_ENV: "preview", APP_URL: "" });
+    expect(seo.ENDERECO_DO_SITE).toBe("http://localhost:3000");
+    expect(seo.INDEXAVEL).toBe(false);
+  });
+
   it("nos previews, usa o APP_URL do preview e fica fora dos buscadores", async () => {
     const seo = await seoCom({ DEPLOY_ENV: "preview", APP_URL: "https://stage.exemplo" });
     expect(seo.ENDERECO_DO_SITE).toBe("https://stage.exemplo");
