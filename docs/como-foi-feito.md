@@ -786,6 +786,8 @@ Decisões do esquema:
   - um depoimento por pessoa por negócio;
   - um favorito por pessoa por negócio;
   - um código de DM único (só nos pedidos antigos).
+
+  As ações consultam antes de criar, para dar o aviso certo. Mas dois envios ao mesmo tempo passam juntos pela consulta. No cadastro e no depoimento, a criação vai dentro de `semDuplicar` (`src/lib/db.ts`): a violação de unicidade (`P2002`) vira o mesmo aviso, e qualquer outro erro continua subindo. Na indicação, a criação roda na transação da cota e trata o mesmo erro ali.
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
   - **uma conta:** apaga as sessões, os vínculos de dono, os favoritos dela, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
   - **um negócio:** apaga as causas, os donos, os favoritos, os depoimentos e os pedidos ligados a ele.
@@ -910,7 +912,7 @@ npm run typecheck
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/unit/cnpj.test.ts`:** projeção, normalização, timeout e rejeição interna. Os substitutos de `next/cache` e React verificam o contrato, não a persistência.
 - **`tests/integracao/cache-cnpj.test.ts`:** prova explícita do cache no consumidor real. O `npm test` comum ignora essa prova e não inicia build nem servidor. Ela exige uma cópia limpa com build Turbopack pronto e sem arquivos `.env`. `CACHE_CNPJ_PROVA` aponta para um JSON com `fixture` e `evidencias`. A fixture Unix sintética deve corresponder às restrições de `tests/apoio/cache-cnpj/prova.mjs`. Nessa cópia, execute `TESTAR_CACHE_CNPJ=1 npx vitest run --config tests/apoio/cache-cnpj/vitest.config.mts tests/integracao/cache-cnpj.test.ts`. O config separado evita que o preparo da suíte comum limpe a fixture da integração.
-- **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
+- **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo), algumas Server Actions (com o `redirect` e a sessão simulados, como em `tests/db/duplicados.test.ts`) e as regras de reivindicação contra um Postgres de verdade:
   - Entrar com Instagram;
   - pedidos antigos por código de DM;
   - conflitos;
