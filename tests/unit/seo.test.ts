@@ -35,6 +35,19 @@ describe("endereço do site", () => {
     expect(seo.INDEXAVEL).toBe(true);
   });
 
+  it("sem APP_URL em produção, usa o domínio oficial em vez de localhost", async () => {
+    const seo = await seoCom({ DEPLOY_ENV: "production", APP_URL: "" });
+    expect(seo.ENDERECO_DO_SITE).toBe("https://www.negociodobem.com");
+    expect(seo.urlAbsoluta("/empresas/x")).toBe("https://www.negociodobem.com/empresas/x");
+    expect(seo.INDEXAVEL).toBe(true);
+  });
+
+  it("sem APP_URL no preview, mantém o endereço local e fica fora dos buscadores", async () => {
+    const seo = await seoCom({ DEPLOY_ENV: "preview", APP_URL: "" });
+    expect(seo.ENDERECO_DO_SITE).toBe("http://localhost:3000");
+    expect(seo.INDEXAVEL).toBe(false);
+  });
+
   it("nos previews, usa o APP_URL do preview e fica fora dos buscadores", async () => {
     const seo = await seoCom({ DEPLOY_ENV: "preview", APP_URL: "https://stage.exemplo" });
     expect(seo.ENDERECO_DO_SITE).toBe("https://stage.exemplo");
@@ -84,6 +97,11 @@ describe("jsonLdDoNegocio", () => {
 
   it("prefere o telefone comercial ao WhatsApp", () => {
     expect(ficha({ whatsapp: "5581999990000", telefoneComercial: "558133334444" }).telephone).toBe("+558133334444");
+  });
+
+  it("inclui o mapa somente quando preenchido", () => {
+    expect(ficha({})).not.toHaveProperty("hasMap");
+    expect(ficha({ mapaUrl: "https://maps.app.goo.gl/exemplo" }).hasMap).toBe("https://maps.app.goo.gl/exemplo");
   });
 
   it("negócio sem Instagram não aponta para o Instagram", () => {

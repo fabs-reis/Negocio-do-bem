@@ -66,7 +66,7 @@ describe("lerFiltros", () => {
 
   it("não aceita chaves do protótipo como ordem", () => {
     for (const ordem of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
-      expect(lerFiltros({ ordem }).ordem).toBe("verificados");
+      expect(lerFiltros({ ordem }).ordem).toBe("relevancia");
     }
   });
 

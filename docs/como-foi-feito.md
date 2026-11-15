@@ -69,12 +69,12 @@ Assim, um depoimento negativo e honesto não some só porque incomodou o dono, e
 - **Dados mínimos:** da conta, só nome e e-mail.
 - **Nada de raspagem:** o site não raspa o Instagram.
 - **Nada de tokens guardados:** o login com Instagram só serve para provar quem controla a conta.
-- **Só imagens próprias:** o site só mostra fotos que ele mesmo guardou, porque uma imagem de outro endereço avisaria aquele servidor a cada visita.
+- **Só imagens próprias:** o site só mostra fotos que ele mesmo guardou, porque uma imagem de outro endereço avisaria aquele servidor a cada visita. Pelo mesmo motivo, o mapa do negócio é um link ("Ver no mapa"), e não um mapa embutido.
 - **Direito de não aparecer:** o dono oculta o negócio a qualquer momento. É a resposta para quem foi indicado e não quer estar no diretório.
 
-### Sem ranking e sem anúncio pago
+### Ordem transparente e sem anúncio pago
 
-A ordem do diretório é simples e transparente: perfis assumidos primeiro, depois os atualizados mais recentemente. Não existe nota, destaque pago nem algoritmo de relevância.
+A ordem padrão do diretório é a relevância (#367): o nome que bate com a busca, depois o nível de confiança (verificado, assumido, indicado) e, dentro dele, pontos por perfil completo, depoimentos, favoritos e cupom valendo. Os pesos estão todos em `docs/regras-de-negocio.md`, e nenhum ponto pode ser comprado. A conta é feita no banco a cada consulta, sem coluna guardada, para não ficar desatualizada quando uma oferta vence ou alguém favorita. Antes, a ordem era só "assumidos primeiro"; ela deixava o perfil verificado e o completo sem destaque e subia quem editou por último.
 
 ### Funcionar sem depender de terceiros
 
@@ -786,6 +786,8 @@ Decisões do esquema:
   - um depoimento por pessoa por negócio;
   - um favorito por pessoa por negócio;
   - um código de DM único (só nos pedidos antigos).
+
+  As ações consultam antes de criar, para dar o aviso certo. Mas dois envios ao mesmo tempo passam juntos pela consulta. No cadastro e no depoimento, a criação vai dentro de `semDuplicar` (`src/lib/db.ts`): a violação de unicidade (`P2002`) vira o mesmo aviso, e qualquer outro erro continua subindo. Na indicação, a criação roda na transação da cota e trata o mesmo erro ali.
 - **O que acontece ao apagar** (não há tela para isso hoje, só direto no banco):
   - **uma conta:** apaga as sessões, os vínculos de dono, os favoritos dela, os pedidos de reivindicação e os depoimentos dela. Os negócios que ela indicou, as decisões que tomou e os registros de auditoria ficam, sem o autor;
   - **um negócio:** apaga as causas, os donos, os favoritos, os depoimentos e os pedidos ligados a ele.
@@ -910,7 +912,7 @@ npm run typecheck
 - **`tests/unit/email.test.ts`:** a chamada ao Resend, quando o envio liga e que uma falha não lança erro.
 - **`tests/unit/cnpj.test.ts`:** projeção, normalização, timeout e rejeição interna. Os substitutos de `next/cache` e React verificam o contrato, não a persistência.
 - **`tests/integracao/cache-cnpj.test.ts`:** prova explícita do cache no consumidor real. O `npm test` comum ignora essa prova e não inicia build nem servidor. Ela exige uma cópia limpa com build Turbopack pronto e sem arquivos `.env`. `CACHE_CNPJ_PROVA` aponta para um JSON com `fixture` e `evidencias`. A fixture Unix sintética deve corresponder às restrições de `tests/apoio/cache-cnpj/prova.mjs`. Nessa cópia, execute `TESTAR_CACHE_CNPJ=1 npx vitest run --config tests/apoio/cache-cnpj/vitest.config.mts tests/integracao/cache-cnpj.test.ts`. O config separado evita que o preparo da suíte comum limpe a fixture da integração.
-- **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo) e as regras de reivindicação contra um Postgres de verdade:
+- **`tests/db/`:** as consultas do diretório e do painel da moderação, quem recebe cada aviso por e-mail, os links por e-mail (prazo, uso único, limite e cliques ao mesmo tempo), algumas Server Actions (com o `redirect` e a sessão simulados, como em `tests/db/duplicados.test.ts`) e as regras de reivindicação contra um Postgres de verdade:
   - Entrar com Instagram;
   - pedidos antigos por código de DM;
   - conflitos;
@@ -973,7 +975,7 @@ A B2 ainda precisa tratar o esquema aditivo e a cópia dos dados. A B3 troca cad
 1. Workers Builds conectado ao repositório executa builds de produção na `main` e previews em branches não produtivas. Configure preview bindings e secrets com o banco e buckets de teste; eles não devem apontar para recursos de produção.
 2. O PR da `stage` para `main` leva o que foi homologado para produção. O merge na `main` publica a produção. O merge é sempre com **"Create a merge commit"**, a única opção que o ruleset da `main` aceita.
 3. `scripts/cloudflare-build.sh` aplica `prisma migrate deploy` antes do bundle, usando `DATABASE_URL_UNPOOLED` quando existe. Em preview, roda também o seed, que só preenche banco vazio.
-   - **O ambiente vem da branch, e não de uma variável.** As variáveis de build da produção e as dos previews ficam em abas diferentes do painel, e um engano ali não pode levar a migração de um PR ao banco de produção. O script lê a `WORKERS_CI_BRANCH`: só a `main` é produção. As outras branches usam as variáveis `PREVIEW_*` e falham se faltar alguma. Assim, a migração de um PR ainda não aprovado nunca chega ao banco de produção.
+   - **O ambiente vem da branch, e não de uma variável.** As variáveis de build da produção e as dos previews ficam em abas diferentes do painel, e um engano ali não pode levar a migração de um PR ao banco de produção. O script lê a `WORKERS_CI_BRANCH`: só a `main` é produção. As outras branches usam as variáveis `PREVIEW_*` e falham se faltar alguma. A `main` falha se faltar o `APP_URL`. Assim, a migração de um PR ainda não aprovado nunca chega ao banco de produção.
 4. Na `main`, o `opennextjs-cloudflare deploy` preenche o cache das páginas no bucket de produção e publica. Nas outras branches, o `npm run cf:preview` (`scripts/cloudflare-preview.sh`) preenche o cache no bucket dos previews e roda o `wrangler preview`.
 
 **Segurança dos previews:**
@@ -990,7 +992,7 @@ A B2 ainda precisa tratar o esquema aditivo e a cópia dos dados. A B3 troca cad
 | --- | --- | --- |
 | `DATABASE_URL` | Sim | Conexão com o Postgres. Configure valores separados para Production e Preview. |
 | `DATABASE_URL_UNPOOLED` | Não | Conexão direta para as migrações, quando a `DATABASE_URL` passa por um pooler (como no Neon). No PlanetScale, a `DATABASE_URL` já é direta. |
-| `APP_URL` | Sim, no build e no runtime | Endereço público canônico, sem barra no final. Entra no HTML pré-renderizado, então precisa estar no build. |
+| `APP_URL` | Sim, no build e no runtime | Endereço público canônico, sem barra no final. Entra no HTML pré-renderizado, então precisa estar no build. Na produção, o `cloudflare-build.sh` falha se ele faltar ou apontar para localhost. Se faltar só no runtime da produção, `ENDERECO_DO_SITE` usa o domínio oficial (`DOMINIO_OFICIAL`, em `src/lib/dominio.ts`), nunca localhost. |
 | `DEPLOY_ENV` | No `wrangler.jsonc` | `production` ou `preview`; controla indexação, seed e envio de e-mails. No build do Workers Builds, o script define pela branch. Lida por `ambienteDeDeploy()` (`src/lib/ambiente.ts`). |
 | `PREVIEW_DATABASE_URL`, `PREVIEW_DATABASE_URL_UNPOOLED`, `PREVIEW_APP_URL`, `PREVIEW_R2_PUBLIC_URL` | No build dos previews | Variáveis de build que o `cloudflare-build.sh` usa nas branches que não são a `main`, no lugar das de produção. |
 | `NEXT_PUBLIC_R2_PUBLIC_URL` | Sim em deploy | Origem HTTPS pública do bucket de uploads R2 (domínio próprio em produção; `r2.dev` pode ser usado em POC/previews). Configure também durante o build. |
@@ -1245,3 +1247,59 @@ E dois combinados que mantêm esta documentação útil:
 
 - **Mudou uma regra de negócio?** Atualize o [Regras de negócio](regras-de-negocio.md) no mesmo PR.
 - **Tomou uma decisão que muda o rumo do projeto?** Conte o porquê na descrição do PR e, se for uma decisão de fundo, aqui neste guia.
+
+## Issue #40 — Arquitetura da primeira entrega de serviços
+
+### Decisões
+
+A funcionalidade reaproveita `Usuario`, `Empresa`, `EmpresaMembro`, autenticação via sessão, auditoria e o design system da `stage`, sem criar contas paralelas.
+
+- `PerfilProfissional` é vinculado 1:1 a `Usuario`; `Servico` referencia um perfil ou uma empresa, nunca ambos. O Prisma descreve as relações e a migração PostgreSQL impõe os invariantes que o Prisma não representa em seu schema.
+- `src/lib/servicos.ts` concentra validação Zod e funções puras, seguras para importar em Client Components.
+- `src/lib/servicos/permissoes.ts` é **server-only** e centraliza as decisões de acesso ao prestador e ao anúncio.
+- `src/lib/servicos/consultas.ts` é **server-only** e fornece o filtro público reutilizável com consulta paginada e ordenação estável.
+- `src/lib/servicos/transicoes.ts` documenta e testa as transições válidas entre estados.
+- `src/acoes/servicos.ts` autentica, valida os dados recebidos, chama as regras no banco numa transação e regista auditoria, mantendo redirecionamentos e revalidação das páginas fora da transação.
+- As páginas em `src/app/servicos`, `src/app/meus-servicos` e `src/app/moderacao/servicos` seguem a convenção do projeto de colocar acesso ao banco e à sessão dentro de `Suspense`.
+- `FormularioServico` é reutilizado para criar e rever anúncios. Revisões reenviam o anúncio à moderação; o prestador é imutável.
+
+### Moderação e privacidade
+
+O processo de aprovação verifica, no momento da decisão, que o prestador continua visível ou verificado. Uma rejeição exige motivo; o motivo fica restrito ao proprietário e à moderação. O filtro público nunca inclui anúncios pendentes ou rejeitados. Não se expõem e-mails de conta; somente o contato profissional fornecido voluntariamente.
+
+### Validação
+
+- `tests/unit/servicos.test.ts`: dados inválidos, tipos de prestador, requisitos para publicar perfis, motivo de rejeição, transições e paginação.
+- `tests/db/servicos.test.ts`: visibilidade pública, exclusividade do prestador, modalidades exigidas, propriedades e elegibilidade de empresa.
+- O teste de banco utiliza base de teste isolada, com limpeza apenas dos fixtures criados pela suite, evitando `TRUNCATE` indiscriminado.
+- Antes do merge: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, migração numa base limpa e revisão visual em 375 px, 768 px e 1440 px, claro e escuro.
+
+### Escalabilidade e evolução
+
+A consulta usa texto de busca normalizado com `contains`. Foi mantida a mesma estratégia simples do diretório atual para este MVP; quando a quantidade de serviços exigir, avaliar busca indexada com `pg_trgm` ou índice de texto completo e medir planos com `EXPLAIN ANALYZE`. A pesquisa é limitada a seis termos para controlar custo. Transações e verificações de propriedade reduzem inconsistências; para concorrência elevada, considerar isolamento serializável com retry antes de introduzir fluxos transacionais adicionais.
+
+A migração da feature foi atualizada **antes de entrar em `stage`**. Quem já a aplicou localmente deve verificar o histórico de migrações e evitar reaplicação manual em bancos com dados; os testes devem usar um banco descartável separado.
+
+### Escopo futuro
+
+Pedidos de orçamento, denúncias, contratos, avaliações, histórico de serviços e pagamentos não estão nesta PR. Devem começar por regras de negócio discutidas na issue #40, com testes de autorização e moderação antes da UI.
+
+
+### Issue #40 — Ajustes de revisão: cidades atendidas e moderação
+
+- `AreaAtendimentoServico` guarda até dez municípios validados por anúncio. A origem do prestador permanece em `PerfilProfissional` ou `Empresa`; a busca geográfica é feita pela associação, sem depender de CEP ou da PR #168.
+- `filtroServicosPublicos` compõe os critérios de modalidade e localização com a regra de elegibilidade. `count` e `findMany` usam o mesmo `where`.
+- O catálogo usa formulários GET nativos, com campos identificados, estado de erro acessível, comportamento responsivo e paginação que preserva filtros.
+- A moderação distingue publicação, rejeição e suspensão. Só um anúncio publicado pode ser suspenso, com justificativa e auditoria na transação. O prestador pode rever um anúncio suspenso, mas isso exige nova aprovação.
+- A validação contempla municípios repetidos, município inválido, presença de modalidade, operações suspensas e pesquisa geográfica.
+- Antes do merge: executar migrações num PostgreSQL descartável, lint, typecheck, testes e build; testar navegação por teclado e leitor de ecrã, 360/375/768/1280 px, claro/escuro e o fluxo de suspensão.
+- Dependências: a #137 propõe `confirmadoEm` para proprietários; quando integrada, serviços de empresas também precisarão dessa verificação, sem novo sistema de permissões. A #168 pode fornecer identificação territorial adicional sem fazer parte do MVP.
+
+### PR #87 — Correções de integração e regressão
+
+- A branch foi integrada à `stage` com um merge que preserva funcionalidades já publicadas, incluindo PWA, copy de identidade e navegação.
+- A decisão de moderação usa `versaoConteudo` validado em `updateMany` para impedir aprovação de conteúdo posterior à consulta do moderador.
+- O painel de serviços foi movido para `/meus-servicos`, sem reservar identificadores do Instagram válidos sob `/painel/[usuario]`.
+- Os testes das actions reais cobrem alterações de anúncio/perfil durante a análise, aprovações concorrentes, propriedade e colisão de rotas.
+- Os alvos de auditoria passaram a resolver serviços e perfis profissionais, preservando o histórico de decisões.
+- Os motivos de rejeição e suspensão ficam guardados como texto legível em `RegistroAuditoria.detalhes`, dentro da transação de moderação; testes pelas Server Actions comprovam que o reenvio não os elimina.

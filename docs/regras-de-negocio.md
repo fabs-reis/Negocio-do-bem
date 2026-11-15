@@ -71,7 +71,7 @@ Código: `src/acoes/conta.ts`, `src/lib/auth/`.
   - telefone obrigatório, do Brasil, com DDD: celular (9 e mais 8 dígitos) ou fixo (começa com 2 a 5). Aceita "(11) 99148-8052" ou "+55 11 99148-8052" e guarda só os dígitos, com o 55 (`5511991488052`), como o WhatsApp do negócio. Serve só para avisos sobre a conta e o negócio da pessoa, e o campo diz isso;
   - senha de 8 a 200 caracteres.
 - **Contas sem telefone:** as criadas antes do telefone ser obrigatório ([#191](https://github.com/fabs-reis/Negocio-do-bem/issues/191)) continuam sem ele e funcionam igual. Ninguém é obrigado a informar depois.
-- **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?").
+- **Um e-mail, uma conta.** O cadastro avisa quando o e-mail já existe ("Que tal entrar?"). Dois envios ao mesmo tempo com o mesmo e-mail criam uma conta só: o outro recebe o mesmo aviso, sem sessão.
 - **Conta criada no meio do cadastro de um negócio:** o formulário já vem com o e-mail e o telefone que o dono deu na etapa "Como a gente fala com você?", com o aviso "Trouxemos o contato que você deu no cadastro do negócio. Pode mudar." ([#317](https://github.com/fabs-reis/Negocio-do-bem/issues/317)).
   - Os dois vêm do rascunho do navegador (`ndb:cadastro`, veja [O cadastro por etapas](#o-cadastro-por-etapas)), nunca pela URL, e só quando o `voltar` leva de volta ao cadastro (`/participar?continuar=1`). Em outra entrada no `/cadastrar`, o formulário começa vazio.
   - Quem só indicou não deu contato, e nada é preenchido. O nome da pessoa continua sendo pedido aqui: o cadastro do negócio não pede.
@@ -186,7 +186,7 @@ Código: `src/lib/auth/links.ts`, `src/acoes/conta.ts`, `src/app/api/link/route.
   - Ao mandar de novo a confirmação, ou o link de senha nova pelo painel, quem passou do limite vê "Você pediu muitos e-mails na última hora".
   - No "Entrar por link" e no "Esqueci minha senha", a resposta continua a mesma, e o e-mail simplesmente não sai.
   - Os links vencidos há mais de uma hora são apagados quando a conta recebe outro.
-- **O endereço do link vem da configuração** (`ENDERECO_DO_SITE`, ou o domínio canônico configurado por ambiente), nunca do cabeçalho `Host` da requisição.
+- **O endereço do link vem da configuração** (`ENDERECO_DO_SITE`, ou o domínio canônico configurado por ambiente), nunca do cabeçalho `Host` da requisição. Na produção sem `APP_URL`, vale o domínio oficial `https://www.negociodobem.com`, nunca localhost.
 - **Sem o envio de e-mail configurado,** o link vai para o log do servidor no `npm run dev` e nos previews, para dar para testar. Na produção, ele não vai para o log.
 
 ### Papéis
@@ -329,6 +329,7 @@ Validação: `src/acoes/empresas.ts` e `src/lib/formulario.ts`.
 | Site | Não | Até 200 caracteres. Sem `http`, ganha `https://`. Precisa ter um ponto no domínio. |
 | WhatsApp | Só no cadastro do dono | Número brasileiro com DDD (ver abaixo). |
 | E-mail de contato | Não | E-mail válido, até 200 caracteres, guardado em minúsculas. |
+| Link do mapa | Não | Até 1.000 caracteres após normalizar. Google Maps (`maps.app.goo.gl`, `maps.google.com`, `google.com/maps`, `goo.gl/maps`, também com `.br`) ou Apple Maps (`maps.apple.com`, `maps.apple`). Sem esquema ganha `https://`; `http` vira `https`. Nos hosts com `/maps`, só esse segmento ou seus subcaminhos são aceitos. |
 | E-mail e telefone do dono | Só no cadastro do dono | O contato de quem cadastrou o negócio como dono, com as regras do e-mail e do telefone. **Não aparecem no perfil:** só os donos (no painel) e a moderação (na fila de indicações e na edição) veem. |
 | Causas | Não | Qualquer combinação da lista oficial. Slugs desconhecidos são descartados. |
 | História | Não | Markdown, até 20 mil caracteres (ver [seção 8](#8-história-do-negócio)). |
@@ -410,7 +411,7 @@ Código: `indicarEmpresa` em `src/acoes/empresas.ts`, tela em `src/app/participa
 
 - **Precisa de login**, como antes.
 - **Dados pedidos:** o @ do Instagram (ou "sem Instagram"), nome, categoria, cidade (o estado vem junto) e resumo, que são obrigatórios. Causas e "por que você indica" são opcionais.
-- **Quem indica não publica contatos** (#105): site, WhatsApp, e-mail, telefone comercial e contato do dono ficam vazios numa indicação, mesmo que o envio traga algum. Quem cuida dos contatos é o dono.
+- **Quem indica não publica contatos** (#105): site, WhatsApp, e-mail, telefone comercial e contato do dono ficam vazios numa indicação, mesmo que o envio traga algum. Quem cuida dos contatos é o dono. Isso inclui o link do mapa: indicações de terceiros não publicam esse campo.
 - **O @ não pode já estar cadastrado.** Se já existe um negócio com aquele @, em qualquer estado (inclusive pendente ou rejeitado), a indicação é recusada com um link para o perfil. Isso vale também quando duas pessoas indicam o mesmo @ ao mesmo tempo: uma publica e a outra recebe esta recusa. Sem Instagram, não há recusa: o endereço ganha `-2`, `-3`….
 - **Motivo da indicação:** até 600 caracteres, opcional. Aparece no perfil, com o nome de quem indicou, até o dono escrever a história.
 - **Causas:** a tela pede para marcar "só o que você sabe que é verdade". O dono ajusta depois.
@@ -672,6 +673,7 @@ Código: `src/app/empresas/[usuario]/page.tsx`.
   - Instagram (só para quem tem Instagram);
   - site, que mostra o domínio sem `www`;
   - e-mail, que abre `mailto:`;
+  - **Ver no mapa**, que abre o link informado pelo dono ou pela moderação em outra aba, sem carregar mapas de terceiros durante a visita;
   - cidade, com link para a página da cidade nos perfis do diretório.
 - **Resumo.**
 - **"Nossa história",** com "N min de leitura · atualizada em …". Sem história:
@@ -868,7 +870,7 @@ Código: `src/acoes/depoimentos.ts`, `decidirDenuncia` em `src/acoes/moderacao.t
 - **Precisa de login.**
 - Só em negócios **publicados e não ocultos.**
 - **Donos não escrevem depoimento no próprio negócio.** Eles respondem.
-- **Um depoimento por pessoa por negócio.**
+- **Um depoimento por pessoa por negócio.** Vale também para dois envios ao mesmo tempo: o segundo recebe "Você já deixou um depoimento para este negócio".
 - **Tamanho:** de 20 a 1.500 caracteres.
 - **Vai ao ar na hora,** sem moderação prévia, com o nome de quem escreveu e a data.
 - **Os donos recebem um e-mail** com o texto e o link para responder ([seção 14](#14-avisos-por-e-mail)).
@@ -931,10 +933,16 @@ A ordem, de cima para baixo:
 
 - **Abre** pela busca da página inicial, pelos tipos de negócio, pelos atalhos e pelo "Explorar" do menu.
 - **Ordem:**
-  - **Assumidos primeiro** (padrão): os perfis que já foram assumidos e, dentro de cada grupo, os atualizados mais recentemente;
+  - **Relevância** (padrão, #367). A conta é feita no banco a cada consulta (`idsPorPontuacao` em `src/lib/consultas.ts`), então reflete na hora qualquer mudança:
+    1. com busca por texto, os negócios cujo nome tem todos os termos vêm primeiro;
+    2. depois, o nível de confiança: perfil verificado, depois assumido, depois indicado pela comunidade. Um nível nunca passa à frente do outro;
+    3. dentro do nível, os pontos de qualidade: foto do site 3, história preenchida 3, algum contato (WhatsApp, site ou e-mail) 2, 1 por causa (até 5), 2 por depoimento publicado (até 10), 1 por favorito (até 20) e 5 pelo cupom do Clube do Bem valendo;
+    4. no empate, os atualizados mais recentemente.
+  - **Mais queridos:** favoritos mais depoimentos publicados; no empate, mais favoritos, depois o nível de confiança e os atualizados mais recentemente.
   - **Mais recentes:** pela data de entrada no diretório;
   - **Nome (A–Z)**.
-  - Não existe ranking por nota nem anúncio pago.
+  - Os links antigos com `?ordem=verificados` ("Assumidos primeiro") abrem na relevância.
+  - Não existe anúncio pago: nenhum ponto pode ser comprado, e todos estão descritos aqui.
 - **Busca por texto:**
   - procura no nome, no resumo, na categoria, na cidade, na UF e no @;
   - **não** procura na história nem nas causas, que têm filtro próprio;
@@ -973,7 +981,7 @@ São as páginas que respondem às buscas mais comuns, como "negócios do bem em
 | Causa | `/causas/opcoes-veganas` (o slug da causa) | o título da causa, como "Negócios com opções veganas" |
 | Tipo | `/tipos/cafe-e-padaria` (o slug do tipo) | "Negócios de café e padaria" |
 
-- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (perfis assumidos primeiro) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
+- **Mostram** um texto de introdução, quantos negócios há, os 18 primeiros na ordem padrão do diretório (relevância) e "Ver todos os N no diretório" quando há mais. "Filtrar no diretório" abre o `/explorar` com o mesmo filtro.
 - **Links para continuar:**
   - na cidade: os tipos e as causas que existem nela, que abrem o diretório com a cidade e aquele filtro, e as outras cidades do mesmo estado;
   - na causa: as cidades e os tipos que têm a causa, que abrem o diretório com os dois filtros, e as outras causas do mesmo grupo;
@@ -1548,6 +1556,41 @@ Código: regras em `src/lib/ofertas.ts` (com testes em `tests/db/ofertas.test.ts
 ### O que fica para depois
 
 O QR code, o e-mail de fim de oferta com "Repetir oferta", o agendamento, a revisão das primeiras ofertas, o filtro "Com cupom" no `/explorar`, a denúncia de oferta e os avisos no celular.
+
+## Issue #40 — Perfis profissionais e serviços (primeira etapa)
+
+- O cadastro profissional é opcional e está ligado a uma conta do Negócio do Bem, sem exigir novo login. A pessoa escolhe nome público, apresentação, localização oficial do IBGE, atendimento remoto e/ou presencial e contatos.
+- Um perfil só pode ser publicado quando tem pelo menos um contato profissional (site ou e-mail). O contato só é exibido no catálogo se o perfil estiver publicado.
+- Um serviço pertence **exatamente a um prestador**: perfil profissional ou empresa. A migração impõe essa exclusividade via `CHECK` do PostgreSQL, juntamente com a necessidade de ao menos uma modalidade e estados válidos.
+- Somente quem administra uma empresa aprovada, visível e verificada pode cadastrar ou revisar anúncios desse negócio. O perfil profissional deve estar publicado. Essas verificações ocorrem **na Server Action e dentro da transação de gravação**, não apenas na interface.
+- O anúncio começa em `pendente`. A moderação pode aprovar (`publicado`) ou rejeitar (`rejeitado`), e ao rejeitar deve informar o motivo. Apenas anúncios publicados, não ocultos e associados a prestadores visíveis aparecem em `/servicos`.
+- Um anúncio rejeitado pode ser corrigido e reenviado; revisar um anúncio publicado também o retira temporariamente do catálogo até nova análise. O prestador de um anúncio existente nunca é transferido para outro perfil ou empresa.
+- Se um perfil profissional alterar os seus dados públicos (nome, apresentação, localização, modalidade ou contato), seus anúncios aprovados voltam a `pendente`. Ocultar um perfil remove automaticamente seus serviços do catálogo sem apagar os registros.
+- Donos podem ocultar ou reexibir os próprios anúncios; isso não altera a decisão de moderação. Ações de criação, revisão, moderação e visibilidade são auditadas.
+- O catálogo usa pesquisa textual normalizada por até seis termos, categoria, 18 resultados por página e ordenação por data e identificador. A paginação verifica os limites contra o total antes de consultar a página.
+- A interface mantém a paleta da marca e o modo escuro. Perfis, anúncios e revisão estão integrados ao painel do usuário e à moderação.
+- **Fora do escopo:** propostas, contratos, pagamentos, mensagens, avaliações, denúncias específicas dos anúncios e histórico de negociações. Esses fluxos exigem discussão e PRs separados.
+
+
+## Issue #40 — Áreas de atendimento, pesquisa e suspensão de serviços
+
+- A cidade do prestador representa sua localização de origem. Os municípios atendidos presencialmente ficam associados a cada serviço em `AreaAtendimentoServico`, sem copiar o endereço postal do negócio.
+- Cada anúncio presencial informa pelo menos um município brasileiro validado pela lista atual de municípios; limite de 10 por anúncio. Serviços exclusivamente remotos não precisam informar municípios.
+- A pesquisa pública admite texto, categoria, município e modalidade. Ao escolher município sem restringir modalidade, aparecem serviços remotos e serviços presenciais que declarem atender o município. Ao selecionar `presencial`, aparecem apenas as áreas correspondentes; `remoto` lista serviços online.
+- Localizações inválidas não removem silenciosamente o filtro: o catálogo mostra aviso e zero resultados. O mesmo filtro de visibilidade é usado em `count` e `findMany`.
+- Alterar o perfil profissional retira os anúncios publicados para nova análise quando muda informação pública, sem deixar a cidade antiga nas colunas de origem. O campo textual de busca de serviços indexa o conteúdo do anúncio, não a cidade de origem do prestador.
+- Moderadores podem suspender anúncios `publicado` com justificativa obrigatória, preservando a linha, o motivo e o registro de auditoria. Um anúncio suspenso não aparece no catálogo e só regressa após edição e nova aprovação.
+- Recusas e suspensões guardam a justificação também em `RegistroAuditoria.detalhes`, na mesma transação da decisão. O reenvio limpa os motivos do anúncio atual, mas não apaga a justificação histórica.
+- A publicidade dos contatos do profissional continua sujeita à escolha de publicar o perfil. A área de atendimento inclui somente municípios/UF, nunca CEP ou endereço postal.
+- Os contratos futuros com endereços estruturados (#158/#168) e confirmação de donos (#133/#134, PRs #136/#137) devem ser alinhados antes de integrar as respectivas funcionalidades. Não duplicar cadastros nem expor dados privados.
+
+### Proteção contra decisões desatualizadas (#87)
+
+- Cada serviço guarda `versaoConteudo`, iniciado em 1 e incrementado ao salvar uma nova versão do anúncio ou quando informações públicas do perfil alteram a revisão pendente.
+- O formulário de moderação envia a versão que o moderador efetivamente visualizou. Aprovar, rejeitar e suspender usam uma condição atómica por `id`, `status` e `versaoConteudo`.
+- Se o prestador alterar o conteúdo antes da decisão, o formulário antigo é recusado e o moderador precisa consultar a versão atual. Uma transação isolada, sem comparar a versão, não seria suficiente.
+- A gestão de serviços fica em `/meus-servicos` e `/meus-servicos/[id]`. O caminho `/painel/[usuario]` permanece disponível para qualquer identificador válido de negócio, incluindo `servicos`.
+- O painel de serviços não dá acesso a contas que não sejam donas, e as operações mantêm validações de permissão na Server Action.
 
 ---
 

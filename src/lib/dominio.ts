@@ -104,6 +104,14 @@ export const ACOES_AUDITORIA: Record<string, string> = {
   "foto.descarte_iniciado": "Iniciou o descarte de uma foto sem uso",
   "usuario.moderacao_dada": "Deu a moderação a uma conta",
   "usuario.moderacao_tirada": "Tirou a moderação de uma conta",
+  "perfil_profissional.salvo": "Atualizou o perfil profissional",
+  "servico.criado": "Criou um anúncio de serviço",
+  "servico.reenviado": "Reenviou um anúncio de serviço",
+  "servico.oculto": "Ocultou um anúncio de serviço",
+  "servico.reativado": "Reexibiu um anúncio de serviço",
+  "servico.publicado": "Aprovou um anúncio de serviço",
+  "servico.rejeitado": "Rejeitou um anúncio de serviço",
+  "servico.suspenso": "Suspendeu um anúncio de serviço",
   "embaixador.criado": "Cadastrou um embaixador",
   "embaixador.editado": "Editou um embaixador",
   "embaixador.excluido": "Excluiu um embaixador",
@@ -126,6 +134,9 @@ export const ACOES_AUDITORIA: Record<string, string> = {
 
 /** A caixa de e-mail do projeto, para quem quer falar com a equipe (ex.: ser embaixador). */
 export const EMAIL_DO_PROJETO = "ola@negociodobem.com";
+
+/** O domínio público da produção, o mesmo da rota do wrangler.jsonc. */
+export const DOMINIO_OFICIAL = "https://www.negociodobem.com";
 
 /** Onde fica o código aberto do projeto. */
 export const REPOSITORIO = "https://github.com/fabs-reis/Negocio-do-bem";

@@ -26,7 +26,7 @@ import {
 } from "@/lib/auth/tentativas";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { AVISOS } from "@/lib/avisos";
-import { db } from "@/lib/db";
+import { db, semDuplicar } from "@/lib/db";
 import { campoTelefone, errosPorCampo, texto, valoresDoFormulario, type EstadoFormulario } from "@/lib/formulario";
 import { medir } from "@/lib/medicao-servidor";
 import { avisarSenhaTrocada } from "@/lib/notificacoes";
@@ -81,12 +81,15 @@ export async function cadastrar(_estado: EstadoFormulario, dados: FormData): Pro
     return { erro, valores: valoresDoFormulario(dados) };
   }
 
-  const existente = await db.usuario.findUnique({ where: { email } });
-  if (existente) {
-    return { erros: { email: "Já existe uma conta com este e-mail. Que tal entrar?" }, valores: valoresDoFormulario(dados) };
-  }
+  const emailEmUso: EstadoFormulario = {
+    erros: { email: "Já existe uma conta com este e-mail. Que tal entrar?" },
+    valores: valoresDoFormulario(dados),
+  };
+  if (await db.usuario.findUnique({ where: { email } })) return emailEmUso;
 
-  const usuario = await db.usuario.create({ data: { nome, email, telefone, senhaHash: await gerarHashSenha(senha) } });
+  const senhaHash = await gerarHashSenha(senha);
+  const usuario = await semDuplicar(db.usuario.create({ data: { nome, email, telefone, senhaHash } }));
+  if (!usuario) return emailEmUso;
   await criarSessao(usuario.id);
   await medir({ nome: "sign_up", params: { method: "senha" } });
   const voltar = caminhoSeguro(texto(dados, "voltar"));

@@ -13,6 +13,7 @@ import { db, type Prisma } from "@/lib/db";
 import { CATEGORIAS } from "@/lib/dominio";
 import {
   campoEmail,
+  campoMapa,
   campoMunicipio,
   campoSite,
   campoTelefoneOpcional,
@@ -48,6 +49,7 @@ const camposContato = {
   site: campoSite,
   whatsapp: campoWhatsapp,
   emailContato: campoEmail,
+  mapaUrl: campoMapa,
   telefoneComercial: campoTelefoneOpcional,
   emailDoDono: campoEmail,
   telefoneDoDono: campoTelefoneOpcional,
@@ -58,6 +60,7 @@ function lerContato(dados: FormData) {
     site: texto(dados, "site"),
     whatsapp: texto(dados, "whatsapp"),
     emailContato: texto(dados, "emailContato"),
+    mapaUrl: texto(dados, "mapaUrl"),
     telefoneComercial: texto(dados, "telefoneComercial"),
     emailDoDono: texto(dados, "emailDoDono"),
     telefoneDoDono: texto(dados, "telefoneDoDono"),
@@ -117,7 +120,7 @@ export async function indicarEmpresa(_estado: EstadoFormulario, dados: FormData)
   }
   if (!resultado.success || Object.keys(erros).length > 0) return { erros, valores };
   const { motivo, ...todos } = comCidade(resultado.data);
-  const campos = semContatosDeTerceiros(todos, souDono);
+  const campos = { ...semContatosDeTerceiros(todos, souDono), mapaUrl: souDono ? todos.mapaUrl : null };
 
   if (instagram) {
     const existente = await db.empresa.findUnique({ where: { instagramUsername: instagram } });
